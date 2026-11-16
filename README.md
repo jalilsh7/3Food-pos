@@ -16,3 +16,12 @@ Outstanding work before production:
 - Run integration tests against a real staging MySQL database.
 
 Do not deploy to the production host until these checks pass. The original source archive must remain preserved unchanged.
+
+
+## Handoff for AI coding assistants
+
+- Start here: [Persian project handoff](AI_HANDOFF_FA.md)
+- Agent rules: [AGENTS.md](AGENTS.md)
+- Current work and test status: [Phase 2 backlog](docs/phase-2-backlog.md)
+
+Important: this branch is a migration workspace, **not a complete source backup or deployable release**. The full source archive and PHP backend still need to be transferred and verified.
