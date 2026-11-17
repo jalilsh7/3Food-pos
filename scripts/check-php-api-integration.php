@@ -222,9 +222,29 @@ try {
     $cashierCustomerDelete = api('DELETE', '/api/v1/records/customers?id=ci-customer-updated', null, csrf_headers());
     check($cashierCustomerDelete['status'] === 403, 'cashier cannot delete customer records');
 
+    // Disabling an account must invalidate its already-issued PHP session.
+    $cashierSessionCookie = $cookie;
+    check($cashierSessionCookie !== '', 'cashier session cookie captured');
     $cashierLogout = api('POST', '/api/v1/auth/logout', [], csrf_headers());
-    check($cashierLogout['status'] === 200, 'cashier logout');
+    check($cashierLogout['status'] === 200, 'cashier logout before manager revocation');
     $csrf = '';
+    $managerRelogin = api('POST', '/api/v1/auth/login', [
+        'username' => 'ci_manager',
+        'password' => 'CI-Only-Strong-Password-2026!',
+    ]);
+    check($managerRelogin['status'] === 200 && ($managerRelogin['json']['user']['role'] ?? '') === 'manager', 'manager relogin for account revocation');
+    $csrf = (string)($managerRelogin['json']['csrf_token'] ?? '');
+    check(strlen($csrf) >= 32, 'manager receives fresh CSRF token');
+    $cashierId = (int)($cashierCreated['json']['user']['id'] ?? 0);
+    check($cashierId > 0, 'cashier account id returned');
+    $disableCashier = api('PATCH', '/api/v1/users/' . $cashierId, ['is_active' => false], csrf_headers());
+    check($disableCashier['status'] === 200, 'manager disables cashier account');
+    $managerSessionCookie = $cookie;
+    $cookie = $cashierSessionCookie;
+    $revokedSession = api('GET', '/api/v1/auth/me');
+    check($revokedSession['status'] === 401 && ($revokedSession['json']['authenticated'] ?? true) === false, 'disabled cashier existing session is revoked');
+    $cookie = $managerSessionCookie;
+
     $kitchenLogin = api('POST', '/api/v1/auth/login', [
         'username' => 'ci_kitchen',
         'password' => 'CI-Kitchen-Password-2026!',
