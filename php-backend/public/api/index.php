@@ -400,30 +400,41 @@ if (preg_match('#^/users/(\\d+)$#', $path, $match) && $method === 'PATCH') {
     }
     if (!$updates) json_response(['ok' => false, 'error' => 'no_changes'], 422);
 
-    // Never allow the system to end up without an active manager account.
-    $targetStmt = $pdo->prepare('SELECT role, is_active FROM app_users WHERE id = ?');
-    $targetStmt->execute([$targetId]);
-    $target = $targetStmt->fetch();
-    if (!$target) json_response(['ok' => false, 'error' => 'user_not_found'], 404);
-    $newRole = array_key_exists('role', $body) ? (string)$body['role'] : (string)$target['role'];
-    $newActive = array_key_exists('is_active', $body) ? (!empty($body['is_active']) ? 1 : 0) : (int)$target['is_active'];
-    if ($target['role'] === 'manager' && (int)$target['is_active'] === 1 && ($newRole !== 'manager' || $newActive !== 1)) {
-        $activeManagers = (int)$pdo->query("SELECT COUNT(*) FROM app_users WHERE role = 'manager' AND is_active = 1")->fetchColumn();
-        if ($activeManagers <= 1) json_response(['ok' => false, 'error' => 'last_manager_required', 'message' => 'حداقل یک حساب مدیر فعال باید باقی بماند'], 409);
+    // Serialize manager-account changes so two concurrent requests cannot remove
+    // the last active manager at the same time.
+    try {
+        $pdo->beginTransaction();
+        $pdo->query('SELECT id FROM app_install_state WHERE id = 1 FOR UPDATE');
+        $targetStmt = $pdo->prepare('SELECT role, is_active FROM app_users WHERE id = ? FOR UPDATE');
+        $targetStmt->execute([$targetId]);
+        $target = $targetStmt->fetch();
+        if (!$target) {
+            $pdo->rollBack();
+            json_response(['ok' => false, 'error' => 'user_not_found'], 404);
+        }
+        $newRole = array_key_exists('role', $body) ? (string)$body['role'] : (string)$target['role'];
+        $newActive = array_key_exists('is_active', $body) ? (!empty($body['is_active']) ? 1 : 0) : (int)$target['is_active'];
+        if ($target['role'] === 'manager' && (int)$target['is_active'] === 1 && ($newRole !== 'manager' || $newActive !== 1)) {
+            $activeManagers = (int)$pdo->query("SELECT COUNT(*) FROM app_users WHERE role = 'manager' AND is_active = 1")->fetchColumn();
+            if ($activeManagers <= 1) {
+                $pdo->rollBack();
+                json_response(['ok' => false, 'error' => 'last_manager_required', 'message' => 'حداقل یک حساب مدیر فعال باید باقی بماند'], 409);
+            }
+        }
+        if (array_key_exists('role', $body) || array_key_exists('is_active', $body) || array_key_exists('password', $body)) {
+            $updates[] = 'session_version = session_version + 1';
+        }
+        $values[] = $targetId;
+        $stmt = $pdo->prepare('UPDATE app_users SET ' . implode(', ', $updates) . ' WHERE id = ?');
+        $stmt->execute($values);
+        audit($pdo, (int)$actor['id'], 'user_updated', 'user', (string)$targetId, ['fields' => array_keys(array_intersect_key($body, array_flip($allowed)))]);
+        $pdo->commit();
+        json_response(['ok' => true]);
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('[3Food POS] User update failed: ' . $e->getMessage());
+        json_response(['ok' => false, 'error' => 'user_update_failed', 'message' => 'ویرایش کاربر انجام نشد'], 500);
     }
-    if (array_key_exists('role', $body) || array_key_exists('is_active', $body) || array_key_exists('password', $body)) {
-        $updates[] = 'session_version = session_version + 1';
-    }
-    $values[] = $targetId;
-    $stmt = $pdo->prepare('UPDATE app_users SET ' . implode(', ', $updates) . ' WHERE id = ?');
-    $stmt->execute($values);
-    if ($stmt->rowCount() < 1) {
-        $check = $pdo->prepare('SELECT id FROM app_users WHERE id = ?');
-        $check->execute([$targetId]);
-        if (!$check->fetch()) json_response(['ok' => false, 'error' => 'user_not_found'], 404);
-    }
-    audit($pdo, (int)$actor['id'], 'user_updated', 'user', (string)$targetId, ['fields' => array_keys(array_intersect_key($body, array_flip($allowed)))]);
-    json_response(['ok' => true]);
 }
 
 
