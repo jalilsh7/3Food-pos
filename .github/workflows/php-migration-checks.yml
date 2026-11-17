@@ -28,7 +28,7 @@ jobs:
           php-version: '8.2'
           extensions: pdo, pdo_mysql
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
       - name: PHP syntax
         run: php -l php-backend/public/api/index.php
       - name: TypeScript
