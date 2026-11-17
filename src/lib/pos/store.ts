@@ -209,6 +209,7 @@ function seed(): PosState {
     address: "تهران، خیابان ولیعصر، پلاک ۴۲",
     phone: "021-88000000",
     taxPercent: 0,
+    taxEnabled: true,
     pointsPerToman: 100000,
     tomanPerPoint: 1000,
     paperWidth: 80,
