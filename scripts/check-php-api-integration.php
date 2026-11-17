@@ -462,7 +462,7 @@ try {
     $stockAfterRace = $getPayload($pdo, 'ingredients', 'ci-ingredient');
     check((float)($stockAfterRace['stock'] ?? -1) === 2.0, 'concurrent checkout consumes stock exactly once');
     $orderCountAfterRace = (int)$pdo->query('SELECT COUNT(*) FROM pos_orders')->fetchColumn();
-    check($orderCountAfterRace === 2, 'only one of the two competing orders is persisted');
+    check($orderCountAfterRace === 3, 'only one of the two competing orders is persisted (including the earlier checkout and guest-order fixtures)');
 
     $kitchenLogin = api('POST', '/api/v1/auth/login', [
         'username' => 'ci_kitchen',
