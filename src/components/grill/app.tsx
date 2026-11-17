@@ -8,7 +8,7 @@ import { Btn, Card, Empty, Field, inputCls } from "./bits";
 import { ReceiptView } from "./receipt";
 import {
   customerCodeUses, fillTemplate, money, quoteOrder, TIER_LABEL, TIER_OFF, tierOf, uid,
-  type CartLine, type DiscountCode, type Order, type Product, type Role, type SmsEvent,
+  type CartLine, type DiscountCode, type Order, type Product, type Role, type SmsEvent, type PosState, type Settings,
 } from "@/lib/pos/model";
 import { lowStock, usePos } from "@/lib/pos/store";
 import { phpApi, type ApiUser } from "@/lib/api/php-client";
@@ -60,6 +60,19 @@ export function GrillApp() {
       });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (!user || user.must_change_password) return;
+    let active = true;
+    void phpApi.bootstrap<ServerBootstrap>()
+      .then((result) => {
+        if (active) hydratePosFromServer(result.data, result.next_order, user.role);
+      })
+      .catch((error: unknown) => {
+        if (active) setSessionError(error instanceof Error ? error.message : "دریافت داده‌های MySQL انجام نشد");
+      });
+    return () => { active = false; };
+  }, [user?.id, user?.must_change_password, user?.role]);
 
   async function logout() {
     try {
@@ -697,6 +710,75 @@ function SmsScreen() {
   );
 }
 
+type ServerOrder = {
+  id: string;
+  orderNumber: number;
+  status: Order["status"];
+  items: CartLine[];
+  totals: Partial<Pick<Order, "subtotal" | "tierDiscount" | "codeDiscount" | "pointsDiscount" | "tax" | "total">>;
+  created_at?: string;
+  customerId?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+};
+
+type ServerBootstrap = Partial<Omit<PosState, "orders" | "settings">> & {
+  orders?: ServerOrder[];
+  settings?: Array<Partial<Settings> & { id?: string }>;
+};
+
+function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, role: Role) {
+  const hasRecords = ["categories", "products", "ingredients", "customers", "discounts", "expenses", "templates"]
+    .some((key) => Array.isArray(data[key as keyof ServerBootstrap]) && (data[key as keyof ServerBootstrap] as unknown[]).length > 0);
+  if (!hasRecords && !(data.orders?.length)) return false;
+
+  const current = usePos.getState();
+  const serverSettings = data.settings?.[0];
+  const orders: Order[] = (data.orders ?? []).map((order) => ({
+    id: String(order.id),
+    number: Number(order.orderNumber),
+    createdAt: order.created_at ?? new Date().toISOString(),
+    status: order.status,
+    lines: Array.isArray(order.items) ? order.items : [],
+    subtotal: Number(order.totals?.subtotal ?? 0),
+    tierDiscount: Number(order.totals?.tierDiscount ?? 0),
+    codeDiscount: Number(order.totals?.codeDiscount ?? 0),
+    pointsDiscount: Number(order.totals?.pointsDiscount ?? 0),
+    tax: Number(order.totals?.tax ?? 0),
+    total: Number(order.totals?.total ?? 0),
+    payment: "cash",
+    customerId: order.customerId ?? null,
+    customerName: order.customerName ?? "",
+    customerPhone: order.customerPhone ?? "",
+    discountCode: "",
+    pointsUsed: 0,
+    pointsEarned: 0,
+  }));
+
+  usePos.setState({
+    ...(data.categories ? { categories: data.categories } : {}),
+    ...(data.products ? { products: data.products } : {}),
+    ...(data.ingredients ? { ingredients: data.ingredients } : {}),
+    ...(data.customers ? { customers: data.customers } : {}),
+    ...(data.discounts ? { discounts: data.discounts } : {}),
+    ...(data.expenses ? { expenses: data.expenses } : {}),
+    ...(data.templates ? { templates: data.templates } : {}),
+    ...(data.orders ? { orders } : {}),
+    ...(serverSettings ? {
+      settings: {
+        ...current.settings,
+        ...serverSettings,
+        smsUser: "",
+        smsKey: "",
+        smsFrom: "",
+        role,
+      },
+    } : { settings: { ...current.settings, role } }),
+    nextOrder: Math.max(nextOrder, 1),
+  });
+  return true;
+}
+
 function SettingsScreen() {
   const settings = usePos((s) => s.settings);
   const patchSettings = usePos((s) => s.patchSettings);
@@ -704,6 +786,36 @@ function SettingsScreen() {
   const importBackup = usePos((s) => s.importBackup);
   const resetDemo = usePos((s) => s.resetDemo);
   const [note, setNote] = useState("");
+  const [importing, setImporting] = useState(false);
+
+  async function importLocalDataToMysql() {
+    if (!window.confirm("داده‌های فعلی همین دستگاه (به‌جز تاریخچه سفارش‌ها) فقط یک‌بار به دیتابیس خالی منتقل می‌شوند. ادامه می‌دهید؟")) return;
+    setImporting(true);
+    setNote("");
+    try {
+      const state = usePos.getState();
+      const result = await phpApi.importLegacyData({
+        nextOrder: state.nextOrder,
+        data: {
+          categories: state.categories,
+          products: state.products,
+          ingredients: state.ingredients,
+          customers: state.customers,
+          discounts: state.discounts,
+          expenses: state.expenses,
+          templates: state.templates,
+          settings: [{ id: "main", ...state.settings, smsUser: "", smsKey: "", smsFrom: "" }],
+        },
+      });
+      const total = Object.values(result.counts).reduce((sum, count) => sum + count, 0);
+      setNote(`${total.toLocaleString("fa-IR")} رکورد به MySQL منتقل شد؛ صفحه برای بارگذاری داده مرکزی تازه می‌شود.`);
+      window.location.reload();
+    } catch (error) {
+      setNote(error instanceof Error ? error.message : "انتقال داده انجام نشد");
+    } finally {
+      setImporting(false);
+    }
+  }
   function download() {
     const blob = new Blob([exportBackup()], { type: "application/json" });
     const a = document.createElement("a");
@@ -736,6 +848,7 @@ function SettingsScreen() {
         <p className="mb-2 text-sm text-muted">در پنجره چاپ، فیش‌پرینتر را انتخاب کنید. پشتیبان روی همین دستگاه است و کلید پیامک داخل فایل نمی‌آید.</p>
         <div className="flex flex-wrap gap-2">
           <Btn onClick={download}>دانلود پشتیبان</Btn>
+          <Btn tone="ghost" onClick={() => void importLocalDataToMysql()} disabled={importing}>{importing ? "در حال انتقال..." : "انتقال داده این دستگاه به MySQL"}</Btn>
           <label className="rounded-xl border border-line bg-surface px-4 py-3 text-sm font-semibold">
             بازیابی
             <input type="file" accept="application/json" className="hidden" onChange={async (e) => {
