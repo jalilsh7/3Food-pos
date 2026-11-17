@@ -52,7 +52,7 @@ foreach ($requiredTables as $table) {
 
 $requiredColumns = [
     'app_users' => ['session_version', 'password_hash', 'role'],
-    'pos_orders' => ['idempotency_key', 'request_hash', 'discount_code', 'items', 'totals'],
+    'pos_orders' => ['idempotency_key', 'request_hash', 'guest_name', 'guest_phone', 'payment_method', 'points_used', 'points_earned', 'discount_code', 'items', 'totals'],
     'pos_order_effects' => ['order_id', 'effect_type', 'reversed_at'],
     'pos_discount_redemptions' => ['order_id', 'discount_id', 'customer_id', 'reversed_at'],
 ];
