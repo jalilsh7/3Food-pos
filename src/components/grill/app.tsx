@@ -24,10 +24,10 @@ async function saveCentralRecord<T extends { id: string | number }>(resource: st
     return false;
   }
 }
-async function adjustCentralStock(id: string, delta: number, commit: () => void) {
+async function adjustCentralStock<TItem extends { id: string }>(id: string, delta: number, commit: (item: TItem) => void) {
   try {
-    await phpApi.adjustIngredientStock(id, delta);
-    commit();
+    const result = await phpApi.adjustIngredientStock<TItem>(id, delta);
+    commit(result.item);
     return true;
   } catch (error) {
     window.alert(error instanceof Error ? error.message : "تغییر موجودی در سرور انجام نشد");
@@ -612,7 +612,6 @@ function MenuScreen() {
 function StockScreen() {
   const ingredients = usePos((s) => s.ingredients);
   const saveIngredient = usePos((s) => s.saveIngredient);
-  const adjustStock = usePos((s) => s.adjustStock);
   const lows = lowStock(ingredients);
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("عدد");
@@ -633,9 +632,9 @@ function StockScreen() {
               <p className={`text-sm ${i.stock <= i.minStock ? "text-warn" : "text-muted"}`}>موجودی {i.stock.toLocaleString("fa-IR")} {i.unit}</p>
             </div>
             <div className="flex gap-2">
-              <Btn tone="ghost" onClick={() => { void adjustCentralStock(i.id, -1, () => adjustStock(i.id, -1)); }}>−۱</Btn>
-              <Btn tone="ghost" onClick={() => { void adjustCentralStock(i.id, 1, () => adjustStock(i.id, 1)); }}>+۱</Btn>
-              <Btn tone="leaf" onClick={() => { void adjustCentralStock(i.id, 10, () => adjustStock(i.id, 10)); }}>+۱۰</Btn>
+              <Btn tone="ghost" onClick={() => { void adjustCentralStock<typeof i>(i.id, -1, (item) => saveIngredient(item)); }}>−۱</Btn>
+              <Btn tone="ghost" onClick={() => { void adjustCentralStock<typeof i>(i.id, 1, (item) => saveIngredient(item)); }}>+۱</Btn>
+              <Btn tone="leaf" onClick={() => { void adjustCentralStock<typeof i>(i.id, 10, (item) => saveIngredient(item)); }}>+۱۰</Btn>
             </div>
           </div>
         </Card>
