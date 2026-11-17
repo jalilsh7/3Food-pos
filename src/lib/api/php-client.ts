@@ -178,8 +178,9 @@ export const phpApi = {
     totals: Record<string, number>;
     customer?: unknown;
     note?: string;
+    idempotencyKey: string;
   }) =>
-    request<ApiEnvelope<{ order: TOrder }>>("/orders", {
+    request<ApiEnvelope<{ order: TOrder; replayed?: boolean }>>("/orders", {
       method: "POST",
       csrf: true,
       body: input,
