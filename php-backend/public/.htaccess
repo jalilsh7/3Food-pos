@@ -1,5 +1,5 @@
 Options -Indexes
-DirectoryIndex _shell.html index.html
+DirectoryIndex index.html
 RewriteEngine On
 
 # Block direct access to dotfiles and private/config artefacts.
@@ -7,17 +7,13 @@ RewriteEngine On
   Require all denied
 </FilesMatch>
 
-# API requests are routed through one PHP front controller.
-# Keep this rule before the SPA fallback so unknown API endpoints never
-# receive the React application shell.
+# API requests are routed through one PHP front controller before the SPA.
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^api(?:/.*)?$ api/index.php [QSA,L]
 
-# React static deployment: serve real files/directories as-is and send
-# client-side routes to the TanStack SPA shell. The existence check keeps
-# the current PHP-only staging layout unchanged until the shell is deployed.
+# Serve existing static files as-is; route all other client paths to the SPA.
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{DOCUMENT_ROOT}/_shell.html -f
-RewriteRule ^ _shell.html [QSA,L]
+RewriteCond %{DOCUMENT_ROOT}/index.html -f
+RewriteRule ^ index.html [QSA,L]
