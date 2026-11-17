@@ -453,7 +453,7 @@ $resourceRoles = [
 
 if ($method === 'GET' && $path === '/bootstrap') {
     $user = require_user($pdo);
-    $resources = $user['role'] === 'kitchen' ? ['categories','products'] : ($user['role'] === 'cashier' ? ['categories','products','customers','discounts','settings'] : ['categories','products','ingredients','customers','discounts','expenses','templates','settings']);
+    $resources = $user['role'] === 'kitchen' ? ['categories','products'] : ($user['role'] === 'cashier' ? ['categories','products','customers','discounts'] : ['categories','products','ingredients','customers','discounts','expenses','templates','settings']);
     $result = [];
     foreach ($resources as $resource) {
         $q = $pdo->prepare('SELECT id, payload FROM pos_records WHERE resource = ? ORDER BY created_at ASC');
