@@ -440,10 +440,22 @@ function OrdersScreen({ role }: { role: Role }) {
   const settings = usePos((s) => s.settings);
   const setStatus = usePos((s) => s.setStatus);
   const [focus, setFocus] = useState<Order | null>(null);
-  const steps: Order["status"][] = role === "kitchen" ? ["preparing", "ready"] : ["new", "preparing", "ready", "delivered", "cancelled"];
+  const steps: Order["status"][] = role === "kitchen"
+    ? ["preparing", "ready"]
+    : role === "manager" ? ["preparing", "ready", "delivered", "cancelled"] : [];
+  function canMove(from: Order["status"], to: Order["status"]) {
+    const allowed: Record<Order["status"], Order["status"][]> = {
+      new: role === "manager" ? ["preparing", "cancelled"] : ["preparing"],
+      preparing: role === "manager" ? ["ready", "cancelled"] : ["ready"],
+      ready: role === "manager" ? ["delivered", "cancelled"] : [],
+      delivered: [],
+      cancelled: [],
+    };
+    return allowed[from].includes(to);
+  }
   async function jump(order: Order, status: Order["status"]) {
     try {
-      if (/^\\d+$/.test(order.id)) await phpApi.setOrderStatus(order.id, status);
+      if (/^\d+$/.test(order.id)) await phpApi.setOrderStatus(order.id, status);
       setStatus(order.id, status);
       const next = { ...order, status };
       if (status === "ready") void pushSms("order_ready", order.customerPhone, orderVars(next));
@@ -466,7 +478,7 @@ function OrdersScreen({ role }: { role: Role }) {
             <span className="rounded-full bg-warn-bg px-3 py-1 text-xs text-warn">{statusFa(o.status)}</span>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            {steps.map((st) => <Btn key={st} tone={o.status === st ? "ink" : "ghost"} onClick={() => jump(o, st)}>{statusFa(st)}</Btn>)}
+            {steps.filter((st) => canMove(o.status, st)).map((st) => <Btn key={st} tone="ghost" onClick={() => jump(o, st)}>{statusFa(st)}</Btn>)}
             <Btn tone="ghost" onClick={() => setFocus(o)}>فیش</Btn>
           </div>
         </Card>
