@@ -55,6 +55,16 @@ try {
     check((bool)array_filter($healthHeaders, fn($h) => str_starts_with($h, 'x-frame-options: deny')), 'API denies framing');
     check((bool)array_filter($healthHeaders, fn($h) => str_starts_with($h, 'content-security-policy: frame-ancestors')), 'API sets restrictive CSP');
 
+    $preflight = api('GET', '/api/v1/preflight');
+    check($preflight['status'] === 200 && ($preflight['json']['ok'] ?? false) === true, 'preflight endpoint responds');
+    $preflightChecks = $preflight['json']['checks'] ?? [];
+    foreach (['php_version', 'pdo_mysql', 'json', 'database_connection', 'innodb_schema'] as $checkName) {
+        check(($preflightChecks[$checkName] ?? false) === true, 'preflight check passes: ' . $checkName);
+    }
+    check(($preflight['json']['missing_innodb_tables'] ?? ['unexpected']) === [], 'preflight confirms complete InnoDB schema');
+    check(is_bool($preflightChecks['https'] ?? null), 'preflight reports HTTPS state');
+    check(is_bool($preflight['json']['production_ready'] ?? null), 'preflight reports production readiness separately');
+
     $setup = api('POST', '/api/v1/setup/manager', [
         'username' => 'ci_manager',
         'password' => 'CI-Only-Strong-Password-2026!',
