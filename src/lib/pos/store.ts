@@ -20,39 +20,6 @@ import {
   type SmsTemplate,
 } from "./model";
 
-const templates: SmsTemplate[] = [
-  {
-    event: "order_created",
-    enabled: true,
-    body: "{name} عزیز، سفارش {order} به مبلغ {total} ثبت شد. {shop}",
-    bodyId: "",
-  },
-  {
-    event: "order_ready",
-    enabled: true,
-    body: "{name} عزیز، سفارش {order} آماده تحویل است. {shop}",
-    bodyId: "",
-  },
-  {
-    event: "order_delivered",
-    enabled: false,
-    body: "{name} عزیز، سفارش {order} تحویل شد. ممنون از خرید شما. {shop}",
-    bodyId: "",
-  },
-  {
-    event: "points_earned",
-    enabled: true,
-    body: "{name} عزیز، {points} امتیاز به باشگاه شما اضافه شد. موجودی: {balance}. {shop}",
-    bodyId: "",
-  },
-  {
-    event: "discount_used",
-    enabled: false,
-    body: "کد {code} روی سفارش {order} اعمال شد. {shop}",
-    bodyId: "",
-  },
-];
-
 function seed(): PosState {
   return {
     categories: [],
