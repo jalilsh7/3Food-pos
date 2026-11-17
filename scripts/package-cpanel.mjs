@@ -70,4 +70,22 @@ const manifest = {
   schema: "database/schema.sql",
 };
 writeFileSync(resolve(packageRoot, "package-manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
-console.log("cPanel package created at dist-cpanel/");
+
+const packagedFiles = [
+  "public/index.html",
+  "public/.htaccess",
+  "public/api/index.php",
+  "private/.htaccess",
+  "private/config.example.php",
+  "database/schema.sql",
+  "DEPLOYMENT-FA.md",
+];
+for (const relativePath of packagedFiles) {
+  if (!existsSync(resolve(packageRoot, relativePath))) {
+    throw new Error(`Incomplete cPanel package; missing ${relativePath}`);
+  }
+}
+if (existsSync(resolve(privateRoot, "config.php"))) {
+  throw new Error("A real private config must never be included in the generated package.");
+}
+console.log("cPanel package created and validated at dist-cpanel/");
