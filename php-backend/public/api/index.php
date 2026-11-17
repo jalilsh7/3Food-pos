@@ -658,7 +658,7 @@ if ($method === 'POST' && $path === '/backup/restore') {
             if (strlen($payload) > 262144) throw new InvalidArgumentException('Backup record too large');
             $insertRecord->execute([$record['id'], $record['resource'], $payload, null]);
         }
-        $insertOrder = $pdo->prepare('INSERT INTO pos_orders (id, order_number, status, idempotency_key, request_hash, customer_id, customer_name, customer_phone, guest_name, guest_phone, payment_method, points_used, points_earned, discount_code, items, totals, note, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        $insertOrder = $pdo->prepare('INSERT INTO pos_orders (id, order_number, status, idempotency_key, request_hash, customer_id, customer_name, customer_phone, guest_name, guest_phone, payment_method, points_used, points_earned, discount_code, items, totals, note, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $orderIds = [];
         foreach ($backup['orders'] as $order) {
             if (!is_array($order) || !is_numeric($order['id'] ?? null) || (int)$order['id'] < 1 ||
