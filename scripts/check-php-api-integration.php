@@ -151,6 +151,54 @@ try {
     $effects->execute([(int)$orderId]);
     check((int)$effects->fetchColumn() === 2, 'effect ledger marked reversed exactly once');
 
+    // Manager-only user administration and role-specific resource permissions.
+    $cashierCreated = api('POST', '/api/v1/users', [
+        'username' => 'ci_cashier',
+        'password' => 'CI-Cashier-Password-2026!',
+        'display_name' => 'CI Cashier',
+        'role' => 'cashier',
+    ], csrf_headers());
+    check($cashierCreated['status'] === 201, 'manager creates cashier account');
+
+    $managerUsers = api('GET', '/api/v1/users');
+    check($managerUsers['status'] === 200 && count($managerUsers['json']['users'] ?? []) === 2, 'manager can list users');
+
+    $logout = api('POST', '/api/v1/auth/logout', [], csrf_headers());
+    check($logout['status'] === 200, 'manager logout');
+    $csrf = '';
+
+    $cashierLogin = api('POST', '/api/v1/auth/login', [
+        'username' => 'ci_cashier',
+        'password' => 'CI-Cashier-Password-2026!',
+    ]);
+    check($cashierLogin['status'] === 200 && ($cashierLogin['json']['user']['role'] ?? '') === 'cashier', 'cashier login');
+    $csrf = (string)($cashierLogin['json']['csrf_token'] ?? '');
+    check(strlen($csrf) >= 32, 'cashier receives CSRF token');
+
+    $cashierUsers = api('GET', '/api/v1/users');
+    check($cashierUsers['status'] === 403, 'cashier cannot list user accounts');
+    $cashierProducts = api('GET', '/api/v1/records/products');
+    check($cashierProducts['status'] === 403, 'cashier cannot read manager-only products');
+    $cashierCustomers = api('GET', '/api/v1/records/customers');
+    check($cashierCustomers['status'] === 200, 'cashier can read customers');
+    $cashierCustomerWrite = api('POST', '/api/v1/records/customers', [
+        'item' => ['id' => 'ci-customer-updated', 'name' => 'Cashier Added Customer', 'phone' => '09111111111'],
+    ], csrf_headers());
+    check($cashierCustomerWrite['status'] === 201, 'cashier can add customer');
+    $cashierCustomerDelete = api('DELETE', '/api/v1/records/customers?id=ci-customer-updated', null, csrf_headers());
+    check($cashierCustomerDelete['status'] === 403, 'cashier cannot delete customer records');
+
+    // Eight failed attempts are allowed; the ninth is throttled for this IP.
+    $lastLogin = [];
+    for ($attempt = 1; $attempt <= 9; $attempt++) {
+        $lastLogin = api('POST', '/api/v1/auth/login', [
+            'username' => 'ci_lockout',
+            'password' => 'Definitely-Wrong-Password!',
+        ]);
+        if ($attempt < 9) check($lastLogin['status'] === 401, 'failed login attempt ' . $attempt);
+    }
+    check($lastLogin['status'] === 429 && ($lastLogin['json']['error'] ?? '') === 'too_many_attempts', 'login rate limit activates after eight failures');
+
     echo "PASS: PHP API integration (setup, session/CSRF, records, canonical pricing, idempotency, stock, loyalty, cancellation rollback).\n";
 } catch (Throwable $e) {
     fwrite(STDERR, "FAIL: " . $e->getMessage() . "\n");
