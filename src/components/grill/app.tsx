@@ -24,6 +24,16 @@ async function saveCentralRecord<T extends { id: string | number }>(resource: st
     return false;
   }
 }
+async function adjustCentralStock(id: string, delta: number, commit: () => void) {
+  try {
+    await phpApi.adjustIngredientStock(id, delta);
+    commit();
+    return true;
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : "تغییر موجودی در سرور انجام نشد");
+    return false;
+  }
+}
 async function deleteCentralRecord(resource: string, id: string, commit: () => void) {
   try {
     await phpApi.deleteRecord(resource, id);
@@ -623,9 +633,9 @@ function StockScreen() {
               <p className={`text-sm ${i.stock <= i.minStock ? "text-warn" : "text-muted"}`}>موجودی {i.stock.toLocaleString("fa-IR")} {i.unit}</p>
             </div>
             <div className="flex gap-2">
-              <Btn tone="ghost" onClick={() => { const next = { ...i, stock: Math.max(0, i.stock - 1) }; void saveCentralRecord("ingredients", next, () => adjustStock(i.id, -1)); }}>−۱</Btn>
-              <Btn tone="ghost" onClick={() => { const next = { ...i, stock: i.stock + 1 }; void saveCentralRecord("ingredients", next, () => adjustStock(i.id, 1)); }}>+۱</Btn>
-              <Btn tone="leaf" onClick={() => { const next = { ...i, stock: i.stock + 10 }; void saveCentralRecord("ingredients", next, () => adjustStock(i.id, 10)); }}>+۱۰</Btn>
+              <Btn tone="ghost" onClick={() => { void adjustCentralStock(i.id, -1, () => adjustStock(i.id, -1)); }}>−۱</Btn>
+              <Btn tone="ghost" onClick={() => { void adjustCentralStock(i.id, 1, () => adjustStock(i.id, 1)); }}>+۱</Btn>
+              <Btn tone="leaf" onClick={() => { void adjustCentralStock(i.id, 10, () => adjustStock(i.id, 10)); }}>+۱۰</Btn>
             </div>
           </div>
         </Card>
