@@ -478,6 +478,11 @@ if ($method === 'GET' && $path === '/bootstrap') {
         $order['items'] = json_decode((string)$order['items'], true) ?: [];
         $order['totals'] = json_decode((string)$order['totals'], true) ?: [];
         unset($order['order_number'], $order['customer_id'], $order['customer_name'], $order['customer_phone']);
+        // Kitchen staff need preparation details, not customer contact data or
+        // cashier/manager notes that may contain private instructions.
+        if ($user['role'] === 'kitchen') {
+            unset($order['customerId'], $order['customerName'], $order['customerPhone'], $order['note']);
+        }
     }
     unset($order);
     $result['orders'] = $orders;
