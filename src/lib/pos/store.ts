@@ -116,7 +116,6 @@ type Actions = {
   logSms: (log: Omit<SmsLog, "id" | "at">) => void;
   exportBackup: () => string;
   importBackup: (json: string) => string;
-  resetDemo: () => void;
 };
 
 export const usePos = create<PosState & Actions>()(
@@ -301,7 +300,6 @@ export const usePos = create<PosState & Actions>()(
           return "خواندن فایل ممکن نشد";
         }
       },
-      resetDemo: () => set(seed()),
     }),
 );
 
