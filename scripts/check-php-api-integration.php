@@ -219,6 +219,12 @@ try {
         'item' => ['id' => 'ci-customer-updated', 'name' => 'Cashier Added Customer', 'phone' => '09111111111'],
     ], csrf_headers());
     check($cashierCustomerWrite['status'] === 201, 'cashier can add customer');
+    check(($cashierCustomerWrite['json']['item']['points'] ?? -1) === 0, 'cashier cannot assign initial loyalty points');
+    $cashierExistingCustomerWrite = api('POST', '/api/v1/records/customers', [
+        'item' => ['id' => 'ci-customer', 'name' => 'CI Customer Updated', 'phone' => '09000000000', 'points' => 99999, 'totalSpent' => 999999, 'visits' => 99],
+    ], csrf_headers());
+    check($cashierExistingCustomerWrite['status'] === 201, 'cashier can update customer contact details');
+    check(($cashierExistingCustomerWrite['json']['item']['points'] ?? -1) === 0 && ($cashierExistingCustomerWrite['json']['item']['totalSpent'] ?? -1) === 0 && ($cashierExistingCustomerWrite['json']['item']['visits'] ?? -1) === 0, 'cashier cannot modify existing loyalty counters');
     $cashierCustomerDelete = api('DELETE', '/api/v1/records/customers?id=ci-customer-updated', null, csrf_headers());
     check($cashierCustomerDelete['status'] === 403, 'cashier cannot delete customer records');
 
