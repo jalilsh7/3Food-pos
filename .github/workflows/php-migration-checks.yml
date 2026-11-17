@@ -1,0 +1,39 @@
+name: PHP migration checks
+
+on:
+  push:
+    branches:
+      - migration/php-mysql
+  pull_request:
+    branches:
+      - migration/php-mysql
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_mysql
+      - name: Install dependencies
+        run: npm ci
+      - name: PHP syntax
+        run: php -l php-backend/public/api/index.php
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Lint
+        run: npm run lint
