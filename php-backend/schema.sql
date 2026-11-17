@@ -119,3 +119,18 @@ CREATE TABLE IF NOT EXISTS pos_order_effects (
   CONSTRAINT fk_pos_order_effect_order FOREIGN KEY (order_id) REFERENCES pos_orders(id) ON DELETE RESTRICT,
   CONSTRAINT fk_pos_order_effect_actor FOREIGN KEY (reversed_by) REFERENCES app_users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Immutable redemption ledger; quota checks use this table rather than mutable UI counters.
+CREATE TABLE IF NOT EXISTS pos_discount_redemptions (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  order_id BIGINT UNSIGNED NOT NULL,
+  discount_id VARCHAR(100) NOT NULL,
+  code VARCHAR(64) NOT NULL,
+  customer_id VARCHAR(100) NULL,
+  redeemed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_pos_discount_redemption_order (order_id),
+  KEY idx_pos_discount_redemption_global (discount_id, redeemed_at),
+  KEY idx_pos_discount_redemption_customer (discount_id, customer_id),
+  CONSTRAINT fk_pos_discount_redemption_order FOREIGN KEY (order_id) REFERENCES pos_orders(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
