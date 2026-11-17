@@ -50,6 +50,10 @@ function csrf_headers(): array {
 try {
     $health = api('GET', '/api/v1/health');
     check($health['status'] === 200 && ($health['json']['database'] ?? '') === 'mysql', 'health endpoint');
+    $healthHeaders = array_map('strtolower', $health['headers']);
+    check((bool)array_filter($healthHeaders, fn($h) => str_starts_with($h, 'x-content-type-options: nosniff')), 'API sets nosniff response header');
+    check((bool)array_filter($healthHeaders, fn($h) => str_starts_with($h, 'x-frame-options: deny')), 'API denies framing');
+    check((bool)array_filter($healthHeaders, fn($h) => str_starts_with($h, 'content-security-policy: frame-ancestors')), 'API sets restrictive CSP');
 
     $setup = api('POST', '/api/v1/setup/manager', [
         'username' => 'ci_manager',
