@@ -582,19 +582,37 @@ if ($method === 'POST' && $path === '/orders') {
     ) {
         json_response(['ok' => false, 'error' => 'order_total_mismatch', 'message' => 'تخفیف‌ها یا محاسبه مبلغ نهایی سفارش معتبر نیست'], 422);
     }
+    $customer = is_array($body['customer'] ?? null) ? $body['customer'] : [];
+    $customerId = isset($customer['id']) ? (string)$customer['id'] : '';
+    $customerName = null;
+    $customerPhone = null;
+    if ($customerId !== '') {
+        if (strlen($customerId) > 100 || !preg_match('/^[A-Za-z0-9_-]+$/D', $customerId)) {
+            json_response(['ok' => false, 'error' => 'invalid_customer'], 422);
+        }
+        $customerStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'customers' AND id = ? LIMIT 1");
+        $customerStmt->execute([$customerId]);
+        $customerRaw = $customerStmt->fetchColumn();
+        $customerRecord = is_string($customerRaw) ? json_decode($customerRaw, true) : null;
+        if (!is_array($customerRecord)) {
+            json_response(['ok' => false, 'error' => 'customer_not_found', 'message' => 'مشتری انتخاب‌شده پیدا نشد؛ فهرست مشتریان را تازه‌سازی کنید'], 409);
+        }
+        // Use the canonical customer details stored on the server, not browser-supplied labels.
+        $customerName = substr((string)($customerRecord['name'] ?? ''), 0, 160);
+        $customerPhone = substr((string)($customerRecord['phone'] ?? ''), 0, 30);
+    }
     try {
         $pdo->beginTransaction();
         $counter = $pdo->query("SELECT counter_value FROM pos_counters WHERE counter_key = 'order_number' FOR UPDATE")->fetchColumn();
         if ($counter === false) throw new RuntimeException('Order counter missing');
         $orderNumber = (int)$counter + 1;
         $pdo->prepare("UPDATE pos_counters SET counter_value = ? WHERE counter_key = 'order_number'")->execute([$orderNumber]);
-        $customer = is_array($body['customer'] ?? null) ? $body['customer'] : [];
         $stmt = $pdo->prepare('INSERT INTO pos_orders (order_number, status, customer_id, customer_name, customer_phone, items, totals, note, created_by) VALUES (?, \'new\', ?, ?, ?, ?, ?, ?, ?)');
         $stmt->execute([
             $orderNumber,
-            isset($customer['id']) ? (string)$customer['id'] : null,
-            isset($customer['name']) ? substr((string)$customer['name'], 0, 480) : null,
-            isset($customer['phone']) ? substr((string)$customer['phone'], 0, 30) : null,
+            $customerId !== '' ? $customerId : null,
+            $customerName,
+            $customerPhone,
             json_encode($items, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             json_encode($totals, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             isset($body['note']) ? substr((string)$body['note'], 0, 2000) : null,
