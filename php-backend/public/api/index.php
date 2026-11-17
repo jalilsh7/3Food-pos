@@ -882,6 +882,10 @@ if ($method === 'POST' && $path === '/orders') {
             $customerName = substr((string)($lockedCustomer['name'] ?? $customerName ?? ''), 0, 160);
             $customerPhone = substr((string)($lockedCustomer['phone'] ?? $customerPhone ?? ''), 0, 30);
             $currentPoints = max(0, (int)($lockedCustomer['points'] ?? 0));
+            if ($currentPoints !== $customerPoints) {
+                $pdo->rollBack();
+                json_response(['ok' => false, 'error' => 'customer_changed_requote', 'message' => 'امتیاز یا سطح عضویت مشتری تغییر کرده است؛ سفارش را دوباره محاسبه کنید'], 409);
+            }
             if ($pointsToSpend > $currentPoints || ($pointsToSpend * $tomanPerPoint) < $pointsDiscount) {
                 $pdo->rollBack();
                 json_response(['ok' => false, 'error' => 'insufficient_points', 'message' => 'امتیاز مشتری برای این تخفیف کافی نیست؛ اطلاعات مشتری را تازه‌سازی کنید'], 409);
