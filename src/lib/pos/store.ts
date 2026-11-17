@@ -115,7 +115,6 @@ type Actions = {
   }) => { ok: true; order: Order } | { ok: false; error: string };
   setStatus: (id: string, status: OrderStatus) => Order | null;
   logSms: (log: Omit<SmsLog, "id" | "at">) => void;
-  exportBackup: () => string;
 };
 
 export const usePos = create<PosState & Actions>()(
@@ -274,24 +273,6 @@ export const usePos = create<PosState & Actions>()(
         set((s) => ({
           smsLogs: [{ ...log, id: uid("sm"), at: new Date().toISOString() }, ...s.smsLogs].slice(0, 200),
         })),
-      exportBackup: () => {
-        const s = get();
-        const data: PosState = {
-          categories: s.categories,
-          products: s.products,
-          ingredients: s.ingredients,
-          customers: s.customers,
-          discounts: s.discounts,
-          orders: s.orders,
-          expenses: s.expenses,
-          templates: s.templates,
-          smsLogs: s.smsLogs,
-          settings: { ...s.settings, smsUser: "", smsKey: "", smsFrom: "" },
-          nextOrder: s.nextOrder,
-        };
-        return JSON.stringify(data);
-      },
-
     }),
 );
 
