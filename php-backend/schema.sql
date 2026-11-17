@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS pos_orders (
   customer_id VARCHAR(100) NULL,
   customer_name VARCHAR(160) NULL,
   customer_phone VARCHAR(30) NULL,
+  discount_code VARCHAR(64) NULL,
   items JSON NOT NULL,
   totals JSON NOT NULL,
   note TEXT NULL,
