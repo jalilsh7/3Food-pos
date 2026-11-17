@@ -633,6 +633,7 @@ if ($method === 'POST' && $path === '/orders') {
         'items' => $items,
         'totals' => $totals,
         'customer' => $body['customer'] ?? null,
+        'discountCode' => strtoupper(trim((string)($body['discountCode'] ?? ''))),
         'note' => $body['note'] ?? null,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
     if ($idempotencyKey !== null) {
@@ -684,6 +685,39 @@ if ($method === 'POST' && $path === '/orders') {
         if (isset($line['unitPrice']) && (int)$line['unitPrice'] !== $unitPrice) json_response(['ok' => false, 'error' => 'price_changed', 'message' => 'قیمت محصول تغییر کرده است؛ سبد را تازه‌سازی کنید'], 409);
         $serverSubtotal += $unitPrice * (float)$line['qty'];
     }
+    $customer = is_array($body['customer'] ?? null) ? $body['customer'] : [];
+    $customerId = isset($customer['id']) ? (string)$customer['id'] : '';
+    $customerRecord = null;
+    if ($customerId !== '') {
+        if (strlen($customerId) > 100 || !preg_match('/^[A-Za-z0-9_-]+$/D', $customerId)) {
+            json_response(['ok' => false, 'error' => 'invalid_customer'], 422);
+        }
+        $customerStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'customers' AND id = ? LIMIT 1");
+        $customerStmt->execute([$customerId]);
+        $customerRaw = $customerStmt->fetchColumn();
+        $customerRecord = is_string($customerRaw) ? json_decode($customerRaw, true) : null;
+        if (!is_array($customerRecord)) json_response(['ok' => false, 'error' => 'customer_not_found', 'message' => 'مشتری انتخاب‌شده پیدا نشد؛ فهرست مشتریان را تازه‌سازی کنید'], 409);
+    }
+    $customerName = is_array($customerRecord) ? substr((string)($customerRecord['name'] ?? ''), 0, 160) : null;
+    $customerPhone = is_array($customerRecord) ? substr((string)($customerRecord['phone'] ?? ''), 0, 30) : null;
+    $discountCode = strtoupper(trim((string)($body['discountCode'] ?? '')));
+    if (strlen($discountCode) > 64 || ($discountCode !== '' && !preg_match('/^[A-Z0-9_-]+$/D', $discountCode))) {
+        json_response(['ok' => false, 'error' => 'invalid_discount_code'], 422);
+    }
+    $discountRecordId = null;
+    $discountRecord = null;
+    if ($discountCode !== '') {
+        $discountRows = $pdo->query("SELECT id, payload FROM pos_records WHERE resource = 'discounts'")->fetchAll();
+        foreach ($discountRows as $discountRow) {
+            $candidate = json_decode((string)$discountRow['payload'], true);
+            if (is_array($candidate) && strtoupper(trim((string)($candidate['code'] ?? ''))) === $discountCode) {
+                $discountRecordId = (string)$discountRow['id'];
+                $discountRecord = $candidate;
+                break;
+            }
+        }
+        if (!is_array($discountRecord)) json_response(['ok' => false, 'error' => 'discount_not_found', 'message' => 'کد تخفیف معتبر نیست'], 422);
+    }
     $totalFields = ['subtotal', 'tierDiscount', 'codeDiscount', 'pointsDiscount', 'tax', 'total'];
     foreach ($totalFields as $key) {
         if (!isset($totals[$key]) || !is_numeric($totals[$key]) || (float)$totals[$key] < 0 || (float)$totals[$key] > 100000000000 || floor((float)$totals[$key]) !== (float)$totals[$key]) {
@@ -696,6 +730,45 @@ if ($method === 'POST' && $path === '/orders') {
     $codeDiscount = (int)$totals['codeDiscount'];
     $pointsDiscount = (int)$totals['pointsDiscount'];
     $discountTotal = $tierDiscount + $codeDiscount + $pointsDiscount;
+    $customerPoints = max(0, (int)($customerRecord['points'] ?? 0));
+    $tierRate = $customerPoints >= 4000 ? 8 : ($customerPoints >= 1500 ? 5 : ($customerPoints >= 500 ? 3 : 0));
+    $expectedTierDiscount = (int)round($subtotal * $tierRate / 100);
+    $expectedCodeDiscount = 0;
+    if ($discountCode !== '') {
+        $discountType = (string)($discountRecord['type'] ?? '');
+        $discountValue = (float)($discountRecord['value'] ?? 0);
+        $maxDiscount = max(0, (int)($discountRecord['maxDiscount'] ?? 0));
+        $minOrder = max(0, (int)($discountRecord['minOrder'] ?? 0));
+        $maxUses = max(0, (int)($discountRecord['maxUses'] ?? 0));
+        $usedCount = max(0, (int)($discountRecord['usedCount'] ?? 0));
+        $perCustomer = max(0, (int)($discountRecord['perCustomer'] ?? 0));
+        $today = date('Y-m-d');
+        $startsAt = trim((string)($discountRecord['startsAt'] ?? ''));
+        $endsAt = trim((string)($discountRecord['endsAt'] ?? ''));
+        $audience = (string)($discountRecord['audience'] ?? 'all');
+        $tier = $customerPoints >= 4000 ? 'platinum' : ($customerPoints >= 1500 ? 'gold' : ($customerPoints >= 500 ? 'silver' : 'bronze'));
+        if (!in_array($discountType, ['percent','fixed'], true) || !is_finite($discountValue) || $discountValue <= 0 || ($discountType === 'percent' && $discountValue > 100)) {
+            json_response(['ok' => false, 'error' => 'invalid_discount_config', 'message' => 'تعریف کد تخفیف معتبر نیست'], 409);
+        }
+        if (($startsAt !== '' && $today < $startsAt) || ($endsAt !== '' && $today > $endsAt)) json_response(['ok' => false, 'error' => 'discount_out_of_date', 'message' => 'کد تخفیف در این تاریخ فعال نیست'], 409);
+        if ($maxUses > 0 && $usedCount >= $maxUses) json_response(['ok' => false, 'error' => 'discount_limit_reached', 'message' => 'سقف استفاده از این کد تمام شده است'], 409);
+        if ($subtotal - $expectedTierDiscount < $minOrder) json_response(['ok' => false, 'error' => 'discount_minimum_not_met', 'message' => 'مبلغ سفارش به حداقل لازم برای این کد نرسیده است'], 409);
+        if ($audience === 'club' && $customerId === '') json_response(['ok' => false, 'error' => 'discount_customer_required', 'message' => 'این کد فقط برای اعضای باشگاه است'], 409);
+        if (in_array($audience, ['bronze','silver','gold','platinum'], true) && ($customerId === '' || $tier !== $audience)) json_response(['ok' => false, 'error' => 'discount_audience_mismatch', 'message' => 'این کد برای سطح عضویت مشتری قابل استفاده نیست'], 409);
+        if (!in_array($audience, ['all','club','bronze','silver','gold','platinum'], true)) json_response(['ok' => false, 'error' => 'invalid_discount_audience'], 409);
+        $afterTierForCode = max(0, $subtotal - $expectedTierDiscount);
+        $expectedCodeDiscount = $discountType === 'percent'
+            ? (int)round($afterTierForCode * $discountValue / 100)
+            : min($afterTierForCode, (int)round($discountValue));
+        if ($maxDiscount > 0) $expectedCodeDiscount = min($expectedCodeDiscount, $maxDiscount);
+    }
+    $settingsForPointsStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'settings' AND id = 'main' LIMIT 1");
+    $settingsForPointsStmt->execute();
+    $rawPointsSettings = $settingsForPointsStmt->fetchColumn();
+    $pointsSettings = is_string($rawPointsSettings) ? json_decode($rawPointsSettings, true) : [];
+    $tomanPerPointCheck = max(1, (int)($pointsSettings['tomanPerPoint'] ?? 1));
+    $expectedPointsDiscount = min(max(0, $subtotal - $expectedTierDiscount - $expectedCodeDiscount), $customerPoints * $tomanPerPointCheck);
+    if ($pointsDiscount > $expectedPointsDiscount) json_response(['ok' => false, 'error' => 'invalid_points_discount', 'message' => 'مقدار تخفیف امتیازی معتبر نیست'], 409);
     $taxSettingsStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'settings' AND id = 'main' LIMIT 1");
     $taxSettingsStmt->execute();
     $rawTaxSettings = $taxSettingsStmt->fetchColumn();
@@ -710,12 +783,12 @@ if ($method === 'POST' && $path === '/orders') {
     $expectedTax = $taxEnabled ? (int)round($taxableAmount * $taxPercent / 100) : 0;
     // Membership tiers in the POS model grant at most 8% (platinum).
     // Keep client-supplied discounts within their mathematically possible bases.
-    $maxTierDiscount = (int)round($subtotal * 0.08);
+    $maxTierDiscount = $expectedTierDiscount;
     $afterTier = $subtotal - $tierDiscount;
     $afterCode = $afterTier - $codeDiscount;
     if (
-        $tierDiscount > $maxTierDiscount ||
-        $codeDiscount > $afterTier ||
+        $tierDiscount !== $expectedTierDiscount ||
+        $codeDiscount !== $expectedCodeDiscount ||
         $pointsDiscount > $afterCode ||
         $discountTotal > $subtotal ||
         (int)$totals['tax'] !== $expectedTax ||
@@ -723,25 +796,7 @@ if ($method === 'POST' && $path === '/orders') {
     ) {
         json_response(['ok' => false, 'error' => 'order_total_mismatch', 'message' => 'تخفیف‌ها یا محاسبه مبلغ نهایی سفارش معتبر نیست'], 422);
     }
-    $customer = is_array($body['customer'] ?? null) ? $body['customer'] : [];
-    $customerId = isset($customer['id']) ? (string)$customer['id'] : '';
-    $customerName = null;
-    $customerPhone = null;
-    if ($customerId !== '') {
-        if (strlen($customerId) > 100 || !preg_match('/^[A-Za-z0-9_-]+$/D', $customerId)) {
-            json_response(['ok' => false, 'error' => 'invalid_customer'], 422);
-        }
-        $customerStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'customers' AND id = ? LIMIT 1");
-        $customerStmt->execute([$customerId]);
-        $customerRaw = $customerStmt->fetchColumn();
-        $customerRecord = is_string($customerRaw) ? json_decode($customerRaw, true) : null;
-        if (!is_array($customerRecord)) {
-            json_response(['ok' => false, 'error' => 'customer_not_found', 'message' => 'مشتری انتخاب‌شده پیدا نشد؛ فهرست مشتریان را تازه‌سازی کنید'], 409);
-        }
-        // Use the canonical customer details stored on the server, not browser-supplied labels.
-        $customerName = substr((string)($customerRecord['name'] ?? ''), 0, 160);
-        $customerPhone = substr((string)($customerRecord['phone'] ?? ''), 0, 30);
-    }
+    // Canonical customer details were loaded before validating tier and coupon discounts.
     if ($pointsDiscount > 0 && $customerId === '') {
         json_response(['ok' => false, 'error' => 'points_require_customer', 'message' => 'برای استفاده از امتیاز باید مشتری انتخاب شود'], 422);
     }
@@ -750,6 +805,35 @@ if ($method === 'POST' && $path === '/orders') {
 
         $pointsToSpend = 0;
         $pointsEarned = 0;
+
+        if ($discountCode !== '' && $discountRecordId !== null) {
+            $discountLock = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'discounts' AND id = ? FOR UPDATE");
+            $discountLock->execute([$discountRecordId]);
+            $lockedDiscountRaw = $discountLock->fetchColumn();
+            $lockedDiscount = is_string($lockedDiscountRaw) ? json_decode($lockedDiscountRaw, true) : null;
+            if (!is_array($lockedDiscount) || strtoupper(trim((string)($lockedDiscount['code'] ?? ''))) !== $discountCode) {
+                $pdo->rollBack();
+                json_response(['ok' => false, 'error' => 'discount_changed', 'message' => 'کد تخفیف تغییر کرده است؛ دوباره بررسی کنید'], 409);
+            }
+            $lockedMaxUses = max(0, (int)($lockedDiscount['maxUses'] ?? 0));
+            $lockedUsedCount = max(0, (int)($lockedDiscount['usedCount'] ?? 0));
+            if ($lockedMaxUses > 0 && $lockedUsedCount >= $lockedMaxUses) {
+                $pdo->rollBack();
+                json_response(['ok' => false, 'error' => 'discount_limit_reached', 'message' => 'آخرین سهمیه این کد هم‌زمان مصرف شد'], 409);
+            }
+            $lockedPerCustomer = max(0, (int)($lockedDiscount['perCustomer'] ?? 0));
+            if ($lockedPerCustomer > 0 && $customerId !== '') {
+                $usageStmt = $pdo->prepare("SELECT COUNT(*) FROM pos_orders WHERE customer_id = ? AND discount_code = ? AND status <> 'cancelled'");
+                $usageStmt->execute([$customerId, $discountCode]);
+                if ((int)$usageStmt->fetchColumn() >= $lockedPerCustomer) {
+                    $pdo->rollBack();
+                    json_response(['ok' => false, 'error' => 'discount_customer_limit', 'message' => 'سهمیه استفاده این مشتری از کد تمام شده است'], 409);
+                }
+            }
+            $lockedDiscount['usedCount'] = $lockedUsedCount + 1;
+            $discountUpdate = $pdo->prepare("UPDATE pos_records SET payload = ?, updated_by = ? WHERE resource = 'discounts' AND id = ?");
+            $discountUpdate->execute([json_encode($lockedDiscount, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), (int)$actor['id'], $discountRecordId]);
+        }
 
         // Lock ingredients in a stable order to reduce deadlocks between concurrent checkouts.
         ksort($ingredientNeeds, SORT_STRING);
@@ -817,7 +901,7 @@ if ($method === 'POST' && $path === '/orders') {
         if ($counter === false) throw new RuntimeException('Order counter missing');
         $orderNumber = (int)$counter + 1;
         $pdo->prepare("UPDATE pos_counters SET counter_value = ? WHERE counter_key = 'order_number'")->execute([$orderNumber]);
-        $stmt = $pdo->prepare('INSERT INTO pos_orders (order_number, status, idempotency_key, request_hash, customer_id, customer_name, customer_phone, items, totals, note, created_by) VALUES (?, \'new\', ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        $stmt = $pdo->prepare('INSERT INTO pos_orders (order_number, status, idempotency_key, request_hash, customer_id, customer_name, customer_phone, discount_code, items, totals, note, created_by) VALUES (?, \'new\', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $stmt->execute([
             $orderNumber,
             $idempotencyKey,
@@ -825,6 +909,7 @@ if ($method === 'POST' && $path === '/orders') {
             $customerId !== '' ? $customerId : null,
             $customerName,
             $customerPhone,
+            $discountCode !== '' ? $discountCode : null,
             json_encode($items, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             json_encode($totals, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             isset($body['note']) ? substr((string)$body['note'], 0, 2000) : null,
