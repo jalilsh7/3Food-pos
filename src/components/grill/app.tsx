@@ -1013,9 +1013,9 @@ function SettingsScreen() {
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.printKitchen} onChange={(e) => { const value = e.target.checked; patchSettings({ printKitchen: value }); const current = usePos.getState().settings; void saveCentralRecord("settings", { id: "main", ...current, printKitchen: value, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} />فیش آشپزخانه</label>
       </Card>
       <Card>
-        <p className="mb-2 text-sm text-muted">در پنجره چاپ، فیش‌پرینتر را انتخاب کنید. پشتیبان روی همین دستگاه است و کلید پیامک داخل فایل نمی‌آید.</p>
+        <p className="mb-2 text-sm text-muted">نسخه پشتیبان از داده‌های مرکزی MySQL ساخته می‌شود و شامل تاریخچه سفارش‌ها و دفترهای تراکنشی است؛ کلید پیامک داخل فایل قرار نمی‌گیرد.</p>
         <div className="flex flex-wrap gap-2">
-          <Btn onClick={download}>دانلود پشتیبان</Btn>
+          <Btn onClick={() => void download()} disabled={exporting}>{exporting ? "در حال تهیه..." : "دانلود پشتیبان MySQL"}</Btn>
           <Btn tone="ghost" onClick={() => void importLocalDataToMysql()} disabled={importing}>{importing ? "در حال انتقال..." : "انتقال داده این دستگاه به MySQL"}</Btn>
           <p className="self-center text-xs text-muted">بازیابی پشتیبان تا اتصال امن به MySQL غیرفعال است.</p>
         </div>
