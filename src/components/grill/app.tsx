@@ -728,7 +728,7 @@ type ServerBootstrap = Partial<Omit<PosState, "orders" | "settings">> & {
 };
 
 function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, role: Role) {
-  const hasRecords = ["categories", "products", "ingredients", "customers", "discounts", "expenses", "templates"]
+  const hasRecords = ["categories", "products", "ingredients", "customers", "discounts", "expenses", "templates", "settings"]
     .some((key) => Array.isArray(data[key as keyof ServerBootstrap]) && (data[key as keyof ServerBootstrap] as unknown[]).length > 0);
   if (!hasRecords && !(data.orders?.length)) return false;
 
