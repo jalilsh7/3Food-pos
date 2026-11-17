@@ -187,6 +187,7 @@ export const phpApi = {
     items: unknown[];
     totals: Record<string, number>;
     customer?: unknown;
+    discountCode?: string;
     note?: string;
     idempotencyKey: string;
   }) =>
