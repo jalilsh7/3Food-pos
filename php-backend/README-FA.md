@@ -11,7 +11,7 @@
 
 ## ساختار و نصب آزمایشی
 1. در cPanel دیتابیس MySQL و کاربر اختصاصی بسازید و دسترسی کامل را فقط به همان دیتابیس بدهید.
-2. `schema.sql` را در phpMyAdmin وارد کنید.
+2. `schema.sql` را در phpMyAdmin وارد کنید. اگر دیتابیس را قبلاً با نسخه قدیمی‌تر ساخته‌اید، فایل `migrations/002-session-version.sql` را نیز یک‌بار اجرا کنید.
 3. `private/config.example.php` را به `private/config.php` کپی کنید و اطلاعات دیتابیس را وارد کنید.
 4. برای `app_key` و `setup_token` دو مقدار تصادفی مستقل با حداقل 64 نویسه hex تولید کنید. از قرار دادن آن‌ها در پوشه عمومی یا JavaScript خودداری کنید.
 5. Document Root زیردامنه را روی `php-backend/public` قرار دهید؛ پوشه `private` باید بیرون Document Root باشد.
