@@ -538,7 +538,9 @@ if ($method === 'POST' && $path === '/orders') {
     $serverSubtotal = 0;
     $productLookup = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'products' AND id = ? LIMIT 1");
     foreach ($items as $line) {
-        if (!is_array($line) || !isset($line['productId'], $line['qty']) || !is_numeric($line['qty']) || (float)$line['qty'] <= 0 || (float)$line['qty'] > 999) json_response(['ok' => false, 'error' => 'invalid_order_item'], 422);
+        if (!is_array($line) || !isset($line['productId'], $line['qty']) || !is_numeric($line['qty']) || (float)$line['qty'] <= 0 || (float)$line['qty'] > 999 || floor((float)$line['qty']) !== (float)$line['qty']) {
+            json_response(['ok' => false, 'error' => 'invalid_order_item'], 422);
+        }
         $productLookup->execute([(string)$line['productId']]);
         $productRaw = $productLookup->fetchColumn();
         $product = is_string($productRaw) ? json_decode($productRaw, true) : null;
@@ -554,10 +556,17 @@ if ($method === 'POST' && $path === '/orders') {
         if (isset($line['unitPrice']) && (int)$line['unitPrice'] !== $unitPrice) json_response(['ok' => false, 'error' => 'price_changed', 'message' => 'قیمت محصول تغییر کرده است؛ سبد را تازه‌سازی کنید'], 409);
         $serverSubtotal += $unitPrice * (float)$line['qty'];
     }
-    foreach (['subtotal','total'] as $key) {
-        if (!isset($totals[$key]) || !is_numeric($totals[$key]) || (float)$totals[$key] < 0 || (float)$totals[$key] > 100000000000) json_response(['ok' => false, 'error' => 'invalid_order_total'], 422);
+    $totalFields = ['subtotal', 'tierDiscount', 'codeDiscount', 'pointsDiscount', 'tax', 'total'];
+    foreach ($totalFields as $key) {
+        if (!isset($totals[$key]) || !is_numeric($totals[$key]) || (float)$totals[$key] < 0 || (float)$totals[$key] > 100000000000 || floor((float)$totals[$key]) !== (float)$totals[$key]) {
+            json_response(['ok' => false, 'error' => 'invalid_order_total', 'message' => 'مقادیر مالی سفارش معتبر نیست'], 422);
+        }
     }
     if ((int)$totals['subtotal'] !== (int)$serverSubtotal) json_response(['ok' => false, 'error' => 'subtotal_mismatch', 'message' => 'جمع سفارش با قیمت محصولات مطابقت ندارد'], 409);
+    $discountTotal = (int)$totals['tierDiscount'] + (int)$totals['codeDiscount'] + (int)$totals['pointsDiscount'];
+    if ($discountTotal > (int)$totals['subtotal'] || (int)$totals['total'] !== (int)$totals['subtotal'] - $discountTotal + (int)$totals['tax']) {
+        json_response(['ok' => false, 'error' => 'order_total_mismatch', 'message' => 'محاسبه مبلغ نهایی سفارش معتبر نیست'], 422);
+    }
     try {
         $pdo->beginTransaction();
         $counter = $pdo->query("SELECT counter_value FROM pos_counters WHERE counter_key = 'order_number' FOR UPDATE")->fetchColumn();
