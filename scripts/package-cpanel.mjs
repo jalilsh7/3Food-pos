@@ -59,7 +59,7 @@ const guide = [
   "7. تست سفارش و نقش‌ها را روی staging انجام دهید. پیامک فقط پس از واردکردن credential در config خصوصی و آزمایش واقعی فعال شود.",
   "",
   "این بسته هیچ `config.php` واقعی یا رمز دیتابیس ندارد. build موفق به معنی تأیید اتصال MySQL واقعی یا آماده‌بودن انتشار اصلی نیست.",
-].join("\\n");
+].join(String.fromCharCode(10));
 
 writeFileSync(resolve(packageRoot, "DEPLOYMENT-FA.md"), guide, "utf8");
 
