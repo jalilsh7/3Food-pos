@@ -46,6 +46,7 @@ jobs:
         run: |
           php -l php-backend/public/api/index.php
           php -l scripts/check-mysql-schema.php
+          php -l scripts/check-mysql-transaction-invariants.php
       - name: Install and verify fresh MySQL schema
         env:
           MYSQL_TEST_HOST: 127.0.0.1
@@ -56,6 +57,7 @@ jobs:
         run: |
           mysql --host=127.0.0.1 --user=root --password="$MYSQL_TEST_PASSWORD" threefood_test < php-backend/schema.sql
           php scripts/check-mysql-schema.php
+          php scripts/check-mysql-transaction-invariants.php
       - name: TypeScript
         run: npm run typecheck
       - name: Unit tests
@@ -78,4 +80,3 @@ jobs:
           path: dist-cpanel/
           if-no-files-found: error
           retention-days: 14
-
