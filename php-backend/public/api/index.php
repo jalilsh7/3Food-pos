@@ -1731,9 +1731,8 @@ if (preg_match('#^/orders/(\d+)$#', $path, $editMatch) && $method === 'PATCH') {
         }
 
         $orderNumber = (int)$existingOrder['order_number'];
-        $stmt = $pdo->prepare("UPDATE pos_orders SET request_hash = ?, customer_id = ?, customer_name = ?, customer_phone = ?, guest_name = ?, guest_phone = ?, payment_method = ?, points_used = ?, points_earned = ?, discount_code = ?, items = ?, totals = ?, note = ? WHERE id = ? AND status = 'new'");
+        $stmt = $pdo->prepare("UPDATE pos_orders SET customer_id = ?, customer_name = ?, customer_phone = ?, guest_name = ?, guest_phone = ?, payment_method = ?, points_used = ?, points_earned = ?, discount_code = ?, items = ?, totals = ?, note = ? WHERE id = ? AND status = 'new'");
         $stmt->execute([
-            $requestHash,
             $customerId !== '' ? $customerId : null,
             $customerName,
             $customerPhone,
