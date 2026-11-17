@@ -11,7 +11,7 @@ import {
   type CartLine, type DiscountCode, type Order, type Product, type Role, type SmsEvent, type PosState, type Settings, type SmsLog,
 } from "@/lib/pos/model";
 import { lowStock, usePos } from "@/lib/pos/store";
-import { phpApi, type ApiUser } from "@/lib/api/php-client";
+import { phpApi, type ApiUser, type ManagedUser } from "@/lib/api/php-client";
 
 
 async function saveCentralRecord<T extends { id: string | number }>(resource: string, item: T, commit: () => void) {
@@ -45,7 +45,7 @@ async function deleteCentralRecord(resource: string, id: string, commit: () => v
   }
 }
 
-type View = "pos" | "orders" | "menu" | "stock" | "customers" | "codes" | "reports" | "sms" | "settings";
+type View = "pos" | "orders" | "menu" | "stock" | "customers" | "codes" | "reports" | "sms" | "users" | "settings";
 
 const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[] = [
   { id: "pos", label: "فروش", icon: ShoppingBag, roles: ["manager", "cashier"] },
@@ -56,6 +56,7 @@ const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[
   { id: "codes", label: "کد تخفیف", icon: Percent, roles: ["manager"] },
   { id: "reports", label: "گزارش", icon: LayoutDashboard, roles: ["manager"] },
   { id: "sms", label: "پیامک", icon: MessageSquare, roles: ["manager"] },
+  { id: "users", label: "کاربران", icon: Users, roles: ["manager"] },
   { id: "settings", label: "تنظیمات", icon: SettingsIcon, roles: ["manager"] },
 ];
 
@@ -181,8 +182,93 @@ function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; ini
         {current === "codes" ? <CodesScreen /> : null}
         {current === "reports" ? <ReportsScreen /> : null}
         {current === "sms" ? <SmsScreen /> : null}
+        {current === "users" ? <UsersScreen /> : null}
         {current === "settings" ? <SettingsScreen /> : null}
       </main>
+    </div>
+  );
+}
+
+function UsersScreen() {
+  const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [draft, setDraft] = useState({ username: "", display_name: "", password: "", role: "cashier" as Role });
+
+  async function refresh() {
+    setLoading(true);
+    try {
+      const result = await phpApi.listUsers();
+      setUsers(result.users);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "دریافت کاربران انجام نشد");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void refresh(); }, []);
+
+  async function create(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await phpApi.createUser(draft);
+      setDraft({ username: "", display_name: "", password: "", role: "cashier" });
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ساخت حساب انجام نشد");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changeUser(user: ManagedUser, patch: Partial<Pick<ManagedUser, "role" | "is_active">>) {
+    setBusy(true);
+    setError("");
+    try {
+      await phpApi.updateUser(user.id, patch);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "تغییر حساب انجام نشد");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <h2 className="font-bold">مدیریت کاربران</h2>
+      <Card>
+        <h3 className="mb-3 font-semibold">ساخت حساب جدید</h3>
+        <form className="grid gap-2 sm:grid-cols-2" onSubmit={(event) => void create(event)}>
+          <Field label="نام کاربری"><input className={inputCls} minLength={4} maxLength={64} pattern="[A-Za-z0-9._-]+" value={draft.username} onChange={(e) => setDraft({ ...draft, username: e.target.value })} required /></Field>
+          <Field label="نام نمایشی"><input className={inputCls} maxLength={120} value={draft.display_name} onChange={(e) => setDraft({ ...draft, display_name: e.target.value })} required /></Field>
+          <Field label="رمز اولیه (حداقل ۱۲ نویسه)"><input className={inputCls} type="password" minLength={12} maxLength={200} autoComplete="new-password" value={draft.password} onChange={(e) => setDraft({ ...draft, password: e.target.value })} required /></Field>
+          <Field label="نقش"><select className={inputCls} value={draft.role} onChange={(e) => setDraft({ ...draft, role: e.target.value as Role })}><option value="cashier">صندوقدار</option><option value="kitchen">آشپز</option><option value="manager">مدیر</option></select></Field>
+          <div className="sm:col-span-2"><Btn type="submit" disabled={busy}>{busy ? "در حال ذخیره..." : "ساخت حساب"}</Btn></div>
+        </form>
+      </Card>
+      {error ? <p className="text-sm text-warn">{error}</p> : null}
+      {loading ? <p className="text-sm text-muted">در حال دریافت کاربران...</p> : users.map((user) => (
+        <Card key={user.id}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold">{user.display_name} — {user.username}</p>
+              <p className="text-xs text-muted">{ROLE_LABEL[user.role]} · {user.is_active ? "فعال" : "غیرفعال"}{user.must_change_password ? " · نیازمند تغییر رمز" : ""}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select className={inputCls} aria-label="نقش کاربر" value={user.role} disabled={busy} onChange={(e) => void changeUser(user, { role: e.target.value as Role })}>
+                <option value="cashier">صندوقدار</option><option value="kitchen">آشپز</option><option value="manager">مدیر</option>
+              </select>
+              <Btn tone="ghost" disabled={busy} onClick={() => void changeUser(user, { is_active: !Boolean(user.is_active) })}>{user.is_active ? "غیرفعال‌کردن" : "فعال‌کردن"}</Btn>
+            </div>
+          </div>
+        </Card>
+      ))}
     </div>
   );
 }
