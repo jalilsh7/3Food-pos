@@ -835,10 +835,6 @@ type ServerBootstrap = Partial<Omit<PosState, "orders" | "settings">> & {
 };
 
 function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, role: Role) {
-  const hasRecords = ["categories", "products", "ingredients", "customers", "discounts", "expenses", "templates", "settings"]
-    .some((key) => Array.isArray(data[key as keyof ServerBootstrap]) && (data[key as keyof ServerBootstrap] as unknown[]).length > 0);
-  if (!hasRecords && !(data.orders?.length)) return false;
-
   const current = usePos.getState();
   const serverSettings = data.settings?.[0];
   const orders: Order[] = (data.orders ?? []).map((order) => ({
@@ -862,25 +858,26 @@ function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, role: Ro
     pointsEarned: 0,
   }));
 
+  // Bootstrap is a complete snapshot for the authenticated role. Missing
+  // collections are intentionally cleared (e.g. kitchen must not retain
+  // manager-only records from a previous in-memory session).
   usePos.setState({
-    ...(data.categories ? { categories: data.categories } : {}),
-    ...(data.products ? { products: data.products } : {}),
-    ...(data.ingredients ? { ingredients: data.ingredients } : {}),
-    ...(data.customers ? { customers: data.customers } : {}),
-    ...(data.discounts ? { discounts: data.discounts } : {}),
-    ...(data.expenses ? { expenses: data.expenses } : {}),
-    ...(data.templates ? { templates: data.templates } : {}),
-    ...(data.orders?.length ? { orders } : {}),
-    ...(serverSettings ? {
-      settings: {
-        ...current.settings,
-        ...serverSettings,
-        smsUser: "",
-        smsKey: "",
-        smsFrom: "",
-        role,
-      },
-    } : { settings: { ...current.settings, role } }),
+    categories: data.categories ?? [],
+    products: data.products ?? [],
+    ingredients: data.ingredients ?? [],
+    customers: data.customers ?? [],
+    discounts: data.discounts ?? [],
+    expenses: data.expenses ?? [],
+    templates: data.templates ?? [],
+    orders,
+    settings: {
+      ...current.settings,
+      ...(serverSettings ?? {}),
+      smsUser: "",
+      smsKey: "",
+      smsFrom: "",
+      role,
+    },
     nextOrder: Math.max(nextOrder, 1),
   });
   return true;
