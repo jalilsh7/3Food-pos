@@ -826,6 +826,7 @@ type ServerOrder = {
   customerId?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
+  discountCode?: string | null;
 };
 
 type ServerBootstrap = Partial<Omit<PosState, "orders" | "settings">> & {
