@@ -114,7 +114,7 @@ type Actions = {
     serverOrder?: { id: string; number: number };
   }) => { ok: true; order: Order } | { ok: false; error: string };
   setStatus: (id: string, status: OrderStatus) => Order | null;
-  logSms: (log: Omit<SmsLog, "id" | "at">) => void;
+  logSms: (log: SmsLog) => void;
 };
 
 export const usePos = create<PosState & Actions>()(
@@ -271,7 +271,7 @@ export const usePos = create<PosState & Actions>()(
       },
       logSms: (log) =>
         set((s) => ({
-          smsLogs: [{ ...log, id: uid("sm"), at: new Date().toISOString() }, ...s.smsLogs].slice(0, 200),
+          smsLogs: [log, ...s.smsLogs.filter((entry) => entry.id !== log.id)].slice(0, 500),
         })),
     }),
 );
