@@ -611,11 +611,19 @@ function OrdersScreen({ role }: { role: Role }) {
   const editCodeUses = editCustomer && editCode
     ? Math.max(0, customerCodeUses(orders, editCustomer.id, editCode) - (editing?.customerId === editCustomer.id && editing.discountCode.toUpperCase() === editCode.trim().toUpperCase() ? 1 : 0))
     : 0;
+  const editQuoteCustomer = editCustomer && editing?.customerId === editCustomer.id
+    ? { ...editCustomer, points: Math.max(0, editCustomer.points + editing.pointsUsed - editing.pointsEarned) }
+    : editCustomer;
+  const editDiscounts = discounts.map((discount) =>
+    editing && discount.code.toUpperCase() === editing.discountCode.toUpperCase()
+      ? { ...discount, usedCount: Math.max(0, discount.usedCount - 1) }
+      : discount,
+  );
   const editQuote = quoteOrder({
     lines: editLines,
-    customer: editCustomer,
+    customer: editQuoteCustomer,
     code: editCode,
-    discounts,
+    discounts: editDiscounts,
     pointsToUse: editPoints,
     taxPercent: settings.taxPercent,
     taxEnabled: settings.taxEnabled !== false,
@@ -624,7 +632,17 @@ function OrdersScreen({ role }: { role: Role }) {
   });
   function beginEdit(order: Order) {
     setEditing(order);
-    setEditLines(order.lines.map((line) => ({ ...line, optionIds: [...line.optionIds], optionLabels: [...line.optionLabels] })));
+    setEditLines(order.lines.map((line) => {
+      const product = products.find((item) => item.id === line.productId);
+      const options = product?.options.filter((option) => line.optionIds.includes(option.id)) ?? [];
+      return {
+        ...line,
+        name: product?.name ?? line.name,
+        unitPrice: product ? product.price + options.reduce((sum, option) => sum + option.price, 0) : line.unitPrice,
+        optionIds: [...line.optionIds],
+        optionLabels: options.length ? options.map((option) => option.name) : [...line.optionLabels],
+      };
+    }));
     setEditPhone(order.customerPhone);
     setEditGuestName(order.customerName);
     setEditCode(order.discountCode);
@@ -786,7 +804,7 @@ function OrdersScreen({ role }: { role: Role }) {
             {editQuote.pointsError ? <p className="text-sm text-warn">{editQuote.pointsError}</p> : null}
             <div className="space-y-1 rounded-xl bg-surface p-3 text-sm">
               <p className="flex justify-between"><span>جمع اقلام</span><span>{money(editQuote.subtotal)}</span></p>
-              <p className="flex justify-between"><span>تخفیف‌ها</span><span>{money(editQuote.discountTotal)}</span></p>
+              <p className="flex justify-between"><span>تخفیف‌ها</span><span>{money(editQuote.tierDiscount + editQuote.codeDiscount + editQuote.pointsDiscount)}</span></p>
               <p className="flex justify-between font-bold"><span>قابل پرداخت</span><span>{money(editQuote.total)}</span></p>
             </div>
             <div className="flex gap-2">
