@@ -182,8 +182,8 @@ export const phpApi = {
       body: input,
     }),
 
-  setOrderStatus: <TOrder>(id: string, status: string) =>
-    request<ApiEnvelope<{ order: TOrder }>>(
+  setOrderStatus: (id: string, status: string) =>
+    request<ApiEnvelope<{ status: string }>>(
       `/orders/${encodeURIComponent(id)}/status`,
       { method: "PATCH", csrf: true, body: { status } },
     ),
