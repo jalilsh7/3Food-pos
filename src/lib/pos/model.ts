@@ -127,6 +127,7 @@ export type Settings = {
   address: string;
   phone: string;
   taxPercent: number;
+  taxEnabled: boolean;
   pointsPerToman: number;
   tomanPerPoint: number;
   paperWidth: 58 | 80;
@@ -207,6 +208,7 @@ export function quoteOrder(input: {
   discounts: DiscountCode[];
   pointsToUse: number;
   taxPercent: number;
+  taxEnabled?: boolean;
   tomanPerPoint: number;
   usesSoFar?: number;
   now?: Date;
@@ -257,7 +259,7 @@ export function quoteOrder(input: {
     }
   }
   const taxable = Math.max(0, afterCode - pointsDiscount);
-  const tax = Math.round((taxable * input.taxPercent) / 100);
+  const tax = input.taxEnabled === false ? 0 : Math.round((taxable * input.taxPercent) / 100);
   const total = taxable + tax;
   return {
     subtotal,
