@@ -563,9 +563,24 @@ if ($method === 'POST' && $path === '/orders') {
         }
     }
     if ((int)$totals['subtotal'] !== (int)$serverSubtotal) json_response(['ok' => false, 'error' => 'subtotal_mismatch', 'message' => 'جمع سفارش با قیمت محصولات مطابقت ندارد'], 409);
-    $discountTotal = (int)$totals['tierDiscount'] + (int)$totals['codeDiscount'] + (int)$totals['pointsDiscount'];
-    if ($discountTotal > (int)$totals['subtotal'] || (int)$totals['total'] !== (int)$totals['subtotal'] - $discountTotal + (int)$totals['tax']) {
-        json_response(['ok' => false, 'error' => 'order_total_mismatch', 'message' => 'محاسبه مبلغ نهایی سفارش معتبر نیست'], 422);
+    $subtotal = (int)$totals['subtotal'];
+    $tierDiscount = (int)$totals['tierDiscount'];
+    $codeDiscount = (int)$totals['codeDiscount'];
+    $pointsDiscount = (int)$totals['pointsDiscount'];
+    $discountTotal = $tierDiscount + $codeDiscount + $pointsDiscount;
+    // Membership tiers in the POS model grant at most 8% (platinum).
+    // Keep client-supplied discounts within their mathematically possible bases.
+    $maxTierDiscount = (int)round($subtotal * 0.08);
+    $afterTier = $subtotal - $tierDiscount;
+    $afterCode = $afterTier - $codeDiscount;
+    if (
+        $tierDiscount > $maxTierDiscount ||
+        $codeDiscount > $afterTier ||
+        $pointsDiscount > $afterCode ||
+        $discountTotal > $subtotal ||
+        (int)$totals['total'] !== $subtotal - $discountTotal + (int)$totals['tax']
+    ) {
+        json_response(['ok' => false, 'error' => 'order_total_mismatch', 'message' => 'تخفیف‌ها یا محاسبه مبلغ نهایی سفارش معتبر نیست'], 422);
     }
     try {
         $pdo->beginTransaction();
