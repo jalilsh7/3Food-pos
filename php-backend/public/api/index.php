@@ -1013,6 +1013,24 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
         }
 
         if ($status === 'cancelled') {
+        if ($status === 'cancelled') {
+            $redemptionStmt = $pdo->prepare('SELECT id, discount_id FROM pos_discount_redemptions WHERE order_id = ? AND reversed_at IS NULL FOR UPDATE');
+            $redemptionStmt->execute([$id]);
+            $redemption = $redemptionStmt->fetch();
+            if (is_array($redemption)) {
+                $couponLock = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'discounts' AND id = ? FOR UPDATE");
+                $couponLock->execute([(string)$redemption['discount_id']]);
+                $couponRaw = $couponLock->fetchColumn();
+                $coupon = is_string($couponRaw) ? json_decode($couponRaw, true) : null;
+                if (is_array($coupon)) {
+                    $coupon['usedCount'] = max(0, (int)($coupon['usedCount'] ?? 0) - 1);
+                    $couponUpdate = $pdo->prepare("UPDATE pos_records SET payload = ?, updated_by = ? WHERE resource = 'discounts' AND id = ?");
+                    $couponUpdate->execute([json_encode($coupon, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), (int)$actor['id'], (string)$redemption['discount_id']]);
+                }
+                $markRedemption = $pdo->prepare('UPDATE pos_discount_redemptions SET reversed_at = NOW() WHERE id = ? AND reversed_at IS NULL');
+                $markRedemption->execute([(int)$redemption['id']]);
+            }
+        }
             // Reverse only effects recorded for this order. FOR UPDATE plus the
             // order-row lock and reversed_at guard make this operation one-shot.
             $effectsStmt = $pdo->prepare('SELECT id, effect_type, resource_id, quantity, points_spent, points_earned, money_delta, visits_delta FROM pos_order_effects WHERE order_id = ? AND reversed_at IS NULL ORDER BY effect_type, resource_id FOR UPDATE');
@@ -1060,24 +1078,7 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
             }
         }
 
-        if ($status === 'cancelled') {
-            $redemptionStmt = $pdo->prepare('SELECT id, discount_id FROM pos_discount_redemptions WHERE order_id = ? AND reversed_at IS NULL FOR UPDATE');
-            $redemptionStmt->execute([$id]);
-            $redemption = $redemptionStmt->fetch();
-            if (is_array($redemption)) {
-                $couponLock = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'discounts' AND id = ? FOR UPDATE");
-                $couponLock->execute([(string)$redemption['discount_id']]);
-                $couponRaw = $couponLock->fetchColumn();
-                $coupon = is_string($couponRaw) ? json_decode($couponRaw, true) : null;
-                if (is_array($coupon)) {
-                    $coupon['usedCount'] = max(0, (int)($coupon['usedCount'] ?? 0) - 1);
-                    $couponUpdate = $pdo->prepare("UPDATE pos_records SET payload = ?, updated_by = ? WHERE resource = 'discounts' AND id = ?");
-                    $couponUpdate->execute([json_encode($coupon, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), (int)$actor['id'], (string)$redemption['discount_id']]);
-                }
-                $markRedemption = $pdo->prepare('UPDATE pos_discount_redemptions SET reversed_at = NOW() WHERE id = ? AND reversed_at IS NULL');
-                $markRedemption->execute([(int)$redemption['id']]);
-            }
-        }
+
 
         $update = $pdo->prepare('UPDATE pos_orders SET status = ?, updated_at = NOW() WHERE id = ?');
         $update->execute([$status, $id]);
