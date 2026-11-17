@@ -930,6 +930,8 @@ function SettingsScreen() {
   const [note, setNote] = useState("");
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const restoreInput = useRef<HTMLInputElement>(null);
   function persistSettings() {
     const current = usePos.getState().settings;
     void saveCentralRecord("settings", { id: "main", ...current, smsUser: "", smsKey: "", smsFrom: "" }, () => {});
@@ -971,6 +973,28 @@ function SettingsScreen() {
       setImporting(false);
     }
   }
+  async function restoreBackupFile(file: File) {
+    if (file.size > 8 * 1024 * 1024) {
+      setNote("حجم فایل پشتیبان بیشتر از ۸ مگابایت است.");
+      return;
+    }
+    if (!window.confirm("هشدار: بازیابی فقط روی دیتابیس عملیاتی خالی مجاز است. فایل باید متعلق به 3Food POS و قابل اعتماد باشد. ادامه می‌دهید؟")) return;
+    setRestoring(true);
+    setNote("");
+    try {
+      const backup = JSON.parse(await file.text()) as Record<string, unknown>;
+      const result = await phpApi.restoreBackup(backup);
+      const counts = result.restored;
+      setNote(`بازیابی انجام شد: ${counts.records} رکورد، ${counts.orders} سفارش و دفترهای تراکنشی. صفحه تازه‌سازی می‌شود.`);
+      window.location.reload();
+    } catch (error) {
+      setNote(error instanceof Error ? error.message : "بازیابی انجام نشد؛ دیتابیس تغییر نکرد.");
+    } finally {
+      setRestoring(false);
+      if (restoreInput.current) restoreInput.current.value = "";
+    }
+  }
+
   async function download() {
     setExporting(true);
     setNote("");
@@ -1017,7 +1041,9 @@ function SettingsScreen() {
         <div className="flex flex-wrap gap-2">
           <Btn onClick={() => void download()} disabled={exporting}>{exporting ? "در حال تهیه..." : "دانلود پشتیبان MySQL"}</Btn>
           <Btn tone="ghost" onClick={() => void importLocalDataToMysql()} disabled={importing}>{importing ? "در حال انتقال..." : "انتقال داده این دستگاه به MySQL"}</Btn>
-          <p className="self-center text-xs text-muted">بازیابی پشتیبان تا اتصال امن به MySQL غیرفعال است.</p>
+          <Btn tone="ghost" onClick={() => restoreInput.current?.click()} disabled={restoring}>{restoring ? "در حال بازیابی..." : "بازیابی پشتیبان MySQL"}</Btn>
+          <input ref={restoreInput} type="file" accept="application/json,.json" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void restoreBackupFile(file); }} />
+          <p className="self-center text-xs text-muted">بازیابی فقط روی دیتابیس POS خالی انجام می‌شود؛ اطلاعات کاربران و ورود حفظ می‌شوند.</p>
         </div>
         {note ? <p className="mt-2 text-sm">{note}</p> : null}
       </Card>
