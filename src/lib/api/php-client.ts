@@ -232,6 +232,22 @@ export const phpApi = {
       body: input,
     }),
 
+  updateOrder: <TOrder>(id: string, input: {
+    items: unknown[];
+    totals: Record<string, number>;
+    customer?: { id: string };
+    discountCode?: string;
+    note?: string;
+    guestName?: string;
+    guestPhone?: string;
+    payment?: "cash" | "card" | "online";
+  }) =>
+    request<ApiEnvelope<{ order: TOrder }>>(`/orders/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      csrf: true,
+      body: input,
+    }),
+
   setOrderStatus: (id: string, status: string) =>
     request<ApiEnvelope<{ status: string }>>(
       `/orders/${encodeURIComponent(id)}/status`,
