@@ -1,0 +1,97 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * Structural smoke test against a freshly installed MySQL schema.
+ * Credentials are supplied only by the CI environment, never committed.
+ */
+$host = getenv('MYSQL_TEST_HOST') ?: '127.0.0.1';
+$port = (int)(getenv('MYSQL_TEST_PORT') ?: 3306);
+$database = getenv('MYSQL_TEST_DATABASE') ?: 'threefood_test';
+$username = getenv('MYSQL_TEST_USERNAME') ?: 'root';
+$password = getenv('MYSQL_TEST_PASSWORD') ?: '';
+
+$pdo = new PDO(
+    sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $host, $port, $database),
+    $username,
+    $password,
+    [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false,
+    ]
+);
+
+$requiredTables = [
+    'app_users',
+    'app_login_attempts',
+    'app_audit_logs',
+    'app_install_state',
+    'pos_records',
+    'pos_counters',
+    'pos_orders',
+    'pos_order_effects',
+    'pos_discount_redemptions',
+];
+$tableQuery = $pdo->prepare(
+    'SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?'
+);
+foreach ($requiredTables as $table) {
+    $tableQuery->execute([$table]);
+    $row = $tableQuery->fetch();
+    if (!$row) {
+        fwrite(STDERR, "Missing required table: {$table}\n");
+        exit(1);
+    }
+    if (strtoupper((string)$row['ENGINE']) !== 'INNODB') {
+        fwrite(STDERR, "Table must use InnoDB: {$table}\n");
+        exit(1);
+    }
+}
+
+$requiredColumns = [
+    'app_users' => ['session_version', 'password_hash', 'role'],
+    'pos_orders' => ['idempotency_key', 'request_hash', 'discount_code', 'items', 'totals'],
+    'pos_order_effects' => ['order_id', 'effect_type', 'reversed_at'],
+    'pos_discount_redemptions' => ['order_id', 'discount_id', 'customer_id', 'reversed_at'],
+];
+$columnQuery = $pdo->prepare(
+    'SELECT COUNT(*) FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?'
+);
+foreach ($requiredColumns as $table => $columns) {
+    foreach ($columns as $column) {
+        $columnQuery->execute([$table, $column]);
+        if ((int)$columnQuery->fetchColumn() !== 1) {
+            fwrite(STDERR, "Missing required column: {$table}.{$column}\n");
+            exit(1);
+        }
+    }
+}
+
+$indexQuery = $pdo->prepare(
+    'SELECT COUNT(*) FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ? AND NON_UNIQUE = 0'
+);
+foreach ([
+    ['pos_orders', 'uq_pos_order_idempotency'],
+    ['pos_order_effects', 'uq_pos_order_effect'],
+    ['pos_discount_redemptions', 'uq_pos_discount_redemption_order'],
+] as [$table, $index]) {
+    $indexQuery->execute([$table, $index]);
+    if ((int)$indexQuery->fetchColumn() !== 1) {
+        fwrite(STDERR, "Missing required unique index: {$table}.{$index}\n");
+        exit(1);
+    }
+}
+
+$installState = (int)$pdo->query(
+    'SELECT COUNT(*) FROM app_install_state WHERE id = 1 AND setup_completed = 0'
+)->fetchColumn();
+if ($installState !== 1) {
+    fwrite(STDERR, "Fresh-install state row is missing or invalid\n");
+    exit(1);
+}
+
+echo "MySQL schema smoke test passed: " . count($requiredTables) . " InnoDB tables, required columns, unique indexes, and install state verified.\n";
