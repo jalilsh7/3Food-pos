@@ -35,6 +35,7 @@ jobs:
         run: npm run typecheck
       - name: Unit tests
         run: >-
+          node --test scripts/cpanel-htaccess.test.mjs &&
           node --experimental-strip-types --test
           src/lib/app-data/app-data.test.ts
           src/lib/app-data/readiness-schedule.test.ts
@@ -43,4 +44,6 @@ jobs:
           src/lib/preview-path-prefix.test.ts
       - name: Lint
         run: npm run lint
+      - name: cPanel static SPA build
+        run: npm run build:cpanel
 
