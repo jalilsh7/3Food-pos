@@ -150,6 +150,8 @@ export const phpApi = {
 
   exportBackup: () =>
     request<ApiEnvelope<{ backup: Record<string, unknown> }>>("/backup/export"),
+  restoreBackup: (backup: Record<string, unknown>) =>
+    request<ApiEnvelope<{ restored: { records: number; orders: number; effects: number; redemptions: number } }>>("/backup/restore", { method: "POST", body: JSON.stringify({ backup }) }),
 
   importLegacyData: (input: {
     data: Record<string, unknown[]>;
