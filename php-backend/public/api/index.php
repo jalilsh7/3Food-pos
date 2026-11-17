@@ -816,6 +816,12 @@ if ($method === 'POST' && $path === '/orders') {
                 $pdo->rollBack();
                 json_response(['ok' => false, 'error' => 'discount_changed', 'message' => 'کد تخفیف تغییر کرده است؛ دوباره بررسی کنید'], 409);
             }
+            foreach (['type','value','maxDiscount','minOrder','maxUses','perCustomer','startsAt','endsAt','audience'] as $ruleField) {
+                if (($lockedDiscount[$ruleField] ?? null) !== ($discountRecord[$ruleField] ?? null)) {
+                    $pdo->rollBack();
+                    json_response(['ok' => false, 'error' => 'discount_changed', 'message' => 'قوانین کد تخفیف هم‌زمان تغییر کرده است؛ سفارش را دوباره محاسبه کنید'], 409);
+                }
+            }
             $lockedMaxUses = max(0, (int)($lockedDiscount['maxUses'] ?? 0));
             $lockedUsedCount = max(0, (int)($lockedDiscount['usedCount'] ?? 0));
             if ($lockedMaxUses > 0 && $lockedUsedCount >= $lockedMaxUses) {
