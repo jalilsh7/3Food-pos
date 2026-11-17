@@ -201,6 +201,19 @@ try {
     foreach (['smsUser', 'smsKey', 'smsFrom'] as $secretField) {
         check(!array_key_exists($secretField, $backupSettings), 'backup never exports ' . $secretField);
     }
+    $occupiedRestore = api('POST', '/api/v1/backup/restore', ['backup' => $backupData], csrf_headers());
+    check($occupiedRestore['status'] === 409 && ($occupiedRestore['json']['error'] ?? '') === 'restore_requires_empty_pos', 'restore refuses to overwrite a populated POS database');
+    $pdo->exec('DELETE FROM pos_discount_redemptions');
+    $pdo->exec('DELETE FROM pos_order_effects');
+    $pdo->exec('DELETE FROM pos_orders');
+    $pdo->exec('DELETE FROM pos_records');
+    $pdo->exec("UPDATE pos_counters SET counter_value = 0 WHERE counter_key = 'order_number'");
+    $restored = api('POST', '/api/v1/backup/restore', ['backup' => $backupData], csrf_headers());
+    check($restored['status'] === 200 && ($restored['json']['restored']['orders'] ?? 0) === 1, 'manager restores complete backup into empty POS database');
+    check((int)$pdo->query('SELECT COUNT(*) FROM pos_records')->fetchColumn() === count($backupData['records']), 'restore reconstructs all POS records');
+    check((int)$pdo->query('SELECT COUNT(*) FROM pos_order_effects')->fetchColumn() === 2, 'restore reconstructs reversible order effects');
+    check((int)$pdo->query('SELECT COUNT(*) FROM pos_discount_redemptions')->fetchColumn() === count($backupData['discount_redemptions']), 'restore reconstructs discount redemption ledger');
+    check((int)$pdo->query('SELECT counter_value FROM pos_counters WHERE counter_key = "order_number"')->fetchColumn() === (int)$backupData['counters'][0]['counter_value'], 'restore preserves order number counter');
 
     $logout = api('POST', '/api/v1/auth/logout', [], csrf_headers());
     check($logout['status'] === 200, 'manager logout');
