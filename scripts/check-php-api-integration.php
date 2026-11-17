@@ -418,7 +418,7 @@ try {
     ]);
     $concurrentStatuses = array_column($concurrentResults, 'status');
     sort($concurrentStatuses);
-    check($concurrentStatuses === [201, 409], 'concurrent orders cannot oversell locked ingredient stock');
+    check($concurrentStatuses === [201, 409], 'concurrent orders cannot oversell locked ingredient stock; responses=' . json_encode($concurrentResults));
     $concurrentErrors = array_values(array_filter($concurrentResults, fn($r) => $r['status'] === 409));
     check(($concurrentErrors[0]['json']['error'] ?? '') === 'insufficient_stock', 'losing concurrent order fails for insufficient stock');
     $stockAfterRace = $getPayload($pdo, 'ingredients', 'ci-ingredient');
