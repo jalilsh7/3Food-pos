@@ -210,6 +210,12 @@ if ($method === 'GET' && $path === '/health') {
     json_response(['ok' => true, 'service' => '3food-pos-php-api', 'database' => 'mysql']);
 }
 
+if ($method === 'GET' && $path === '/setup/status') {
+    $completed = (int)$pdo->query('SELECT setup_completed FROM app_install_state WHERE id = 1')->fetchColumn() === 1;
+    $users = (int)$pdo->query('SELECT COUNT(*) FROM app_users')->fetchColumn();
+    json_response(['ok' => true, 'setup_required' => !$completed && $users === 0]);
+}
+
 if ($method === 'POST' && $path === '/setup/manager') {
     $provided = (string)($_SERVER['HTTP_X_SETUP_TOKEN'] ?? '');
     $expected = (string)($config['setup_token'] ?? '');
