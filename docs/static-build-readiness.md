@@ -19,7 +19,8 @@
 ## نتیجه CI
 
 - build اولیه plain Vite برای cPanel روی commit `4556531a4be29884c278477cd2072d0caf9f5e65` موفق شد؛ خروجی شامل `dist/index.html` و bundleهای JS/CSS بود.
-- اجرای workflow روی commit نهایی بسته‌بندی باید جداگانه بررسی شود تا اجرای script بسته‌بندی و artifact upload نیز تأیید شوند.
+- اجرای کامل CI روی commit `d3632e38036d6002a6c38f713018ca367d69d8db` موفق شد: PHP syntax، TypeScript، تست‌ها، ESLint، build استاتیک، اعتبارسنجی ساختار بسته و upload artifact.
+- artifact با نام `3food-pos-cpanel` در [اجرای GitHub Actions](https://github.com/jalilsh7/3Food-pos/actions/runs/44098838943) موجود است؛ حجم 471,264 بایت و مهلت نگهداری تا 2026-12-01.
 - تست Apache واقعی، اتصال PDO/MySQL، ورود مدیر، سفارش هم‌زمان و SMS هنوز روی cPanel اجرا نشده‌اند.
 
 ## ساختار نصب روی cPanel
