@@ -735,6 +735,8 @@ if ($method === 'POST' && $path === '/orders') {
     try {
         $pdo->beginTransaction();
 
+        // Lock ingredients in a stable order to reduce deadlocks between concurrent checkouts.
+        ksort($ingredientNeeds, SORT_STRING);
         // Lock and deduct every recipe ingredient in the same transaction as order creation.
         $ingredientSelect = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'ingredients' AND id = ? FOR UPDATE");
         $ingredientUpdate = $pdo->prepare("UPDATE pos_records SET payload = ?, updated_by = ? WHERE resource = 'ingredients' AND id = ?");
@@ -776,6 +778,8 @@ if ($method === 'POST' && $path === '/orders') {
             $tomanPerPoint = max(1, (int)($settings['tomanPerPoint'] ?? 1));
             $pointsPerToman = max(1, (int)($settings['pointsPerToman'] ?? 100000));
             $pointsToSpend = $pointsDiscount > 0 ? (int)ceil($pointsDiscount / $tomanPerPoint) : 0;
+            $customerName = substr((string)($lockedCustomer['name'] ?? $customerName ?? ''), 0, 160);
+            $customerPhone = substr((string)($lockedCustomer['phone'] ?? $customerPhone ?? ''), 0, 30);
             $currentPoints = max(0, (int)($lockedCustomer['points'] ?? 0));
             if ($pointsToSpend > $currentPoints || ($pointsToSpend * $tomanPerPoint) < $pointsDiscount) {
                 $pdo->rollBack();
