@@ -11,6 +11,8 @@ test("POS business state is not persisted to browser storage", () => {
   assert.match(store, /products:\s*\[\]/);
   assert.match(store, /orders:\s*\[\]/);
   assert.match(store, /nextOrder:\s*1/);
+  assert.doesNotMatch(store, /resetDemo/);
+  assert.doesNotMatch(app, /بازگشت به نمونه/);
 });
 
 test("each role bootstrap replaces collections, including empty collections", () => {
