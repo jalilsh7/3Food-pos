@@ -560,7 +560,13 @@ if ($method === 'POST' && $path === '/backup/restore') {
     }
     try {
         $pdo->beginTransaction();
-        $pdo->query('SELECT id FROM pos_counters WHERE counter_key = "order_number" FOR UPDATE')->fetchColumn();
+        $pdo->query('SELECT counter_key FROM pos_counters WHERE counter_key = "order_number" FOR UPDATE')->fetchColumn();
+        // Lock the empty/current key ranges too, preventing concurrent POS writes
+        // from slipping in after the empty-database check but before restoration.
+        $pdo->query('SELECT id FROM pos_records FOR UPDATE')->fetchAll();
+        $pdo->query('SELECT id FROM pos_orders FOR UPDATE')->fetchAll();
+        $pdo->query('SELECT id FROM pos_order_effects FOR UPDATE')->fetchAll();
+        $pdo->query('SELECT id FROM pos_discount_redemptions FOR UPDATE')->fetchAll();
         $occupied = (int)$pdo->query('SELECT (SELECT COUNT(*) FROM pos_records) + (SELECT COUNT(*) FROM pos_orders) + (SELECT COUNT(*) FROM pos_order_effects) + (SELECT COUNT(*) FROM pos_discount_redemptions)')->fetchColumn();
         if ($occupied !== 0) {
             $pdo->rollBack();
