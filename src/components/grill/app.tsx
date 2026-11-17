@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   ChefHat, ClipboardList, LayoutDashboard, MessageSquare, Percent,
@@ -11,7 +11,7 @@ import {
   type CartLine, type DiscountCode, type Order, type Product, type Role, type SmsEvent,
 } from "@/lib/pos/model";
 import { lowStock, usePos } from "@/lib/pos/store";
-import { phpApi } from "@/lib/api/php-client";
+import { phpApi, type ApiUser } from "@/lib/api/php-client";
 
 type View = "pos" | "orders" | "menu" | "stock" | "customers" | "codes" | "reports" | "sms" | "settings";
 
@@ -37,54 +37,168 @@ export function GrillApp() {
   const role = usePos((s) => s.settings.role);
   const shop = usePos((s) => s.settings.shopName);
   const setRole = usePos((s) => s.setRole);
+  const [user, setUser] = useState<ApiUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [setupRequired, setSetupRequired] = useState(false);
+  const [sessionError, setSessionError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    void phpApi.me()
+      .then(async (result) => {
+        if (!active) return;
+        if (result.authenticated && result.user) {
+          setUser(result.user);
+          return;
+        }
+        const setup = await phpApi.setupStatus();
+        if (active) setSetupRequired(setup.setup_required);
+      })
+      .catch((error: unknown) => {
+        if (active) setSessionError(error instanceof Error ? error.message : "ارتباط با سرور برقرار نشد");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (user) setRole(user.role);
+  }, [user, setRole]);
+
+  async function logout() {
+    try {
+      await phpApi.logout();
+      setUser(null);
+      setSessionError("");
+    } catch (error) {
+      setSessionError(error instanceof Error ? error.message : "خروج انجام نشد");
+    }
+  }
+
+  if (loading) return <AuthFrame><p className="text-sm text-muted">در حال بررسی نشست امن...</p></AuthFrame>;
+  if (sessionError && !user) return <AuthFrame><p className="text-sm text-warn">{sessionError}</p><button className="rounded-xl bg-ink px-4 py-2 text-bg" onClick={() => window.location.reload()}>تلاش دوباره</button></AuthFrame>;
+  if (!user) return <PhpLoginScreen setupRequired={setupRequired} onAuthenticated={setUser} />;
+  if (user.must_change_password) return <ChangePasswordScreen user={user} onChanged={() => setUser({ ...user, must_change_password: false })} />;
   const allowed = NAV.filter((n) => n.roles.includes(role));
-  const [view, setView] = useState<View>(allowed[0]?.id ?? "orders");
-  const current = allowed.some((n) => n.id === view) ? view : allowed[0].id;
+  const [viewFallback] = allowed;
   return (
     <div className="min-h-screen bg-bg text-ink">
       <header className="sticky top-0 z-20 flex min-w-0 items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3">
         <div>
           <p className="text-lg font-bold">{shop}</p>
-          <p className="text-xs text-muted">صندوق روزانه فست‌فود</p>
+          <p className="text-xs text-muted">{user.display_name} — {ROLE_LABEL[user.role]}</p>
         </div>
-        <label className="text-xs text-muted">
-          نقش
-          <select className={`${inputCls} mt-1 py-2`} value={role} onChange={(e) => {
-            const next = e.target.value as Role;
-            setRole(next);
-            const first = NAV.find((n) => n.roles.includes(next));
-            if (first) setView(first.id);
-          }}>
-            {(Object.keys(ROLE_LABEL) as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-          </select>
-        </label>
+        <button type="button" onClick={() => void logout()} className="rounded-xl border border-line px-3 py-2 text-sm">خروج امن</button>
       </header>
-      <div className="mx-auto grid min-w-0 max-w-6xl gap-4 px-3 py-4 lg:grid-cols-[180px_1fr]">
-        <nav className="grid min-w-0 grid-cols-3 gap-2 lg:flex lg:flex-col">
-          {allowed.map((n) => {
-            const Icon = n.icon;
-            const on = current === n.id;
-            return (
-              <button key={n.id} onClick={() => setView(n.id)} className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold ${on ? "bg-chili text-chili-ink" : "bg-surface text-ink border border-line"}`}>
-                <Icon size={18} />{n.label}
-              </button>
-            );
-          })}
-        </nav>
-        <main className="min-w-0">
-          {current === "pos" ? <PosScreen /> : null}
-          {current === "orders" ? <OrdersScreen /> : null}
-          {current === "menu" ? <MenuScreen /> : null}
-          {current === "stock" ? <StockScreen /> : null}
-          {current === "customers" ? <CustomersScreen /> : null}
-          {current === "codes" ? <CodesScreen /> : null}
-          {current === "reports" ? <ReportsScreen /> : null}
-          {current === "sms" ? <SmsScreen /> : null}
-          {current === "settings" ? <SettingsScreen /> : null}
-        </main>
-      </div>
+      <PosWorkspace allowed={allowed} initialView={viewFallback?.id ?? "orders"} />
     </div>
   );
+}
+
+function PosWorkspace({ allowed, initialView }: { allowed: typeof NAV; initialView: View }) {
+  const [view, setView] = useState<View>(initialView);
+  const current = allowed.some((n) => n.id === view) ? view : allowed[0]?.id ?? "orders";
+  return (
+    <div className="mx-auto grid min-w-0 max-w-6xl gap-4 px-3 py-4 lg:grid-cols-[180px_1fr]">
+      <nav className="grid min-w-0 grid-cols-3 gap-2 lg:flex lg:flex-col">
+        {allowed.map((n) => {
+          const Icon = n.icon;
+          const on = current === n.id;
+          return (
+            <button key={n.id} onClick={() => setView(n.id)} className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold ${on ? "bg-chili text-chili-ink" : "bg-surface text-ink border border-line"}`}>
+              <Icon size={18} />{n.label}
+            </button>
+          );
+        })}
+      </nav>
+      <main className="min-w-0">
+        {current === "pos" ? <PosScreen /> : null}
+        {current === "orders" ? <OrdersScreen /> : null}
+        {current === "menu" ? <MenuScreen /> : null}
+        {current === "stock" ? <StockScreen /> : null}
+        {current === "customers" ? <CustomersScreen /> : null}
+        {current === "codes" ? <CodesScreen /> : null}
+        {current === "reports" ? <ReportsScreen /> : null}
+        {current === "sms" ? <SmsScreen /> : null}
+        {current === "settings" ? <SettingsScreen /> : null}
+      </main>
+    </div>
+  );
+}
+
+function AuthFrame({ children }: { children: React.ReactNode }) {
+  return <div className="grid min-h-screen place-items-center bg-bg p-4"><Card>{children}</Card></div>;
+}
+
+function PhpLoginScreen({ setupRequired, onAuthenticated }: { setupRequired: boolean; onAuthenticated: (user: ApiUser) => void }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("مدیر");
+  const [setupToken, setSetupToken] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const result = setupRequired
+        ? await phpApi.setupManager({ username, password, display_name: displayName, setupToken })
+        : await phpApi.login(username, password);
+      onAuthenticated(result.user);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ورود انجام نشد");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <AuthFrame>
+      <form onSubmit={(event) => void submit(event)} className="w-full min-w-[min(84vw,360px)] space-y-3">
+        <h1 className="text-xl font-bold">{setupRequired ? "راه‌اندازی مدیر اصلی" : "ورود به صندوق"}</h1>
+        {setupRequired ? <>
+          <Field label="نام نمایشی"><input className={inputCls} value={displayName} onChange={(e) => setDisplayName(e.target.value)} required /></Field>
+          <Field label="توکن یک‌بارمصرف راه‌اندازی"><input className={inputCls} type="password" value={setupToken} onChange={(e) => setSetupToken(e.target.value)} required autoComplete="off" /></Field>
+        </> : null}
+        <Field label="نام کاربری"><input className={inputCls} value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" required /></Field>
+        <Field label="رمز عبور"><input className={inputCls} type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={setupRequired ? "new-password" : "current-password"} minLength={setupRequired ? 12 : undefined} required /></Field>
+        {error ? <p className="text-sm text-warn">{error}</p> : null}
+        <button disabled={busy} className="w-full rounded-xl bg-ink px-4 py-3 font-semibold text-bg disabled:opacity-50">{busy ? "در حال انجام..." : setupRequired ? "ساخت مدیر" : "ورود امن"}</button>
+      </form>
+    </AuthFrame>
+  );
+}
+
+function ChangePasswordScreen({ user, onChanged }: { user: ApiUser; onChanged: () => void }) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await phpApi.changePassword(current, next);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "تغییر رمز انجام نشد");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return <AuthFrame><form onSubmit={(event) => void submit(event)} className="w-full min-w-[min(84vw,360px)] space-y-3">
+    <h1 className="text-xl font-bold">تغییر رمز عبور</h1>
+    <p className="text-sm text-muted">{user.display_name}، پیش از ادامه باید رمز خود را تغییر دهید.</p>
+    <Field label="رمز فعلی"><input className={inputCls} type="password" value={current} onChange={(e) => setCurrent(e.target.value)} required /></Field>
+    <Field label="رمز جدید (حداقل ۱۲ نویسه)"><input className={inputCls} type="password" value={next} onChange={(e) => setNext(e.target.value)} minLength={12} required /></Field>
+    {error ? <p className="text-sm text-warn">{error}</p> : null}
+    <button disabled={busy} className="w-full rounded-xl bg-ink px-4 py-3 font-semibold text-bg disabled:opacity-50">{busy ? "در حال ذخیره..." : "ذخیره رمز جدید"}</button>
+  </form></AuthFrame>;
 }
 
 function orderVars(order: Order, balance = "") {
