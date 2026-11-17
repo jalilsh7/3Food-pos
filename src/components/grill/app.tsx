@@ -8,7 +8,7 @@ import { Btn, Card, Empty, Field, inputCls } from "./bits";
 import { ReceiptView } from "./receipt";
 import {
   customerCodeUses, fillTemplate, money, quoteOrder, TIER_LABEL, TIER_OFF, tierOf, uid,
-  type CartLine, type DiscountCode, type Order, type Product, type Role, type SmsEvent, type PosState, type Settings,
+  type CartLine, type DiscountCode, type Order, type Product, type Role, type SmsEvent, type PosState, type Settings, type SmsLog,
 } from "@/lib/pos/model";
 import { lowStock, usePos } from "@/lib/pos/store";
 import { phpApi, type ApiUser } from "@/lib/api/php-client";
@@ -278,19 +278,27 @@ async function sendRaw(phone: string, text: string) {
 }
 
 async function postSms(phone: string, text: string, event: string, bodyId: string) {
-  const s = usePos.getState();
+  let log: SmsLog = {
+    id: uid("sm"),
+    at: new Date().toISOString(),
+    to: phone,
+    event,
+    text,
+    ok: false,
+    detail: "ارسال انجام نشد",
+  };
   try {
     const data = await phpApi.sendSms({ to: phone, text, bodyId });
-    s.logSms({ to: phone, event, text, ok: data.sent, detail: data.detail });
+    log = { ...log, ok: data.sent, detail: data.detail };
   } catch (err) {
-    s.logSms({
-      to: phone,
-      event,
-      text,
-      ok: false,
-      detail: err instanceof Error ? err.message : "خطا در ارسال پیامک",
-    });
+    log = { ...log, detail: err instanceof Error ? err.message : "خطا در ارسال پیامک" };
   }
+  try {
+    await phpApi.saveRecord("sms_logs", log);
+  } catch (err) {
+    log = { ...log, detail: `${log.detail} — ذخیره گزارش در سرور ناموفق بود: ${err instanceof Error ? err.message : "خطای نامشخص"}` };
+  }
+  usePos.getState().logSms(log);
 }
 
 function PosScreen() {
@@ -362,6 +370,9 @@ function PosScreen() {
         customer: customer ? { id: customer.id } : undefined,
         discountCode: q.discount?.code ?? '',
         note: cart.map((line) => line.note).filter(Boolean).join(" | ").slice(0, 2000),
+        guestName,
+        guestPhone: phone.trim(),
+        payment: pay,
       });
       const res = placeOrder({
         lines: cart, customer, code, pointsToUse: points, taxEnabled: settings.taxEnabled !== false, payment: pay,
@@ -844,11 +855,15 @@ type ServerOrder = {
   customerId?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
+  payment?: Order["payment"];
+  pointsUsed?: number;
+  pointsEarned?: number;
   discountCode?: string | null;
 };
 
 type ServerBootstrap = Partial<Omit<PosState, "orders" | "settings">> & {
   orders?: ServerOrder[];
+  sms_logs?: SmsLog[];
   settings?: Array<Partial<Settings> & { id?: string }>;
 };
 
@@ -890,13 +905,13 @@ function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, role: Ro
     pointsDiscount: Number(order.totals?.pointsDiscount ?? 0),
     tax: Number(order.totals?.tax ?? 0),
     total: Number(order.totals?.total ?? 0),
-    payment: "cash",
+    payment: order.payment ?? "cash",
     customerId: order.customerId ?? null,
     customerName: order.customerName ?? "",
     customerPhone: order.customerPhone ?? "",
     discountCode: order.discountCode ?? "",
-    pointsUsed: 0,
-    pointsEarned: 0,
+    pointsUsed: Number(order.pointsUsed ?? 0),
+    pointsEarned: Number(order.pointsEarned ?? 0),
   }));
 
   // Bootstrap is a complete snapshot for the authenticated role. Missing
@@ -910,6 +925,7 @@ function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, role: Ro
     discounts: data.discounts ?? [],
     expenses: data.expenses ?? [],
     templates: data.templates ?? [],
+    smsLogs: data.sms_logs ?? [],
     orders,
     settings: {
       ...current.settings,
