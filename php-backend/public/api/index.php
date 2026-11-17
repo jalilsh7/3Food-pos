@@ -532,16 +532,17 @@ if ($method === 'GET' && $path === '/bootstrap') {
             return $value;
         }, $q->fetchAll());
     }
-    $orders = $pdo->query('SELECT id, order_number, status, customer_id, customer_name, customer_phone, items, totals, note, created_at, updated_at FROM pos_orders ORDER BY id DESC LIMIT 500')->fetchAll();
+    $orders = $pdo->query('SELECT id, order_number, status, customer_id, customer_name, customer_phone, discount_code, items, totals, note, created_at, updated_at FROM pos_orders ORDER BY id DESC LIMIT 500')->fetchAll();
     foreach ($orders as &$order) {
         $order['id'] = (string)$order['id'];
         $order['orderNumber'] = (int)$order['order_number'];
         $order['customerId'] = $order['customer_id'];
         $order['customerName'] = $order['customer_name'];
         $order['customerPhone'] = $order['customer_phone'];
+        $order['discountCode'] = $order['discount_code'] ?? '';
         $order['items'] = json_decode((string)$order['items'], true) ?: [];
         $order['totals'] = json_decode((string)$order['totals'], true) ?: [];
-        unset($order['order_number'], $order['customer_id'], $order['customer_name'], $order['customer_phone']);
+        unset($order['order_number'], $order['customer_id'], $order['customer_name'], $order['customer_phone'], $order['discount_code']);
         // Kitchen staff need preparation details, not customer contact data or
         // cashier/manager notes that may contain private instructions.
         if ($user['role'] === 'kitchen') {
@@ -760,7 +761,7 @@ if ($method === 'POST' && $path === '/orders') {
         $expectedCodeDiscount = $discountType === 'percent'
             ? (int)round($afterTierForCode * $discountValue / 100)
             : min($afterTierForCode, (int)round($discountValue));
-        if ($maxDiscount > 0) $expectedCodeDiscount = min($expectedCodeDiscount, $maxDiscount);
+        if ($discountType === 'percent' && $maxDiscount > 0) $expectedCodeDiscount = min($expectedCodeDiscount, $maxDiscount);
     }
     $settingsForPointsStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'settings' AND id = 'main' LIMIT 1");
     $settingsForPointsStmt->execute();
@@ -823,7 +824,7 @@ if ($method === 'POST' && $path === '/orders') {
             }
             $lockedPerCustomer = max(0, (int)($lockedDiscount['perCustomer'] ?? 0));
             if ($lockedPerCustomer > 0 && $customerId !== '') {
-                $usageStmt = $pdo->prepare("SELECT COUNT(*) FROM pos_orders WHERE customer_id = ? AND discount_code = ? AND status <> 'cancelled'");
+                $usageStmt = $pdo->prepare("SELECT COUNT(*) FROM pos_orders WHERE customer_id = ? AND discount_code = ?");
                 $usageStmt->execute([$customerId, $discountCode]);
                 if ((int)$usageStmt->fetchColumn() >= $lockedPerCustomer) {
                     $pdo->rollBack();
