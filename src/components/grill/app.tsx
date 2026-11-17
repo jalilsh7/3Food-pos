@@ -11,6 +11,7 @@ import {
   type CartLine, type DiscountCode, type Order, type Product, type Role, type SmsEvent,
 } from "@/lib/pos/model";
 import { lowStock, usePos } from "@/lib/pos/store";
+import { phpApi } from "@/lib/api/php-client";
 
 type View = "pos" | "orders" | "menu" | "stock" | "customers" | "codes" | "reports" | "sms" | "settings";
 
@@ -95,35 +96,27 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
   const tpl = s.templates.find((t) => t.event === event);
   if (!tpl?.enabled || !phone) return;
   const text = fillTemplate(tpl.body, { ...vars, shop: s.settings.shopName });
-  if (!s.settings.smsUser || !s.settings.smsKey || (!tpl.bodyId && !s.settings.smsFrom)) {
-    s.logSms({ to: phone, event, text, ok: false, detail: "تنظیمات ملی‌پیامک کامل نیست" });
-    return;
-  }
   await postSms(phone, text, event, tpl.bodyId);
 }
 
 async function sendRaw(phone: string, text: string) {
-  const s = usePos.getState();
   if (!phone || !text) return;
-  if (!s.settings.smsUser || !s.settings.smsKey || !s.settings.smsFrom) {
-    s.logSms({ to: phone, event: "manual", text, ok: false, detail: "تنظیمات ملی‌پیامک کامل نیست" });
-    return;
-  }
   await postSms(phone, text, "manual", "");
 }
 
 async function postSms(phone: string, text: string, event: string, bodyId: string) {
   const s = usePos.getState();
   try {
-    const res = await fetch("/api/sms", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "send", username: s.settings.smsUser, password: s.settings.smsKey, from: s.settings.smsFrom, to: phone, text, bodyId }),
-    });
-    const data = (await res.json()) as { ok: boolean; detail: string };
-    s.logSms({ to: phone, event, text, ok: data.ok, detail: data.detail });
+    const data = await phpApi.sendSms({ to: phone, text, bodyId });
+    s.logSms({ to: phone, event, text, ok: data.sent, detail: data.detail });
   } catch (err) {
-    s.logSms({ to: phone, event, text, ok: false, detail: err instanceof Error ? err.message : "خطا" });
+    s.logSms({
+      to: phone,
+      event,
+      text,
+      ok: false,
+      detail: err instanceof Error ? err.message : "خطا در ارسال پیامک",
+    });
   }
 }
 
