@@ -746,7 +746,7 @@ if ($method === 'POST' && $path === '/sms/send') {
         $statusLine = $http_response_header[0] ?? '';
         $httpOk = preg_match('/\\s2[0-9]{2}\\s/', $statusLine) === 1;
         $numeric = (int)preg_replace('/[^0-9-]/', '', $raw);
-        $ok = $httpOk && ($numeric > 0 || ($numeric === 0 && trim($raw) !== '' && !is_numeric(trim($raw))));
+        $ok = $httpOk && $numeric > 0;
         audit($pdo, (int)$actor['id'], 'sms_sent', 'sms', null, ['to' => $to, 'ok' => $ok]);
         json_response(['ok' => true, 'sent' => $ok, 'detail' => substr(trim($raw), 0, 300)]);
     } catch (Throwable $e) {
