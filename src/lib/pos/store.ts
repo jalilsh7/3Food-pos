@@ -257,7 +257,7 @@ type Actions = {
   saveCustomer: (c: Customer) => void;
   saveDiscount: (d: DiscountCode) => void;
   removeDiscount: (id: string) => void;
-  addExpense: (e: Omit<Expense, "id">) => void;
+  addExpense: (e: Omit<Expense, "id"> & { id?: string }) => void;
   removeExpense: (id: string) => void;
   saveTemplate: (t: SmsTemplate) => void;
   placeOrder: (input: {
@@ -322,7 +322,7 @@ export const usePos = create<PosState & Actions>()(
             : [...s.discounts, { ...d, code: d.code.toUpperCase() }],
         })),
       removeDiscount: (id) => set((s) => ({ discounts: s.discounts.filter((d) => d.id !== id) })),
-      addExpense: (e) => set((s) => ({ expenses: [{ ...e, id: uid("ex") }, ...s.expenses] })),
+      addExpense: (e) => set((s) => ({ expenses: [{ ...e, id: e.id ?? uid("ex") }, ...s.expenses] })),
       removeExpense: (id) => set((s) => ({ expenses: s.expenses.filter((e) => e.id !== id) })),
       saveTemplate: (t) =>
         set((s) => ({ templates: s.templates.map((x) => (x.event === t.event ? t : x)) })),
