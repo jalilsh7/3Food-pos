@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS pos_orders (
   UNIQUE KEY uq_pos_order_idempotency (idempotency_key),
   KEY idx_pos_orders_status_created (status, created_at),
   KEY idx_pos_orders_customer (customer_id),
+  KEY idx_pos_orders_discount_customer (discount_code, customer_id, status),
   CONSTRAINT fk_pos_orders_creator FOREIGN KEY (created_by) REFERENCES app_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
