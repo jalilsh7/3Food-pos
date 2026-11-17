@@ -583,14 +583,51 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
     $body = request_json();
     $status = (string)($body['status'] ?? '');
     if (!in_array($status, ['new','preparing','ready','delivered','cancelled'], true)) json_response(['ok' => false, 'error' => 'invalid_status'], 422);
-    $q = $pdo->prepare('UPDATE pos_orders SET status = ? WHERE id = ?');
-    $q->execute([$status, $id]);
-    if ($q->rowCount() === 0) {
-        $exists = $pdo->prepare('SELECT id FROM pos_orders WHERE id = ?'); $exists->execute([$id]);
-        if (!$exists->fetch()) json_response(['ok' => false, 'error' => 'order_not_found'], 404);
+    // Serialize status changes and enforce a one-way kitchen workflow.
+    // A row lock prevents two devices from advancing the same order concurrently.
+    try {
+        $pdo->beginTransaction();
+        $orderStmt = $pdo->prepare('SELECT status FROM pos_orders WHERE id = ? FOR UPDATE');
+        $orderStmt->execute([$id]);
+        $currentStatus = $orderStmt->fetchColumn();
+        if ($currentStatus === false) {
+            $pdo->rollBack();
+            json_response(['ok' => false, 'error' => 'order_not_found'], 404);
+        }
+
+        $transitions = [
+            'new' => ['preparing', 'cancelled'],
+            'preparing' => ['ready', 'cancelled'],
+            'ready' => ['delivered', 'cancelled'],
+            'delivered' => [],
+            'cancelled' => [],
+        ];
+        if (!in_array($status, $transitions[(string)$currentStatus] ?? [], true)) {
+            $pdo->rollBack();
+            json_response([
+                'ok' => false,
+                'error' => 'invalid_status_transition',
+                'message' => 'تغییر وضعیت سفارش از وضعیت فعلی مجاز نیست',
+            ], 409);
+        }
+        if ($actor['role'] === 'kitchen' && $status === 'cancelled') {
+            $pdo->rollBack();
+            json_response(['ok' => false, 'error' => 'forbidden'], 403);
+        }
+
+        $update = $pdo->prepare('UPDATE pos_orders SET status = ?, updated_at = NOW() WHERE id = ?');
+        $update->execute([$status, $id]);
+        audit($pdo, (int)$actor['id'], 'order_status_changed', 'order', (string)$id, [
+            'from' => (string)$currentStatus,
+            'to' => $status,
+        ]);
+        $pdo->commit();
+        json_response(['ok' => true, 'status' => $status]);
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('[3Food POS] Order status update failed: ' . $e->getMessage());
+        json_response(['ok' => false, 'error' => 'order_status_update_failed', 'message' => 'تغییر وضعیت سفارش انجام نشد'], 500);
     }
-    audit($pdo, (int)$actor['id'], 'order_status_changed', 'order', (string)$id, ['status' => $status]);
-    json_response(['ok' => true]);
 }
 
 json_response(['ok' => false, 'error' => 'not_found', 'message' => 'مسیر API پیدا نشد'], 404);
