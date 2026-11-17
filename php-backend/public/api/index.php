@@ -735,7 +735,7 @@ if ($method === 'POST' && $path === '/sms/send') {
         : ['username' => $username, 'password' => $password, 'to' => $to, 'from' => $sender, 'text' => $message, 'isFlash' => 'false'];
     $context = stream_context_create(['http' => [
         'method' => 'POST',
-        'header' => "Content-Type: application/x-www-form-urlencoded\\r\\n",
+        'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
         'content' => http_build_query($fields),
         'timeout' => 12,
         'ignore_errors' => true,
