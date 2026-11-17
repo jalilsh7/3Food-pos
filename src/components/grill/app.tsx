@@ -910,7 +910,6 @@ function SettingsScreen() {
   const settings = usePos((s) => s.settings);
   const patchSettings = usePos((s) => s.patchSettings);
   const exportBackup = usePos((s) => s.exportBackup);
-  const importBackup = usePos((s) => s.importBackup);
   const [note, setNote] = useState("");
   const [importing, setImporting] = useState(false);
   function persistSettings() {
@@ -988,15 +987,7 @@ function SettingsScreen() {
         <div className="flex flex-wrap gap-2">
           <Btn onClick={download}>دانلود پشتیبان</Btn>
           <Btn tone="ghost" onClick={() => void importLocalDataToMysql()} disabled={importing}>{importing ? "در حال انتقال..." : "انتقال داده این دستگاه به MySQL"}</Btn>
-          <label className="rounded-xl border border-line bg-surface px-4 py-3 text-sm font-semibold">
-            بازیابی
-            <input type="file" accept="application/json" className="hidden" onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              const err = importBackup(await file.text());
-              setNote(err || "بازیابی شد");
-            }} />
-          </label>
+          <p className="self-center text-xs text-muted">بازیابی پشتیبان تا اتصال امن به MySQL غیرفعال است.</p>
         </div>
         {note ? <p className="mt-2 text-sm">{note}</p> : null}
       </Card>
