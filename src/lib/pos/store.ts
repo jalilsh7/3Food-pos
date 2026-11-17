@@ -268,6 +268,7 @@ type Actions = {
     payment: Order["payment"];
     guestName: string;
     guestPhone: string;
+    serverOrder?: { id: string; number: number };
   }) => { ok: true; order: Order } | { ok: false; error: string };
   setStatus: (id: string, status: OrderStatus) => Order | null;
   logSms: (log: Omit<SmsLog, "id" | "at">) => void;
@@ -369,8 +370,8 @@ export const usePos = create<PosState & Actions>()(
         const earned = customerId ? Math.floor(q.total / s.settings.pointsPerToman) : 0;
         const spentPts = q.pointsDiscount > 0 ? Math.ceil(q.pointsDiscount / s.settings.tomanPerPoint) : 0;
         const order: Order = {
-          id: uid("or"),
-          number: s.nextOrder,
+          id: input.serverOrder?.id ?? uid("or"),
+          number: input.serverOrder?.number ?? s.nextOrder,
           createdAt: new Date().toISOString(),
           status: "new",
           lines: input.lines,
@@ -414,7 +415,7 @@ export const usePos = create<PosState & Actions>()(
         );
         set({
           orders: [order, ...s.orders],
-          nextOrder: s.nextOrder + 1,
+          nextOrder: Math.max(s.nextOrder + 1, order.number + 1),
           ingredients,
           customers,
           discounts,
