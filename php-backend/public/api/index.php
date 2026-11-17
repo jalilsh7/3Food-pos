@@ -651,13 +651,11 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
             $currentCustomer = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'customers' AND id = ? FOR UPDATE");
             $currentCustomer->execute([$id]);
             $currentPayload = $currentCustomer->fetchColumn();
-            if (is_string($currentPayload)) {
-                $current = json_decode($currentPayload, true);
-                if (is_array($current)) {
-                    foreach (['points', 'totalSpent', 'visits', 'createdAt'] as $serverField) {
-                        if (array_key_exists($serverField, $current)) $item[$serverField] = $current[$serverField];
-                        else unset($item[$serverField]);
-                    }
+            $current = is_string($currentPayload) ? json_decode($currentPayload, true) : null;
+            if (is_array($current)) {
+                foreach (['points', 'totalSpent', 'visits', 'createdAt'] as $serverField) {
+                    if (array_key_exists($serverField, $current)) $item[$serverField] = $current[$serverField];
+                    else unset($item[$serverField]);
                 }
             } else {
                 $item['points'] = 0;
@@ -668,6 +666,7 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
         }
         $payload = json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         if (strlen($payload) > 262144) {
+            if ($cashierCustomerWrite && $pdo->inTransaction()) $pdo->rollBack();
             json_response(['ok' => false, 'error' => 'record_too_large', 'message' => 'حجم اطلاعات ارسالی بیش از حد مجاز است'], 413);
         }
         $q = $pdo->prepare('INSERT INTO pos_records (id, resource, payload, updated_by) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE payload = VALUES(payload), updated_by = VALUES(updated_by)');
