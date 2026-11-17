@@ -735,6 +735,9 @@ if ($method === 'POST' && $path === '/orders') {
     try {
         $pdo->beginTransaction();
 
+        $pointsToSpend = 0;
+        $pointsEarned = 0;
+
         // Lock ingredients in a stable order to reduce deadlocks between concurrent checkouts.
         ksort($ingredientNeeds, SORT_STRING);
         // Lock and deduct every recipe ingredient in the same transaction as order creation.
@@ -815,6 +818,16 @@ if ($method === 'POST' && $path === '/orders') {
             (int)$actor['id'],
         ]);
         $id = (int)$pdo->lastInsertId();
+
+        // Persist the exact stock and loyalty effects so cancellation can reverse
+        // them once, inside the same transaction as the status change.
+        $effectInsert = $pdo->prepare('INSERT INTO pos_order_effects (order_id, effect_type, resource_id, quantity, points_spent, points_earned, money_delta, visits_delta) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+        foreach ($ingredientNeeds as $ingredientId => $needed) {
+            if ((float)$needed > 0) $effectInsert->execute([$id, 'ingredient', $ingredientId, round((float)$needed, 3), 0, 0, 0, 0]);
+        }
+        if ($customerId !== '') {
+            $effectInsert->execute([$id, 'customer', $customerId, 0, $pointsToSpend, $pointsEarned, (int)$totals['total'], 1]);
+        }
         audit($pdo, (int)$actor['id'], 'order_created', 'order', (string)$id, ['order_number' => $orderNumber]);
         $pdo->commit();
         json_response(['ok' => true, 'order' => ['id' => (string)$id, 'orderNumber' => $orderNumber, 'status' => 'new', 'items' => $items, 'totals' => $totals]], 201);
@@ -880,6 +893,49 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
         if ($actor['role'] === 'kitchen' && $status === 'cancelled') {
             $pdo->rollBack();
             json_response(['ok' => false, 'error' => 'forbidden'], 403);
+        }
+
+        if ($status === 'cancelled') {
+            // Reverse only effects recorded for this order. FOR UPDATE plus the
+            // order-row lock and reversed_at guard make this operation one-shot.
+            $effectsStmt = $pdo->prepare('SELECT id, effect_type, resource_id, quantity, points_spent, points_earned, money_delta, visits_delta FROM pos_order_effects WHERE order_id = ? AND reversed_at IS NULL ORDER BY effect_type, resource_id FOR UPDATE');
+            $effectsStmt->execute([$id]);
+            $effects = $effectsStmt->fetchAll();
+            $ingredientIds = [];
+            foreach ($effects as $effect) if ($effect['effect_type'] === 'ingredient') $ingredientIds[] = (string)$effect['resource_id'];
+            sort($ingredientIds, SORT_STRING);
+            $ingredientSelect = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'ingredients' AND id = ? FOR UPDATE");
+            $ingredientUpdate = $pdo->prepare("UPDATE pos_records SET payload = ?, updated_by = ? WHERE resource = 'ingredients' AND id = ?");
+            foreach ($ingredientIds as $ingredientId) {
+                $effect = null;
+                foreach ($effects as $candidate) if ($candidate['effect_type'] === 'ingredient' && (string)$candidate['resource_id'] === $ingredientId) { $effect = $candidate; break; }
+                if (!$effect) continue;
+                $ingredientSelect->execute([$ingredientId]);
+                $rawIngredient = $ingredientSelect->fetchColumn();
+                $ingredient = is_string($rawIngredient) ? json_decode($rawIngredient, true) : null;
+                if (!is_array($ingredient)) throw new RuntimeException('Ingredient missing while reversing order ' . $id);
+                $ingredient['stock'] = round((float)($ingredient['stock'] ?? 0) + (float)$effect['quantity'], 3);
+                $ingredientUpdate->execute([json_encode($ingredient, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), (int)$actor['id'], $ingredientId]);
+            }
+            $customerEffects = array_values(array_filter($effects, static fn(array $effect): bool => $effect['effect_type'] === 'customer'));
+            foreach ($customerEffects as $effect) {
+                $customerLock = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'customers' AND id = ? FOR UPDATE");
+                $customerLock->execute([(string)$effect['resource_id']]);
+                $rawCustomer = $customerLock->fetchColumn();
+                $customer = is_string($rawCustomer) ? json_decode($rawCustomer, true) : null;
+                if (!is_array($customer)) throw new RuntimeException('Customer missing while reversing order ' . $id);
+                $customer['points'] = max(0, (int)($customer['points'] ?? 0) + (int)$effect['points_spent'] - (int)$effect['points_earned']);
+                $customer['totalSpent'] = max(0, (int)($customer['totalSpent'] ?? 0) - (int)$effect['money_delta']);
+                $customer['visits'] = max(0, (int)($customer['visits'] ?? 0) - (int)$effect['visits_delta']);
+                $customerUpdate = $pdo->prepare("UPDATE pos_records SET payload = ?, updated_by = ? WHERE resource = 'customers' AND id = ?");
+                $customerUpdate->execute([json_encode($customer, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), (int)$actor['id'], (string)$effect['resource_id']]);
+            }
+            if ($effects) {
+                $effectIds = array_map(static fn(array $effect): int => (int)$effect['id'], $effects);
+                $marks = implode(',', array_fill(0, count($effectIds), '?'));
+                $markStmt = $pdo->prepare("UPDATE pos_order_effects SET reversed_at = NOW(), reversed_by = ? WHERE id IN ($marks) AND reversed_at IS NULL");
+                $markStmt->execute(array_merge([(int)$actor['id']], $effectIds));
+            }
         }
 
         $update = $pdo->prepare('UPDATE pos_orders SET status = ?, updated_at = NOW() WHERE id = ?');
