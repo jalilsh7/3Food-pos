@@ -36,9 +36,9 @@
 - آزمون فشار هم‌زمانی و صحت تراکنش‌ها روی MySQL واقعی هنوز انجام نشده است؛ منطق تراکنشی در کد پیاده شده اما CI جایگزین MySQL staging نیست.
 - اعتبارسنجی کامل ارسال SMS روی هاست، گزارش‌ها، بکاپ/بازیابی و تست چند دستگاه.
 - مسیر build مخصوص cPanel از TanStack Start/Nitro جدا شده است: `vite.config.ts` در mode=cPanel از ورودی plain Vite + React + TanStack Router استفاده می‌کند؛ مسیر build عادی و dev قدیمی حفظ شده‌اند. `src/main.tsx` و `index.html` ورودی SPA هستند و `__root` برای document shell و route content تفکیک شده است.
-- `npm run build:cpanel` اکنون علاوه بر build استاتیک، `dist-cpanel/` را با frontend، PHP API، نمونه تنظیمات خصوصی، schema و migrationها و راهنمای نصب تولید می‌کند. بسته هنوز باید در CI نهایی و روی cPanel واقعی تأیید شود.
+- `npm run build:cpanel` علاوه بر build استاتیک، `dist-cpanel/` را با frontend، PHP API، نمونه تنظیمات خصوصی، schema و migrationها و راهنمای نصب تولید و اعتبارسنجی می‌کند. CI کامل روی commit `d3632e38036d6002a6c38f713018ca367d69d8db` موفق شد و artifact با نام `3food-pos-cpanel` در run `44098838943` بارگذاری شد.
 - `.htaccess` اکنون API PHP را پیش از fallback محافظت‌شده SPA بررسی می‌کند؛ تست رگرسیون این ترتیب در `scripts/cpanel-htaccess.test.mjs` اضافه شده است. این تست جایگزین build مرورگر یا آزمون Apache واقعی نیست.
-- build plain Vite cPanel در CI روی commit `4556531` موفق شده است؛ اجرای کامل آخرین workflow شامل packager و artifact upload هنوز باید تأیید شود.
+- build استاتیک، package validation و artifact upload در CI روی commit `d3632e3` همگی موفق شده‌اند؛ تست واقعی روی cPanel هنوز انجام نشده است.
 - اتصال واقعی MySQL/PDO_MYSQL و ارسال پیامک واقعی؛ نیازمند تنظیمات خصوصی cPanel و آزمایش روی staging است.
 
 ## نتیجه
