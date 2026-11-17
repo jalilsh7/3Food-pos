@@ -173,6 +173,7 @@ try {
         'idempotencyKey' => $key,
         'items' => [['key' => 'ci-line', 'productId' => 'ci-product', 'qty' => 1, 'unitPrice' => 1000, 'optionIds' => []]],
         'customer' => ['id' => 'ci-customer'],
+        'payment' => 'card',
         'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 1000],
         'note' => 'CI integration order',
     ];
@@ -181,6 +182,8 @@ try {
     $orderId = (string)($created['json']['order']['id'] ?? '');
     check($orderId !== '', 'created order id');
     check(($created['json']['order']['items'][0]['name'] ?? '') === 'CI Test Product', 'server canonical product name');
+    $managerSnapshot = api('GET', '/api/v1/bootstrap');
+    check($managerSnapshot['status'] === 200 && ($managerSnapshot['json']['data']['orders'][0]['payment'] ?? '') === 'card', 'bootstrap preserves selected payment method');
 
     $replay = api('POST', '/api/v1/orders', $orderBody, csrf_headers());
     check($replay['status'] === 200 && ($replay['json']['replayed'] ?? false) === true, 'idempotent retry returns original order');
@@ -309,6 +312,31 @@ try {
     check((int)$pdo->query('SELECT COUNT(*) FROM pos_order_effects')->fetchColumn() === 2, 'restore reconstructs reversible order effects');
     check((int)$pdo->query('SELECT COUNT(*) FROM pos_discount_redemptions')->fetchColumn() === count($backupData['discount_redemptions']), 'restore reconstructs discount redemption ledger');
     check((int)$pdo->query('SELECT counter_value FROM pos_counters WHERE counter_key = "order_number"')->fetchColumn() === (int)$backupData['counters'][0]['counter_value'], 'restore preserves order number counter');
+
+    $guestOrder = api('POST', '/api/v1/orders', [
+        'idempotencyKey' => '44444444-4444-4444-8444-444444444444',
+        'items' => [['key' => 'ci-guest-line', 'productId' => 'ci-product', 'qty' => 1, 'unitPrice' => 1000, 'optionIds' => []]],
+        'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 1000],
+        'guestName' => 'Guest Test',
+        'guestPhone' => '09120000000',
+        'payment' => 'online',
+    ], csrf_headers());
+    check($guestOrder['status'] === 201, 'create guest order with online payment');
+    $guestSnapshot = api('GET', '/api/v1/bootstrap');
+    $guestData = $guestSnapshot['json']['data']['orders'][0] ?? [];
+    check(($guestData['customerName'] ?? '') === 'Guest Test' && ($guestData['customerPhone'] ?? '') === '09120000000', 'bootstrap preserves guest identity');
+    check(($guestData['payment'] ?? '') === 'online', 'bootstrap preserves guest payment method');
+    $guestOrderId = (string)($guestOrder['json']['order']['id'] ?? '');
+    $guestCancel = api('PATCH', '/api/v1/orders/' . rawurlencode($guestOrderId) . '/status', ['status' => 'cancelled'], csrf_headers());
+    check($guestCancel['status'] === 200, 'cancel guest order after persistence check');
+
+    $smsLogWrite = api('POST', '/api/v1/records/sms_logs', ['item' => [
+        'id' => 'ci-sms-log', 'at' => gmdate('c'), 'to' => '09120000000', 'event' => 'test',
+        'text' => 'CI SMS log', 'ok' => false, 'detail' => 'test failure',
+    ]], csrf_headers());
+    check($smsLogWrite['status'] === 201, 'manager can persist SMS delivery log');
+    $smsSnapshot = api('GET', '/api/v1/bootstrap');
+    check(($smsSnapshot['json']['data']['sms_logs'][0]['id'] ?? '') === 'ci-sms-log', 'manager bootstrap includes persistent SMS logs');
 
     $logout = api('POST', '/api/v1/auth/logout', [], csrf_headers());
     check($logout['status'] === 200, 'manager logout');
