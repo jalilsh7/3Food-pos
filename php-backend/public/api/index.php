@@ -657,6 +657,8 @@ if ($method === 'POST' && $path === '/orders') {
     if (!is_array($items) || count($items) < 1 || count($items) > 100 || !is_array($totals)) json_response(['ok' => false, 'error' => 'invalid_order', 'message' => 'اقلام یا مبلغ سفارش معتبر نیست'], 422);
     $serverSubtotal = 0;
     $ingredientNeeds = [];
+    $canonicalItems = [];
+    $productSnapshots = [];
     $productLookup = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'products' AND id = ? LIMIT 1");
     foreach ($items as $line) {
         if (!is_array($line) || !isset($line['productId'], $line['qty']) || !is_numeric($line['qty']) || (float)$line['qty'] <= 0 || (float)$line['qty'] > 999 || floor((float)$line['qty']) !== (float)$line['qty']) {
@@ -666,6 +668,8 @@ if ($method === 'POST' && $path === '/orders') {
         $productRaw = $productLookup->fetchColumn();
         $product = is_string($productRaw) ? json_decode($productRaw, true) : null;
         if (!is_array($product) || empty($product['active'])) json_response(['ok' => false, 'error' => 'product_unavailable', 'message' => 'یکی از محصولات سفارش فعال نیست'], 409);
+        $productId = (string)$line['productId'];
+        $productSnapshots[$productId] = hash('sha256', (string)$productRaw);
         // Derive ingredient consumption from the server-side recipe, never from browser input.
         foreach (($product['recipe'] ?? []) as $recipeLine) {
             if (!is_array($recipeLine) || !isset($recipeLine['ingredientId'], $recipeLine['qty'])) continue;
@@ -675,16 +679,40 @@ if ($method === 'POST' && $path === '/orders') {
                 $ingredientNeeds[$ingredientId] = ($ingredientNeeds[$ingredientId] ?? 0) + ($recipeQty * (int)$line['qty']);
             }
         }
-        $unitPrice = (int)($product['price'] ?? -1);
+        $basePrice = filter_var($product['price'] ?? null, FILTER_VALIDATE_INT);
+        if ($basePrice === false || $basePrice < 0) json_response(['ok' => false, 'error' => 'invalid_product_price'], 409);
+        $unitPrice = $basePrice;
         $validOptions = [];
-        foreach (($product['options'] ?? []) as $option) if (is_array($option) && isset($option['id'])) $validOptions[(string)$option['id']] = (int)($option['price'] ?? 0);
-        $optionIds = is_array($line['optionIds'] ?? null) ? array_values(array_unique(array_map('strval', $line['optionIds']))) : [];
+        foreach (($product['options'] ?? []) as $option) {
+            if (!is_array($option) || !isset($option['id'])) continue;
+            $optionPrice = filter_var($option['price'] ?? 0, FILTER_VALIDATE_INT);
+            if ($optionPrice === false) continue;
+            $validOptions[(string)$option['id']] = ['price' => $optionPrice, 'name' => substr((string)($option['name'] ?? ''), 0, 120)];
+        }
+        $rawOptionIds = $line['optionIds'] ?? [];
+        if (!is_array($rawOptionIds) || count($rawOptionIds) > 30) json_response(['ok' => false, 'error' => 'invalid_product_option'], 422);
+        $optionIds = array_map('strval', $rawOptionIds);
+        if (count($optionIds) !== count(array_unique($optionIds))) json_response(['ok' => false, 'error' => 'duplicate_product_option'], 422);
+        $optionLabels = [];
         foreach ($optionIds as $optionId) {
             if (!array_key_exists($optionId, $validOptions)) json_response(['ok' => false, 'error' => 'invalid_product_option'], 422);
-            $unitPrice += $validOptions[$optionId];
+            $unitPrice += $validOptions[$optionId]['price'];
+            $optionLabels[] = $validOptions[$optionId]['name'];
         }
-        if (isset($line['unitPrice']) && (int)$line['unitPrice'] !== $unitPrice) json_response(['ok' => false, 'error' => 'price_changed', 'message' => 'قیمت محصول تغییر کرده است؛ سبد را تازه‌سازی کنید'], 409);
-        $serverSubtotal += $unitPrice * (float)$line['qty'];
+        if ($unitPrice < 0 || $unitPrice > 100000000000) json_response(['ok' => false, 'error' => 'invalid_order_item_price'], 422);
+        if (isset($line['unitPrice']) && (!is_numeric($line['unitPrice']) || (float)$line['unitPrice'] !== (float)$unitPrice)) json_response(['ok' => false, 'error' => 'price_changed', 'message' => 'قیمت محصول تغییر کرده است؛ سبد را تازه‌سازی کنید'], 409);
+        $serverSubtotal += $unitPrice * (int)$line['qty'];
+        $clientKey = isset($line['key']) && preg_match('/^[A-Za-z0-9_-]{1,100}$/D', (string)$line['key']) ? (string)$line['key'] : 'line-' . count($canonicalItems);
+        $canonicalItems[] = [
+            'key' => $clientKey,
+            'name' => substr((string)($product['name'] ?? 'محصول'), 0, 160),
+            'productId' => $productId,
+            'qty' => (int)$line['qty'],
+            'unitPrice' => $unitPrice,
+            'optionIds' => $optionIds,
+            'optionLabels' => $optionLabels,
+            'note' => isset($line['note']) ? substr(trim((string)$line['note']), 0, 500) : '',
+        ];
     }
     $customer = is_array($body['customer'] ?? null) ? $body['customer'] : [];
     $customerId = isset($customer['id']) ? (string)$customer['id'] : '';
@@ -803,6 +831,17 @@ if ($method === 'POST' && $path === '/orders') {
     }
     try {
         $pdo->beginTransaction();
+
+        // Lock product rows and ensure price, recipe and options did not change after quoting.
+        $productLock = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'products' AND id = ? FOR UPDATE");
+        foreach ($productSnapshots as $productId => $snapshotHash) {
+            $productLock->execute([$productId]);
+            $lockedProductRaw = $productLock->fetchColumn();
+            if (!is_string($lockedProductRaw) || !hash_equals($snapshotHash, hash('sha256', $lockedProductRaw))) {
+                $pdo->rollBack();
+                json_response(['ok' => false, 'error' => 'product_changed_requote', 'message' => 'اطلاعات یا قیمت یکی از محصولات تغییر کرده است؛ سبد را دوباره محاسبه کنید'], 409);
+            }
+        }
 
         $pointsToSpend = 0;
         $pointsEarned = 0;
@@ -925,7 +964,7 @@ if ($method === 'POST' && $path === '/orders') {
             $customerName,
             $customerPhone,
             $discountCode !== '' ? $discountCode : null,
-            json_encode($items, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+            json_encode($canonicalItems, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             json_encode($totals, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             isset($body['note']) ? substr((string)$body['note'], 0, 2000) : null,
             (int)$actor['id'],
@@ -947,7 +986,7 @@ if ($method === 'POST' && $path === '/orders') {
         }
         audit($pdo, (int)$actor['id'], 'order_created', 'order', (string)$id, ['order_number' => $orderNumber]);
         $pdo->commit();
-        json_response(['ok' => true, 'order' => ['id' => (string)$id, 'orderNumber' => $orderNumber, 'status' => 'new', 'items' => $items, 'totals' => $totals]], 201);
+        json_response(['ok' => true, 'order' => ['id' => (string)$id, 'orderNumber' => $orderNumber, 'status' => 'new', 'items' => $canonicalItems, 'totals' => $totals]], 201);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         // A concurrent retry may win the unique idempotency key after our initial lookup.
