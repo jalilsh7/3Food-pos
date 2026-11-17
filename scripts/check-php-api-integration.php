@@ -39,7 +39,7 @@ function api(string $method, string $path, ?array $body = null, array $extraHead
         if (stripos($header, 'Set-Cookie:') === 0 && preg_match('/^Set-Cookie:\s*([^;]+)/i', $header, $m)) $cookie = $m[1];
     }
     $decoded = is_string($response) ? json_decode($response, true) : null;
-    return ['status' => $status, 'json' => is_array($decoded) ? $decoded : [], 'raw' => $response];
+    return ['status' => $status, 'json' => is_array($decoded) ? $decoded : [], 'raw' => $response, 'headers' => $responseHeaders];
 }
 
 function csrf_headers(): array {
