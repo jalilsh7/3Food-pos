@@ -548,28 +548,15 @@ function ReportsScreen() {
 function SmsScreen() {
   const templates = usePos((s) => s.templates);
   const logs = usePos((s) => s.smsLogs);
-  const settings = usePos((s) => s.settings);
   const saveTemplate = usePos((s) => s.saveTemplate);
-  const patchSettings = usePos((s) => s.patchSettings);
   const customers = usePos((s) => s.customers);
-  const [credit, setCredit] = useState("");
   const [manual, setManual] = useState({ to: "", text: "" });
-  async function testCredit() {
-    setCredit("در حال بررسی...");
-    const res = await fetch("/api/sms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "credit", username: settings.smsUser, password: settings.smsKey }) });
-    const data = (await res.json()) as { detail: string };
-    setCredit(data.detail);
-  }
   return (
     <div className="space-y-4">
       <h2 className="font-bold">ملی‌پیامک</h2>
-      <Card className="grid gap-2 sm:grid-cols-2">
-        <Field label="نام کاربری"><input className={inputCls} value={settings.smsUser} onChange={(e) => patchSettings({ smsUser: e.target.value })} /></Field>
-        <Field label="رمز یا API Key"><input className={inputCls} type="password" value={settings.smsKey} onChange={(e) => patchSettings({ smsKey: e.target.value })} /></Field>
-        <Field label="شماره فرستنده"><input className={inputCls} value={settings.smsFrom} onChange={(e) => patchSettings({ smsFrom: e.target.value })} placeholder="5000..." /></Field>
-        <div className="flex items-end"><Btn tone="leaf" onClick={() => void testCredit()}>تست اعتبار</Btn></div>
-        {credit ? <p className="text-sm sm:col-span-2">{credit}</p> : null}
-        <p className="text-xs text-muted sm:col-span-2">نام کاربری، API Key (به‌جای رمز پنل) و سرشماره را از بخش توسعه‌دهندگان ملی‌پیامک بردارید. برای پترن، شناسه الگو را بگذارید و متغیرها را با ; جدا کنید.</p>
+      <Card>
+        <p className="text-sm">اعتبارنامهٔ ملی‌پیامک فقط در فایل خصوصی سرور (private/config.php) تنظیم می‌شود و در این صفحه یا مرورگر نگهداری نمی‌شود.</p>
+        <p className="mt-2 text-xs text-muted">برای فعال‌سازی، مدیر سرور باید provider را روی national_payamak قرار دهد و نام کاربری، رمز/API Key و سرشماره را در تنظیمات خصوصی هاست وارد کند. برای آزمایش، ابتدا ارسال دستی را به شمارهٔ آزمایشی خود انجام دهید.</p>
       </Card>
       {templates.map((t) => (
         <Card key={t.event}>
