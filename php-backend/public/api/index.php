@@ -505,6 +505,38 @@ if (preg_match('#^/ingredients/([A-Za-z0-9_-]+)/stock$#D', $path, $stockMatch) &
     }
 }
 
+if ($method === 'GET' && $path === '/backup/export') {
+    $actor = require_role($pdo, ['manager']);
+    $records = $pdo->query('SELECT id, resource, payload, updated_by, created_at, updated_at FROM pos_records ORDER BY resource, id')->fetchAll();
+    foreach ($records as &$record) {
+        $record['payload'] = json_decode((string)$record['payload'], true) ?: [];
+        if ($record['resource'] === 'settings' && is_array($record['payload'])) {
+            unset($record['payload']['smsUser'], $record['payload']['smsKey'], $record['payload']['smsFrom']);
+        }
+    }
+    unset($record);
+    $orders = $pdo->query('SELECT id, order_number, status, idempotency_key, customer_id, customer_name, customer_phone, discount_code, items, totals, note, created_by, created_at, updated_at FROM pos_orders ORDER BY id')->fetchAll();
+    foreach ($orders as &$order) {
+        $order['items'] = json_decode((string)$order['items'], true) ?: [];
+        $order['totals'] = json_decode((string)$order['totals'], true) ?: [];
+    }
+    unset($order);
+    $effects = $pdo->query('SELECT order_id, effect_type, resource_id, quantity, points_spent, points_earned, money_delta, visits_delta, reversed_at, reversed_by, created_at FROM pos_order_effects ORDER BY id')->fetchAll();
+    $redemptions = $pdo->query('SELECT order_id, discount_id, code, customer_id, redeemed_at, reversed_at FROM pos_discount_redemptions ORDER BY id')->fetchAll();
+    $counters = $pdo->query('SELECT counter_key, counter_value FROM pos_counters ORDER BY counter_key')->fetchAll();
+    audit($pdo, (int)$actor['id'], 'backup_exported', 'backup', null, ['records' => count($records), 'orders' => count($orders)]);
+    json_response(['ok' => true, 'backup' => [
+        'format' => '3food-pos-mysql-backup',
+        'version' => 1,
+        'exported_at' => gmdate('c'),
+        'records' => $records,
+        'orders' => $orders,
+        'order_effects' => $effects,
+        'discount_redemptions' => $redemptions,
+        'counters' => $counters,
+    ]]);
+}
+
 if ($method === 'POST' && $path === '/migration/import') {
     $actor = require_role($pdo, ['manager']);
     require_csrf();
