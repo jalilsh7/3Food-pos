@@ -608,7 +608,7 @@ function ReportsScreen() {
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState(0);
   const [cat, setCat] = useState("مواد اولیه");
-  const done = orders.filter((o) => o.status !== "cancelled");
+  const done = useMemo(() => orders.filter((o) => o.status !== "cancelled"), [orders]);
   const sales = done.reduce((s, o) => s + o.total, 0);
   const costGuess = done.reduce((s, o) => s + o.lines.reduce((ls, l) => ls + (products.find((x) => x.id === l.productId)?.cost ?? 0) * l.qty, 0), 0);
   const spend = expenses.reduce((s, e) => s + e.amount, 0);
@@ -617,7 +617,7 @@ function ReportsScreen() {
     for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); map.set(d.toISOString().slice(0, 10), 0); }
     for (const o of done) { const k = o.createdAt.slice(0, 10); if (map.has(k)) map.set(k, (map.get(k) ?? 0) + o.total); }
     return [...map.entries()].map(([day, total]) => ({ day: new Date(day).toLocaleDateString("fa-IR", { weekday: "short" }), total }));
-  }, [orders]);
+  }, [done]);
   const rank = new Map<string, number>();
   for (const o of done) for (const l of o.lines) rank.set(l.name, (rank.get(l.name) ?? 0) + l.qty);
   const top = [...rank.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
