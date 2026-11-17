@@ -87,15 +87,21 @@ function same_origin_guard(): void {
         return; // Non-browser same-origin clients may omit Origin.
     }
     $originParts = parse_url($origin);
+    if (!is_array($originParts)) {
+        json_response(['ok' => false, 'error' => 'origin_rejected', 'message' => 'مبدأ درخواست معتبر نیست'], 403);
+    }
     $requestHost = (string)($_SERVER['HTTP_HOST'] ?? '');
     $requestParts = parse_url('//' . $requestHost);
+    if (!is_array($requestParts)) {
+        json_response(['ok' => false, 'error' => 'origin_rejected', 'message' => 'مبدأ درخواست معتبر نیست'], 403);
+    }
     $originScheme = strtolower((string)($originParts['scheme'] ?? ''));
     $requestScheme = request_is_https() ? 'https' : 'http';
     $originHost = strtolower((string)($originParts['host'] ?? ''));
     $requestHostName = strtolower((string)($requestParts['host'] ?? ''));
     $originPort = (int)($originParts['port'] ?? ($originScheme === 'https' ? 443 : 80));
     $requestPort = (int)($requestParts['port'] ?? ($requestScheme === 'https' ? 443 : 80));
-    if (!is_array($originParts) || !in_array($originScheme, ['http', 'https'], true) ||
+    if (!in_array($originScheme, ['http', 'https'], true) ||
         $originHost === '' || $originHost !== $requestHostName ||
         $originScheme !== $requestScheme || $originPort !== $requestPort ||
         isset($originParts['user']) || isset($originParts['pass']) ||
