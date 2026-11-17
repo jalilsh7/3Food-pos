@@ -354,7 +354,7 @@ function PosScreen() {
         note: cart.map((line) => line.note).filter(Boolean).join(" | ").slice(0, 2000),
       });
       const res = placeOrder({
-        lines: cart, customer, code, pointsToUse: points, payment: pay,
+        lines: cart, customer, code, pointsToUse: points, taxEnabled: settings.taxEnabled !== false, payment: pay,
         guestName, guestPhone: phone.trim(),
         serverOrder: { id: server.order.id, number: server.order.orderNumber },
       });
