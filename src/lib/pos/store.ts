@@ -107,6 +107,7 @@ type Actions = {
     customer: Customer | null;
     code: string;
     pointsToUse: number;
+    taxEnabled: boolean;
     payment: Order["payment"];
     guestName: string;
     guestPhone: string;
@@ -180,6 +181,7 @@ export const usePos = create<PosState & Actions>()(
           discounts: s.discounts,
           pointsToUse: input.pointsToUse,
           taxPercent: s.settings.taxPercent,
+          taxEnabled: input.taxEnabled,
           tomanPerPoint: s.settings.tomanPerPoint,
           usesSoFar: uses,
         });
