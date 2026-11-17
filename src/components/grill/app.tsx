@@ -512,6 +512,15 @@ function OrdersScreen({ role }: { role: Role }) {
     try {
       if (/^\d+$/.test(order.id)) await phpApi.setOrderStatus(order.id, status);
       setStatus(order.id, status);
+      // Cancellation reverses stock, loyalty and coupon effects on MySQL.
+      // Refresh the full authoritative snapshot immediately instead of
+      // waiting for the next 15-second polling interval.
+      try {
+        const snapshot = await phpApi.bootstrap<ServerBootstrap>();
+        hydratePosFromServer(snapshot.data, snapshot.next_order, role);
+      } catch {
+        // The status transition is already committed; periodic refresh retries.
+      }
       const next = { ...order, status };
       if (status === "ready") void pushSms("order_ready", order.customerPhone, orderVars(next));
       if (status === "delivered") void pushSms("order_delivered", order.customerPhone, orderVars(next));
