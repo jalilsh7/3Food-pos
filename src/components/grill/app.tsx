@@ -13,6 +13,28 @@ import {
 import { lowStock, usePos } from "@/lib/pos/store";
 import { phpApi, type ApiUser } from "@/lib/api/php-client";
 
+
+async function saveCentralRecord<T extends { id: string | number }>(resource: string, item: T, commit: () => void) {
+  try {
+    await phpApi.saveRecord(resource, item);
+    commit();
+    return true;
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : "ذخیره در سرور انجام نشد");
+    return false;
+  }
+}
+async function deleteCentralRecord(resource: string, id: string, commit: () => void) {
+  try {
+    await phpApi.deleteRecord(resource, id);
+    commit();
+    return true;
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : "حذف از سرور انجام نشد");
+    return false;
+  }
+}
+
 type View = "pos" | "orders" | "menu" | "stock" | "customers" | "codes" | "reports" | "sms" | "settings";
 
 const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[] = [
@@ -510,7 +532,7 @@ function MenuScreen() {
     <div className="space-y-4">
       <Card>
         <h2 className="mb-2 font-bold">دسته‌بندی</h2>
-        <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (!name.trim()) return; saveCategory({ id: uid("c"), name: name.trim() }); setName(""); }}>
+        <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (!name.trim()) return; const item = { id: uid("c"), name: name.trim() }; void saveCentralRecord("categories", item, () => saveCategory(item)).then((ok) => { if (ok) setName(""); }); }}>
           <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="نام دسته" />
           <Btn type="submit">افزودن</Btn>
         </form>
@@ -522,7 +544,7 @@ function MenuScreen() {
       {products.map((p) => (
         <Card key={p.id} className="flex items-center justify-between gap-2">
           <div><p className="font-semibold">{p.name}</p><p className="text-sm text-muted">{money(p.price)} — تمام‌شده {money(p.cost)}</p></div>
-          <div className="flex gap-2"><Btn tone="ghost" onClick={() => setDraft(p)}>ویرایش</Btn><Btn tone="ghost" onClick={() => removeProduct(p.id)}>حذف</Btn></div>
+          <div className="flex gap-2"><Btn tone="ghost" onClick={() => setDraft(p)}>ویرایش</Btn><Btn tone="ghost" onClick={() => void deleteCentralRecord("products", p.id, () => removeProduct(p.id))}>حذف</Btn></div>
         </Card>
       ))}
       {draft ? (
@@ -547,7 +569,7 @@ function MenuScreen() {
               </label>
             );
           })}
-          <div className="mt-3 flex gap-2"><Btn onClick={() => { if (draft.name) { saveProduct(draft); setDraft(null); } }}>ذخیره</Btn><Btn tone="ghost" onClick={() => setDraft(null)}>بستن</Btn></div>
+          <div className="mt-3 flex gap-2"><Btn onClick={() => { if (draft.name) void saveCentralRecord("products", draft, () => saveProduct(draft)).then((ok) => { if (ok) setDraft(null); }); }}>ذخیره</Btn><Btn tone="ghost" onClick={() => setDraft(null)}>بستن</Btn></div>
         </Card>
       ) : null}
     </div>
@@ -565,7 +587,7 @@ function StockScreen() {
     <div className="space-y-3">
       <h2 className="font-bold">انبار مواد اولیه</h2>
       {lows.length ? <Card className="bg-warn-bg text-warn">کمبود: {lows.map((i) => i.name).join("، ")}</Card> : <p className="text-sm text-leaf">موجودی بالای حد هشدار است.</p>}
-      <form className="grid gap-2 sm:grid-cols-3" onSubmit={(e) => { e.preventDefault(); if (!name.trim()) return; saveIngredient({ id: uid("i"), name: name.trim(), unit, stock: 0, minStock: 5, costPerUnit: 0 }); setName(""); }}>
+      <form className="grid gap-2 sm:grid-cols-3" onSubmit={(e) => { e.preventDefault(); if (!name.trim()) return; const item = { id: uid("i"), name: name.trim(), unit, stock: 0, minStock: 5, costPerUnit: 0 }; void saveCentralRecord("ingredients", item, () => saveIngredient(item)).then((ok) => { if (ok) setName(""); }); }}>
         <input className={inputCls} placeholder="ماده جدید" value={name} onChange={(e) => setName(e.target.value)} />
         <input className={inputCls} placeholder="واحد" value={unit} onChange={(e) => setUnit(e.target.value)} />
         <Btn type="submit">افزودن</Btn>
@@ -578,9 +600,9 @@ function StockScreen() {
               <p className={`text-sm ${i.stock <= i.minStock ? "text-warn" : "text-muted"}`}>موجودی {i.stock.toLocaleString("fa-IR")} {i.unit}</p>
             </div>
             <div className="flex gap-2">
-              <Btn tone="ghost" onClick={() => adjustStock(i.id, -1)}>−۱</Btn>
-              <Btn tone="ghost" onClick={() => adjustStock(i.id, 1)}>+۱</Btn>
-              <Btn tone="leaf" onClick={() => adjustStock(i.id, 10)}>+۱۰</Btn>
+              <Btn tone="ghost" onClick={() => { const next = { ...i, stock: Math.max(0, i.stock - 1) }; void saveCentralRecord("ingredients", next, () => adjustStock(i.id, -1)); }}>−۱</Btn>
+              <Btn tone="ghost" onClick={() => { const next = { ...i, stock: i.stock + 1 }; void saveCentralRecord("ingredients", next, () => adjustStock(i.id, 1)); }}>+۱</Btn>
+              <Btn tone="leaf" onClick={() => { const next = { ...i, stock: i.stock + 10 }; void saveCentralRecord("ingredients", next, () => adjustStock(i.id, 10)); }}>+۱۰</Btn>
             </div>
           </div>
         </Card>
@@ -604,8 +626,8 @@ function CustomersScreen() {
         <form className="grid gap-2 sm:grid-cols-4" onSubmit={(e) => {
           e.preventDefault();
           if (!form.phone) return;
-          saveCustomer({ id: uid("cu"), name: form.name || "بدون نام", phone: form.phone, points: 0, birthday: form.birthday, totalSpent: 0, visits: 0, createdAt: new Date().toISOString() });
-          setForm({ name: "", phone: "", birthday: "" });
+          const item = { id: uid("cu"), name: form.name || "بدون نام", phone: form.phone, points: 0, birthday: form.birthday, totalSpent: 0, visits: 0, createdAt: new Date().toISOString() };
+          void saveCentralRecord("customers", item, () => saveCustomer(item)).then((ok) => { if (ok) setForm({ name: "", phone: "", birthday: "" }); });
         }}>
           <input className={inputCls} placeholder="نام" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input className={inputCls} placeholder="موبایل" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
@@ -645,7 +667,7 @@ function CodesScreen() {
             <p className="font-bold">{d.code}</p>
             <p className="text-sm text-muted">{d.type === "percent" ? `${d.value}٪` : money(d.value)} — استفاده {d.usedCount.toLocaleString("fa-IR")}{d.maxUses ? ` از ${d.maxUses.toLocaleString("fa-IR")}` : " (نامحدود)"}</p>
           </div>
-          <div className="flex gap-2"><Btn tone="ghost" onClick={() => setDraft(d)}>ویرایش</Btn><Btn tone="ghost" onClick={() => removeDiscount(d.id)}>حذف</Btn></div>
+          <div className="flex gap-2"><Btn tone="ghost" onClick={() => setDraft(d)}>ویرایش</Btn><Btn tone="ghost" onClick={() => void deleteCentralRecord("discounts", d.id, () => removeDiscount(d.id))}>حذف</Btn></div>
         </Card>
       ))}
       {draft ? (
@@ -667,7 +689,7 @@ function CodesScreen() {
             <Field label="از"><input className={inputCls} type="date" value={draft.startsAt} onChange={(e) => setDraft({ ...draft, startsAt: e.target.value })} /></Field>
             <Field label="تا"><input className={inputCls} type="date" value={draft.endsAt} onChange={(e) => setDraft({ ...draft, endsAt: e.target.value })} /></Field>
           </div>
-          <div className="mt-3 flex gap-2"><Btn onClick={() => { if (draft.code) { saveDiscount(draft); setDraft(null); } }}>ذخیره</Btn><Btn tone="ghost" onClick={() => setDraft(null)}>بستن</Btn></div>
+          <div className="mt-3 flex gap-2"><Btn onClick={() => { if (draft.code) void saveCentralRecord("discounts", draft, () => saveDiscount(draft)).then((ok) => { if (ok) setDraft(null); }); }}>ذخیره</Btn><Btn tone="ghost" onClick={() => setDraft(null)}>بستن</Btn></div>
         </Card>
       ) : null}
     </div>
@@ -715,7 +737,7 @@ function ReportsScreen() {
       </Card>
       <Card>
         <h3 className="mb-2 font-semibold">ثبت هزینه</h3>
-        <form className="grid gap-2 sm:grid-cols-4" onSubmit={(e) => { e.preventDefault(); if (!title || amount <= 0) return; addExpense({ title, amount, category: cat, date: new Date().toISOString().slice(0, 10) }); setTitle(""); setAmount(0); }}>
+        <form className="grid gap-2 sm:grid-cols-4" onSubmit={(e) => { e.preventDefault(); if (!title || amount <= 0) return; const item = { id: uid("ex"), title, amount, category: cat, date: new Date().toISOString().slice(0, 10) }; void saveCentralRecord("expenses", item, () => addExpense(item)).then((ok) => { if (ok) { setTitle(""); setAmount(0); } }); }}>
           <input className={inputCls} placeholder="شرح" value={title} onChange={(e) => setTitle(e.target.value)} />
           <input className={inputCls} type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
           <input className={inputCls} value={cat} onChange={(e) => setCat(e.target.value)} />
@@ -743,11 +765,11 @@ function SmsScreen() {
       {templates.map((t) => (
         <Card key={t.event}>
           <label className="flex items-center gap-2 font-semibold">
-            <input type="checkbox" checked={t.enabled} onChange={(e) => saveTemplate({ ...t, enabled: e.target.checked })} />
+            <input type="checkbox" checked={t.enabled} onChange={(e) => { const item = { ...t, enabled: e.target.checked }; void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
             {EVENT_LABEL[t.event]}
           </label>
-          <textarea className={`${inputCls} mt-2`} rows={2} value={t.body} onChange={(e) => saveTemplate({ ...t, body: e.target.value })} />
-          <Field label="شناسه پترن (اختیاری)"><input className={inputCls} value={t.bodyId} onChange={(e) => saveTemplate({ ...t, bodyId: e.target.value })} /></Field>
+          <textarea className={`${inputCls} mt-2`} rows={2} value={t.body} onChange={(e) => { const item = { ...t, body: e.target.value }; void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
+          <Field label="شناسه پترن (اختیاری)"><input className={inputCls} value={t.bodyId} onChange={(e) => { const item = { ...t, bodyId: item.event }, () => saveTemplate(item)); }} /></Field>
         </Card>
       ))}
       <Card>
