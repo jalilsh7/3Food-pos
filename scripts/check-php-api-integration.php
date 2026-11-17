@@ -190,6 +190,17 @@ try {
     foreach (['smsUser', 'smsKey', 'smsFrom'] as $secretField) {
         check(!array_key_exists($secretField, $storedSettings), 'settings database never stores ' . $secretField);
     }
+    $backup = api('GET', '/api/v1/backup/export');
+    $backupData = $backup['json']['backup'] ?? [];
+    check($backup['status'] === 200 && ($backupData['format'] ?? '') === '3food-pos-mysql-backup', 'manager can export MySQL backup');
+    check(count($backupData['orders'] ?? []) === 1 && count($backupData['order_effects'] ?? []) === 2, 'backup includes order history and reversible effect ledger');
+    $backupSettings = [];
+    foreach ($backupData['records'] ?? [] as $record) {
+        if (($record['resource'] ?? '') === 'settings') $backupSettings = $record['payload'] ?? [];
+    }
+    foreach (['smsUser', 'smsKey', 'smsFrom'] as $secretField) {
+        check(!array_key_exists($secretField, $backupSettings), 'backup never exports ' . $secretField);
+    }
 
     $logout = api('POST', '/api/v1/auth/logout', [], csrf_headers());
     check($logout['status'] === 200, 'manager logout');
@@ -200,6 +211,8 @@ try {
         'password' => 'CI-Cashier-Password-2026!',
     ]);
     check($cashierLogin['status'] === 200 && ($cashierLogin['json']['user']['role'] ?? '') === 'cashier', 'cashier login');
+    $cashierBackup = api('GET', '/api/v1/backup/export');
+    check($cashierBackup['status'] === 403, 'cashier cannot export full customer and order backup');
     $csrf = (string)($cashierLogin['json']['csrf_token'] ?? '');
     check(strlen($csrf) >= 32, 'cashier receives CSRF token');
 
