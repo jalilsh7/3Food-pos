@@ -245,6 +245,15 @@ try {
     check($revokedSession['status'] === 200 && ($revokedSession['json']['authenticated'] ?? true) === false, 'disabled cashier existing session is revoked');
     $cookie = $managerSessionCookie;
 
+    $stockDown = api('POST', '/api/v1/ingredients/ci-ingredient/stock', ['delta' => -2], csrf_headers());
+    check($stockDown['status'] === 200 && (float)($stockDown['json']['item']['stock'] ?? -1) === 8.0, 'atomic stock adjustment applies against current server value');
+    $stockUnderflow = api('POST', '/api/v1/ingredients/ci-ingredient/stock', ['delta' => -20], csrf_headers());
+    check($stockUnderflow['status'] === 409 && ($stockUnderflow['json']['error'] ?? '') === 'insufficient_stock', 'stock adjustment cannot make inventory negative');
+    $stockUp = api('POST', '/api/v1/ingredients/ci-ingredient/stock', ['delta' => 3], csrf_headers());
+    check($stockUp['status'] === 200 && (float)($stockUp['json']['item']['stock'] ?? -1) === 11.0, 'stock increment uses locked current value');
+    $invalidStockDelta = api('POST', '/api/v1/ingredients/ci-ingredient/stock', ['delta' => 0], csrf_headers());
+    check($invalidStockDelta['status'] === 422, 'zero stock adjustment is rejected');
+
     $kitchenLogin = api('POST', '/api/v1/auth/login', [
         'username' => 'ci_kitchen',
         'password' => 'CI-Kitchen-Password-2026!',
@@ -270,7 +279,7 @@ try {
     }
     check($lastLogin['status'] === 429 && ($lastLogin['json']['error'] ?? '') === 'too_many_attempts', 'login rate limit activates after eight failures');
 
-    echo "PASS: PHP API integration (setup, session/CSRF, records, canonical pricing, idempotency, stock, loyalty, cancellation rollback).\n";
+    echo "PASS: PHP API integration (setup, session/CSRF, records, canonical pricing, idempotency, transactional stock adjustment, stock underflow protection, loyalty, cancellation rollback).\n";
 } catch (Throwable $e) {
     fwrite(STDERR, "FAIL: " . $e->getMessage() . "\n");
     exit(1);
