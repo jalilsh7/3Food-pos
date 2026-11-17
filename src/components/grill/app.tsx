@@ -86,14 +86,34 @@ export function GrillApp() {
   useEffect(() => {
     if (!user || user.must_change_password) return;
     let active = true;
-    void phpApi.bootstrap<ServerBootstrap>()
-      .then((result) => {
+    let inFlight = false;
+    const refresh = async (showError = false) => {
+      if (!active || inFlight || document.visibilityState === "hidden") return;
+      inFlight = true;
+      try {
+        const result = await phpApi.bootstrap<ServerBootstrap>();
         if (active) hydratePosFromServer(result.data, result.next_order, user.role);
-      })
-      .catch((error: unknown) => {
-        if (active) setSessionError(error instanceof Error ? error.message : "دریافت داده‌های MySQL انجام نشد");
-      });
-    return () => { active = false; };
+      } catch (error) {
+        // A temporary network failure must not log the user out or replace
+        // the last known good state. The next poll/focus event retries.
+        if (active && showError) {
+          setSessionError(error instanceof Error ? error.message : "دریافت داده‌های MySQL انجام نشد");
+        }
+      } finally {
+        inFlight = false;
+      }
+    };
+    void refresh(true);
+    const timer = window.setInterval(() => { void refresh(); }, 15000);
+    const onVisible = () => { if (document.visibilityState === "visible") void refresh(); };
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [user?.id, user?.must_change_password, user?.role]);
 
   async function logout() {
