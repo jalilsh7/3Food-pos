@@ -47,6 +47,71 @@ function csrf_headers(): array {
     return ['X-CSRF-Token: ' . $csrf];
 }
 
+
+/**
+ * Fire two independent authenticated HTTP requests at the same time.
+ * Each child waits on a filesystem barrier so both requests reach the multi-worker
+ * PHP server together, rather than being serialized by a shared PHP session.
+ */
+function concurrent_order_attempts(array $attempts): array {
+    check(function_exists('pcntl_fork'), 'pcntl is required for concurrent API integration checks');
+    $barrier = tempnam(sys_get_temp_dir(), '3food-barrier-');
+    check(is_string($barrier), 'create concurrency barrier');
+    unlink($barrier);
+    $children = [];
+    $resultFiles = [];
+
+    foreach ($attempts as $index => $attempt) {
+        $resultFile = tempnam(sys_get_temp_dir(), '3food-result-');
+        check(is_string($resultFile), 'create concurrency result file');
+        $resultFiles[] = $resultFile;
+        $pid = pcntl_fork();
+        check($pid !== -1, 'fork concurrent API worker');
+        if ($pid === 0) {
+            while (!is_file($barrier)) usleep(1000);
+            $headers = [
+                'Accept: application/json',
+                'Content-Type: application/json',
+                'Cookie: ' . $attempt['cookie'],
+                'X-CSRF-Token: ' . $attempt['csrf'],
+            ];
+            $context = stream_context_create(['http' => [
+                'method' => 'POST',
+                'header' => implode("\r\n", $headers),
+                'content' => json_encode($attempt['body'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                'ignore_errors' => true,
+                'timeout' => 20,
+            ]]);
+            $response = file_get_contents($GLOBALS['base'] . '/api/v1/orders', false, $context);
+            $status = 0;
+            foreach (($http_response_header ?? []) as $header) {
+                if (preg_match('#^HTTP/\\S+\\s+(\\d+)#', $header, $matches)) $status = (int)$matches[1];
+            }
+            file_put_contents($resultFile, json_encode([
+                'status' => $status,
+                'json' => is_string($response) ? (json_decode($response, true) ?: []) : [],
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            exit(0);
+        }
+        $children[] = $pid;
+    }
+
+    touch($barrier);
+    foreach ($children as $pid) {
+        pcntl_waitpid($pid, $status);
+        check(pcntl_wifexited($status) && pcntl_wexitstatus($status) === 0, 'concurrent API worker exits cleanly');
+    }
+    $results = [];
+    foreach ($resultFiles as $file) {
+        $decoded = json_decode((string)file_get_contents($file), true);
+        check(is_array($decoded), 'read concurrent API result');
+        $results[] = $decoded;
+        unlink($file);
+    }
+    unlink($barrier);
+    return $results;
+}
+
 try {
     $health = api('GET', '/api/v1/health');
     check($health['status'] === 200 && ($health['json']['database'] ?? '') === 'mysql', 'health endpoint');
@@ -317,6 +382,49 @@ try {
     check($stockUp['status'] === 200 && (float)($stockUp['json']['item']['stock'] ?? -1) === 11.0, 'stock increment uses locked current value');
     $invalidStockDelta = api('POST', '/api/v1/ingredients/ci-ingredient/stock', ['delta' => 0], csrf_headers());
     check($invalidStockDelta['status'] === 422, 'zero stock adjustment is rejected');
+
+    // Two different PHP sessions submit orders concurrently against only five
+    // units of ingredient stock; each order needs six, so exactly one may commit.
+    $managerPrimaryCookie = $cookie;
+    $managerPrimaryCsrf = $csrf;
+    $stockToFive = api('POST', '/api/v1/ingredients/ci-ingredient/stock', ['delta' => -6], csrf_headers());
+    check($stockToFive['status'] === 200 && (float)($stockToFive['json']['item']['stock'] ?? -1) === 5.0, 'prepare constrained stock for concurrency test');
+
+    $cookie = '';
+    $secondManagerLogin = api('POST', '/api/v1/auth/login', [
+        'username' => 'ci_manager',
+        'password' => 'CI-Only-Strong-Password-2026!',
+    ]);
+    check($secondManagerLogin['status'] === 200, 'second independent manager session for concurrency test');
+    $managerSecondCookie = $cookie;
+    $managerSecondCsrf = (string)($secondManagerLogin['json']['csrf_token'] ?? '');
+    check($managerSecondCookie !== '' && strlen($managerSecondCsrf) >= 32, 'second manager session credentials');
+    $cookie = $managerPrimaryCookie;
+    $csrf = $managerPrimaryCsrf;
+
+    $concurrentBodies = [];
+    foreach ([4, 5] as $suffix) {
+        $concurrentBodies[] = [
+            'idempotencyKey' => sprintf('44444444-4444-4444-8444-%012d', $suffix),
+            'items' => [['key' => 'ci-concurrent-' . $suffix, 'productId' => 'ci-product', 'qty' => 3, 'unitPrice' => 1000, 'optionIds' => []]],
+            'customer' => ['id' => 'ci-customer'],
+            'totals' => ['subtotal' => 3000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 3000],
+            'note' => 'Concurrent stock safety test',
+        ];
+    }
+    $concurrentResults = concurrent_order_attempts([
+        ['cookie' => $managerPrimaryCookie, 'csrf' => $managerPrimaryCsrf, 'body' => $concurrentBodies[0]],
+        ['cookie' => $managerSecondCookie, 'csrf' => $managerSecondCsrf, 'body' => $concurrentBodies[1]],
+    ]);
+    $concurrentStatuses = array_column($concurrentResults, 'status');
+    sort($concurrentStatuses);
+    check($concurrentStatuses === [201, 409], 'concurrent orders cannot oversell locked ingredient stock');
+    $concurrentErrors = array_values(array_filter($concurrentResults, fn($r) => $r['status'] === 409));
+    check(($concurrentErrors[0]['json']['error'] ?? '') === 'insufficient_stock', 'losing concurrent order fails for insufficient stock');
+    $stockAfterRace = $getPayload($pdo, 'ingredients', 'ci-ingredient');
+    check((float)($stockAfterRace['stock'] ?? -1) === 3.0, 'concurrent checkout consumes stock exactly once');
+    $orderCountAfterRace = (int)$pdo->query('SELECT COUNT(*) FROM pos_orders')->fetchColumn();
+    check($orderCountAfterRace === 2, 'only one of the two competing orders is persisted');
 
     $kitchenLogin = api('POST', '/api/v1/auth/login', [
         'username' => 'ci_kitchen',
