@@ -519,6 +519,12 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
         if ($id === '' || strlen($id) > 100 || !preg_match('/^[A-Za-z0-9_-]+$/D', $id)) {
             json_response(['ok' => false, 'error' => 'invalid_id'], 422);
         }
+        // SMS gateway credentials are server-only configuration. Ignore legacy
+        // browser fields on writes as well as reads, so they cannot be persisted
+        // or echoed back through the generic settings-record endpoint.
+        if ($resource === 'settings') {
+            unset($item['smsUser'], $item['smsKey'], $item['smsFrom']);
+        }
         $payload = json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         if (strlen($payload) > 262144) {
             json_response(['ok' => false, 'error' => 'record_too_large', 'message' => 'حجم اطلاعات ارسالی بیش از حد مجاز است'], 413);
