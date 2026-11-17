@@ -160,8 +160,36 @@ try {
     ], csrf_headers());
     check($cashierCreated['status'] === 201, 'manager creates cashier account');
 
+    $kitchenCreated = api('POST', '/api/v1/users', [
+        'username' => 'ci_kitchen',
+        'password' => 'CI-Kitchen-Password-2026!',
+        'display_name' => 'CI Kitchen',
+        'role' => 'kitchen',
+    ], csrf_headers());
+    check($kitchenCreated['status'] === 201, 'manager creates kitchen account');
+
     $managerUsers = api('GET', '/api/v1/users');
-    check($managerUsers['status'] === 200 && count($managerUsers['json']['users'] ?? []) === 2, 'manager can list users');
+    check($managerUsers['status'] === 200 && count($managerUsers['json']['users'] ?? []) === 3, 'manager can list users');
+
+    $settingsWrite = api('POST', '/api/v1/records/settings', [
+        'item' => [
+            'id' => 'main',
+            'shopName' => 'CI Shop',
+            'smsUser' => 'must-not-persist-user',
+            'smsKey' => 'must-not-persist-secret',
+            'smsFrom' => 'must-not-persist-sender',
+        ],
+    ], csrf_headers());
+    check($settingsWrite['status'] === 201, 'manager can save settings while stripping SMS credentials');
+    $settingsRead = api('GET', '/api/v1/records/settings');
+    check($settingsRead['status'] === 200 && count($settingsRead['json']['items'] ?? []) === 1, 'manager can read settings');
+    foreach (['smsUser', 'smsKey', 'smsFrom'] as $secretField) {
+        check(!array_key_exists($secretField, $settingsRead['json']['items'][0]), 'settings API never returns ' . $secretField);
+    }
+    $storedSettings = $getPayload($pdo, 'settings', 'main');
+    foreach (['smsUser', 'smsKey', 'smsFrom'] as $secretField) {
+        check(!array_key_exists($secretField, $storedSettings), 'settings database never stores ' . $secretField);
+    }
 
     $logout = api('POST', '/api/v1/auth/logout', [], csrf_headers());
     check($logout['status'] === 200, 'manager logout');
@@ -174,6 +202,12 @@ try {
     check($cashierLogin['status'] === 200 && ($cashierLogin['json']['user']['role'] ?? '') === 'cashier', 'cashier login');
     $csrf = (string)($cashierLogin['json']['csrf_token'] ?? '');
     check(strlen($csrf) >= 32, 'cashier receives CSRF token');
+
+    $cashierBootstrap = api('GET', '/api/v1/bootstrap');
+    check($cashierBootstrap['status'] === 200, 'cashier bootstrap');
+    foreach (['ingredients', 'expenses', 'templates', 'settings'] as $restrictedResource) {
+        check(!array_key_exists($restrictedResource, $cashierBootstrap['json']['data'] ?? []), 'cashier bootstrap excludes ' . $restrictedResource);
+    }
 
     $cashierUsers = api('GET', '/api/v1/users');
     check($cashierUsers['status'] === 403, 'cashier cannot list user accounts');
@@ -198,6 +232,23 @@ try {
         if ($attempt < 9) check($lastLogin['status'] === 401, 'failed login attempt ' . $attempt);
     }
     check($lastLogin['status'] === 429 && ($lastLogin['json']['error'] ?? '') === 'too_many_attempts', 'login rate limit activates after eight failures');
+
+    $cashierLogout = api('POST', '/api/v1/auth/logout', [], csrf_headers());
+    check($cashierLogout['status'] === 200, 'cashier logout');
+    $csrf = '';
+    $kitchenLogin = api('POST', '/api/v1/auth/login', [
+        'username' => 'ci_kitchen',
+        'password' => 'CI-Kitchen-Password-2026!',
+    ]);
+    check($kitchenLogin['status'] === 200 && ($kitchenLogin['json']['user']['role'] ?? '') === 'kitchen', 'kitchen login');
+    $kitchenBootstrap = api('GET', '/api/v1/bootstrap');
+    check($kitchenBootstrap['status'] === 200, 'kitchen bootstrap');
+    $kitchenData = $kitchenBootstrap['json']['data'] ?? [];
+    check(array_keys($kitchenData) === ['categories', 'products', 'orders'], 'kitchen bootstrap contains only preparation resources');
+    check(!array_key_exists('customerName', $kitchenData['orders'][0] ?? []), 'kitchen cannot see customer name');
+    check(!array_key_exists('customerPhone', $kitchenData['orders'][0] ?? []), 'kitchen cannot see customer phone');
+    check(!array_key_exists('customerId', $kitchenData['orders'][0] ?? []), 'kitchen cannot see customer id');
+    check(!array_key_exists('note', $kitchenData['orders'][0] ?? []), 'kitchen cannot see private order note');
 
     echo "PASS: PHP API integration (setup, session/CSRF, records, canonical pricing, idempotency, stock, loyalty, cancellation rollback).\n";
 } catch (Throwable $e) {
