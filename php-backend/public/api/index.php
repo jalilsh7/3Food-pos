@@ -265,9 +265,12 @@ if ($method === 'GET' && $path === '/preflight') {
         'innodb_schema' => count($missingTables) === 0,
         'https' => request_is_https(),
     ];
-    $setupCompleted = (int)$pdo->query('SELECT setup_completed FROM app_install_state WHERE id = 1')->fetchColumn() === 1;
-    $usersCount = (int)$pdo->query('SELECT COUNT(*) FROM app_users')->fetchColumn();
-    $setupRequired = !$setupCompleted && $usersCount === 0;
+    $setupRequired = null;
+    if ($checks['innodb_schema']) {
+        $setupCompleted = (int)$pdo->query('SELECT setup_completed FROM app_install_state WHERE id = 1')->fetchColumn() === 1;
+        $usersCount = (int)$pdo->query('SELECT COUNT(*) FROM app_users')->fetchColumn();
+        $setupRequired = !$setupCompleted && $usersCount === 0;
+    }
     $coreReady = $checks['php_version'] && $checks['pdo_mysql'] && $checks['json']
         && $checks['database_connection'] && $checks['innodb_schema'];
     json_response([
