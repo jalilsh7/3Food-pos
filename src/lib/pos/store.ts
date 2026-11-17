@@ -116,7 +116,6 @@ type Actions = {
   setStatus: (id: string, status: OrderStatus) => Order | null;
   logSms: (log: Omit<SmsLog, "id" | "at">) => void;
   exportBackup: () => string;
-  importBackup: (json: string) => string;
 };
 
 export const usePos = create<PosState & Actions>()(
@@ -292,16 +291,7 @@ export const usePos = create<PosState & Actions>()(
         };
         return JSON.stringify(data);
       },
-      importBackup: (json) => {
-        try {
-          const data = JSON.parse(json) as PosState;
-          if (!data.products || !data.settings) return "فایل نامعتبر است";
-          set({ ...data, settings: { ...data.settings, smsKey: get().settings.smsKey } });
-          return "";
-        } catch {
-          return "خواندن فایل ممکن نشد";
-        }
-      },
+
     }),
 );
 
