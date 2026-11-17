@@ -458,9 +458,14 @@ if ($method === 'GET' && $path === '/bootstrap') {
     foreach ($resources as $resource) {
         $q = $pdo->prepare('SELECT id, payload FROM pos_records WHERE resource = ? ORDER BY created_at ASC');
         $q->execute([$resource]);
-        $result[$resource] = array_map(static function(array $row): array {
+        $result[$resource] = array_map(static function(array $row) use ($resource): array {
             $value = json_decode((string)$row['payload'], true);
-            return is_array($value) ? $value : [];
+            if (!is_array($value)) return [];
+            // Provider credentials must never be returned by the POS data API.
+            if ($resource === 'settings') {
+                unset($value['smsUser'], $value['smsKey'], $value['smsFrom']);
+            }
+            return $value;
         }, $q->fetchAll());
     }
     $orders = $pdo->query('SELECT id, order_number, status, customer_id, customer_name, customer_phone, items, totals, note, created_at, updated_at FROM pos_orders ORDER BY id DESC LIMIT 500')->fetchAll();
@@ -492,7 +497,13 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
         $q = $pdo->prepare('SELECT payload FROM pos_records WHERE resource = ? ORDER BY created_at ASC');
         $q->execute([$resource]);
         $rows = [];
-        foreach ($q->fetchAll() as $row) { $v = json_decode((string)$row['payload'], true); if (is_array($v)) $rows[] = $v; }
+        foreach ($q->fetchAll() as $row) {
+            $v = json_decode((string)$row['payload'], true);
+            if (!is_array($v)) continue;
+            // Keep SMS gateway credentials server-side, even for manager reads.
+            if ($resource === 'settings') unset($v['smsUser'], $v['smsKey'], $v['smsFrom']);
+            $rows[] = $v;
+        }
         json_response(['ok' => true, 'items' => $rows]);
     }
     if ($method === 'POST') {
