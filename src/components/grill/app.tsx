@@ -1,0 +1,666 @@
+import { useMemo, useState } from "react";
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  ChefHat, ClipboardList, LayoutDashboard, MessageSquare, Percent,
+  Settings as SettingsIcon, ShoppingBag, Users, UtensilsCrossed, Warehouse,
+} from "lucide-react";
+import { Btn, Card, Empty, Field, inputCls } from "./bits";
+import { ReceiptView } from "./receipt";
+import {
+  customerCodeUses, fillTemplate, money, quoteOrder, TIER_LABEL, TIER_OFF, tierOf, uid,
+  type CartLine, type DiscountCode, type Order, type Product, type Role, type SmsEvent,
+} from "@/lib/pos/model";
+import { lowStock, usePos } from "@/lib/pos/store";
+
+type View = "pos" | "orders" | "menu" | "stock" | "customers" | "codes" | "reports" | "sms" | "settings";
+
+const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[] = [
+  { id: "pos", label: "فروش", icon: ShoppingBag, roles: ["manager", "cashier"] },
+  { id: "orders", label: "سفارش‌ها", icon: ClipboardList, roles: ["manager", "cashier", "kitchen"] },
+  { id: "menu", label: "منو", icon: UtensilsCrossed, roles: ["manager"] },
+  { id: "stock", label: "انبار", icon: Warehouse, roles: ["manager"] },
+  { id: "customers", label: "باشگاه", icon: Users, roles: ["manager", "cashier"] },
+  { id: "codes", label: "کد تخفیف", icon: Percent, roles: ["manager"] },
+  { id: "reports", label: "گزارش", icon: LayoutDashboard, roles: ["manager"] },
+  { id: "sms", label: "پیامک", icon: MessageSquare, roles: ["manager"] },
+  { id: "settings", label: "تنظیمات", icon: SettingsIcon, roles: ["manager"] },
+];
+
+const ROLE_LABEL: Record<Role, string> = { manager: "مدیر", cashier: "صندوقدار", kitchen: "آشپز" };
+const EVENT_LABEL: Record<SmsEvent, string> = {
+  order_created: "ثبت سفارش", order_ready: "آماده شدن", order_delivered: "تحویل",
+  points_earned: "کسب امتیاز", discount_used: "استفاده از کد",
+};
+
+export function GrillApp() {
+  const role = usePos((s) => s.settings.role);
+  const shop = usePos((s) => s.settings.shopName);
+  const setRole = usePos((s) => s.setRole);
+  const allowed = NAV.filter((n) => n.roles.includes(role));
+  const [view, setView] = useState<View>(allowed[0]?.id ?? "orders");
+  const current = allowed.some((n) => n.id === view) ? view : allowed[0].id;
+  return (
+    <div className="min-h-screen bg-bg text-ink">
+      <header className="sticky top-0 z-20 flex min-w-0 items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3">
+        <div>
+          <p className="text-lg font-bold">{shop}</p>
+          <p className="text-xs text-muted">صندوق روزانه فست‌فود</p>
+        </div>
+        <label className="text-xs text-muted">
+          نقش
+          <select className={`${inputCls} mt-1 py-2`} value={role} onChange={(e) => {
+            const next = e.target.value as Role;
+            setRole(next);
+            const first = NAV.find((n) => n.roles.includes(next));
+            if (first) setView(first.id);
+          }}>
+            {(Object.keys(ROLE_LABEL) as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+          </select>
+        </label>
+      </header>
+      <div className="mx-auto grid min-w-0 max-w-6xl gap-4 px-3 py-4 lg:grid-cols-[180px_1fr]">
+        <nav className="grid min-w-0 grid-cols-3 gap-2 lg:flex lg:flex-col">
+          {allowed.map((n) => {
+            const Icon = n.icon;
+            const on = current === n.id;
+            return (
+              <button key={n.id} onClick={() => setView(n.id)} className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold ${on ? "bg-chili text-chili-ink" : "bg-surface text-ink border border-line"}`}>
+                <Icon size={18} />{n.label}
+              </button>
+            );
+          })}
+        </nav>
+        <main className="min-w-0">
+          {current === "pos" ? <PosScreen /> : null}
+          {current === "orders" ? <OrdersScreen /> : null}
+          {current === "menu" ? <MenuScreen /> : null}
+          {current === "stock" ? <StockScreen /> : null}
+          {current === "customers" ? <CustomersScreen /> : null}
+          {current === "codes" ? <CodesScreen /> : null}
+          {current === "reports" ? <ReportsScreen /> : null}
+          {current === "sms" ? <SmsScreen /> : null}
+          {current === "settings" ? <SettingsScreen /> : null}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function orderVars(order: Order, balance = "") {
+  return { name: order.customerName || "مشتری", order: String(order.number), total: money(order.total), points: String(order.pointsEarned), code: order.discountCode, balance, shop: usePos.getState().settings.shopName };
+}
+
+async function pushSms(event: SmsEvent, phone: string, vars: Record<string, string>) {
+  const s = usePos.getState();
+  const tpl = s.templates.find((t) => t.event === event);
+  if (!tpl?.enabled || !phone) return;
+  const text = fillTemplate(tpl.body, { ...vars, shop: s.settings.shopName });
+  if (!s.settings.smsUser || !s.settings.smsKey || (!tpl.bodyId && !s.settings.smsFrom)) {
+    s.logSms({ to: phone, event, text, ok: false, detail: "تنظیمات ملی‌پیامک کامل نیست" });
+    return;
+  }
+  await postSms(phone, text, event, tpl.bodyId);
+}
+
+async function sendRaw(phone: string, text: string) {
+  const s = usePos.getState();
+  if (!phone || !text) return;
+  if (!s.settings.smsUser || !s.settings.smsKey || !s.settings.smsFrom) {
+    s.logSms({ to: phone, event: "manual", text, ok: false, detail: "تنظیمات ملی‌پیامک کامل نیست" });
+    return;
+  }
+  await postSms(phone, text, "manual", "");
+}
+
+async function postSms(phone: string, text: string, event: string, bodyId: string) {
+  const s = usePos.getState();
+  try {
+    const res = await fetch("/api/sms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "send", username: s.settings.smsUser, password: s.settings.smsKey, from: s.settings.smsFrom, to: phone, text, bodyId }),
+    });
+    const data = (await res.json()) as { ok: boolean; detail: string };
+    s.logSms({ to: phone, event, text, ok: data.ok, detail: data.detail });
+  } catch (err) {
+    s.logSms({ to: phone, event, text, ok: false, detail: err instanceof Error ? err.message : "خطا" });
+  }
+}
+
+function PosScreen() {
+  const products = usePos((s) => s.products);
+  const categories = usePos((s) => s.categories);
+  const customers = usePos((s) => s.customers);
+  const discounts = usePos((s) => s.discounts);
+  const orders = usePos((s) => s.orders);
+  const settings = usePos((s) => s.settings);
+  const placeOrder = usePos((s) => s.placeOrder);
+  const [cat, setCat] = useState(categories[0]?.id ?? "");
+  const [cart, setCart] = useState<CartLine[]>([]);
+  const [phone, setPhone] = useState("");
+  const [guestName, setGuestName] = useState("");
+  const [code, setCode] = useState("");
+  const [points, setPoints] = useState(0);
+  const [pay, setPay] = useState<Order["payment"]>("cash");
+  const [msg, setMsg] = useState("");
+  const [printed, setPrinted] = useState<Order | null>(null);
+  const [optFor, setOptFor] = useState<Product | null>(null);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [note, setNote] = useState("");
+  const customer = customers.find((c) => c.phone === phone.trim()) ?? null;
+  const uses = customer && code ? customerCodeUses(orders, customer.id, code) : 0;
+  const q = quoteOrder({ lines: cart, customer, code, discounts, pointsToUse: points, taxPercent: settings.taxPercent, tomanPerPoint: settings.tomanPerPoint, usesSoFar: uses });
+
+  function addProduct(p: Product, optionIds: string[], noteText: string) {
+    const opts = p.options.filter((o) => optionIds.includes(o.id));
+    const unit = p.price + opts.reduce((s, o) => s + o.price, 0);
+    const key = `${p.id}:${[...optionIds].sort().join(",")}:${noteText}`;
+    setCart((prev) => {
+      const hit = prev.find((l) => l.key === key);
+      if (hit) return prev.map((l) => (l.key === key ? { ...l, qty: l.qty + 1 } : l));
+      return [...prev, { key, productId: p.id, name: p.name, qty: 1, unitPrice: unit, optionIds, optionLabels: opts.map((o) => o.name), note: noteText }];
+    });
+  }
+
+  function checkout() {
+    const res = placeOrder({ lines: cart, customer, code, pointsToUse: points, payment: pay, guestName, guestPhone: phone.trim() });
+    if (!res.ok) { setMsg(res.error); return; }
+    setMsg(`سفارش ${res.order.number.toLocaleString("fa-IR")} ثبت شد`);
+    setCart([]); setCode(""); setPoints(0); setPrinted(res.order);
+    const fresh = usePos.getState().customers.find((c) => c.id === res.order.customerId);
+    const vars = orderVars(res.order, String(fresh?.points ?? 0));
+    void pushSms("order_created", res.order.customerPhone, vars);
+    if (res.order.pointsEarned) void pushSms("points_earned", res.order.customerPhone, vars);
+    if (res.order.discountCode) void pushSms("discount_used", res.order.customerPhone, vars);
+    if (settings.autoPrint) setTimeout(() => window.print(), 300);
+  }
+
+  const shown = products.filter((p) => p.active && (!cat || p.categoryId === cat));
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+      <div>
+        <div className="mb-3 flex min-w-0 flex-wrap gap-2">
+          {categories.map((c) => (
+            <button key={c.id} onClick={() => setCat(c.id)} className={`rounded-full px-4 py-2 text-sm ${cat === c.id ? "bg-ink text-bg" : "bg-surface border border-line"}`}>{c.name}</button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {shown.map((p) => (
+            <button key={p.id} onClick={() => { if (p.options.length) { setOptFor(p); setPicked([]); setNote(""); } else addProduct(p, [], ""); }} className="rounded-2xl border border-line bg-surface p-3 text-right shadow-sm">
+              <p className="font-semibold">{p.name}</p>
+              <p className="mt-2 text-sm text-chili">{money(p.price)}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+      <Card>
+        <h2 className="mb-3 font-bold">سفارش جاری</h2>
+        {cart.length === 0 ? <Empty text="آیتمی انتخاب نشده" /> : null}
+        <ul className="space-y-2">
+          {cart.map((l) => (
+            <li key={l.key} className="flex items-center justify-between gap-2 text-sm">
+              <div>
+                <p className="font-semibold">{l.name}</p>
+                <p className="text-xs text-muted">{l.optionLabels.join("، ")}</p>
+              </div>
+              <div className="flex items-center gap-1">
+                <button className="rounded-lg border border-line px-3 py-2" onClick={() => setCart((c) => c.flatMap((x) => (x.key === l.key ? (x.qty > 1 ? [{ ...x, qty: x.qty - 1 }] : []) : [x])))}>−</button>
+                <span>{l.qty.toLocaleString("fa-IR")}</span>
+                <button className="rounded-lg border border-line px-3 py-2" onClick={() => setCart((c) => c.map((x) => (x.key === l.key ? { ...x, qty: x.qty + 1 } : x)))}>+</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-3 space-y-2">
+          <Field label="موبایل مشتری"><input className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0912..." /></Field>
+          {customer ? (
+            <p className="rounded-xl bg-leaf-ink px-3 py-2 text-sm text-leaf">{customer.name} — {TIER_LABEL[tierOf(customer.points)]} ({customer.points.toLocaleString("fa-IR")} امتیاز، تخفیف {TIER_OFF[tierOf(customer.points)].toLocaleString("fa-IR")}٪)</p>
+          ) : (
+            <Field label="نام (اگر عضو نیست)"><input className={inputCls} value={guestName} onChange={(e) => setGuestName(e.target.value)} /></Field>
+          )}
+          <Field label="کد تخفیف"><input className={inputCls} value={code} onChange={(e) => setCode(e.target.value)} placeholder="WELCOME" /></Field>
+          {q.codeError ? <p className="text-sm text-warn">{q.codeError}</p> : null}
+          {customer ? <Field label="استفاده از امتیاز"><input className={inputCls} type="number" min={0} value={points} onChange={(e) => setPoints(Number(e.target.value))} /></Field> : null}
+          {q.pointsError ? <p className="text-sm text-warn">{q.pointsError}</p> : null}
+          <div className="flex gap-2">
+            {(["cash", "card", "online"] as const).map((p) => (
+              <button key={p} onClick={() => setPay(p)} className={`flex-1 rounded-xl py-3 text-sm ${pay === p ? "bg-ink text-bg" : "border border-line"}`}>{p === "cash" ? "نقد" : p === "card" ? "کارت" : "آنلاین"}</button>
+            ))}
+          </div>
+          <p className="flex justify-between text-sm"><span>جمع</span><span>{money(q.subtotal)}</span></p>
+          {q.tierDiscount ? <p className="flex justify-between text-sm"><span>سطح عضویت</span><span>{money(q.tierDiscount)}</span></p> : null}
+          {q.codeDiscount ? <p className="flex justify-between text-sm"><span>کد</span><span>{money(q.codeDiscount)}</span></p> : null}
+          <p className="flex justify-between text-base font-bold"><span>قابل پرداخت</span><span>{money(q.total)}</span></p>
+          {msg ? <p className="text-sm text-leaf">{msg}</p> : null}
+          <Btn onClick={checkout} disabled={!cart.length}>ثبت سفارش</Btn>
+        </div>
+      </Card>
+      {optFor ? (
+        <div className="fixed inset-0 z-30 flex items-end justify-center bg-ink/40 p-4 sm:items-center">
+          <Card className="w-full max-w-md">
+            <h3 className="mb-2 font-bold">{optFor.name}</h3>
+            {optFor.options.map((o) => (
+              <label key={o.id} className="mt-2 flex items-center justify-between text-sm">
+                <span><input type="checkbox" className="ms-2" checked={picked.includes(o.id)} onChange={() => setPicked((ids) => ids.includes(o.id) ? ids.filter((x) => x !== o.id) : [...ids, o.id])} />{o.name}</span>
+                <span>{o.price ? money(o.price) : "رایگان"}</span>
+              </label>
+            ))}
+            <Field label="یادداشت آشپزخانه"><input className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+            <div className="mt-3 flex gap-2">
+              <Btn onClick={() => { addProduct(optFor, picked, note); setOptFor(null); }}>افزودن</Btn>
+              <Btn tone="ghost" onClick={() => setOptFor(null)}>انصراف</Btn>
+            </div>
+          </Card>
+        </div>
+      ) : null}
+      {printed ? (
+        <>
+          <div id="print-root" className="hidden print:block">
+            {settings.printCustomer ? <ReceiptView order={printed} settings={settings} kind="customer" /> : null}
+            {settings.printKitchen ? <ReceiptView order={printed} settings={settings} kind="kitchen" /> : null}
+          </div>
+          <Card className="lg:col-span-2">
+            <div className="mb-2 flex items-center justify-between"><h3 className="font-bold">پیش‌نمایش فیش</h3><Btn tone="ghost" onClick={() => setPrinted(null)}>بستن</Btn></div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ReceiptView order={printed} settings={settings} kind="customer" />
+              <ReceiptView order={printed} settings={settings} kind="kitchen" />
+            </div>
+            <div className="mt-2"><Btn onClick={() => window.print()}>چاپ فیش</Btn></div>
+          </Card>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function statusFa(s: Order["status"]) {
+  return { new: "جدید", preparing: "در حال آماده‌سازی", ready: "آماده", delivered: "تحویل شد", cancelled: "لغو" }[s];
+}
+
+function OrdersScreen() {
+  const orders = usePos((s) => s.orders);
+  const settings = usePos((s) => s.settings);
+  const setStatus = usePos((s) => s.setStatus);
+  const [focus, setFocus] = useState<Order | null>(null);
+  const steps: Order["status"][] = settings.role === "kitchen" ? ["preparing", "ready"] : ["new", "preparing", "ready", "delivered", "cancelled"];
+  function jump(order: Order, status: Order["status"]) {
+    setStatus(order.id, status);
+    const next = { ...order, status };
+    if (status === "ready") void pushSms("order_ready", order.customerPhone, orderVars(next));
+    if (status === "delivered") void pushSms("order_delivered", order.customerPhone, orderVars(next));
+  }
+  return (
+    <div className="space-y-3">
+      <h2 className="flex items-center gap-2 text-xl font-bold"><ChefHat size={20} /> سفارش‌ها</h2>
+      {orders.length === 0 ? <Empty text="هنوز سفارشی ثبت نشده" /> : null}
+      {orders.map((o) => (
+        <Card key={o.id}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="font-bold">#{o.number.toLocaleString("fa-IR")} — {o.customerName}</p>
+              <p className="text-sm text-muted">{o.lines.map((l) => `${l.qty} ${l.name}`).join(" · ")} — {money(o.total)}</p>
+            </div>
+            <span className="rounded-full bg-warn-bg px-3 py-1 text-xs text-warn">{statusFa(o.status)}</span>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {steps.map((st) => <Btn key={st} tone={o.status === st ? "ink" : "ghost"} onClick={() => jump(o, st)}>{statusFa(st)}</Btn>)}
+            <Btn tone="ghost" onClick={() => setFocus(o)}>فیش</Btn>
+          </div>
+        </Card>
+      ))}
+      {focus ? (
+        <Card>
+          <div id="print-root" className="hidden print:block">
+            <ReceiptView order={focus} settings={settings} kind="customer" />
+            <ReceiptView order={focus} settings={settings} kind="kitchen" />
+          </div>
+          <ReceiptView order={focus} settings={settings} kind="customer" />
+          <div className="mt-2 flex gap-2"><Btn onClick={() => window.print()}>چاپ</Btn><Btn tone="ghost" onClick={() => setFocus(null)}>بستن</Btn></div>
+        </Card>
+      ) : null}
+    </div>
+  );
+}
+
+function MenuScreen() {
+  const categories = usePos((s) => s.categories);
+  const products = usePos((s) => s.products);
+  const ingredients = usePos((s) => s.ingredients);
+  const saveCategory = usePos((s) => s.saveCategory);
+  const saveProduct = usePos((s) => s.saveProduct);
+  const removeProduct = usePos((s) => s.removeProduct);
+  const [name, setName] = useState("");
+  const [draft, setDraft] = useState<Product | null>(null);
+  return (
+    <div className="space-y-4">
+      <Card>
+        <h2 className="mb-2 font-bold">دسته‌بندی</h2>
+        <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (!name.trim()) return; saveCategory({ id: uid("c"), name: name.trim() }); setName(""); }}>
+          <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="نام دسته" />
+          <Btn type="submit">افزودن</Btn>
+        </form>
+        <p className="mt-2 text-sm text-muted">{categories.map((c) => c.name).join(" · ")}</p>
+      </Card>
+      <div className="flex justify-between"><h2 className="font-bold">محصولات</h2>
+        <Btn onClick={() => setDraft({ id: uid("p"), name: "", categoryId: categories[0]?.id ?? "", price: 0, cost: 0, options: [], recipe: [], active: true })}>محصول جدید</Btn>
+      </div>
+      {products.map((p) => (
+        <Card key={p.id} className="flex items-center justify-between gap-2">
+          <div><p className="font-semibold">{p.name}</p><p className="text-sm text-muted">{money(p.price)} — تمام‌شده {money(p.cost)}</p></div>
+          <div className="flex gap-2"><Btn tone="ghost" onClick={() => setDraft(p)}>ویرایش</Btn><Btn tone="ghost" onClick={() => removeProduct(p.id)}>حذف</Btn></div>
+        </Card>
+      ))}
+      {draft ? (
+        <Card>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Field label="نام"><input className={inputCls} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
+            <Field label="دسته"><select className={inputCls} value={draft.categoryId} onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })}>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+            <Field label="قیمت فروش"><input className={inputCls} type="number" value={draft.price} onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })} /></Field>
+            <Field label="قیمت تمام‌شده"><input className={inputCls} type="number" value={draft.cost} onChange={(e) => setDraft({ ...draft, cost: Number(e.target.value) })} /></Field>
+          </div>
+          <p className="mt-3 text-sm font-semibold">مواد اولیه هر پرس</p>
+          {ingredients.map((ing) => {
+            const line = draft.recipe.find((r) => r.ingredientId === ing.id);
+            return (
+              <label key={ing.id} className="mt-1 flex items-center justify-between gap-2 text-sm">
+                <span>{ing.name}</span>
+                <input className={`${inputCls} max-w-28`} type="number" value={line?.qty ?? 0} onChange={(e) => {
+                  const qty = Number(e.target.value);
+                  const recipe = draft.recipe.filter((r) => r.ingredientId !== ing.id);
+                  setDraft({ ...draft, recipe: qty > 0 ? [...recipe, { ingredientId: ing.id, qty }] : recipe });
+                }} />
+              </label>
+            );
+          })}
+          <div className="mt-3 flex gap-2"><Btn onClick={() => { if (draft.name) { saveProduct(draft); setDraft(null); } }}>ذخیره</Btn><Btn tone="ghost" onClick={() => setDraft(null)}>بستن</Btn></div>
+        </Card>
+      ) : null}
+    </div>
+  );
+}
+
+function StockScreen() {
+  const ingredients = usePos((s) => s.ingredients);
+  const saveIngredient = usePos((s) => s.saveIngredient);
+  const adjustStock = usePos((s) => s.adjustStock);
+  const lows = lowStock(ingredients);
+  const [name, setName] = useState("");
+  const [unit, setUnit] = useState("عدد");
+  return (
+    <div className="space-y-3">
+      <h2 className="font-bold">انبار مواد اولیه</h2>
+      {lows.length ? <Card className="bg-warn-bg text-warn">کمبود: {lows.map((i) => i.name).join("، ")}</Card> : <p className="text-sm text-leaf">موجودی بالای حد هشدار است.</p>}
+      <form className="grid gap-2 sm:grid-cols-3" onSubmit={(e) => { e.preventDefault(); if (!name.trim()) return; saveIngredient({ id: uid("i"), name: name.trim(), unit, stock: 0, minStock: 5, costPerUnit: 0 }); setName(""); }}>
+        <input className={inputCls} placeholder="ماده جدید" value={name} onChange={(e) => setName(e.target.value)} />
+        <input className={inputCls} placeholder="واحد" value={unit} onChange={(e) => setUnit(e.target.value)} />
+        <Btn type="submit">افزودن</Btn>
+      </form>
+      {ingredients.map((i) => (
+        <Card key={i.id}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="font-semibold">{i.name}</p>
+              <p className={`text-sm ${i.stock <= i.minStock ? "text-warn" : "text-muted"}`}>موجودی {i.stock.toLocaleString("fa-IR")} {i.unit}</p>
+            </div>
+            <div className="flex gap-2">
+              <Btn tone="ghost" onClick={() => adjustStock(i.id, -1)}>−۱</Btn>
+              <Btn tone="ghost" onClick={() => adjustStock(i.id, 1)}>+۱</Btn>
+              <Btn tone="leaf" onClick={() => adjustStock(i.id, 10)}>+۱۰</Btn>
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function CustomersScreen() {
+  const customers = usePos((s) => s.customers);
+  const orders = usePos((s) => s.orders);
+  const saveCustomer = usePos((s) => s.saveCustomer);
+  const [q, setQ] = useState("");
+  const [form, setForm] = useState({ name: "", phone: "", birthday: "" });
+  const list = customers.filter((c) => c.name.includes(q) || c.phone.includes(q));
+  return (
+    <div className="space-y-3">
+      <h2 className="font-bold">باشگاه مشتریان</h2>
+      <p className="text-sm text-muted">نقره از ۵۰۰ امتیاز (۳٪)، طلا از ۱۵۰۰ (۵٪)، پلاتین از ۴۰۰۰ (۸٪). هر ۱۰۰٬۰۰۰ تومان یک امتیاز.</p>
+      <Card>
+        <form className="grid gap-2 sm:grid-cols-4" onSubmit={(e) => {
+          e.preventDefault();
+          if (!form.phone) return;
+          saveCustomer({ id: uid("cu"), name: form.name || "بدون نام", phone: form.phone, points: 0, birthday: form.birthday, totalSpent: 0, visits: 0, createdAt: new Date().toISOString() });
+          setForm({ name: "", phone: "", birthday: "" });
+        }}>
+          <input className={inputCls} placeholder="نام" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input className={inputCls} placeholder="موبایل" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          <input className={inputCls} type="date" value={form.birthday} onChange={(e) => setForm({ ...form, birthday: e.target.value })} />
+          <Btn type="submit">عضویت</Btn>
+        </form>
+      </Card>
+      <input className={inputCls} placeholder="جستجو" value={q} onChange={(e) => setQ(e.target.value)} />
+      {list.map((c) => (
+        <Card key={c.id}>
+          <div className="flex flex-wrap justify-between gap-2">
+            <div><p className="font-bold">{c.name}</p><p className="text-sm text-muted">{c.phone}</p></div>
+            <p className="text-sm">{TIER_LABEL[tierOf(c.points)]} — {c.points.toLocaleString("fa-IR")} امتیاز — {money(c.totalSpent)}</p>
+          </div>
+          <p className="mt-1 text-xs text-muted">{orders.filter((o) => o.customerId === c.id).length.toLocaleString("fa-IR")} سفارش</p>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function emptyCode(): DiscountCode {
+  return { id: uid("d"), code: "", type: "percent", value: 10, maxDiscount: 50000, minOrder: 0, maxUses: 0, usedCount: 0, perCustomer: 1, startsAt: new Date().toISOString().slice(0, 10), endsAt: "2026-12-31", audience: "all" };
+}
+
+function CodesScreen() {
+  const discounts = usePos((s) => s.discounts);
+  const saveDiscount = usePos((s) => s.saveDiscount);
+  const removeDiscount = usePos((s) => s.removeDiscount);
+  const [draft, setDraft] = useState<DiscountCode | null>(null);
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-between"><h2 className="font-bold">کدهای تخفیف</h2><Btn onClick={() => setDraft(emptyCode())}>کد جدید</Btn></div>
+      {discounts.map((d) => (
+        <Card key={d.id} className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="font-bold">{d.code}</p>
+            <p className="text-sm text-muted">{d.type === "percent" ? `${d.value}٪` : money(d.value)} — استفاده {d.usedCount.toLocaleString("fa-IR")}{d.maxUses ? ` از ${d.maxUses.toLocaleString("fa-IR")}` : " (نامحدود)"}</p>
+          </div>
+          <div className="flex gap-2"><Btn tone="ghost" onClick={() => setDraft(d)}>ویرایش</Btn><Btn tone="ghost" onClick={() => removeDiscount(d.id)}>حذف</Btn></div>
+        </Card>
+      ))}
+      {draft ? (
+        <Card>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Field label="کد"><input className={inputCls} value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value.toUpperCase() })} /></Field>
+            <Field label="نوع"><select className={inputCls} value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as DiscountCode["type"] })}><option value="percent">درصدی</option><option value="fixed">مبلغ ثابت</option></select></Field>
+            <Field label="مقدار"><input className={inputCls} type="number" value={draft.value} onChange={(e) => setDraft({ ...draft, value: Number(e.target.value) })} /></Field>
+            <Field label="سقف تخفیف"><input className={inputCls} type="number" value={draft.maxDiscount} onChange={(e) => setDraft({ ...draft, maxDiscount: Number(e.target.value) })} /></Field>
+            <Field label="حداقل سفارش"><input className={inputCls} type="number" value={draft.minOrder} onChange={(e) => setDraft({ ...draft, minOrder: Number(e.target.value) })} /></Field>
+            <Field label="سقف کل (۰ نامحدود)"><input className={inputCls} type="number" value={draft.maxUses} onChange={(e) => setDraft({ ...draft, maxUses: Number(e.target.value) })} /></Field>
+            <Field label="سقف هر مشتری"><input className={inputCls} type="number" value={draft.perCustomer} onChange={(e) => setDraft({ ...draft, perCustomer: Number(e.target.value) })} /></Field>
+            <Field label="مخاطب">
+              <select className={inputCls} value={draft.audience} onChange={(e) => setDraft({ ...draft, audience: e.target.value as DiscountCode["audience"] })}>
+                <option value="all">همه</option><option value="club">فقط باشگاه</option>
+                <option value="bronze">برنز</option><option value="silver">نقره</option><option value="gold">طلا</option><option value="platinum">پلاتین</option>
+              </select>
+            </Field>
+            <Field label="از"><input className={inputCls} type="date" value={draft.startsAt} onChange={(e) => setDraft({ ...draft, startsAt: e.target.value })} /></Field>
+            <Field label="تا"><input className={inputCls} type="date" value={draft.endsAt} onChange={(e) => setDraft({ ...draft, endsAt: e.target.value })} /></Field>
+          </div>
+          <div className="mt-3 flex gap-2"><Btn onClick={() => { if (draft.code) { saveDiscount(draft); setDraft(null); } }}>ذخیره</Btn><Btn tone="ghost" onClick={() => setDraft(null)}>بستن</Btn></div>
+        </Card>
+      ) : null}
+    </div>
+  );
+}
+
+function ReportsScreen() {
+  const orders = usePos((s) => s.orders);
+  const expenses = usePos((s) => s.expenses);
+  const products = usePos((s) => s.products);
+  const addExpense = usePos((s) => s.addExpense);
+  const [title, setTitle] = useState("");
+  const [amount, setAmount] = useState(0);
+  const [cat, setCat] = useState("مواد اولیه");
+  const done = orders.filter((o) => o.status !== "cancelled");
+  const sales = done.reduce((s, o) => s + o.total, 0);
+  const costGuess = done.reduce((s, o) => s + o.lines.reduce((ls, l) => ls + (products.find((x) => x.id === l.productId)?.cost ?? 0) * l.qty, 0), 0);
+  const spend = expenses.reduce((s, e) => s + e.amount, 0);
+  const days = useMemo(() => {
+    const map = new Map<string, number>();
+    for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); map.set(d.toISOString().slice(0, 10), 0); }
+    for (const o of done) { const k = o.createdAt.slice(0, 10); if (map.has(k)) map.set(k, (map.get(k) ?? 0) + o.total); }
+    return [...map.entries()].map(([day, total]) => ({ day: new Date(day).toLocaleDateString("fa-IR", { weekday: "short" }), total }));
+  }, [orders]);
+  const rank = new Map<string, number>();
+  for (const o of done) for (const l of o.lines) rank.set(l.name, (rank.get(l.name) ?? 0) + l.qty);
+  const top = [...rank.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  return (
+    <div className="space-y-4">
+      <h2 className="font-bold">گزارش فروش و هزینه</h2>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card><p className="text-sm text-muted">فروش</p><p className="text-xl font-bold">{money(sales)}</p></Card>
+        <Card><p className="text-sm text-muted">بهای تمام‌شده</p><p className="text-xl font-bold">{money(costGuess)}</p></Card>
+        <Card><p className="text-sm text-muted">سود پس از هزینه</p><p className="text-xl font-bold">{money(sales - costGuess - spend)}</p></Card>
+      </div>
+      <Card className="h-64">
+        <p className="mb-2 text-sm text-muted">هفت روز اخیر</p>
+        <ResponsiveContainer width="100%" height="85%">
+          <BarChart data={days}><XAxis dataKey="day" /><YAxis hide /><Tooltip formatter={(v) => money(Number(v ?? 0))} /><Bar dataKey="total" fill="#c2410c" radius={6} /></BarChart>
+        </ResponsiveContainer>
+      </Card>
+      <Card>
+        <p className="mb-2 font-semibold">پرفروش‌ها</p>
+        {top.length === 0 ? <Empty text="بعد از چند فروش اینجا پر می‌شود" /> : top.map(([n, qty]) => <p key={n} className="flex justify-between text-sm"><span>{n}</span><span>{qty.toLocaleString("fa-IR")}</span></p>)}
+      </Card>
+      <Card>
+        <h3 className="mb-2 font-semibold">ثبت هزینه</h3>
+        <form className="grid gap-2 sm:grid-cols-4" onSubmit={(e) => { e.preventDefault(); if (!title || amount <= 0) return; addExpense({ title, amount, category: cat, date: new Date().toISOString().slice(0, 10) }); setTitle(""); setAmount(0); }}>
+          <input className={inputCls} placeholder="شرح" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <input className={inputCls} type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+          <input className={inputCls} value={cat} onChange={(e) => setCat(e.target.value)} />
+          <Btn type="submit">ثبت</Btn>
+        </form>
+        <ul className="mt-3 space-y-1 text-sm">{expenses.map((e) => <li key={e.id} className="flex justify-between"><span>{e.title}</span><span>{money(e.amount)}</span></li>)}</ul>
+      </Card>
+    </div>
+  );
+}
+
+function SmsScreen() {
+  const templates = usePos((s) => s.templates);
+  const logs = usePos((s) => s.smsLogs);
+  const settings = usePos((s) => s.settings);
+  const saveTemplate = usePos((s) => s.saveTemplate);
+  const patchSettings = usePos((s) => s.patchSettings);
+  const customers = usePos((s) => s.customers);
+  const [credit, setCredit] = useState("");
+  const [manual, setManual] = useState({ to: "", text: "" });
+  async function testCredit() {
+    setCredit("در حال بررسی...");
+    const res = await fetch("/api/sms", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "credit", username: settings.smsUser, password: settings.smsKey }) });
+    const data = (await res.json()) as { detail: string };
+    setCredit(data.detail);
+  }
+  return (
+    <div className="space-y-4">
+      <h2 className="font-bold">ملی‌پیامک</h2>
+      <Card className="grid gap-2 sm:grid-cols-2">
+        <Field label="نام کاربری"><input className={inputCls} value={settings.smsUser} onChange={(e) => patchSettings({ smsUser: e.target.value })} /></Field>
+        <Field label="رمز یا API Key"><input className={inputCls} type="password" value={settings.smsKey} onChange={(e) => patchSettings({ smsKey: e.target.value })} /></Field>
+        <Field label="شماره فرستنده"><input className={inputCls} value={settings.smsFrom} onChange={(e) => patchSettings({ smsFrom: e.target.value })} placeholder="5000..." /></Field>
+        <div className="flex items-end"><Btn tone="leaf" onClick={() => void testCredit()}>تست اعتبار</Btn></div>
+        {credit ? <p className="text-sm sm:col-span-2">{credit}</p> : null}
+        <p className="text-xs text-muted sm:col-span-2">نام کاربری، API Key (به‌جای رمز پنل) و سرشماره را از بخش توسعه‌دهندگان ملی‌پیامک بردارید. برای پترن، شناسه الگو را بگذارید و متغیرها را با ; جدا کنید.</p>
+      </Card>
+      {templates.map((t) => (
+        <Card key={t.event}>
+          <label className="flex items-center gap-2 font-semibold">
+            <input type="checkbox" checked={t.enabled} onChange={(e) => saveTemplate({ ...t, enabled: e.target.checked })} />
+            {EVENT_LABEL[t.event]}
+          </label>
+          <textarea className={`${inputCls} mt-2`} rows={2} value={t.body} onChange={(e) => saveTemplate({ ...t, body: e.target.value })} />
+          <Field label="شناسه پترن (اختیاری)"><input className={inputCls} value={t.bodyId} onChange={(e) => saveTemplate({ ...t, bodyId: e.target.value })} /></Field>
+        </Card>
+      ))}
+      <Card>
+        <h3 className="mb-2 font-semibold">ارسال دستی</h3>
+        <div className="grid gap-2">
+          <input className={inputCls} placeholder="شماره" value={manual.to} onChange={(e) => setManual({ ...manual, to: e.target.value })} />
+          <textarea className={inputCls} rows={2} value={manual.text} onChange={(e) => setManual({ ...manual, text: e.target.value })} />
+          <div className="flex flex-wrap gap-2">
+            <Btn onClick={() => void sendRaw(manual.to, manual.text)}>ارسال به یک شماره</Btn>
+            <Btn tone="ghost" onClick={() => { for (const c of customers) void sendRaw(c.phone, manual.text); }}>ارسال به اعضای باشگاه</Btn>
+          </div>
+        </div>
+      </Card>
+      <Card>
+        <h3 className="mb-2 font-semibold">لاگ ارسال</h3>
+        {logs.length === 0 ? <Empty text="ارسالی ثبت نشده" /> : logs.slice(0, 20).map((l) => (
+          <p key={l.id} className="border-b border-line py-2 text-sm"><span className={l.ok ? "text-leaf" : "text-warn"}>{l.ok ? "موفق" : "ناموفق"}</span> — {l.to} — {l.detail}</p>
+        ))}
+      </Card>
+    </div>
+  );
+}
+
+function SettingsScreen() {
+  const settings = usePos((s) => s.settings);
+  const patchSettings = usePos((s) => s.patchSettings);
+  const exportBackup = usePos((s) => s.exportBackup);
+  const importBackup = usePos((s) => s.importBackup);
+  const resetDemo = usePos((s) => s.resetDemo);
+  const [note, setNote] = useState("");
+  function download() {
+    const blob = new Blob([exportBackup()], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "grillcash-backup.json";
+    a.click();
+  }
+  return (
+    <div className="space-y-4">
+      <h2 className="font-bold">تنظیمات فروشگاه و فیش‌پرینتر</h2>
+      <Card className="grid gap-2 sm:grid-cols-2">
+        <Field label="نام فروشگاه"><input className={inputCls} value={settings.shopName} onChange={(e) => patchSettings({ shopName: e.target.value })} /></Field>
+        <Field label="تلفن"><input className={inputCls} value={settings.phone} onChange={(e) => patchSettings({ phone: e.target.value })} /></Field>
+        <Field label="آدرس"><input className={inputCls} value={settings.address} onChange={(e) => patchSettings({ address: e.target.value })} /></Field>
+        <Field label="مالیات درصد"><input className={inputCls} type="number" value={settings.taxPercent} onChange={(e) => patchSettings({ taxPercent: Number(e.target.value) })} /></Field>
+        <Field label="هر چند تومان یک امتیاز"><input className={inputCls} type="number" value={settings.pointsPerToman} onChange={(e) => patchSettings({ pointsPerToman: Number(e.target.value) })} /></Field>
+        <Field label="ارزش هر امتیاز"><input className={inputCls} type="number" value={settings.tomanPerPoint} onChange={(e) => patchSettings({ tomanPerPoint: Number(e.target.value) })} /></Field>
+        <Field label="عرض کاغذ">
+          <select className={inputCls} value={settings.paperWidth} onChange={(e) => patchSettings({ paperWidth: Number(e.target.value) as 58 | 80 })}>
+            <option value={58}>۵۸ میلی‌متر</option><option value={80}>۸۰ میلی‌متر</option>
+          </select>
+        </Field>
+        <Field label="بالای فیش"><input className={inputCls} value={settings.headerNote} onChange={(e) => patchSettings({ headerNote: e.target.value })} /></Field>
+        <Field label="پایین فیش"><input className={inputCls} value={settings.footerNote} onChange={(e) => patchSettings({ footerNote: e.target.value })} /></Field>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.autoPrint} onChange={(e) => patchSettings({ autoPrint: e.target.checked })} />چاپ خودکار</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.printCustomer} onChange={(e) => patchSettings({ printCustomer: e.target.checked })} />فیش مشتری</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.printKitchen} onChange={(e) => patchSettings({ printKitchen: e.target.checked })} />فیش آشپزخانه</label>
+      </Card>
+      <Card>
+        <p className="mb-2 text-sm text-muted">در پنجره چاپ، فیش‌پرینتر را انتخاب کنید. پشتیبان روی همین دستگاه است و کلید پیامک داخل فایل نمی‌آید.</p>
+        <div className="flex flex-wrap gap-2">
+          <Btn onClick={download}>دانلود پشتیبان</Btn>
+          <label className="rounded-xl border border-line bg-surface px-4 py-3 text-sm font-semibold">
+            بازیابی
+            <input type="file" accept="application/json" className="hidden" onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const err = importBackup(await file.text());
+              setNote(err || "بازیابی شد");
+            }} />
+          </label>
+          <Btn tone="ghost" onClick={() => { resetDemo(); setNote("داده‌های نمونه برگشت"); }}>بازگشت به نمونه</Btn>
+        </div>
+        {note ? <p className="mt-2 text-sm">{note}</p> : null}
+      </Card>
+    </div>
+  );
+}

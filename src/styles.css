@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #f4efe6;
+  --color-surface: #fffdf8;
+  --color-ink: #1c1712;
+  --color-muted: #6f655c;
+  --color-line: #e4d9cb;
+  --color-chili: #c2410c;
+  --color-chili-ink: #fff7f2;
+  --color-leaf: #1f6b4a;
+  --color-leaf-ink: #f3faf6;
+  --color-warn: #9a3412;
+  --color-warn-bg: #fff1e6;
+  --font-sans: "Vazirmatn", "Segoe UI", sans-serif;
+  --radius-card: 1rem;
+  --shadow-card: 0 10px 30px rgb(28 23 18 / 0.06);
+}
+
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    direction: rtl;
+  }
+  body {
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    overflow-x: clip;
+  }
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #print-root,
+  #print-root * {
+    visibility: visible;
+  }
+  #print-root {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    background: white;
+    color: black;
+  }
+  @page {
+    margin: 4mm;
+  }
+}

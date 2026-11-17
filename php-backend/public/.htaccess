@@ -1,0 +1,12 @@
+Options -Indexes
+RewriteEngine On
+
+# Block direct access to dotfiles and private/config artefacts.
+<FilesMatch "^\.(?!well-known/)">
+  Require all denied
+</FilesMatch>
+
+# API requests are routed through one PHP front controller.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^api(?:/.*)?$ api/index.php [QSA,L]
