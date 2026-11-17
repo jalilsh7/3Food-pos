@@ -540,6 +540,11 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
         json_response(['ok' => true, 'item' => $item], 201);
     }
     if ($method === 'DELETE') {
+        // Cashiers may maintain customer details during checkout, but destructive
+        // record removal remains a manager-only operation.
+        if ($resource === 'customers' && $actor['role'] !== 'manager') {
+            json_response(['ok' => false, 'error' => 'forbidden'], 403);
+        }
         require_csrf();
         $id = (string)($_GET['id'] ?? '');
         if ($id === '' || strlen($id) > 100) json_response(['ok' => false, 'error' => 'invalid_id'], 422);
