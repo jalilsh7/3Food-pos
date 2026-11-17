@@ -121,10 +121,10 @@ function require_csrf(): void {
 function current_user(PDO $pdo): ?array {
     $id = $_SESSION['user_id'] ?? null;
     if (!$id) return null;
-    $q = $pdo->prepare('SELECT id, username, display_name, role, is_active, must_change_password FROM app_users WHERE id = ? LIMIT 1');
+    $q = $pdo->prepare('SELECT id, username, display_name, role, is_active, must_change_password, session_version FROM app_users WHERE id = ? LIMIT 1');
     $q->execute([(int)$id]);
     $user = $q->fetch();
-    if (!$user || !(int)$user['is_active']) {
+    if (!$user || !(int)$user['is_active'] || (int)($user['session_version'] ?? 0) !== (int)($_SESSION['auth_version'] ?? -1)) {
         $_SESSION = [];
         session_regenerate_id(true);
         return null;
@@ -246,7 +246,7 @@ if ($method === 'POST' && $path === '/setup/manager') {
         $pdo->commit();
         // The setup token must also be removed from private/config.php immediately after this succeeds.
         session_regenerate_id(true);
-        $_SESSION = ['user_id' => $userId, 'last_seen' => time(), 'csrf' => bin2hex(random_bytes(32))];
+        $_SESSION = ['user_id' => $userId, 'auth_version' => 0, 'last_seen' => time(), 'csrf' => bin2hex(random_bytes(32))];
         json_response(['ok' => true, 'user' => ['id' => $userId, 'username' => $username, 'display_name' => $display, 'role' => 'manager'], 'csrf_token' => $_SESSION['csrf']], 201);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
@@ -263,7 +263,7 @@ if ($method === 'POST' && $path === '/auth/login') {
     if (login_rate_limited($pdo, $config, $username)) {
         json_response(['ok' => false, 'error' => 'too_many_attempts', 'message' => 'تعداد تلاش‌ها زیاد است؛ ۱۵ دقیقه دیگر دوباره امتحان کنید'], 429);
     }
-    $stmt = $pdo->prepare('SELECT id, username, password_hash, display_name, role, is_active, must_change_password FROM app_users WHERE username = ? LIMIT 1');
+    $stmt = $pdo->prepare('SELECT id, username, password_hash, display_name, role, is_active, must_change_password, session_version FROM app_users WHERE username = ? LIMIT 1');
     $stmt->execute([$username]);
     $row = $stmt->fetch();
     $ok = $row && (int)$row['is_active'] === 1 && password_verify($password, $row['password_hash']);
@@ -271,7 +271,7 @@ if ($method === 'POST' && $path === '/auth/login') {
     if (!$ok) json_response(['ok' => false, 'error' => 'invalid_credentials', 'message' => 'نام کاربری یا رمز عبور اشتباه است'], 401);
 
     session_regenerate_id(true);
-    $_SESSION = ['user_id' => (int)$row['id'], 'last_seen' => time(), 'csrf' => bin2hex(random_bytes(32))];
+    $_SESSION = ['user_id' => (int)$row['id'], 'auth_version' => (int)$row['session_version'], 'last_seen' => time(), 'csrf' => bin2hex(random_bytes(32))];
     $update = $pdo->prepare('UPDATE app_users SET last_login_at = NOW() WHERE id = ?');
     $update->execute([(int)$row['id']]);
     audit($pdo, (int)$row['id'], 'login', 'user', (string)$row['id']);
@@ -328,11 +328,12 @@ if ($method === 'POST' && $path === '/auth/change-password') {
     if ($current === '' || !password_verify($current, $hash)) {
         json_response(['ok' => false, 'error' => 'current_password_invalid', 'message' => 'رمز فعلی صحیح نیست'], 401);
     }
-    $update = $pdo->prepare('UPDATE app_users SET password_hash = ?, must_change_password = 0 WHERE id = ?');
+    $update = $pdo->prepare('UPDATE app_users SET password_hash = ?, must_change_password = 0, session_version = session_version + 1 WHERE id = ?');
     $update->execute([password_hash($next, PASSWORD_DEFAULT), (int)$user['id']]);
     audit($pdo, (int)$user['id'], 'password_changed', 'user', (string)$user['id']);
     session_regenerate_id(true);
     $_SESSION['user_id'] = (int)$user['id'];
+    $_SESSION['auth_version'] = (int)$user['session_version'] + 1;
     $_SESSION['last_seen'] = time();
     $_SESSION['csrf'] = bin2hex(random_bytes(32));
     json_response(['ok' => true, 'csrf_token' => $_SESSION['csrf']]);
@@ -409,6 +410,9 @@ if (preg_match('#^/users/(\\d+)$#', $path, $match) && $method === 'PATCH') {
     if ($target['role'] === 'manager' && (int)$target['is_active'] === 1 && ($newRole !== 'manager' || $newActive !== 1)) {
         $activeManagers = (int)$pdo->query("SELECT COUNT(*) FROM app_users WHERE role = 'manager' AND is_active = 1")->fetchColumn();
         if ($activeManagers <= 1) json_response(['ok' => false, 'error' => 'last_manager_required', 'message' => 'حداقل یک حساب مدیر فعال باید باقی بماند'], 409);
+    }
+    if (array_key_exists('role', $body) || array_key_exists('is_active', $body) || array_key_exists('password', $body)) {
+        $updates[] = 'session_version = session_version + 1';
     }
     $values[] = $targetId;
     $stmt = $pdo->prepare('UPDATE app_users SET ' . implode(', ', $updates) . ' WHERE id = ?');
