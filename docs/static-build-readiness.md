@@ -5,7 +5,7 @@
 ## وضعیت تازه
 
 - فایل `php-backend/public/.htaccess` ابتدا درخواست‌های `/api/...` را به front controller PHP می‌فرستد و سپس، فقط در صورت وجود `DOCUMENT_ROOT/index.html`، مسیرهای غیرواقعی را به SPA fallback می‌کند.
-- دستور مستقل `npm run build:cpanel` اضافه شده است. در حالت `--mode cpanel`، پیکربندی Vite حالت رسمی SPA در TanStack Start را فعال می‌کند، خروجی shell را `index.html` قرار می‌دهد و پلاگین Nitro/Vercel را از این build کنار می‌گذارد؛ دستور build قدیمی و dev برای سایر محیط‌ها تغییر نکرده‌اند.
+- دستور مستقل `npm run build:cpanel` اضافه شده است. در حالت `--mode cpanel`، پیکربندی Vite حالت رسمی SPA در TanStack Start را فعال می‌کند، خروجی shell را `index.html` قرار می‌دهد و Nitro را با preset `static` اجرا می‌کند تا pipeline prerender متادیتای build لازم را داشته باشد، اما خروجی عمومی استاتیک باشد و server bundle مربوط به Node تولید نشود؛ دستور build قدیمی و dev برای سایر محیط‌ها تغییر نکرده‌اند.
 - workflow CI اکنون build مخصوص cPanel را نیز اجرا می‌کند. تا پایان اجرای workflow، موفقیت build را تأییدشده تلقی نکنید.
 - تست رگرسیون `scripts/cpanel-htaccess.test.mjs` ترتیب API و fallback و شرط‌های محافظ را بررسی می‌کند؛ این تست به مجموعه `scripts/**/*.test.mjs` موجود اضافه شده است.
 - اجرای CI پس از این تغییرات باید جداگانه تأیید شود؛ تست متنی rewrite جایگزین آزمون Apache واقعی نیست.
@@ -46,4 +46,4 @@
 
 مسیر static build هنوز باید با جداسازی ورودی client از TanStack Start/Nitro و حذف وابستگی‌های runtime سمت سرور از bundle پیاده‌سازی شود. سپس auth و داده‌ها باید فقط از PHP API در مرورگر مصرف شوند، خروجی build در مسیر root و زیرمسیر `/pos-staging/` آزمایش شود و در نهایت روی Apache واقعی تست شود. ایجاد build استاتیک صوری پیش از این انتقال توصیه نمی‌شود.
 
-این سند وضعیت طراحی و پیاده‌سازی را تفکیک می‌کند؛ نتیجه واقعی build فقط از اجرای CI مربوط به commit اخیر قابل اعلام است.
+اجرای نخست build نشان داد TanStack Start برای prerender از اطلاعات preview مربوط به Nitro استفاده می‌کند؛ بنابراین build cPanel با preset `static` پیکربندی شده است. نتیجه واقعی این اصلاح فقط از اجرای CI مربوط به commit `d16ac5d` قابل اعلام است.
