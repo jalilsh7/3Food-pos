@@ -322,6 +322,8 @@ function PosScreen() {
 
   async function checkout() {
     if (submitting || !cart.length) return;
+    if (code.trim() && q.codeError) { setMsg(q.codeError); return; }
+    if (q.pointsError) { setMsg(q.pointsError); return; }
     setSubmitting(true);
     setMsg("");
     try {
@@ -854,7 +856,7 @@ function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, role: Ro
     customerId: order.customerId ?? null,
     customerName: order.customerName ?? "",
     customerPhone: order.customerPhone ?? "",
-    discountCode: "",
+    discountCode: order.discountCode ?? "",
     pointsUsed: 0,
     pointsEarned: 0,
   }));
