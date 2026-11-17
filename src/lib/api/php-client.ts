@@ -148,6 +148,9 @@ export const phpApi = {
       return result;
     }),
 
+  exportBackup: () =>
+    request<ApiEnvelope<{ backup: Record<string, unknown> }>>("/backup/export"),
+
   importLegacyData: (input: {
     data: Record<string, unknown[]>;
     nextOrder: number;
