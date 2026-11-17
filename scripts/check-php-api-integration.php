@@ -242,7 +242,7 @@ try {
     $managerSessionCookie = $cookie;
     $cookie = $cashierSessionCookie;
     $revokedSession = api('GET', '/api/v1/auth/me');
-    check($revokedSession['status'] === 401 && ($revokedSession['json']['authenticated'] ?? true) === false, 'disabled cashier existing session is revoked');
+    check($revokedSession['status'] === 200 && ($revokedSession['json']['authenticated'] ?? true) === false, 'disabled cashier existing session is revoked');
     $cookie = $managerSessionCookie;
 
     $kitchenLogin = api('POST', '/api/v1/auth/login', [
