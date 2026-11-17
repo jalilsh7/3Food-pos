@@ -242,6 +242,45 @@ if ($method === 'GET' && $path === '/health') {
     json_response(['ok' => true, 'service' => '3food-pos-php-api', 'database' => 'mysql']);
 }
 
+if ($method === 'GET' && $path === '/preflight') {
+    $requiredTables = [
+        'app_users', 'app_login_attempts', 'app_audit_logs', 'app_install_state',
+        'pos_records', 'pos_counters', 'pos_orders', 'pos_order_effects',
+        'pos_discount_redemptions',
+    ];
+    $tableStmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM information_schema.TABLES
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND ENGINE = "InnoDB"'
+    );
+    $missingTables = [];
+    foreach ($requiredTables as $table) {
+        $tableStmt->execute([$table]);
+        if ((int)$tableStmt->fetchColumn() !== 1) $missingTables[] = $table;
+    }
+    $checks = [
+        'php_version' => version_compare(PHP_VERSION, '8.1.0', '>='),
+        'pdo_mysql' => extension_loaded('pdo_mysql'),
+        'json' => extension_loaded('json'),
+        'database_connection' => true,
+        'innodb_schema' => count($missingTables) === 0,
+        'https' => request_is_https(),
+    ];
+    $setupCompleted = (int)$pdo->query('SELECT setup_completed FROM app_install_state WHERE id = 1')->fetchColumn() === 1;
+    $usersCount = (int)$pdo->query('SELECT COUNT(*) FROM app_users')->fetchColumn();
+    $setupRequired = !$setupCompleted && $usersCount === 0;
+    $coreReady = $checks['php_version'] && $checks['pdo_mysql'] && $checks['json']
+        && $checks['database_connection'] && $checks['innodb_schema'];
+    json_response([
+        'ok' => true,
+        'service' => '3food-pos-php-api',
+        'php_version' => PHP_VERSION,
+        'checks' => $checks,
+        'missing_innodb_tables' => $missingTables,
+        'setup_required' => $setupRequired,
+        'production_ready' => $coreReady && $checks['https'],
+    ]);
+}
+
 if ($method === 'GET' && $path === '/setup/status') {
     $completed = (int)$pdo->query('SELECT setup_completed FROM app_install_state WHERE id = 1')->fetchColumn() === 1;
     $users = (int)$pdo->query('SELECT COUNT(*) FROM app_users')->fetchColumn();
