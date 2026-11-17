@@ -5,8 +5,8 @@
  * only and refreshed from login / auth-me responses. Never persist passwords,
  * session identifiers, CSRF tokens, or API secrets in localStorage.
  *
- * This module is an integration foundation. The current POS store and auth UI
- * are not switched to it until their state and error handling are migrated.
+ * The POS UI uses this client for PHP session auth, MySQL bootstrap, records,
+ * orders, SMS, and backup operations. CSRF remains in memory only.
  */
 
 export type PosRole = "manager" | "cashier" | "kitchen";
@@ -151,7 +151,7 @@ export const phpApi = {
   exportBackup: () =>
     request<ApiEnvelope<{ backup: Record<string, unknown> }>>("/backup/export"),
   restoreBackup: (backup: Record<string, unknown>) =>
-    request<ApiEnvelope<{ restored: { records: number; orders: number; effects: number; redemptions: number } }>>("/backup/restore", { method: "POST", body: JSON.stringify({ backup }) }),
+    request<ApiEnvelope<{ restored: { records: number; orders: number; effects: number; redemptions: number } }>>("/backup/restore", { method: "POST", body: { backup } }),
 
   importLegacyData: (input: {
     data: Record<string, unknown[]>;
