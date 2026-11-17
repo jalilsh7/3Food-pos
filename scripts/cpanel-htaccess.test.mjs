@@ -12,6 +12,7 @@ test("PHP API rewrite is evaluated before the React SPA fallback", () => {
   const spaRule = rules.indexOf("RewriteRule ^ index.html");
   assert.notEqual(apiRule, -1, "API front-controller rewrite must exist");
   assert.notEqual(spaRule, -1, "SPA fallback must exist");
+  assert.match(rules, /DirectoryIndex _shell\\.html index\\.html/);
   assert.ok(apiRule < spaRule, "API rewrite must precede SPA fallback");
 });
 
