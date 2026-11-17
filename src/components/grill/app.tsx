@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   ChefHat, ClipboardList, LayoutDashboard, MessageSquare, Percent,
@@ -34,9 +34,7 @@ const EVENT_LABEL: Record<SmsEvent, string> = {
 };
 
 export function GrillApp() {
-  const role = usePos((s) => s.settings.role);
   const shop = usePos((s) => s.settings.shopName);
-  const setRole = usePos((s) => s.setRole);
   const [user, setUser] = useState<ApiUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [setupRequired, setSetupRequired] = useState(false);
@@ -63,10 +61,6 @@ export function GrillApp() {
     return () => { active = false; };
   }, []);
 
-  useEffect(() => {
-    if (user) setRole(user.role);
-  }, [user, setRole]);
-
   async function logout() {
     try {
       await phpApi.logout();
@@ -81,7 +75,7 @@ export function GrillApp() {
   if (sessionError && !user) return <AuthFrame><p className="text-sm text-warn">{sessionError}</p><button className="rounded-xl bg-ink px-4 py-2 text-bg" onClick={() => window.location.reload()}>تلاش دوباره</button></AuthFrame>;
   if (!user) return <PhpLoginScreen setupRequired={setupRequired} onAuthenticated={setUser} />;
   if (user.must_change_password) return <ChangePasswordScreen user={user} onChanged={() => setUser({ ...user, must_change_password: false })} />;
-  const allowed = NAV.filter((n) => n.roles.includes(role));
+  const allowed = NAV.filter((n) => n.roles.includes(user.role));
   const [viewFallback] = allowed;
   return (
     <div className="min-h-screen bg-bg text-ink">
@@ -128,7 +122,7 @@ function PosWorkspace({ allowed, initialView }: { allowed: typeof NAV; initialVi
   );
 }
 
-function AuthFrame({ children }: { children: React.ReactNode }) {
+function AuthFrame({ children }: { children: ReactNode }) {
   return <div className="grid min-h-screen place-items-center bg-bg p-4"><Card>{children}</Card></div>;
 }
 
