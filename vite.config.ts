@@ -172,7 +172,7 @@ export default defineConfig(({ command, isPreview, mode }) => ({
           // Start's prerender pipeline still needs Nitro's preview/build
           // metadata. The static preset emits public assets only, not a Node
           // server bundle, so the cPanel artifact remains PHP + static files.
-          nitro({ preset: "static", serverDir: "./server" }),
+          nitro({ preset: "static" }),
         ]
       : [
           tanstackStart(),
