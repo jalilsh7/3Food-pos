@@ -924,7 +924,12 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
                 $rawCustomer = $customerLock->fetchColumn();
                 $customer = is_string($rawCustomer) ? json_decode($rawCustomer, true) : null;
                 if (!is_array($customer)) throw new RuntimeException('Customer missing while reversing order ' . $id);
-                $customer['points'] = max(0, (int)($customer['points'] ?? 0) + (int)$effect['points_spent'] - (int)$effect['points_earned']);
+                $restoredPoints = (int)($customer['points'] ?? 0) + (int)$effect['points_spent'];
+                if ($restoredPoints < (int)$effect['points_earned']) {
+                    $pdo->rollBack();
+                    json_response(['ok' => false, 'error' => 'loyalty_points_already_spent', 'message' => 'امتیاز حاصل از این سفارش قبلاً خرج شده است؛ برای جلوگیری از منفی‌شدن موجودی امتیاز، ابتدا حساب مشتری را بررسی کنید'], 409);
+                }
+                $customer['points'] = $restoredPoints - (int)$effect['points_earned'];
                 $customer['totalSpent'] = max(0, (int)($customer['totalSpent'] ?? 0) - (int)$effect['money_delta']);
                 $customer['visits'] = max(0, (int)($customer['visits'] ?? 0) - (int)$effect['visits_delta']);
                 $customerUpdate = $pdo->prepare("UPDATE pos_records SET payload = ?, updated_by = ? WHERE resource = 'customers' AND id = ?");
