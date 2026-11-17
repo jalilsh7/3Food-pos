@@ -167,19 +167,27 @@ export default defineConfig(({ command, isPreview, mode }) => ({
     grokPwaPlugin(),
     tailwindcss(),
     ...(mode === "cpanel"
-      ? [tanstackStart({ spa: { enabled: true, prerender: { outputPath: "/index.html" } } })]
-      : [tanstackStart()]),
-    ...(mode !== "cpanel" && (command === "build" || isPreview)
       ? [
-          nitro({
-            preset: "vercel",
-            // Auto-registers server/middleware/* (the PWA install page +
-            // manifest + head-tag middleware). Nitro v3 defaults serverDir to
-            // false, so removing this silently unwires /?install=1 on deploys.
-            serverDir: "./server",
-          }),
+          tanstackStart({ spa: { enabled: true, prerender: { outputPath: "/index.html" } } }),
+          // Start's prerender pipeline still needs Nitro's preview/build
+          // metadata. The static preset emits public assets only, not a Node
+          // server bundle, so the cPanel artifact remains PHP + static files.
+          nitro({ preset: "static", serverDir: "./server" }),
         ]
-      : []),
+      : [
+          tanstackStart(),
+          ...(command === "build" || isPreview
+            ? [
+                nitro({
+                  preset: "vercel",
+                  // Auto-registers server/middleware/* (the PWA install page +
+                  // manifest + head-tag middleware). Nitro v3 defaults serverDir to
+                  // false, so removing this silently unwires /?install=1 on deploys.
+                  serverDir: "./server",
+                }),
+              ]
+            : []),
+        ]),
     viteReact(),
   ],
 }));
