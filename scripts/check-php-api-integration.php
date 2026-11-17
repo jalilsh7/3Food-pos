@@ -184,6 +184,14 @@ try {
     check(($created['json']['order']['items'][0]['name'] ?? '') === 'CI Test Product', 'server canonical product name');
     $managerSnapshot = api('GET', '/api/v1/bootstrap');
     check($managerSnapshot['status'] === 200 && ($managerSnapshot['json']['data']['orders'][0]['payment'] ?? '') === 'card', 'bootstrap preserves selected payment method');
+    $editBody = $orderBody;
+    $editBody['items'][0]['qty'] = 2;
+    $editBody['totals'] = ['subtotal' => 2000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 2000];
+    $editBody['note'] = 'CI edited order';
+    $edited = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $editBody, csrf_headers());
+    check($edited['status'] === 200 && ($edited['json']['order']['id'] ?? '') === $orderId, 'manager edits existing order without changing its identity');
+    $editedAgain = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $editBody, csrf_headers());
+    check($editedAgain['status'] === 200, 'repeated order edit remains idempotent for inventory and loyalty');
 
     $replay = api('POST', '/api/v1/orders', $orderBody, csrf_headers());
     check($replay['status'] === 200 && ($replay['json']['replayed'] ?? false) === true, 'idempotent retry returns original order');
@@ -222,8 +230,8 @@ try {
     };
     $stockAfterOrder = $getPayload($pdo, 'ingredients', 'ci-ingredient');
     $customerAfterOrder = $getPayload($pdo, 'customers', 'ci-customer');
-    check((float)($stockAfterOrder['stock'] ?? -1) === 8.0, 'stock deducted exactly once');
-    check((int)($customerAfterOrder['visits'] ?? -1) === 1 && (int)($customerAfterOrder['totalSpent'] ?? -1) === 1000, 'customer loyalty effects applied once');
+    check((float)($stockAfterOrder['stock'] ?? -1) === 6.0, 'edited order replaces prior stock effect exactly once');
+    check((int)($customerAfterOrder['visits'] ?? -1) === 1 && (int)($customerAfterOrder['totalSpent'] ?? -1) === 2000, 'edited order replaces customer loyalty effects exactly once');
 
     $cancel = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId) . '/status', ['status' => 'cancelled'], csrf_headers());
     check($cancel['status'] === 200 && ($cancel['json']['status'] ?? '') === 'cancelled', 'cancel order');
@@ -236,6 +244,8 @@ try {
     $effects = $pdo->prepare('SELECT COUNT(*) FROM pos_order_effects WHERE order_id = ? AND reversed_at IS NOT NULL');
     $effects->execute([(int)$orderId]);
     check((int)$effects->fetchColumn() === 2, 'effect ledger marked reversed exactly once');
+    $editCancelled = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $editBody, csrf_headers());
+    check($editCancelled['status'] === 409 && ($editCancelled['json']['error'] ?? '') === 'order_not_editable', 'cancelled order cannot be edited');
 
     // Manager-only user administration and role-specific resource permissions.
     $cashierCreated = api('POST', '/api/v1/users', [
@@ -327,8 +337,7 @@ try {
     check(($guestData['customerName'] ?? '') === 'Guest Test' && ($guestData['customerPhone'] ?? '') === '09120000000', 'bootstrap preserves guest identity');
     check(($guestData['payment'] ?? '') === 'online', 'bootstrap preserves guest payment method');
     $guestOrderId = (string)($guestOrder['json']['order']['id'] ?? '');
-    $guestCancel = api('PATCH', '/api/v1/orders/' . rawurlencode($guestOrderId) . '/status', ['status' => 'cancelled'], csrf_headers());
-    check($guestCancel['status'] === 200, 'cancel guest order after persistence check');
+    // Keep this order new until the cashier authorization check below.
 
     $smsLogWrite = api('POST', '/api/v1/records/sms_logs', ['item' => [
         'id' => 'ci-sms-log', 'at' => gmdate('c'), 'to' => '09120000000', 'event' => 'test',
@@ -347,6 +356,14 @@ try {
         'password' => 'CI-Cashier-Password-2026!',
     ]);
     check($cashierLogin['status'] === 200 && ($cashierLogin['json']['user']['role'] ?? '') === 'cashier', 'cashier login');
+    $cashierEdit = api('PATCH', '/api/v1/orders/' . rawurlencode($guestOrderId), [
+        'items' => [['key' => 'ci-guest-line', 'productId' => 'ci-product', 'qty' => 1, 'unitPrice' => 1000, 'optionIds' => []]],
+        'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 1000],
+        'guestName' => 'Guest Test',
+        'guestPhone' => '09120000000',
+        'payment' => 'online',
+    ], csrf_headers());
+    check($cashierEdit['status'] === 403, 'cashier cannot edit orders');
     $cashierBackup = api('GET', '/api/v1/backup/export');
     check($cashierBackup['status'] === 403, 'cashier cannot export full customer and order backup');
     $cashierRestore = api('POST', '/api/v1/backup/restore', ['backup' => $backupData], csrf_headers());
@@ -392,6 +409,8 @@ try {
     check($managerRelogin['status'] === 200 && ($managerRelogin['json']['user']['role'] ?? '') === 'manager', 'manager relogin for account revocation');
     $csrf = (string)($managerRelogin['json']['csrf_token'] ?? '');
     check(strlen($csrf) >= 32, 'manager receives fresh CSRF token');
+    $guestCancel = api('PATCH', '/api/v1/orders/' . rawurlencode($guestOrderId) . '/status', ['status' => 'cancelled'], csrf_headers());
+    check($guestCancel['status'] === 200, 'cancel guest order after persistence check');
     $cashierId = (int)($cashierCreated['json']['user']['id'] ?? 0);
     check($cashierId > 0, 'cashier account id returned');
     $disableCashier = api('PATCH', '/api/v1/users/' . $cashierId, ['is_active' => false], csrf_headers());
