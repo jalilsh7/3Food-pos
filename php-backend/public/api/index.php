@@ -16,10 +16,21 @@ if (!is_array($config) || strlen((string)($config['app_key'] ?? '')) < 32) {
     json_response(['ok' => false, 'error' => 'server_not_configured', 'message' => 'کلید امنیتی سرور تنظیم نشده است'], 503);
 }
 
+function request_is_https(): bool {
+    return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https');
+}
+
 function json_response(array $payload, int $status = 200): never {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: DENY');
+    header('Referrer-Policy: no-referrer');
+    header("Content-Security-Policy: frame-ancestors 'none'; base-uri 'none'");
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+    if (request_is_https()) header('Strict-Transport-Security: max-age=31536000');
     echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
@@ -69,19 +80,34 @@ function db(array $config): PDO {
 
 function same_origin_guard(): void {
     $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-    if ($origin === '') return; // Same-origin form clients may omit Origin.
-    $host = $_SERVER['HTTP_HOST'] ?? '';
-    $originHost = parse_url($origin, PHP_URL_HOST);
-    $requestHost = strtolower(preg_replace('/:\\d+$/', '', $host) ?? '');
-    if (!is_string($originHost) || strtolower($originHost) !== $requestHost) {
+    if ($origin === '') {
+        if (strtolower((string)($_SERVER['HTTP_SEC_FETCH_SITE'] ?? '')) === 'cross-site') {
+            json_response(['ok' => false, 'error' => 'origin_rejected', 'message' => 'مبدأ درخواست معتبر نیست'], 403);
+        }
+        return; // Non-browser same-origin clients may omit Origin.
+    }
+    $originParts = parse_url($origin);
+    $requestHost = (string)($_SERVER['HTTP_HOST'] ?? '');
+    $requestParts = parse_url('//' . $requestHost);
+    $originScheme = strtolower((string)($originParts['scheme'] ?? ''));
+    $requestScheme = request_is_https() ? 'https' : 'http';
+    $originHost = strtolower((string)($originParts['host'] ?? ''));
+    $requestHostName = strtolower((string)($requestParts['host'] ?? ''));
+    $originPort = (int)($originParts['port'] ?? ($originScheme === 'https' ? 443 : 80));
+    $requestPort = (int)($requestParts['port'] ?? ($requestScheme === 'https' ? 443 : 80));
+    if (!is_array($originParts) || !in_array($originScheme, ['http', 'https'], true) ||
+        $originHost === '' || $originHost !== $requestHostName ||
+        $originScheme !== $requestScheme || $originPort !== $requestPort ||
+        isset($originParts['user']) || isset($originParts['pass']) ||
+        isset($originParts['path']) && $originParts['path'] !== '' ||
+        isset($originParts['query']) || isset($originParts['fragment'])) {
         json_response(['ok' => false, 'error' => 'origin_rejected', 'message' => 'مبدأ درخواست معتبر نیست'], 403);
     }
 }
 
 function start_secure_session(array $config): void {
     if (session_status() === PHP_SESSION_ACTIVE) return;
-    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+    $https = request_is_https();
     session_name((string)($config['session']['name'] ?? '3FOODPOSSESSID'));
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');
