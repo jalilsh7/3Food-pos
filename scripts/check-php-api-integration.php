@@ -202,7 +202,7 @@ try {
         check(!array_key_exists($secretField, $backupSettings), 'backup never exports ' . $secretField);
     }
     $occupiedRestore = api('POST', '/api/v1/backup/restore', ['backup' => $backupData], csrf_headers());
-    check($occupiedRestore['status'] === 409 && ($occupiedRestore['json']['error'] ?? '') === 'restore_requires_empty_pos', 'restore refuses to overwrite a populated POS database');
+    check($occupiedRestore['status'] === 409 && ($occupiedRestore['json']['error'] ?? '') === 'restore_requires_empty_pos', 'restore refuses populated database (HTTP ' . $occupiedRestore['status'] . ', ' . ($occupiedRestore['json']['error'] ?? 'no_error') . ')');
     $pdo->exec('DELETE FROM pos_discount_redemptions');
     $pdo->exec('DELETE FROM pos_order_effects');
     $pdo->exec('DELETE FROM pos_orders');
