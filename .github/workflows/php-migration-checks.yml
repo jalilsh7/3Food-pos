@@ -13,6 +13,19 @@ permissions:
 
 jobs:
   checks:
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root-ci-password
+          MYSQL_DATABASE: threefood_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot-ci-password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -30,7 +43,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: PHP syntax
-        run: php -l php-backend/public/api/index.php
+        run: |
+          php -l php-backend/public/api/index.php
+          php -l scripts/check-mysql-schema.php
+      - name: Install and verify fresh MySQL schema
+        env:
+          MYSQL_TEST_HOST: 127.0.0.1
+          MYSQL_TEST_PORT: 3306
+          MYSQL_TEST_DATABASE: threefood_test
+          MYSQL_TEST_USERNAME: root
+          MYSQL_TEST_PASSWORD: root-ci-password
+        run: |
+          mysql --host=127.0.0.1 --user=root --password="$MYSQL_TEST_PASSWORD" threefood_test < php-backend/schema.sql
+          php scripts/check-mysql-schema.php
       - name: TypeScript
         run: npm run typecheck
       - name: Unit tests
