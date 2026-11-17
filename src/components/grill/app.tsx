@@ -348,6 +348,7 @@ function PosScreen() {
           total: q.total,
         },
         customer: customer ? { id: customer.id } : undefined,
+        discountCode: q.discount?.code ?? '',
         note: cart.map((line) => line.note).filter(Boolean).join(" | ").slice(0, 2000),
       });
       const res = placeOrder({
