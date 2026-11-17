@@ -710,4 +710,49 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
     }
 }
 
+if ($method === 'POST' && $path === '/sms/send') {
+    $actor = require_role($pdo, ['manager', 'cashier']);
+    require_csrf();
+    $body = request_json();
+    $to = preg_replace('/[^0-9+]/', '', (string)($body['to'] ?? ''));
+    $message = trim((string)($body['text'] ?? ''));
+    $bodyId = trim((string)($body['bodyId'] ?? ''));
+    if (!preg_match('/^\\+?[0-9]{10,15}$/D', $to) || $message === '' || utf8_length($message) > 1000) {
+        json_response(['ok' => false, 'error' => 'invalid_sms', 'message' => 'شماره یا متن پیامک معتبر نیست'], 422);
+    }
+    $sms = $config['sms'] ?? [];
+    $username = trim((string)($sms['username'] ?? ''));
+    $password = trim((string)($sms['password'] ?? ''));
+    $sender = trim((string)($sms['sender'] ?? ''));
+    if (($sms['provider'] ?? 'none') !== 'national_payamak' || $username === '' || $password === '' || (!$bodyId && $sender === '')) {
+        json_response(['ok' => false, 'error' => 'sms_not_configured', 'message' => 'سرویس پیامک در تنظیمات سرور فعال نشده است'], 503);
+    }
+    $endpoint = $bodyId
+        ? 'https://rest.payamak-panel.com/api/SendSMS/BaseServiceNumber'
+        : 'https://rest.payamak-panel.com/api/SendSMS/SendSMS';
+    $fields = $bodyId
+        ? ['username' => $username, 'password' => $password, 'text' => $message, 'to' => $to, 'bodyId' => $bodyId]
+        : ['username' => $username, 'password' => $password, 'to' => $to, 'from' => $sender, 'text' => $message, 'isFlash' => 'false'];
+    $context = stream_context_create(['http' => [
+        'method' => 'POST',
+        'header' => "Content-Type: application/x-www-form-urlencoded\\r\\n",
+        'content' => http_build_query($fields),
+        'timeout' => 12,
+        'ignore_errors' => true,
+    ]]);
+    try {
+        $raw = file_get_contents($endpoint, false, $context);
+        if ($raw === false) throw new RuntimeException('SMS provider request failed');
+        $statusLine = $http_response_header[0] ?? '';
+        $httpOk = preg_match('/\\s2[0-9]{2}\\s/', $statusLine) === 1;
+        $numeric = (int)preg_replace('/[^0-9-]/', '', $raw);
+        $ok = $httpOk && ($numeric > 0 || ($numeric === 0 && trim($raw) !== '' && !is_numeric(trim($raw))));
+        audit($pdo, (int)$actor['id'], 'sms_sent', 'sms', null, ['to' => $to, 'ok' => $ok]);
+        json_response(['ok' => true, 'sent' => $ok, 'detail' => substr(trim($raw), 0, 300)]);
+    } catch (Throwable $e) {
+        error_log('[3Food POS] SMS provider request failed: ' . $e->getMessage());
+        json_response(['ok' => false, 'error' => 'sms_provider_unavailable', 'message' => 'ارتباط با سرویس پیامک برقرار نشد'], 502);
+    }
+}
+
 json_response(['ok' => false, 'error' => 'not_found', 'message' => 'مسیر API پیدا نشد'], 404);
