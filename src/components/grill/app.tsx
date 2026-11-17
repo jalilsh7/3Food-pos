@@ -380,6 +380,7 @@ function statusFa(s: Order["status"]) {
 
 function OrdersScreen({ role }: { role: Role }) {
   const orders = usePos((s) => s.orders);
+  const settings = usePos((s) => s.settings);
   const setStatus = usePos((s) => s.setStatus);
   const [focus, setFocus] = useState<Order | null>(null);
   const steps: Order["status"][] = role === "kitchen" ? ["preparing", "ready"] : ["new", "preparing", "ready", "delivered", "cancelled"];
