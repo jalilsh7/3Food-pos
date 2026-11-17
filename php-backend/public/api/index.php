@@ -824,20 +824,24 @@ if ($method === 'POST' && $path === '/orders') {
             }
             $lockedMaxUses = max(0, (int)($lockedDiscount['maxUses'] ?? 0));
             $lockedUsedCount = max(0, (int)($lockedDiscount['usedCount'] ?? 0));
-            if ($lockedMaxUses > 0 && $lockedUsedCount >= $lockedMaxUses) {
+            $globalRedemptionsStmt = $pdo->prepare('SELECT COUNT(*) FROM pos_discount_redemptions WHERE discount_id = ?');
+            $globalRedemptionsStmt->execute([$discountRecordId]);
+            $globalRedemptions = (int)$globalRedemptionsStmt->fetchColumn();
+            $authoritativeUsedCount = max($lockedUsedCount, $globalRedemptions);
+            if ($lockedMaxUses > 0 && $authoritativeUsedCount >= $lockedMaxUses) {
                 $pdo->rollBack();
                 json_response(['ok' => false, 'error' => 'discount_limit_reached', 'message' => 'آخرین سهمیه این کد هم‌زمان مصرف شد'], 409);
             }
             $lockedPerCustomer = max(0, (int)($lockedDiscount['perCustomer'] ?? 0));
             if ($lockedPerCustomer > 0 && $customerId !== '') {
-                $usageStmt = $pdo->prepare("SELECT COUNT(*) FROM pos_orders WHERE customer_id = ? AND discount_code = ?");
-                $usageStmt->execute([$customerId, $discountCode]);
+                $usageStmt = $pdo->prepare('SELECT COUNT(*) FROM pos_discount_redemptions WHERE discount_id = ? AND customer_id = ?');
+                $usageStmt->execute([$discountRecordId, $customerId]);
                 if ((int)$usageStmt->fetchColumn() >= $lockedPerCustomer) {
                     $pdo->rollBack();
                     json_response(['ok' => false, 'error' => 'discount_customer_limit', 'message' => 'سهمیه استفاده این مشتری از کد تمام شده است'], 409);
                 }
             }
-            $lockedDiscount['usedCount'] = $lockedUsedCount + 1;
+            $lockedDiscount['usedCount'] = $authoritativeUsedCount + 1;
             $discountUpdate = $pdo->prepare("UPDATE pos_records SET payload = ?, updated_by = ? WHERE resource = 'discounts' AND id = ?");
             $discountUpdate->execute([json_encode($lockedDiscount, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), (int)$actor['id'], $discountRecordId]);
         }
@@ -927,6 +931,10 @@ if ($method === 'POST' && $path === '/orders') {
             (int)$actor['id'],
         ]);
         $id = (int)$pdo->lastInsertId();
+        if ($discountCode !== '' && $discountRecordId !== null) {
+            $redemptionInsert = $pdo->prepare('INSERT INTO pos_discount_redemptions (order_id, discount_id, code, customer_id) VALUES (?, ?, ?, ?)');
+            $redemptionInsert->execute([$id, $discountRecordId, $discountCode, $customerId !== '' ? $customerId : null]);
+        }
 
         // Persist the exact stock and loyalty effects so cancellation can reverse
         // them once, inside the same transaction as the status change.
