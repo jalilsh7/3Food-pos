@@ -590,11 +590,48 @@ function statusFa(s: Order["status"]) {
 function OrdersScreen({ role }: { role: Role }) {
   const orders = usePos((s) => s.orders);
   const settings = usePos((s) => s.settings);
+  const products = usePos((s) => s.products);
+  const customers = usePos((s) => s.customers);
+  const discounts = usePos((s) => s.discounts);
   const setStatus = usePos((s) => s.setStatus);
   const [focus, setFocus] = useState<Order | null>(null);
+  const [editing, setEditing] = useState<Order | null>(null);
+  const [editLines, setEditLines] = useState<CartLine[]>([]);
+  const [editPhone, setEditPhone] = useState("");
+  const [editGuestName, setEditGuestName] = useState("");
+  const [editCode, setEditCode] = useState("");
+  const [editPoints, setEditPoints] = useState(0);
+  const [editPayment, setEditPayment] = useState<Order["payment"]>("cash");
+  const [addProductId, setAddProductId] = useState("");
+  const [editBusy, setEditBusy] = useState(false);
   const steps: Order["status"][] = role === "kitchen"
     ? ["preparing", "ready"]
     : role === "manager" ? ["preparing", "ready", "delivered", "cancelled"] : [];
+  const editCustomer = customers.find((c) => c.phone === editPhone.trim()) ?? null;
+  const editCodeUses = editCustomer && editCode
+    ? Math.max(0, customerCodeUses(orders, editCustomer.id, editCode) - (editing?.customerId === editCustomer.id && editing.discountCode.toUpperCase() === editCode.trim().toUpperCase() ? 1 : 0))
+    : 0;
+  const editQuote = quoteOrder({
+    lines: editLines,
+    customer: editCustomer,
+    code: editCode,
+    discounts,
+    pointsToUse: editPoints,
+    taxPercent: settings.taxPercent,
+    taxEnabled: settings.taxEnabled !== false,
+    tomanPerPoint: settings.tomanPerPoint,
+    usesSoFar: editCodeUses,
+  });
+  function beginEdit(order: Order) {
+    setEditing(order);
+    setEditLines(order.lines.map((line) => ({ ...line, optionIds: [...line.optionIds], optionLabels: [...line.optionLabels] })));
+    setEditPhone(order.customerPhone);
+    setEditGuestName(order.customerName);
+    setEditCode(order.discountCode);
+    setEditPoints(order.pointsUsed);
+    setEditPayment(order.payment);
+    setAddProductId("");
+  }
   function canMove(from: Order["status"], to: Order["status"]) {
     const allowed: Record<Order["status"], Order["status"][]> = {
       new: role === "manager" ? ["preparing", "cancelled"] : ["preparing"],
@@ -609,20 +646,79 @@ function OrdersScreen({ role }: { role: Role }) {
     try {
       if (/^\d+$/.test(order.id)) await phpApi.setOrderStatus(order.id, status);
       setStatus(order.id, status);
-      // Cancellation reverses stock, loyalty and coupon effects on MySQL.
-      // Refresh the full authoritative snapshot immediately instead of
-      // waiting for the next 15-second polling interval.
       try {
         const snapshot = await phpApi.bootstrap<ServerBootstrap>();
         hydratePosFromServer(snapshot.data, snapshot.next_order, role);
       } catch {
-        // The status transition is already committed; periodic refresh retries.
+        // The status transition is committed; the next poll refreshes the snapshot.
       }
       const next = { ...order, status };
       if (status === "ready") void pushSms("order_ready", order.customerPhone, orderVars(next));
       if (status === "delivered") void pushSms("order_delivered", order.customerPhone, orderVars(next));
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "تغییر وضعیت در سرور انجام نشد");
+    }
+  }
+  function addEditProduct() {
+    const product = products.find((p) => p.id === addProductId && p.active);
+    if (!product) return;
+    if (product.options.length) {
+      window.alert("برای افزودن این محصول ابتدا گزینه‌های آن باید در منو انتخاب شوند؛ می‌توانید اقلام فعلی را ویرایش کنید.");
+      return;
+    }
+    const key = `edit:${product.id}`;
+    setEditLines((current) => {
+      const hit = current.find((line) => line.key === key);
+      return hit
+        ? current.map((line) => line.key === key ? { ...line, qty: line.qty + 1 } : line)
+        : [...current, { key, productId: product.id, name: product.name, qty: 1, unitPrice: product.price, optionIds: [], optionLabels: [], note: "" }];
+    });
+    setAddProductId("");
+  }
+  async function saveEdit() {
+    if (!editing || editBusy || !editLines.length) return;
+    if (editCode.trim() && editQuote.codeError) { window.alert(editQuote.codeError); return; }
+    if (editQuote.pointsError) { window.alert(editQuote.pointsError); return; }
+    setEditBusy(true);
+    try {
+      await phpApi.updateOrder(editing.id, {
+        items: editLines.map((line) => ({
+          key: line.key,
+          name: line.name,
+          productId: line.productId,
+          qty: line.qty,
+          unitPrice: line.unitPrice,
+          optionIds: line.optionIds,
+          optionLabels: line.optionLabels,
+          note: line.note,
+        })),
+        totals: {
+          subtotal: editQuote.subtotal,
+          tierDiscount: editQuote.tierDiscount,
+          codeDiscount: editQuote.codeDiscount,
+          pointsDiscount: editQuote.pointsDiscount,
+          tax: editQuote.tax,
+          total: editQuote.total,
+        },
+        customer: editCustomer ? { id: editCustomer.id } : undefined,
+        discountCode: editQuote.discount?.code ?? "",
+        note: editLines.map((line) => line.note).filter(Boolean).join(" | ").slice(0, 2000),
+        guestName: editGuestName.trim() || "مشتری",
+        guestPhone: editPhone.trim(),
+        payment: editPayment,
+      });
+      try {
+        const snapshot = await phpApi.bootstrap<ServerBootstrap>();
+        hydratePosFromServer(snapshot.data, snapshot.next_order, role);
+      } catch {
+        // Save succeeded; periodic bootstrap will refresh the local order list.
+      }
+      setEditing(null);
+      window.alert("ویرایش سفارش ذخیره شد.");
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "ویرایش سفارش در سرور انجام نشد");
+    } finally {
+      setEditBusy(false);
     }
   }
   return (
@@ -640,10 +736,66 @@ function OrdersScreen({ role }: { role: Role }) {
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {steps.filter((st) => canMove(o.status, st)).map((st) => <Btn key={st} tone="ghost" onClick={() => jump(o, st)}>{statusFa(st)}</Btn>)}
+            {role === "manager" && o.status === "new" && /^\d+$/.test(o.id) ? <Btn tone="ghost" onClick={() => beginEdit(o)}>ویرایش سفارش</Btn> : null}
             <Btn tone="ghost" onClick={() => setFocus(o)}>فیش</Btn>
           </div>
         </Card>
       ))}
+      {editing ? (
+        <div className="fixed inset-0 z-40 flex items-end justify-center overflow-y-auto bg-ink/50 p-3 sm:items-center">
+          <Card className="my-auto w-full max-w-2xl space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-bold">ویرایش سفارش #{editing.number.toLocaleString("fa-IR")}</h3>
+              <Btn tone="ghost" onClick={() => setEditing(null)}>بستن</Btn>
+            </div>
+            <p className="text-xs text-muted">فقط سفارش جدید قابل ویرایش است؛ قیمت و موجودی نهایی در سرور دوباره بررسی می‌شود.</p>
+            <div className="space-y-2">
+              {editLines.map((line) => (
+                <div key={line.key} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line p-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">{line.name}</p>
+                    <p className="text-xs text-muted">{line.optionLabels.join("، ")}</p>
+                    <input className={inputCls + " mt-1"} aria-label={"یادداشت " + line.name} value={line.note} onChange={(e) => setEditLines((all) => all.map((x) => x.key === line.key ? { ...x, note: e.target.value } : x))} placeholder="یادداشت" />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Btn tone="ghost" onClick={() => setEditLines((all) => all.flatMap((x) => x.key === line.key ? (x.qty > 1 ? [{ ...x, qty: x.qty - 1 }] : []) : [x]))}>−</Btn>
+                    <span className="min-w-7 text-center">{line.qty.toLocaleString("fa-IR")}</span>
+                    <Btn tone="ghost" onClick={() => setEditLines((all) => all.map((x) => x.key === line.key ? { ...x, qty: x.qty + 1 } : x))}>+</Btn>
+                    <Btn tone="ghost" onClick={() => setEditLines((all) => all.filter((x) => x.key !== line.key))}>حذف</Btn>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <select className={inputCls + " min-w-0 flex-1"} value={addProductId} onChange={(e) => setAddProductId(e.target.value)}>
+                <option value="">افزودن محصول ساده…</option>
+                {products.filter((p) => p.active && p.options.length === 0).map((p) => <option key={p.id} value={p.id}>{p.name} — {money(p.price)}</option>)}
+              </select>
+              <Btn tone="ghost" onClick={addEditProduct} disabled={!addProductId}>افزودن</Btn>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Field label="موبایل مشتری"><input className={inputCls} value={editPhone} onChange={(e) => setEditPhone(e.target.value)} /></Field>
+              {editCustomer ? <p className="self-end text-sm text-leaf">{editCustomer.name} — {editCustomer.points.toLocaleString("fa-IR")} امتیاز</p> : <Field label="نام مشتری مهمان"><input className={inputCls} value={editGuestName} onChange={(e) => setEditGuestName(e.target.value)} /></Field>}
+              <Field label="کد تخفیف"><input className={inputCls} value={editCode} onChange={(e) => setEditCode(e.target.value)} /></Field>
+              {editCustomer ? <Field label="امتیاز مصرفی"><input className={inputCls} type="number" min={0} value={editPoints} onChange={(e) => setEditPoints(Math.max(0, Number(e.target.value)))} /></Field> : null}
+            </div>
+            <div className="flex gap-2">
+              {(["cash", "card", "online"] as const).map((method) => <button key={method} type="button" onClick={() => setEditPayment(method)} className={`flex-1 rounded-xl border px-3 py-2 text-sm ${editPayment === method ? "bg-ink text-bg" : "border-line"}`}>{method === "cash" ? "نقد" : method === "card" ? "کارت" : "آنلاین"}</button>)}
+            </div>
+            {editQuote.codeError ? <p className="text-sm text-warn">{editQuote.codeError}</p> : null}
+            {editQuote.pointsError ? <p className="text-sm text-warn">{editQuote.pointsError}</p> : null}
+            <div className="space-y-1 rounded-xl bg-surface p-3 text-sm">
+              <p className="flex justify-between"><span>جمع اقلام</span><span>{money(editQuote.subtotal)}</span></p>
+              <p className="flex justify-between"><span>تخفیف‌ها</span><span>{money(editQuote.discountTotal)}</span></p>
+              <p className="flex justify-between font-bold"><span>قابل پرداخت</span><span>{money(editQuote.total)}</span></p>
+            </div>
+            <div className="flex gap-2">
+              <Btn onClick={saveEdit} disabled={editBusy || !editLines.length || !!editQuote.pointsError || !!editQuote.codeError}>{editBusy ? "در حال ذخیره…" : "ذخیره ویرایش"}</Btn>
+              <Btn tone="ghost" onClick={() => setEditing(null)} disabled={editBusy}>انصراف</Btn>
+            </div>
+          </Card>
+        </div>
+      ) : null}
       {focus ? (
         <Card>
           <div id="print-root" className="hidden print:block">
