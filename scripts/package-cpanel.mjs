@@ -54,11 +54,11 @@ const guide = [
   "2. `database/schema.sql` را در دیتابیس خالی وارد کنید. برای دیتابیس موجود، migrationها را به‌ترتیب شماره و فقط یک‌بار اجرا کنید.",
   "3. پوشه `public` را Document Root زیردامنه قرار دهید؛ `private` باید sibling آن و خارج از Document Root بماند.",
   "4. `private/config.example.php` را به `private/config.php` کپی کنید و اطلاعات DB، `app_key` و `setup_token` تصادفی را در آن وارد کنید. از commit یا قرار دادن این فایل در پوشه public خودداری کنید.",
-  "5. SSL را فعال کنید و سپس `/api/v1/health` را بررسی کنید.",
+  "5. SSL را فعال کنید و سپس `/api/v1/health` و `/api/v1/preflight` را بررسی کنید؛ مقدار `production_ready` باید true باشد.",
   "6. از صفحه ورود، مدیر اولیه را با setup token بسازید؛ سپس setup token را از config خصوصی حذف کنید.",
   "7. تست سفارش و نقش‌ها را روی staging انجام دهید. پیامک فقط پس از واردکردن credential در config خصوصی و آزمایش واقعی فعال شود.",
   "",
-  "این بسته هیچ `config.php` واقعی یا رمز دیتابیس ندارد. build موفق به معنی تأیید اتصال MySQL واقعی یا آماده‌بودن انتشار اصلی نیست.",
+  "این بسته هیچ `config.php` واقعی یا رمز دیتابیس ندارد. preflight فقط پیش‌نیازهای فنی را می‌سنجد و build موفق به معنی تأیید سفارش واقعی، نقش‌ها، پیامک یا پذیرش نهایی فروشگاه نیست.",
 ].join(String.fromCharCode(10));
 
 writeFileSync(resolve(packageRoot, "DEPLOYMENT-FA.md"), guide, "utf8");
