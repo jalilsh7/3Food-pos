@@ -696,6 +696,18 @@ if ($method === 'POST' && $path === '/orders') {
     $codeDiscount = (int)$totals['codeDiscount'];
     $pointsDiscount = (int)$totals['pointsDiscount'];
     $discountTotal = $tierDiscount + $codeDiscount + $pointsDiscount;
+    $taxSettingsStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'settings' AND id = 'main' LIMIT 1");
+    $taxSettingsStmt->execute();
+    $rawTaxSettings = $taxSettingsStmt->fetchColumn();
+    $taxSettings = is_string($rawTaxSettings) ? json_decode($rawTaxSettings, true) : [];
+    if (!is_array($taxSettings)) $taxSettings = [];
+    $taxEnabled = !array_key_exists('taxEnabled', $taxSettings) || $taxSettings['taxEnabled'] !== false;
+    $taxPercent = (float)($taxSettings['taxPercent'] ?? 0);
+    if (!is_finite($taxPercent) || $taxPercent < 0 || $taxPercent > 100) {
+        json_response(['ok' => false, 'error' => 'invalid_tax_settings', 'message' => 'تنظیم درصد مالیات معتبر نیست'], 409);
+    }
+    $taxableAmount = max(0, $subtotal - $discountTotal);
+    $expectedTax = $taxEnabled ? (int)round($taxableAmount * $taxPercent / 100) : 0;
     // Membership tiers in the POS model grant at most 8% (platinum).
     // Keep client-supplied discounts within their mathematically possible bases.
     $maxTierDiscount = (int)round($subtotal * 0.08);
@@ -706,6 +718,7 @@ if ($method === 'POST' && $path === '/orders') {
         $codeDiscount > $afterTier ||
         $pointsDiscount > $afterCode ||
         $discountTotal > $subtotal ||
+        (int)$totals['tax'] !== $expectedTax ||
         (int)$totals['total'] !== $subtotal - $discountTotal + (int)$totals['tax']
     ) {
         json_response(['ok' => false, 'error' => 'order_total_mismatch', 'message' => 'تخفیف‌ها یا محاسبه مبلغ نهایی سفارش معتبر نیست'], 422);
