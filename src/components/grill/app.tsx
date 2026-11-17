@@ -125,7 +125,7 @@ export function GrillApp() {
       window.removeEventListener("focus", onVisible);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [user?.id, user?.must_change_password, user?.role]);
+  }, [user]);
 
   async function logout() {
     try {
@@ -264,7 +264,7 @@ function UsersScreen() {
               <select className={inputCls} aria-label="نقش کاربر" value={user.role} disabled={busy} onChange={(e) => void changeUser(user, { role: e.target.value as Role })}>
                 <option value="cashier">صندوقدار</option><option value="kitchen">آشپز</option><option value="manager">مدیر</option>
               </select>
-              <Btn tone="ghost" disabled={busy} onClick={() => void changeUser(user, { is_active: !Boolean(user.is_active) })}>{user.is_active ? "غیرفعال‌کردن" : "فعال‌کردن"}</Btn>
+              <Btn tone="ghost" disabled={busy} onClick={() => void changeUser(user, { is_active: !user.is_active })}>{user.is_active ? "غیرفعال‌کردن" : "فعال‌کردن"}</Btn>
             </div>
           </div>
         </Card>
