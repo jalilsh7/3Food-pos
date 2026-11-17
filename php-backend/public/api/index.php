@@ -499,10 +499,21 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
         require_csrf();
         $body = request_json();
         $item = $body['item'] ?? null;
-        if (!is_array($item) || !isset($item['id']) || !is_scalar($item['id'])) json_response(['ok' => false, 'error' => 'invalid_item'], 422);
-        $id = substr((string)$item['id'], 0, 100);
+        if (!is_array($item) || !isset($item['id']) || !is_string($item['id']) && !is_int($item['id'])) {
+            json_response(['ok' => false, 'error' => 'invalid_item'], 422);
+        }
+        // Never truncate identifiers: two distinct client IDs must not silently
+        // collide into the same MySQL record key.
+        $id = (string)$item['id'];
+        if ($id === '' || strlen($id) > 100 || !preg_match('/^[A-Za-z0-9_-]+$/D', $id)) {
+            json_response(['ok' => false, 'error' => 'invalid_id'], 422);
+        }
+        $payload = json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        if (strlen($payload) > 262144) {
+            json_response(['ok' => false, 'error' => 'record_too_large', 'message' => 'حجم اطلاعات ارسالی بیش از حد مجاز است'], 413);
+        }
         $q = $pdo->prepare('INSERT INTO pos_records (id, resource, payload, updated_by) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE payload = VALUES(payload), updated_by = VALUES(updated_by)');
-        $q->execute([$id, $resource, json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), (int)$actor['id']]);
+        $q->execute([$id, $resource, $payload, (int)$actor['id']]);
         audit($pdo, (int)$actor['id'], 'record_saved', $resource, $id);
         json_response(['ok' => true, 'item' => $item], 201);
     }
