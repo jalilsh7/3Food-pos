@@ -29,19 +29,11 @@
 
 ## 3) وضعیت واقعی مخزن در آخرین بررسی
 
-درخت شاخه `migration/php-mysql` در commit `5ac7131769a09508ee1ffa55ea17327b756cda8a` فقط این فایل‌های tracked را نشان می‌داد:
-- `README.md`
-- `docs/auth-integration-readiness.md`
-- `docs/auth-source-analysis.md`
-- `docs/phase-2-backlog.md`
-- `docs/php-api-client-contract.md`
-- `docs/source-audit.md`
-- `docs/static-build-readiness.md`
-- `src/lib/api/php-client.ts`
+شاخه `migration/php-mysql` اکنون شامل سورس React/Vite، پوشه `php-backend`، schema و migrationهای MySQL، کلاینت PHP، مستندات و workflowهای CI است؛ راهنمای قدیمیِ فهرست‌کردن فقط چند فایل و ادعای نبودن backend دیگر معتبر نیست. فایل ZIP مرجع نیز در مخزن نگهداری شده است.
 
-بعداً گزارش تست در commit `7a77d921852d72601a98fcad8d4576a8826236f4` به‌روزرسانی شد. **سورس کامل برنامه و پوشه PHP backend هنوز در این شاخه نیستند.** فایل‌های PHP که در آرشیو مهاجرت محلی بررسی شده‌اند در GitHub branch وجود ندارند. انتقال کامل هنوز انجام نشده است.
+آخرین قابلیت‌های ثبت‌شده شامل محاسبه canonical اقلام سفارش در PHP، قفل قیمت محصولات هنگام checkout، ledger مصرف کد تخفیف، بازگشت اثرها در لغو سفارش، مالیات server-authoritative، موجودی و امتیاز تراکنشی و polling چنددستگاهی است. commit قیمت‌گذاری `f7782071dee382236d2592000173801d92a1e8f3` و commit مستندات آن در CI موفق بوده‌اند.
 
-آرشیو مرجع محلی که مالک باید در دسترس قرار دهد: `grok-workspace.zip` (حدود 1.93 MB). آرشیو مهاجرت محلی: `3food-pos-php-migration.zip` (حدود 717 KB). فایل `3food-pos-php-final-source.zip` با حجم حدود 58 KB ناقص است و نباید مبنا قرار گیرد.
+تغییر `.htaccess` برای اولویت API و fallback محافظت‌شده SPA و تست رگرسیون آن نیز اضافه شده‌اند. این تغییر به‌معنی ساخته‌شدن خروجی استاتیک نیست؛ مسیر build هنوز وابسته به TanStack Start/Nitro است.
 
 ## 4) معماری فعلی و کارهای مهاجرت
 
