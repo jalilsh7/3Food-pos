@@ -10,5 +10,5 @@ test("backup export does not advertise a local-only restore path", () => {
   assert.doesNotMatch(app, /importBackup|بازیابی\s*<input/);
   assert.match(app, /phpApi\.exportBackup\(\)/);
   assert.match(app, /بازیابی پشتیبان تا اتصال امن به MySQL غیرفعال است/);
-  assert.doesNotMatch(app, /exportBackup\(\)/);
+  assert.doesNotMatch(app, /usePos\(\(s\) => s\.exportBackup\)/);
 });
