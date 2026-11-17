@@ -412,10 +412,20 @@ try {
             'note' => 'Concurrent stock safety test',
         ];
     }
+    // Do not fork while a PDO/MySQL connection is open: inherited PDO handles
+    // share one logical MySQL session, and a child destructor can send COM_QUIT.
+    $pdo = null;
     $concurrentResults = concurrent_order_attempts([
         ['cookie' => $managerPrimaryCookie, 'csrf' => $managerPrimaryCsrf, 'body' => $concurrentBodies[0]],
         ['cookie' => $managerSecondCookie, 'csrf' => $managerSecondCsrf, 'body' => $concurrentBodies[1]],
     ]);
+    // Reopen the inspection connection only after all forked clients have exited.
+    $pdo = new PDO(
+        'mysql:host=' . (getenv('MYSQL_TEST_HOST') ?: '127.0.0.1') . ';port=' . (getenv('MYSQL_TEST_PORT') ?: '3306') . ';dbname=' . (getenv('MYSQL_TEST_DATABASE') ?: 'threefood_test') . ';charset=utf8mb4',
+        (string)(getenv('MYSQL_TEST_USERNAME') ?: 'root'),
+        (string)(getenv('MYSQL_TEST_PASSWORD') ?: 'root-ci-password'),
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+    );
     $concurrentStatuses = array_column($concurrentResults, 'status');
     sort($concurrentStatuses);
     check($concurrentStatuses === [201, 409], 'concurrent orders cannot oversell locked ingredient stock; responses=' . json_encode($concurrentResults));
