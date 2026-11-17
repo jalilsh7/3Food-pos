@@ -47,6 +47,7 @@ jobs:
           php -l php-backend/public/api/index.php
           php -l scripts/check-mysql-schema.php
           php -l scripts/check-mysql-transaction-invariants.php
+          php -l scripts/check-php-api-integration.php
       - name: Install and verify fresh MySQL schema
         env:
           MYSQL_TEST_HOST: 127.0.0.1
@@ -58,6 +59,28 @@ jobs:
           mysql --host=127.0.0.1 --user=root --password="$MYSQL_TEST_PASSWORD" threefood_test < php-backend/schema.sql
           php scripts/check-mysql-schema.php
           php scripts/check-mysql-transaction-invariants.php
+      - name: Run PHP API integration tests
+        env:
+          MYSQL_TEST_HOST: 127.0.0.1
+          MYSQL_TEST_PORT: 3306
+          MYSQL_TEST_DATABASE: threefood_test
+          MYSQL_TEST_USERNAME: root
+          MYSQL_TEST_PASSWORD: root-ci-password
+          POS_TEST_BASE_URL: http://127.0.0.1:8088
+          POS_TEST_SETUP_TOKEN: ci-only-setup-token-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        run: |
+          mkdir -p php-backend/private
+          php -r '$c = require "php-backend/private/config.example.php"; $c["app_key"] = str_repeat("a", 64); $c["setup_token"] = getenv("POS_TEST_SETUP_TOKEN"); $c["db"] = ["host" => "127.0.0.1", "port" => 3306, "database" => "threefood_test", "username" => "root", "password" => "root-ci-password", "charset" => "utf8mb4"]; file_put_contents("php-backend/private/config.php", "<?php\\ndeclare(strict_types=1);\\nreturn " . var_export($c, true) . ";\\n");'
+          php -S 127.0.0.1:8088 -t php-backend/public > /tmp/3food-pos-api.log 2>&1 &
+          echo $! > /tmp/3food-pos-api.pid
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8088/api/v1/health >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8088/api/v1/health >/dev/null
+          php scripts/check-php-api-integration.php
+          kill "$(cat /tmp/3food-pos-api.pid)"
+          rm -f php-backend/private/config.php
       - name: TypeScript
         run: npm run typecheck
       - name: Unit tests
