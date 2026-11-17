@@ -87,6 +87,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 export const phpApi = {
   health: () => request<ApiEnvelope<{ service?: string; database?: string }>>("/health"),
 
+  setupStatus: () =>
+    request<ApiEnvelope<{ setup_required: boolean }>>("/setup/status"),
+
   setupManager: (input: {
     username: string;
     password: string;
