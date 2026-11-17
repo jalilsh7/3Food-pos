@@ -834,6 +834,29 @@ type ServerBootstrap = Partial<Omit<PosState, "orders" | "settings">> & {
   settings?: Array<Partial<Settings> & { id?: string }>;
 };
 
+function readLegacyBrowserPosState(): Partial<PosState> | null {
+  try {
+    const raw = window.localStorage.getItem("grillcash-v1");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { state?: Partial<PosState> } & Partial<PosState>;
+    const state = parsed.state ?? parsed;
+    const hasBusinessData = ["categories", "products", "ingredients", "customers", "discounts", "orders", "expenses", "templates"]
+      .some((key) => Array.isArray(state[key as keyof PosState]) && (state[key as keyof PosState] as unknown[]).length > 0);
+    if (!hasBusinessData) return null;
+    return {
+      ...state,
+      settings: state.settings ? {
+        ...state.settings,
+        smsUser: "",
+        smsKey: "",
+        smsFrom: "",
+      } : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, role: Role) {
   const current = usePos.getState();
   const serverSettings = data.settings?.[0];
@@ -901,7 +924,14 @@ function SettingsScreen() {
     setImporting(true);
     setNote("");
     try {
-      const state = usePos.getState();
+      const current = usePos.getState();
+      const currentHasData = [current.categories, current.products, current.ingredients, current.customers, current.discounts, current.orders, current.expenses, current.templates]
+        .some((items) => items.length > 0);
+      const legacy = currentHasData ? null : readLegacyBrowserPosState();
+      const state = { ...current, ...(legacy ?? {}) };
+      const hasData = [state.categories, state.products, state.ingredients, state.customers, state.discounts, state.orders, state.expenses, state.templates]
+        .some((items) => items.length > 0);
+      if (!hasData) throw new Error("داده قدیمی یا پشتیبان قابل انتقالی در این دستگاه پیدا نشد.");
       const result = await phpApi.importLegacyData({
         nextOrder: state.nextOrder,
         data: {
@@ -916,6 +946,7 @@ function SettingsScreen() {
         },
       });
       const total = Object.values(result.counts).reduce((sum, count) => sum + count, 0);
+      if (legacy) window.localStorage.removeItem("grillcash-v1");
       setNote(`${total.toLocaleString("fa-IR")} رکورد به MySQL منتقل شد؛ صفحه برای بارگذاری داده مرکزی تازه می‌شود.`);
       window.location.reload();
     } catch (error) {
