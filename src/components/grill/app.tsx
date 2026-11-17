@@ -768,8 +768,8 @@ function SmsScreen() {
             <input type="checkbox" checked={t.enabled} onChange={(e) => { const item = { ...t, enabled: e.target.checked }; void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
             {EVENT_LABEL[t.event]}
           </label>
-          <textarea className={`${inputCls} mt-2`} rows={2} value={t.body} onChange={(e) => { const item = { ...t, body: e.target.value }; void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
-          <Field label="شناسه پترن (اختیاری)"><input className={inputCls} value={t.bodyId} onChange={(e) => { const item = { ...t, bodyId: item.event }, () => saveTemplate(item)); }} /></Field>
+          <textarea className={`${inputCls} mt-2`} rows={2} value={t.body} onChange={(e) => saveTemplate({ ...t, body: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
+          <Field label="شناسه پترن (اختیاری)"><input className={inputCls} value={t.bodyId} onChange={(e) => saveTemplate({ ...t, bodyId: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} /></Field>
         </Card>
       ))}
       <Card>
