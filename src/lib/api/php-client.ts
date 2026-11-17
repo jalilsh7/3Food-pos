@@ -177,6 +177,12 @@ export const phpApi = {
       body: { item },
     }),
 
+  adjustIngredientStock: (id: string, delta: number) =>
+    request<ApiEnvelope<{ item: { id: string; stock: number; [key: string]: unknown } }>>(
+      `/ingredients/${encodeURIComponent(id)}/stock`,
+      { method: "POST", csrf: true, body: { delta } },
+    ),
+
   deleteRecord: (resource: string, id: string) =>
     request<ApiEnvelope<Record<string, never>>>(
       `/records/${encodeURIComponent(resource)}?id=${encodeURIComponent(id)}`,
