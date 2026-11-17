@@ -78,6 +78,8 @@ CREATE TABLE IF NOT EXISTS pos_orders (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   order_number BIGINT UNSIGNED NOT NULL,
   status ENUM('new','preparing','ready','delivered','cancelled') NOT NULL DEFAULT 'new',
+  idempotency_key CHAR(36) NULL,
+  request_hash CHAR(64) NULL,
   customer_id VARCHAR(100) NULL,
   customer_name VARCHAR(160) NULL,
   customer_phone VARCHAR(30) NULL,
@@ -89,6 +91,7 @@ CREATE TABLE IF NOT EXISTS pos_orders (
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_pos_order_number (order_number),
+  UNIQUE KEY uq_pos_order_idempotency (idempotency_key),
   KEY idx_pos_orders_status_created (status, created_at),
   KEY idx_pos_orders_customer (customer_id),
   CONSTRAINT fk_pos_orders_creator FOREIGN KEY (created_by) REFERENCES app_users(id)
