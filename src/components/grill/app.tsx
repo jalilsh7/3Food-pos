@@ -928,7 +928,7 @@ function SettingsScreen() {
       const currentHasData = [current.categories, current.products, current.ingredients, current.customers, current.discounts, current.orders, current.expenses, current.templates]
         .some((items) => items.length > 0);
       const legacy = currentHasData ? null : readLegacyBrowserPosState();
-      const state = { ...current, ...(legacy ?? {}) };
+      const state: PosState = { ...current, ...(legacy ?? {}) };
       const hasData = [state.categories, state.products, state.ingredients, state.customers, state.discounts, state.orders, state.expenses, state.templates]
         .some((items) => items.length > 0);
       if (!hasData) throw new Error("داده قدیمی یا پشتیبان قابل انتقالی در این دستگاه پیدا نشد.");
