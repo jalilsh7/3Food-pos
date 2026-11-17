@@ -457,6 +457,64 @@ $resourceRoles = [
     'sms_logs' => ['manager'],
 ];
 
+if ($method === 'POST' && $path === '/migration/import') {
+    $actor = require_role($pdo, ['manager']);
+    require_csrf();
+    $body = request_json();
+    $allowed = ['categories','products','ingredients','customers','discounts','expenses','templates','settings'];
+    $provided = $body['data'] ?? null;
+    if (!is_array($provided)) json_response(['ok' => false, 'error' => 'invalid_import'], 422);
+    $encodedBody = json_encode($provided, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    if (strlen($encodedBody) > 2 * 1024 * 1024) {
+        json_response(['ok' => false, 'error' => 'import_too_large', 'message' => 'حجم انتقال داده بیش از ۲ مگابایت است'], 413);
+    }
+    try {
+        $pdo->beginTransaction();
+        $existingRecords = (int)$pdo->query('SELECT COUNT(*) FROM pos_records')->fetchColumn();
+        $existingOrders = (int)$pdo->query('SELECT COUNT(*) FROM pos_orders')->fetchColumn();
+        if ($existingRecords > 0 || $existingOrders > 0) {
+            $pdo->rollBack();
+            json_response(['ok' => false, 'error' => 'import_not_empty', 'message' => 'دیتابیس قبلاً داده دارد؛ انتقال اولیه فقط روی دیتابیس خالی مجاز است'], 409);
+        }
+        $insert = $pdo->prepare('INSERT INTO pos_records (id, resource, payload, updated_by) VALUES (?, ?, ?, ?)');
+        $counts = [];
+        foreach ($allowed as $resource) {
+            $records = $provided[$resource] ?? [];
+            if (!is_array($records) || count($records) > 5000) {
+                throw new InvalidArgumentException('Invalid import resource: ' . $resource);
+            }
+            $counts[$resource] = 0;
+            foreach ($records as $record) {
+                if (!is_array($record)) throw new InvalidArgumentException('Invalid record in ' . $resource);
+                $id = $resource === 'settings' ? (string)($record['id'] ?? 'main') : (string)($record['id'] ?? '');
+                if ($id === '' || strlen($id) > 100 || !preg_match('/^[A-Za-z0-9_-]+$/D', $id)) {
+                    throw new InvalidArgumentException('Invalid record id in ' . $resource);
+                }
+                if ($resource === 'settings') {
+                    unset($record['smsUser'], $record['smsKey'], $record['smsFrom']);
+                }
+                $payload = json_encode($record, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+                if (strlen($payload) > 262144) throw new InvalidArgumentException('Record too large in ' . $resource);
+                $insert->execute([$id, $resource, $payload, (int)$actor['id']]);
+                $counts[$resource]++;
+            }
+        }
+        $nextOrder = isset($body['nextOrder']) ? max(1, min(1000000000, (int)$body['nextOrder'])) : 1042;
+        $pdo->prepare("UPDATE pos_counters SET counter_value = ? WHERE counter_key = 'order_number'")->execute([$nextOrder - 1]);
+        audit($pdo, (int)$actor['id'], 'legacy_data_imported', 'migration', null, ['counts' => $counts]);
+        $pdo->commit();
+        json_response(['ok' => true, 'counts' => $counts, 'orders_imported' => 0]);
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($e instanceof InvalidArgumentException) {
+            json_response(['ok' => false, 'error' => 'invalid_import_record', 'message' => 'یکی از رکوردهای انتقال داده معتبر نیست'], 422);
+        }
+        error_log('[3Food POS] Legacy import failed: ' . $e->getMessage());
+        json_response(['ok' => false, 'error' => 'import_failed', 'message' => 'انتقال داده انجام نشد'], 500);
+    }
+}
+
+
 if ($method === 'GET' && $path === '/bootstrap') {
     $user = require_user($pdo);
     $resources = $user['role'] === 'kitchen' ? ['categories','products'] : ($user['role'] === 'cashier' ? ['categories','products','customers','discounts'] : ['categories','products','ingredients','customers','discounts','expenses','templates','settings']);
