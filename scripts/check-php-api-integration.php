@@ -226,6 +226,8 @@ try {
     check($cashierLogin['status'] === 200 && ($cashierLogin['json']['user']['role'] ?? '') === 'cashier', 'cashier login');
     $cashierBackup = api('GET', '/api/v1/backup/export');
     check($cashierBackup['status'] === 403, 'cashier cannot export full customer and order backup');
+    $cashierRestore = api('POST', '/api/v1/backup/restore', ['backup' => $backupData], csrf_headers());
+    check($cashierRestore['status'] === 403, 'cashier cannot restore MySQL backup');
     $csrf = (string)($cashierLogin['json']['csrf_token'] ?? '');
     check(strlen($csrf) >= 32, 'cashier receives CSRF token');
 
