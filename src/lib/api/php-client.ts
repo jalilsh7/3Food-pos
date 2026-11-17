@@ -148,6 +148,16 @@ export const phpApi = {
       return result;
     }),
 
+  importLegacyData: (input: {
+    data: Record<string, unknown[]>;
+    nextOrder: number;
+  }) =>
+    request<ApiEnvelope<{ counts: Record<string, number>; orders_imported: number }>>("/migration/import", {
+      method: "POST",
+      csrf: true,
+      body: input,
+    }),
+
   bootstrap: <TData>() =>
     request<
       ApiEnvelope<{
