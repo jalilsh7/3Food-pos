@@ -383,12 +383,12 @@ try {
     $invalidStockDelta = api('POST', '/api/v1/ingredients/ci-ingredient/stock', ['delta' => 0], csrf_headers());
     check($invalidStockDelta['status'] === 422, 'zero stock adjustment is rejected');
 
-    // Two different PHP sessions submit orders concurrently against only five
+    // Two different PHP sessions submit orders concurrently against eight
     // units of ingredient stock; each order needs six, so exactly one may commit.
     $managerPrimaryCookie = $cookie;
     $managerPrimaryCsrf = $csrf;
-    $stockToFive = api('POST', '/api/v1/ingredients/ci-ingredient/stock', ['delta' => -6], csrf_headers());
-    check($stockToFive['status'] === 200 && (float)($stockToFive['json']['item']['stock'] ?? -1) === 5.0, 'prepare constrained stock for concurrency test');
+    $stockToEight = api('POST', '/api/v1/ingredients/ci-ingredient/stock', ['delta' => -3], csrf_headers());
+    check($stockToEight['status'] === 200 && (float)($stockToEight['json']['item']['stock'] ?? -1) === 8.0, 'prepare constrained stock for concurrency test');
 
     $cookie = '';
     $secondManagerLogin = api('POST', '/api/v1/auth/login', [
@@ -422,7 +422,7 @@ try {
     $concurrentErrors = array_values(array_filter($concurrentResults, fn($r) => $r['status'] === 409));
     check(($concurrentErrors[0]['json']['error'] ?? '') === 'insufficient_stock', 'losing concurrent order fails for insufficient stock');
     $stockAfterRace = $getPayload($pdo, 'ingredients', 'ci-ingredient');
-    check((float)($stockAfterRace['stock'] ?? -1) === 3.0, 'concurrent checkout consumes stock exactly once');
+    check((float)($stockAfterRace['stock'] ?? -1) === 2.0, 'concurrent checkout consumes stock exactly once');
     $orderCountAfterRace = (int)$pdo->query('SELECT COUNT(*) FROM pos_orders')->fetchColumn();
     check($orderCountAfterRace === 2, 'only one of the two competing orders is persisted');
 
