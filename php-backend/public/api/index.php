@@ -567,6 +567,33 @@ if ($method === 'POST' && $path === '/orders') {
     $body = request_json();
     $items = $body['items'] ?? null;
     $totals = $body['totals'] ?? null;
+    $idempotencyKey = isset($body['idempotencyKey']) ? strtolower(trim((string)$body['idempotencyKey'])) : null;
+    if ($idempotencyKey !== null && !preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/D', $idempotencyKey)) {
+        json_response(['ok' => false, 'error' => 'invalid_idempotency_key'], 422);
+    }
+    $requestHash = hash('sha256', json_encode([
+        'items' => $items,
+        'totals' => $totals,
+        'customer' => $body['customer'] ?? null,
+        'note' => $body['note'] ?? null,
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+    if ($idempotencyKey !== null) {
+        $existingStmt = $pdo->prepare('SELECT id, order_number, status, items, totals, request_hash FROM pos_orders WHERE idempotency_key = ? LIMIT 1');
+        $existingStmt->execute([$idempotencyKey]);
+        $existing = $existingStmt->fetch();
+        if (is_array($existing)) {
+            if (!hash_equals((string)$existing['request_hash'], $requestHash)) {
+                json_response(['ok' => false, 'error' => 'idempotency_conflict', 'message' => 'این شناسه قبلاً برای سفارش دیگری استفاده شده است'], 409);
+            }
+            json_response(['ok' => true, 'replayed' => true, 'order' => [
+                'id' => (string)$existing['id'],
+                'orderNumber' => (int)$existing['order_number'],
+                'status' => (string)$existing['status'],
+                'items' => json_decode((string)$existing['items'], true) ?: [],
+                'totals' => json_decode((string)$existing['totals'], true) ?: [],
+            ]]);
+        }
+    }
     if (!is_array($items) || count($items) < 1 || count($items) > 100 || !is_array($totals)) json_response(['ok' => false, 'error' => 'invalid_order', 'message' => 'اقلام یا مبلغ سفارش معتبر نیست'], 422);
     $serverSubtotal = 0;
     $productLookup = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'products' AND id = ? LIMIT 1");
@@ -640,9 +667,11 @@ if ($method === 'POST' && $path === '/orders') {
         if ($counter === false) throw new RuntimeException('Order counter missing');
         $orderNumber = (int)$counter + 1;
         $pdo->prepare("UPDATE pos_counters SET counter_value = ? WHERE counter_key = 'order_number'")->execute([$orderNumber]);
-        $stmt = $pdo->prepare('INSERT INTO pos_orders (order_number, status, customer_id, customer_name, customer_phone, items, totals, note, created_by) VALUES (?, \'new\', ?, ?, ?, ?, ?, ?, ?)');
+        $stmt = $pdo->prepare('INSERT INTO pos_orders (order_number, status, idempotency_key, request_hash, customer_id, customer_name, customer_phone, items, totals, note, created_by) VALUES (?, \'new\', ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $stmt->execute([
             $orderNumber,
+            $idempotencyKey,
+            $idempotencyKey !== null ? $requestHash : null,
             $customerId !== '' ? $customerId : null,
             $customerName,
             $customerPhone,
@@ -657,10 +686,28 @@ if ($method === 'POST' && $path === '/orders') {
         json_response(['ok' => true, 'order' => ['id' => (string)$id, 'orderNumber' => $orderNumber, 'status' => 'new', 'items' => $items, 'totals' => $totals]], 201);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
+        // A concurrent retry may win the unique idempotency key after our initial lookup.
+        if ($idempotencyKey !== null && $e instanceof PDOException && (string)$e->getCode() === '23000') {
+            $retryStmt = $pdo->prepare('SELECT id, order_number, status, items, totals, request_hash FROM pos_orders WHERE idempotency_key = ? LIMIT 1');
+            $retryStmt->execute([$idempotencyKey]);
+            $retry = $retryStmt->fetch();
+            if (is_array($retry)) {
+                if (!hash_equals((string)$retry['request_hash'], $requestHash)) {
+                    json_response(['ok' => false, 'error' => 'idempotency_conflict', 'message' => 'این شناسه قبلاً برای سفارش دیگری استفاده شده است'], 409);
+                }
+                json_response(['ok' => true, 'replayed' => true, 'order' => [
+                    'id' => (string)$retry['id'],
+                    'orderNumber' => (int)$retry['order_number'],
+                    'status' => (string)$retry['status'],
+                    'items' => json_decode((string)$retry['items'], true) ?: [],
+                    'totals' => json_decode((string)$retry['totals'], true) ?: [],
+                ]]);
+            }
+        }
         error_log('[3Food POS] Order creation failed: ' . $e->getMessage());
         json_response(['ok' => false, 'error' => 'order_create_failed', 'message' => 'ثبت سفارش انجام نشد'], 500);
     }
-}
+}}
 
 if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
     $actor = require_role($pdo, ['manager','kitchen']);
