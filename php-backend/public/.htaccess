@@ -7,6 +7,16 @@ RewriteEngine On
 </FilesMatch>
 
 # API requests are routed through one PHP front controller.
+# Keep this rule before the SPA fallback so unknown API endpoints never
+# receive the React application's index.html.
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^api(?:/.*)?$ api/index.php [QSA,L]
+
+# React static deployment: serve real files/directories as-is and send
+# client-side routes to index.html. The existence check keeps the current
+# PHP-only staging layout unchanged until the static build is deployed.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{DOCUMENT_ROOT}/index.html -f
+RewriteRule ^ index.html [QSA,L]
