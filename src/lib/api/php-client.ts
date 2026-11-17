@@ -200,6 +200,9 @@ export const phpApi = {
     customer?: unknown;
     discountCode?: string;
     note?: string;
+    guestName?: string;
+    guestPhone?: string;
+    payment?: "cash" | "card" | "online";
     idempotencyKey: string;
   }) =>
     request<ApiEnvelope<{ order: TOrder; replayed?: boolean }>>("/orders", {
