@@ -6,6 +6,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
+import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 // @ts-expect-error JS plugin alongside the TS vite config
 import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
 // @ts-expect-error JS plugin alongside the TS vite config
@@ -167,13 +168,7 @@ export default defineConfig(({ command, isPreview, mode }) => ({
     grokPwaPlugin(),
     tailwindcss(),
     ...(mode === "cpanel"
-      ? [
-          tanstackStart({ spa: { enabled: true, prerender: { outputPath: "/_shell.html" } } }),
-          // Start's prerender pipeline still needs Nitro's preview/build
-          // metadata. The static preset emits public assets only, not a Node
-          // server bundle, so the cPanel artifact remains PHP + static files.
-          nitro({ preset: "static", static: true }),
-        ]
+      ? [TanStackRouterVite({ target: "react", autoCodeSplitting: true })]
       : [
           tanstackStart(),
           ...(command === "build" || isPreview
