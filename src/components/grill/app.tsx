@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   ChefHat, ClipboardList, LayoutDashboard, MessageSquare, Percent,
@@ -257,6 +257,8 @@ function PosScreen() {
   const [points, setPoints] = useState(0);
   const [pay, setPay] = useState<Order["payment"]>("cash");
   const [msg, setMsg] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const pendingIdempotencyKey = useRef<string | null>(null);
   const [printed, setPrinted] = useState<Order | null>(null);
   const [optFor, setOptFor] = useState<Product | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
@@ -276,17 +278,57 @@ function PosScreen() {
     });
   }
 
-  function checkout() {
-    const res = placeOrder({ lines: cart, customer, code, pointsToUse: points, payment: pay, guestName, guestPhone: phone.trim() });
-    if (!res.ok) { setMsg(res.error); return; }
-    setMsg(`سفارش ${res.order.number.toLocaleString("fa-IR")} ثبت شد`);
-    setCart([]); setCode(""); setPoints(0); setPrinted(res.order);
-    const fresh = usePos.getState().customers.find((c) => c.id === res.order.customerId);
-    const vars = orderVars(res.order, String(fresh?.points ?? 0));
-    void pushSms("order_created", res.order.customerPhone, vars);
-    if (res.order.pointsEarned) void pushSms("points_earned", res.order.customerPhone, vars);
-    if (res.order.discountCode) void pushSms("discount_used", res.order.customerPhone, vars);
-    if (settings.autoPrint) setTimeout(() => window.print(), 300);
+  async function checkout() {
+    if (submitting || !cart.length) return;
+    setSubmitting(true);
+    setMsg("");
+    try {
+      const idempotencyKey = pendingIdempotencyKey.current ?? crypto.randomUUID();
+      pendingIdempotencyKey.current = idempotencyKey;
+      const server = await phpApi.createOrder<{ id: string; orderNumber: number }>({
+        idempotencyKey,
+        items: cart.map((line) => ({
+          productId: line.productId,
+          qty: line.qty,
+          unitPrice: line.unitPrice,
+          optionIds: line.optionIds,
+          optionLabels: line.optionLabels,
+          note: line.note,
+        })),
+        totals: {
+          subtotal: q.subtotal,
+          tierDiscount: q.tierDiscount,
+          codeDiscount: q.codeDiscount,
+          pointsDiscount: q.pointsDiscount,
+          tax: q.tax,
+          total: q.total,
+        },
+        customer: customer ? { id: customer.id } : undefined,
+        note: cart.map((line) => line.note).filter(Boolean).join(" | ").slice(0, 2000),
+      });
+      const res = placeOrder({
+        lines: cart, customer, code, pointsToUse: points, payment: pay,
+        guestName, guestPhone: phone.trim(),
+        serverOrder: { id: server.order.id, number: server.order.orderNumber },
+      });
+      if (!res.ok) {
+        setMsg(`سفارش در سرور ثبت شد اما همگام‌سازی محلی انجام نشد: ${res.error}. صفحه را تازه‌سازی کنید.`);
+        return;
+      }
+      pendingIdempotencyKey.current = null;
+      setMsg(`سفارش ${res.order.number.toLocaleString("fa-IR")} ثبت شد`);
+      setCart([]); setCode(""); setPoints(0); setPrinted(res.order);
+      const fresh = usePos.getState().customers.find((c) => c.id === res.order.customerId);
+      const vars = orderVars(res.order, String(fresh?.points ?? 0));
+      void pushSms("order_created", res.order.customerPhone, vars);
+      if (res.order.pointsEarned) void pushSms("points_earned", res.order.customerPhone, vars);
+      if (res.order.discountCode) void pushSms("discount_used", res.order.customerPhone, vars);
+      if (settings.autoPrint) setTimeout(() => window.print(), 300);
+    } catch (error) {
+      setMsg(error instanceof Error ? error.message : "ثبت سفارش در سرور انجام نشد");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const shown = products.filter((p) => p.active && (!cat || p.categoryId === cat));
@@ -346,7 +388,7 @@ function PosScreen() {
           {q.codeDiscount ? <p className="flex justify-between text-sm"><span>کد</span><span>{money(q.codeDiscount)}</span></p> : null}
           <p className="flex justify-between text-base font-bold"><span>قابل پرداخت</span><span>{money(q.total)}</span></p>
           {msg ? <p className="text-sm text-leaf">{msg}</p> : null}
-          <Btn onClick={checkout} disabled={!cart.length}>ثبت سفارش</Btn>
+          <Btn onClick={checkout} disabled={!cart.length || submitting}>{submitting ? "در حال ثبت در سرور..." : "ثبت سفارش"}</Btn>
         </div>
       </Card>
       {optFor ? (
@@ -397,11 +439,16 @@ function OrdersScreen({ role }: { role: Role }) {
   const setStatus = usePos((s) => s.setStatus);
   const [focus, setFocus] = useState<Order | null>(null);
   const steps: Order["status"][] = role === "kitchen" ? ["preparing", "ready"] : ["new", "preparing", "ready", "delivered", "cancelled"];
-  function jump(order: Order, status: Order["status"]) {
-    setStatus(order.id, status);
-    const next = { ...order, status };
-    if (status === "ready") void pushSms("order_ready", order.customerPhone, orderVars(next));
-    if (status === "delivered") void pushSms("order_delivered", order.customerPhone, orderVars(next));
+  async function jump(order: Order, status: Order["status"]) {
+    try {
+      if (/^\\d+$/.test(order.id)) await phpApi.setOrderStatus(order.id, status);
+      setStatus(order.id, status);
+      const next = { ...order, status };
+      if (status === "ready") void pushSms("order_ready", order.customerPhone, orderVars(next));
+      if (status === "delivered") void pushSms("order_delivered", order.customerPhone, orderVars(next));
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "تغییر وضعیت در سرور انجام نشد");
+    }
   }
   return (
     <div className="space-y-3">
