@@ -288,6 +288,8 @@ function PosScreen() {
       const server = await phpApi.createOrder<{ id: string; orderNumber: number }>({
         idempotencyKey,
         items: cart.map((line) => ({
+          key: line.key,
+          name: line.name,
           productId: line.productId,
           qty: line.qty,
           unitPrice: line.unitPrice,
