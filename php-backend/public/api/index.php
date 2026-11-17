@@ -589,7 +589,7 @@ if ($method === 'GET' && $path === '/backup/export') {
         }
     }
     unset($record);
-    $orders = $pdo->query('SELECT id, order_number, status, idempotency_key, request_hash, customer_id, customer_name, customer_phone, discount_code, items, totals, note, created_by, created_at, updated_at FROM pos_orders ORDER BY id')->fetchAll();
+    $orders = $pdo->query('SELECT id, order_number, status, idempotency_key, request_hash, customer_id, customer_name, customer_phone, guest_name, guest_phone, payment_method, points_used, points_earned, discount_code, items, totals, note, created_by, created_at, updated_at FROM pos_orders ORDER BY id')->fetchAll();
     foreach ($orders as &$order) {
         $order['items'] = json_decode((string)$order['items'], true) ?: [];
         $order['totals'] = json_decode((string)$order['totals'], true) ?: [];
@@ -658,7 +658,7 @@ if ($method === 'POST' && $path === '/backup/restore') {
             if (strlen($payload) > 262144) throw new InvalidArgumentException('Backup record too large');
             $insertRecord->execute([$record['id'], $record['resource'], $payload, null]);
         }
-        $insertOrder = $pdo->prepare('INSERT INTO pos_orders (id, order_number, status, idempotency_key, request_hash, customer_id, customer_name, customer_phone, discount_code, items, totals, note, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        $insertOrder = $pdo->prepare('INSERT INTO pos_orders (id, order_number, status, idempotency_key, request_hash, customer_id, customer_name, customer_phone, guest_name, guest_phone, payment_method, points_used, points_earned, discount_code, items, totals, note, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $orderIds = [];
         foreach ($backup['orders'] as $order) {
             if (!is_array($order) || !is_numeric($order['id'] ?? null) || (int)$order['id'] < 1 ||
@@ -671,7 +671,9 @@ if ($method === 'POST' && $path === '/backup/restore') {
             $items = json_encode($order['items'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
             $totals = json_encode($order['totals'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
             $insertOrder->execute([$id, (int)$order['order_number'], $order['status'], $order['idempotency_key'] ?? null, $order['request_hash'] ?? null,
-                $order['customer_id'] ?? null, $order['customer_name'] ?? null, $order['customer_phone'] ?? null, $order['discount_code'] ?? null,
+                $order['customer_id'] ?? null, $order['customer_name'] ?? null, $order['customer_phone'] ?? null,
+                $order['guest_name'] ?? null, $order['guest_phone'] ?? null, $order['payment_method'] ?? 'cash',
+                (int)($order['points_used'] ?? 0), (int)($order['points_earned'] ?? 0), $order['discount_code'] ?? null,
                 $items, $totals, $order['note'] ?? null, (int)$actor['id'], $order['created_at'] ?? gmdate('Y-m-d H:i:s'), $order['updated_at'] ?? gmdate('Y-m-d H:i:s')]);
         }
         $insertEffect = $pdo->prepare('INSERT INTO pos_order_effects (order_id, effect_type, resource_id, quantity, points_spent, points_earned, money_delta, visits_delta, reversed_at, reversed_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)');
@@ -792,17 +794,21 @@ if ($method === 'GET' && $path === '/bootstrap') {
             return $value;
         }, $q->fetchAll());
     }
-    $orders = $pdo->query('SELECT id, order_number, status, customer_id, customer_name, customer_phone, discount_code, items, totals, note, created_at, updated_at FROM pos_orders ORDER BY id DESC LIMIT 500')->fetchAll();
+    $orders = $pdo->query('SELECT id, order_number, status, customer_id, customer_name, customer_phone, guest_name, guest_phone, payment_method, points_used, points_earned, discount_code, items, totals, note, created_at, updated_at FROM pos_orders ORDER BY id DESC')->fetchAll();
     foreach ($orders as &$order) {
         $order['id'] = (string)$order['id'];
         $order['orderNumber'] = (int)$order['order_number'];
         $order['customerId'] = $order['customer_id'];
         $order['customerName'] = $order['customer_name'];
-        $order['customerPhone'] = $order['customer_phone'];
+        $order['customerPhone'] = $order['customer_phone'] ?? $order['guest_phone'] ?? '';
+        $order['customerName'] = $order['customer_name'] ?: ($order['guest_name'] ?? 'مشتری');
+        $order['payment'] = $order['payment_method'] ?? 'cash';
+        $order['pointsUsed'] = (int)($order['points_used'] ?? 0);
+        $order['pointsEarned'] = (int)($order['points_earned'] ?? 0);
         $order['discountCode'] = $order['discount_code'] ?? '';
         $order['items'] = json_decode((string)$order['items'], true) ?: [];
         $order['totals'] = json_decode((string)$order['totals'], true) ?: [];
-        unset($order['order_number'], $order['customer_id'], $order['customer_name'], $order['customer_phone'], $order['discount_code']);
+        unset($order['order_number'], $order['customer_id'], $order['customer_name'], $order['customer_phone'], $order['guest_name'], $order['guest_phone'], $order['payment_method'], $order['points_used'], $order['points_earned'], $order['discount_code']);
         // Kitchen staff need preparation details, not customer contact data or
         // cashier/manager notes that may contain private instructions.
         if ($user['role'] === 'kitchen') {
@@ -919,6 +925,9 @@ if ($method === 'POST' && $path === '/orders') {
         'customer' => $body['customer'] ?? null,
         'discountCode' => strtoupper(trim((string)($body['discountCode'] ?? ''))),
         'note' => $body['note'] ?? null,
+        'guestName' => $body['guestName'] ?? null,
+        'guestPhone' => $body['guestPhone'] ?? null,
+        'payment' => $body['payment'] ?? 'cash',
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
     if ($idempotencyKey !== null) {
         $existingStmt = $pdo->prepare('SELECT id, order_number, status, items, totals, request_hash FROM pos_orders WHERE idempotency_key = ? LIMIT 1');
@@ -1012,6 +1021,12 @@ if ($method === 'POST' && $path === '/orders') {
     }
     $customerName = is_array($customerRecord) ? substr((string)($customerRecord['name'] ?? ''), 0, 160) : null;
     $customerPhone = is_array($customerRecord) ? substr((string)($customerRecord['phone'] ?? ''), 0, 30) : null;
+    $guestName = $customerId === '' ? trim((string)($body['guestName'] ?? 'مشتری')) : null;
+    $guestPhone = $customerId === '' ? trim((string)($body['guestPhone'] ?? '')) : null;
+    $payment = (string)($body['payment'] ?? 'cash');
+    if (!in_array($payment, ['cash','card','online'], true) || utf8_length($guestName ?? '') > 160 || strlen($guestPhone ?? '') > 30) {
+        json_response(['ok' => false, 'error' => 'invalid_order_details', 'message' => 'اطلاعات مشتری یا روش پرداخت معتبر نیست'], 422);
+    }
     $discountCode = strtoupper(trim((string)($body['discountCode'] ?? '')));
     if (strlen($discountCode) > 64 || ($discountCode !== '' && !preg_match('/^[A-Z0-9_-]+$/D', $discountCode))) {
         json_response(['ok' => false, 'error' => 'invalid_discount_code'], 422);
@@ -1238,7 +1253,7 @@ if ($method === 'POST' && $path === '/orders') {
         if ($counter === false) throw new RuntimeException('Order counter missing');
         $orderNumber = (int)$counter + 1;
         $pdo->prepare("UPDATE pos_counters SET counter_value = ? WHERE counter_key = 'order_number'")->execute([$orderNumber]);
-        $stmt = $pdo->prepare('INSERT INTO pos_orders (order_number, status, idempotency_key, request_hash, customer_id, customer_name, customer_phone, discount_code, items, totals, note, created_by) VALUES (?, \'new\', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        $stmt = $pdo->prepare('INSERT INTO pos_orders (order_number, status, idempotency_key, request_hash, customer_id, customer_name, customer_phone, guest_name, guest_phone, payment_method, points_used, points_earned, discount_code, items, totals, note, created_by) VALUES (?, \'new\', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $stmt->execute([
             $orderNumber,
             $idempotencyKey,
@@ -1246,6 +1261,11 @@ if ($method === 'POST' && $path === '/orders') {
             $customerId !== '' ? $customerId : null,
             $customerName,
             $customerPhone,
+            $guestName,
+            $guestPhone,
+            $payment,
+            $pointsToSpend,
+            $pointsEarned,
             $discountCode !== '' ? $discountCode : null,
             json_encode($canonicalItems, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             json_encode($totals, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
