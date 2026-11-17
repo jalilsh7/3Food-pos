@@ -444,7 +444,7 @@ export const usePos = create<PosState & Actions>()(
           expenses: s.expenses,
           templates: s.templates,
           smsLogs: s.smsLogs,
-          settings: { ...s.settings, smsKey: "" },
+          settings: { ...s.settings, smsUser: "", smsKey: "", smsFrom: "" },
           nextOrder: s.nextOrder,
         };
         return JSON.stringify(data);
@@ -461,7 +461,32 @@ export const usePos = create<PosState & Actions>()(
       },
       resetDemo: () => set(seed()),
     }),
-    { name: "grillcash-v1" },
+    {
+      name: "grillcash-v1",
+      version: 2,
+      // SMS provider credentials must never be written to browser storage.
+      // Keep them transient in memory until the PHP server-side SMS settings
+      // endpoint replaces the legacy client flow.
+      partialize: (state) => ({
+        ...state,
+        settings: {
+          ...state.settings,
+          smsUser: "",
+          smsKey: "",
+          smsFrom: "",
+        },
+      }),
+      // Existing v1 localStorage may already contain SMS credentials. Drop
+      // them during hydration rather than carrying them into the new state.
+      migrate: (persisted) => {
+        const state = persisted as PosState;
+        if (!state?.settings) return state;
+        return {
+          ...state,
+          settings: { ...state.settings, smsUser: "", smsKey: "", smsFrom: "" },
+        };
+      },
+    },
   ),
 );
 
