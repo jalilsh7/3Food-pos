@@ -707,7 +707,7 @@ if ($method === 'POST' && $path === '/orders') {
         error_log('[3Food POS] Order creation failed: ' . $e->getMessage());
         json_response(['ok' => false, 'error' => 'order_create_failed', 'message' => 'ثبت سفارش انجام نشد'], 500);
     }
-}}
+}
 
 if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
     $actor = require_role($pdo, ['manager','kitchen']);
