@@ -86,12 +86,12 @@ export function GrillApp() {
         </div>
         <button type="button" onClick={() => void logout()} className="rounded-xl border border-line px-3 py-2 text-sm">خروج امن</button>
       </header>
-      <PosWorkspace allowed={allowed} initialView={viewFallback?.id ?? "orders"} />
+      <PosWorkspace allowed={allowed} initialView={viewFallback?.id ?? "orders"} role={user.role} />
     </div>
   );
 }
 
-function PosWorkspace({ allowed, initialView }: { allowed: typeof NAV; initialView: View }) {
+function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; initialView: View; role: Role }) {
   const [view, setView] = useState<View>(initialView);
   const current = allowed.some((n) => n.id === view) ? view : allowed[0]?.id ?? "orders";
   return (
@@ -109,7 +109,7 @@ function PosWorkspace({ allowed, initialView }: { allowed: typeof NAV; initialVi
       </nav>
       <main className="min-w-0">
         {current === "pos" ? <PosScreen /> : null}
-        {current === "orders" ? <OrdersScreen /> : null}
+        {current === "orders" ? <OrdersScreen role={role} /> : null}
         {current === "menu" ? <MenuScreen /> : null}
         {current === "stock" ? <StockScreen /> : null}
         {current === "customers" ? <CustomersScreen /> : null}
@@ -378,12 +378,11 @@ function statusFa(s: Order["status"]) {
   return { new: "جدید", preparing: "در حال آماده‌سازی", ready: "آماده", delivered: "تحویل شد", cancelled: "لغو" }[s];
 }
 
-function OrdersScreen() {
+function OrdersScreen({ role }: { role: Role }) {
   const orders = usePos((s) => s.orders);
-  const settings = usePos((s) => s.settings);
   const setStatus = usePos((s) => s.setStatus);
   const [focus, setFocus] = useState<Order | null>(null);
-  const steps: Order["status"][] = settings.role === "kitchen" ? ["preparing", "ready"] : ["new", "preparing", "ready", "delivered", "cancelled"];
+  const steps: Order["status"][] = role === "kitchen" ? ["preparing", "ready"] : ["new", "preparing", "ready", "delivered", "cancelled"];
   function jump(order: Order, status: Order["status"]) {
     setStatus(order.id, status);
     const next = { ...order, status };
