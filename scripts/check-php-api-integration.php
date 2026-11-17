@@ -73,6 +73,10 @@ try {
 
     $csrfRejected = api('POST', '/api/v1/records/products', ['item' => ['id' => 'bad']], ['X-CSRF-Token: invalid']);
     check($csrfRejected['status'] === 419, 'write request rejects missing/invalid CSRF');
+    $wrongPortOrigin = api('POST', '/api/v1/records/products', ['item' => ['id' => 'bad']], ['X-CSRF-Token: ' . $csrf, 'Origin: http://127.0.0.1:8089']);
+    check($wrongPortOrigin['status'] === 403 && ($wrongPortOrigin['json']['error'] ?? '') === 'origin_rejected', 'same hostname on a different port is rejected as cross-origin');
+    $fetchSiteRejected = api('POST', '/api/v1/records/products', ['item' => ['id' => 'bad']], ['X-CSRF-Token: ' . $csrf, 'Sec-Fetch-Site: cross-site']);
+    check($fetchSiteRejected['status'] === 403, 'cross-site fetch metadata is rejected even without Origin');
 
     $product = [
         'id' => 'ci-product',
