@@ -182,6 +182,13 @@ export const phpApi = {
       body: input,
     }),
 
+  sendSms: (input: { to: string; text: string; bodyId?: string }) =>
+    request<ApiEnvelope<{ sent: boolean; detail: string }>>("/sms/send", {
+      method: "POST",
+      csrf: true,
+      body: input,
+    }),
+
   setOrderStatus: (id: string, status: string) =>
     request<ApiEnvelope<{ status: string }>>(
       `/orders/${encodeURIComponent(id)}/status`,
