@@ -10,12 +10,12 @@ Recent GitHub Actions checks have passed for PHP syntax, TypeScript, unit tests 
 
 ## Not yet a production release
 
-- A separate cPanel frontend path now uses plain Vite + TanStack Router + React (no TanStack Start/Nitro runtime in that build). The initial `dist/` static build passed CI; the combined PHP/MySQL deployment package and downloadable CI artifact are being verified.
+- A separate cPanel frontend path now uses plain Vite + TanStack Router + React (no TanStack Start/Nitro runtime in that build). The combined PHP/MySQL cPanel package was built, validated and uploaded as a GitHub Actions artifact on commit `d3632e38036d6002a6c38f713018ca367d69d8db`.
 - Some POS state still uses Zustand persistence and not every UI operation has complete server-side synchronization.
 - Real MySQL concurrency/integration tests, multi-device end-to-end tests, backup/restore verification and live SMS tests remain outstanding.
 - The cPanel `.htaccess` places the PHP API rewrite before a guarded SPA fallback. The package layout keeps `private/` outside the `public/` document root; real Apache/PHP/MySQL staging tests remain required.
 
-Do not deploy to the production host until the static build, API integration, staging MySQL and browser end-to-end checks pass. Keep secrets outside Git and outside the public document root.
+The cPanel package artifact is available from [GitHub Actions run 44098838943](https://github.com/jalilsh7/3Food-pos/actions/runs/44098838943) for 14 days from 2026-11-17. Download it from the run's Artifacts section. Do not deploy to the production host until API integration, staging MySQL and browser end-to-end checks pass. Keep secrets outside Git and outside the public document root.
 
 ## Project guidance
 
