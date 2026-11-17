@@ -455,7 +455,55 @@ $resourceRoles = [
     'templates' => ['manager'],
     'settings' => ['manager'],
     'sms_logs' => ['manager'],
+
 ];
+
+if (preg_match('#^/ingredients/([A-Za-z0-9_-]+)/stock$#D', $path, $stockMatch) && $method === 'POST') {
+    $actor = require_role($pdo, ['manager']);
+    require_csrf();
+    $body = request_json();
+    $deltaRaw = $body['delta'] ?? null;
+    if (!is_int($deltaRaw) && !is_float($deltaRaw) && !(is_string($deltaRaw) && is_numeric($deltaRaw))) {
+        json_response(['ok' => false, 'error' => 'invalid_stock_delta', 'message' => 'مقدار تغییر موجودی معتبر نیست'], 422);
+    }
+    $delta = (float)$deltaRaw;
+    if (!is_finite($delta) || $delta == 0.0 || abs($delta) > 1000000 || round($delta, 3) !== $delta) {
+        json_response(['ok' => false, 'error' => 'invalid_stock_delta', 'message' => 'تغییر موجودی باید غیرصفر و حداکثر سه رقم اعشار باشد'], 422);
+    }
+    $ingredientId = $stockMatch[1];
+    try {
+        $pdo->beginTransaction();
+        $select = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'ingredients' AND id = ? FOR UPDATE");
+        $select->execute([$ingredientId]);
+        $row = $select->fetch();
+        if (!$row) {
+            $pdo->rollBack();
+            json_response(['ok' => false, 'error' => 'ingredient_not_found', 'message' => 'ماده اولیه پیدا نشد'], 404);
+        }
+        $item = json_decode((string)$row['payload'], true);
+        if (!is_array($item) || !isset($item['stock']) || !is_numeric($item['stock'])) {
+            $pdo->rollBack();
+            json_response(['ok' => false, 'error' => 'ingredient_stock_invalid', 'message' => 'اطلاعات موجودی ماده اولیه معتبر نیست'], 409);
+        }
+        $before = (float)$item['stock'];
+        $after = round($before + $delta, 3);
+        if (!is_finite($before) || $before < 0 || $after < 0 || $after > 1000000000) {
+            $pdo->rollBack();
+            json_response(['ok' => false, 'error' => 'insufficient_stock', 'message' => 'موجودی برای این تغییر کافی نیست'], 409);
+        }
+        $item['stock'] = $after;
+        $payload = json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        $update = $pdo->prepare("UPDATE pos_records SET payload = ?, updated_by = ? WHERE resource = 'ingredients' AND id = ?");
+        $update->execute([$payload, (int)$actor['id'], $ingredientId]);
+        audit($pdo, (int)$actor['id'], 'ingredient_stock_adjusted', 'ingredient', $ingredientId, ['delta' => $delta, 'before' => $before, 'after' => $after]);
+        $pdo->commit();
+        json_response(['ok' => true, 'item' => $item]);
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('[3Food POS] Ingredient stock adjustment failed: ' . $e->getMessage());
+        json_response(['ok' => false, 'error' => 'stock_adjustment_failed', 'message' => 'تغییر موجودی ذخیره نشد'], 500);
+    }
+}
 
 if ($method === 'POST' && $path === '/migration/import') {
     $actor = require_role($pdo, ['manager']);
