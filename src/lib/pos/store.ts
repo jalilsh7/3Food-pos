@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import {
   customerCodeUses,
   quoteOrder,
@@ -224,25 +223,19 @@ function seed(): PosState {
     role: "manager",
   };
   return {
-    categories,
-    products,
-    ingredients,
-    customers,
-    discounts,
+    // Business records are loaded from MySQL after authentication. Start with
+    // empty collections so demo/legacy browser data can never act as authority.
+    categories: [],
+    products: [],
+    ingredients: [],
+    customers: [],
+    discounts: [],
     orders: [],
-    expenses: [
-      {
-        id: "e1",
-        title: "خرید روغن",
-        amount: 450000,
-        category: "مواد اولیه",
-        date: new Date().toISOString().slice(0, 10),
-      },
-    ],
-    templates,
+    expenses: [],
+    templates: [],
     smsLogs: [],
     settings,
-    nextOrder: 1042,
+    nextOrder: 1,
   };
 }
 
@@ -279,7 +272,6 @@ type Actions = {
 };
 
 export const usePos = create<PosState & Actions>()(
-  persist(
     (set, get) => ({
       ...seed(),
       setRole: (role) => set((s) => ({ settings: { ...s.settings, role } })),
@@ -463,33 +455,6 @@ export const usePos = create<PosState & Actions>()(
       },
       resetDemo: () => set(seed()),
     }),
-    {
-      name: "grillcash-v1",
-      version: 2,
-      // SMS provider credentials must never be written to browser storage.
-      // Keep them transient in memory until the PHP server-side SMS settings
-      // endpoint replaces the legacy client flow.
-      partialize: (state) => ({
-        ...state,
-        settings: {
-          ...state.settings,
-          smsUser: "",
-          smsKey: "",
-          smsFrom: "",
-        },
-      }),
-      // Existing v1 localStorage may already contain SMS credentials. Drop
-      // them during hydration rather than carrying them into the new state.
-      migrate: (persisted) => {
-        const state = persisted as PosState;
-        if (!state?.settings) return state;
-        return {
-          ...state,
-          settings: { ...state.settings, smsUser: "", smsKey: "", smsFrom: "" },
-        };
-      },
-    },
-  ),
 );
 
 export function lowStock(list: Ingredient[]) {
