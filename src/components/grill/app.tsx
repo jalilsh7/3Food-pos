@@ -763,7 +763,7 @@ function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, role: Ro
     ...(data.discounts ? { discounts: data.discounts } : {}),
     ...(data.expenses ? { expenses: data.expenses } : {}),
     ...(data.templates ? { templates: data.templates } : {}),
-    ...(data.orders ? { orders } : {}),
+    ...(data.orders?.length ? { orders } : {}),
     ...(serverSettings ? {
       settings: {
         ...current.settings,
