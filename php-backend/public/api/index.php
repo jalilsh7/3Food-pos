@@ -654,6 +654,7 @@ if ($method === 'POST' && $path === '/orders') {
     }
     if (!is_array($items) || count($items) < 1 || count($items) > 100 || !is_array($totals)) json_response(['ok' => false, 'error' => 'invalid_order', 'message' => 'اقلام یا مبلغ سفارش معتبر نیست'], 422);
     $serverSubtotal = 0;
+    $ingredientNeeds = [];
     $productLookup = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'products' AND id = ? LIMIT 1");
     foreach ($items as $line) {
         if (!is_array($line) || !isset($line['productId'], $line['qty']) || !is_numeric($line['qty']) || (float)$line['qty'] <= 0 || (float)$line['qty'] > 999 || floor((float)$line['qty']) !== (float)$line['qty']) {
@@ -663,6 +664,15 @@ if ($method === 'POST' && $path === '/orders') {
         $productRaw = $productLookup->fetchColumn();
         $product = is_string($productRaw) ? json_decode($productRaw, true) : null;
         if (!is_array($product) || empty($product['active'])) json_response(['ok' => false, 'error' => 'product_unavailable', 'message' => 'یکی از محصولات سفارش فعال نیست'], 409);
+        // Derive ingredient consumption from the server-side recipe, never from browser input.
+        foreach (($product['recipe'] ?? []) as $recipeLine) {
+            if (!is_array($recipeLine) || !isset($recipeLine['ingredientId'], $recipeLine['qty'])) continue;
+            $ingredientId = (string)$recipeLine['ingredientId'];
+            $recipeQty = (float)$recipeLine['qty'];
+            if ($ingredientId !== '' && $recipeQty > 0 && is_finite($recipeQty)) {
+                $ingredientNeeds[$ingredientId] = ($ingredientNeeds[$ingredientId] ?? 0) + ($recipeQty * (int)$line['qty']);
+            }
+        }
         $unitPrice = (int)($product['price'] ?? -1);
         $validOptions = [];
         foreach (($product['options'] ?? []) as $option) if (is_array($option) && isset($option['id'])) $validOptions[(string)$option['id']] = (int)($option['price'] ?? 0);
@@ -719,8 +729,70 @@ if ($method === 'POST' && $path === '/orders') {
         $customerName = substr((string)($customerRecord['name'] ?? ''), 0, 160);
         $customerPhone = substr((string)($customerRecord['phone'] ?? ''), 0, 30);
     }
+    if ($pointsDiscount > 0 && $customerId === '') {
+        json_response(['ok' => false, 'error' => 'points_require_customer', 'message' => 'برای استفاده از امتیاز باید مشتری انتخاب شود'], 422);
+    }
     try {
         $pdo->beginTransaction();
+
+        // Lock and deduct every recipe ingredient in the same transaction as order creation.
+        $ingredientSelect = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'ingredients' AND id = ? FOR UPDATE");
+        $ingredientUpdate = $pdo->prepare("UPDATE pos_records SET payload = ?, updated_by = ? WHERE resource = 'ingredients' AND id = ?");
+        foreach ($ingredientNeeds as $ingredientId => $needed) {
+            $ingredientSelect->execute([$ingredientId]);
+            $rawIngredient = $ingredientSelect->fetchColumn();
+            $ingredient = is_string($rawIngredient) ? json_decode($rawIngredient, true) : null;
+            if (!is_array($ingredient)) {
+                $pdo->rollBack();
+                json_response(['ok' => false, 'error' => 'ingredient_not_found', 'message' => 'یکی از مواد اولیه دستور محصول در انبار پیدا نشد'], 409);
+            }
+            $available = (float)($ingredient['stock'] ?? 0);
+            if ($available + 0.000001 < $needed) {
+                $pdo->rollBack();
+                json_response(['ok' => false, 'error' => 'insufficient_stock', 'message' => 'موجودی یکی از مواد اولیه کافی نیست: ' . (string)($ingredient['name'] ?? $ingredientId)], 409);
+            }
+            $ingredient['stock'] = round($available - $needed, 3);
+            $ingredientUpdate->execute([
+                json_encode($ingredient, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                (int)$actor['id'],
+                $ingredientId,
+            ]);
+        }
+
+        // Serialize loyalty balance changes so two cashiers cannot spend the same points.
+        if ($customerId !== '') {
+            $customerLock = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'customers' AND id = ? FOR UPDATE");
+            $customerLock->execute([$customerId]);
+            $rawCustomer = $customerLock->fetchColumn();
+            $lockedCustomer = is_string($rawCustomer) ? json_decode($rawCustomer, true) : null;
+            if (!is_array($lockedCustomer)) {
+                $pdo->rollBack();
+                json_response(['ok' => false, 'error' => 'customer_not_found', 'message' => 'مشتری انتخاب‌شده پیدا نشد؛ فهرست مشتریان را تازه‌سازی کنید'], 409);
+            }
+            $settingsStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'settings' AND id = 'main' LIMIT 1");
+            $settingsStmt->execute();
+            $rawSettings = $settingsStmt->fetchColumn();
+            $settings = is_string($rawSettings) ? json_decode($rawSettings, true) : [];
+            $tomanPerPoint = max(1, (int)($settings['tomanPerPoint'] ?? 1));
+            $pointsPerToman = max(1, (int)($settings['pointsPerToman'] ?? 100000));
+            $pointsToSpend = $pointsDiscount > 0 ? (int)ceil($pointsDiscount / $tomanPerPoint) : 0;
+            $currentPoints = max(0, (int)($lockedCustomer['points'] ?? 0));
+            if ($pointsToSpend > $currentPoints || ($pointsToSpend * $tomanPerPoint) < $pointsDiscount) {
+                $pdo->rollBack();
+                json_response(['ok' => false, 'error' => 'insufficient_points', 'message' => 'امتیاز مشتری برای این تخفیف کافی نیست؛ اطلاعات مشتری را تازه‌سازی کنید'], 409);
+            }
+            $pointsEarned = (int)floor(((int)$totals['total']) / $pointsPerToman);
+            $lockedCustomer['points'] = $currentPoints - $pointsToSpend + $pointsEarned;
+            $lockedCustomer['totalSpent'] = (int)($lockedCustomer['totalSpent'] ?? 0) + (int)$totals['total'];
+            $lockedCustomer['visits'] = (int)($lockedCustomer['visits'] ?? 0) + 1;
+            $customerUpdate = $pdo->prepare("UPDATE pos_records SET payload = ?, updated_by = ? WHERE resource = 'customers' AND id = ?");
+            $customerUpdate->execute([
+                json_encode($lockedCustomer, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                (int)$actor['id'],
+                $customerId,
+            ]);
+        }
+
         $counter = $pdo->query("SELECT counter_value FROM pos_counters WHERE counter_key = 'order_number' FOR UPDATE")->fetchColumn();
         if ($counter === false) throw new RuntimeException('Order counter missing');
         $orderNumber = (int)$counter + 1;
