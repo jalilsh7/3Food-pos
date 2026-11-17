@@ -19,6 +19,12 @@ export type ApiUser = {
   must_change_password?: boolean;
 };
 
+export type ManagedUser = ApiUser & {
+  is_active: number | boolean;
+  last_login_at?: string | null;
+  created_at?: string;
+};
+
 export type ApiEnvelope<T> = {
   ok: true;
 } & T;
@@ -147,6 +153,14 @@ export const phpApi = {
       csrfToken = result.csrf_token;
       return result;
     }),
+
+  listUsers: () => request<ApiEnvelope<{ users: ManagedUser[] }>>("/users"),
+
+  createUser: (input: { username: string; password: string; display_name: string; role: PosRole }) =>
+    request<ApiEnvelope<{ user: ManagedUser }>>("/users", { method: "POST", csrf: true, body: input }),
+
+  updateUser: (id: number, input: Partial<Pick<ManagedUser, "display_name" | "role" | "is_active">> & { password?: string }) =>
+    request<ApiEnvelope<Record<string, never>>>(`/users/${id}`, { method: "PATCH", csrf: true, body: input }),
 
   exportBackup: () =>
     request<ApiEnvelope<{ backup: Record<string, unknown> }>>("/backup/export"),
