@@ -515,7 +515,7 @@ if ($method === 'GET' && $path === '/backup/export') {
         }
     }
     unset($record);
-    $orders = $pdo->query('SELECT id, order_number, status, idempotency_key, customer_id, customer_name, customer_phone, discount_code, items, totals, note, created_by, created_at, updated_at FROM pos_orders ORDER BY id')->fetchAll();
+    $orders = $pdo->query('SELECT id, order_number, status, idempotency_key, request_hash, customer_id, customer_name, customer_phone, discount_code, items, totals, note, created_by, created_at, updated_at FROM pos_orders ORDER BY id')->fetchAll();
     foreach ($orders as &$order) {
         $order['items'] = json_decode((string)$order['items'], true) ?: [];
         $order['totals'] = json_decode((string)$order['totals'], true) ?: [];
@@ -535,6 +535,106 @@ if ($method === 'GET' && $path === '/backup/export') {
         'discount_redemptions' => $redemptions,
         'counters' => $counters,
     ]]);
+}
+
+if ($method === 'POST' && $path === '/backup/restore') {
+    $actor = require_role($pdo, ['manager']);
+    require_csrf();
+    if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 8 * 1024 * 1024) {
+        json_response(['ok' => false, 'error' => 'backup_too_large'], 413);
+    }
+    $body = request_json();
+    $backup = $body['backup'] ?? null;
+    if (!is_array($backup) || ($backup['format'] ?? '') !== '3food-pos-mysql-backup' || (int)($backup['version'] ?? 0) !== 1) {
+        json_response(['ok' => false, 'error' => 'invalid_backup'], 422);
+    }
+    foreach (['records','orders','order_effects','discount_redemptions','counters'] as $key) {
+        if (!isset($backup[$key]) || !is_array($backup[$key])) {
+            json_response(['ok' => false, 'error' => 'invalid_backup_structure'], 422);
+        }
+    }
+    if (count($backup['records']) > 40000 || count($backup['orders']) > 20000 ||
+        count($backup['order_effects']) > 60000 || count($backup['discount_redemptions']) > 20000 ||
+        count($backup['counters']) > 100) {
+        json_response(['ok' => false, 'error' => 'backup_limits_exceeded'], 413);
+    }
+    try {
+        $pdo->beginTransaction();
+        $pdo->query('SELECT id FROM pos_counters WHERE counter_key = "order_number" FOR UPDATE')->fetchColumn();
+        $occupied = (int)$pdo->query('SELECT (SELECT COUNT(*) FROM pos_records) + (SELECT COUNT(*) FROM pos_orders) + (SELECT COUNT(*) FROM pos_order_effects) + (SELECT COUNT(*) FROM pos_discount_redemptions)')->fetchColumn();
+        if ($occupied !== 0) {
+            $pdo->rollBack();
+            json_response(['ok' => false, 'error' => 'restore_requires_empty_pos', 'message' => 'بازیابی فقط روی دیتابیس عملیاتی خالی انجام می‌شود؛ ابتدا از اطلاعات فعلی پشتیبان بگیرید و دیتابیس مقصد خالی باشد'], 409);
+        }
+        $allowedResources = ['categories','products','ingredients','customers','discounts','expenses','templates','settings'];
+        $insertRecord = $pdo->prepare('INSERT INTO pos_records (id, resource, payload, updated_by) VALUES (?, ?, ?, ?)');
+        foreach ($backup['records'] as $record) {
+            if (!is_array($record) || !in_array($record['resource'] ?? '', $allowedResources, true) ||
+                !is_string($record['id'] ?? null) || !preg_match('/^[A-Za-z0-9_-]{1,100}$/D', $record['id']) ||
+                !is_array($record['payload'] ?? null)) throw new InvalidArgumentException('Invalid backup record');
+            $payloadData = $record['payload'];
+            if ($record['resource'] === 'settings') unset($payloadData['smsUser'], $payloadData['smsKey'], $payloadData['smsFrom']);
+            $payload = json_encode($payloadData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+            if (strlen($payload) > 262144) throw new InvalidArgumentException('Backup record too large');
+            $insertRecord->execute([$record['id'], $record['resource'], $payload, null]);
+        }
+        $insertOrder = $pdo->prepare('INSERT INTO pos_orders (id, order_number, status, idempotency_key, request_hash, customer_id, customer_name, customer_phone, discount_code, items, totals, note, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        $orderIds = [];
+        foreach ($backup['orders'] as $order) {
+            if (!is_array($order) || !is_numeric($order['id'] ?? null) || (int)$order['id'] < 1 ||
+                !is_numeric($order['order_number'] ?? null) || (int)$order['order_number'] < 1 ||
+                !in_array($order['status'] ?? '', ['new','preparing','ready','delivered','cancelled'], true) ||
+                !is_array($order['items'] ?? null) || !is_array($order['totals'] ?? null)) throw new InvalidArgumentException('Invalid backup order');
+            $id = (int)$order['id'];
+            if (isset($orderIds[$id])) throw new InvalidArgumentException('Duplicate backup order');
+            $orderIds[$id] = true;
+            $items = json_encode($order['items'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+            $totals = json_encode($order['totals'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+            $insertOrder->execute([$id, (int)$order['order_number'], $order['status'], $order['idempotency_key'] ?? null, $order['request_hash'] ?? null,
+                $order['customer_id'] ?? null, $order['customer_name'] ?? null, $order['customer_phone'] ?? null, $order['discount_code'] ?? null,
+                $items, $totals, $order['note'] ?? null, (int)$actor['id'], $order['created_at'] ?? gmdate('Y-m-d H:i:s'), $order['updated_at'] ?? gmdate('Y-m-d H:i:s')]);
+        }
+        $insertEffect = $pdo->prepare('INSERT INTO pos_order_effects (order_id, effect_type, resource_id, quantity, points_spent, points_earned, money_delta, visits_delta, reversed_at, reversed_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)');
+        foreach ($backup['order_effects'] as $effect) {
+            if (!is_array($effect) || !isset($orderIds[(int)($effect['order_id'] ?? 0)]) ||
+                !in_array($effect['effect_type'] ?? '', ['ingredient','customer'], true) ||
+                !is_string($effect['resource_id'] ?? null) || strlen($effect['resource_id']) > 100) throw new InvalidArgumentException('Invalid backup effect');
+            $insertEffect->execute([(int)$effect['order_id'], $effect['effect_type'], $effect['resource_id'], $effect['quantity'] ?? 0,
+                $effect['points_spent'] ?? 0, $effect['points_earned'] ?? 0, $effect['money_delta'] ?? 0, $effect['visits_delta'] ?? 0,
+                $effect['reversed_at'] ?? null, $effect['created_at'] ?? gmdate('Y-m-d H:i:s')]);
+        }
+        $insertRedemption = $pdo->prepare('INSERT INTO pos_discount_redemptions (order_id, discount_id, code, customer_id, redeemed_at, reversed_at) VALUES (?, ?, ?, ?, ?, ?)');
+        foreach ($backup['discount_redemptions'] as $redemption) {
+            if (!is_array($redemption) || !isset($orderIds[(int)($redemption['order_id'] ?? 0)]) ||
+                !is_string($redemption['discount_id'] ?? null) || !is_string($redemption['code'] ?? null)) throw new InvalidArgumentException('Invalid backup redemption');
+            $insertRedemption->execute([(int)$redemption['order_id'], $redemption['discount_id'], $redemption['code'],
+                $redemption['customer_id'] ?? null, $redemption['redeemed_at'] ?? gmdate('Y-m-d H:i:s'), $redemption['reversed_at'] ?? null]);
+        }
+        $counter = 0;
+        foreach ($backup['counters'] as $entry) {
+            if (!is_array($entry) || ($entry['counter_key'] ?? '') !== 'order_number' || !is_numeric($entry['counter_value'] ?? null) ||
+                (int)$entry['counter_value'] < 0 || (int)$entry['counter_value'] > 1000000000) throw new InvalidArgumentException('Invalid backup counter');
+            $counter = (int)$entry['counter_value'];
+        }
+        $maxOrder = (int)$pdo->query('SELECT COALESCE(MAX(order_number), 0) FROM pos_orders')->fetchColumn();
+        $pdo->prepare("UPDATE pos_counters SET counter_value = ? WHERE counter_key = 'order_number'")->execute([max($counter, $maxOrder)]);
+        audit($pdo, (int)$actor['id'], 'backup_restored', 'backup', null, [
+            'records' => count($backup['records']), 'orders' => count($backup['orders']),
+            'effects' => count($backup['order_effects']), 'redemptions' => count($backup['discount_redemptions']),
+        ]);
+        $pdo->commit();
+        json_response(['ok' => true, 'restored' => [
+            'records' => count($backup['records']), 'orders' => count($backup['orders']),
+            'effects' => count($backup['order_effects']), 'redemptions' => count($backup['discount_redemptions']),
+        ]]);
+    } catch (InvalidArgumentException $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        json_response(['ok' => false, 'error' => 'invalid_backup_data', 'message' => 'ساختار یا یکی از رکوردهای فایل پشتیبان معتبر نیست'], 422);
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('[3Food POS] Backup restore failed: ' . $e->getMessage());
+        json_response(['ok' => false, 'error' => 'backup_restore_failed', 'message' => 'بازیابی انجام نشد؛ هیچ بخشی از اطلاعات تغییر نکرد'], 500);
+    }
 }
 
 if ($method === 'POST' && $path === '/migration/import') {
