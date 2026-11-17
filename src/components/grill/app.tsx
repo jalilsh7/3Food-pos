@@ -911,7 +911,6 @@ function SettingsScreen() {
   const patchSettings = usePos((s) => s.patchSettings);
   const exportBackup = usePos((s) => s.exportBackup);
   const importBackup = usePos((s) => s.importBackup);
-  const resetDemo = usePos((s) => s.resetDemo);
   const [note, setNote] = useState("");
   const [importing, setImporting] = useState(false);
   function persistSettings() {
@@ -998,7 +997,6 @@ function SettingsScreen() {
               setNote(err || "بازیابی شد");
             }} />
           </label>
-          <Btn tone="ghost" onClick={() => { resetDemo(); setNote("داده‌های نمونه برگشت"); }}>بازگشت به نمونه</Btn>
         </div>
         {note ? <p className="mt-2 text-sm">{note}</p> : null}
       </Card>
