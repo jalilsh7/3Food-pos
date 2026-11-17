@@ -70,18 +70,24 @@ foreach ($requiredColumns as $table => $columns) {
     }
 }
 
+// Compare the complete ordered column list. A composite index produces one
+// information_schema row per column, not one row per index.
 $indexQuery = $pdo->prepare(
-    'SELECT COUNT(*) FROM information_schema.STATISTICS
-     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ? AND NON_UNIQUE = 0'
+    'SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ",") AS indexed_columns
+     FROM information_schema.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ? AND NON_UNIQUE = 0
+     GROUP BY INDEX_NAME'
 );
-foreach ([
-    ['pos_orders', 'uq_pos_order_idempotency'],
-    ['pos_order_effects', 'uq_pos_order_effect'],
-    ['pos_discount_redemptions', 'uq_pos_discount_redemption_order'],
-] as [$table, $index]) {
+$requiredIndexes = [
+    ['pos_orders', 'uq_pos_order_idempotency', 'idempotency_key'],
+    ['pos_order_effects', 'uq_pos_order_effect', 'order_id,effect_type,resource_id'],
+    ['pos_discount_redemptions', 'uq_pos_discount_redemption_order', 'order_id'],
+];
+foreach ($requiredIndexes as [$table, $index, $expectedColumns]) {
     $indexQuery->execute([$table, $index]);
-    if ((int)$indexQuery->fetchColumn() !== 1) {
-        fwrite(STDERR, "Missing required unique index: {$table}.{$index}\n");
+    $actualColumns = $indexQuery->fetchColumn();
+    if ($actualColumns !== $expectedColumns) {
+        fwrite(STDERR, "Missing or invalid unique index: {$table}.{$index}; expected {$expectedColumns}\n");
         exit(1);
     }
 }
@@ -94,4 +100,4 @@ if ($installState !== 1) {
     exit(1);
 }
 
-echo "MySQL schema smoke test passed: " . count($requiredTables) . " InnoDB tables, required columns, unique indexes, and install state verified.\n";
+echo "MySQL schema smoke test passed: " . count($requiredTables) . " InnoDB tables, required columns, exact unique-index definitions, and install state verified.\n";
