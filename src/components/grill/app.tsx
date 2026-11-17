@@ -927,9 +927,9 @@ function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, role: Ro
 function SettingsScreen() {
   const settings = usePos((s) => s.settings);
   const patchSettings = usePos((s) => s.patchSettings);
-  const exportBackup = usePos((s) => s.exportBackup);
   const [note, setNote] = useState("");
   const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   function persistSettings() {
     const current = usePos.getState().settings;
     void saveCentralRecord("settings", { id: "main", ...current, smsUser: "", smsKey: "", smsFrom: "" }, () => {});
@@ -971,12 +971,24 @@ function SettingsScreen() {
       setImporting(false);
     }
   }
-  function download() {
-    const blob = new Blob([exportBackup()], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "grillcash-backup.json";
-    a.click();
+  async function download() {
+    setExporting(true);
+    setNote("");
+    try {
+      const result = await phpApi.exportBackup();
+      const blob = new Blob([JSON.stringify(result.backup, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `3food-pos-mysql-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setNote("نسخه پشتیبان کامل از MySQL آماده شد.");
+    } catch (error) {
+      setNote(error instanceof Error ? error.message : "تهیه نسخه پشتیبان از MySQL انجام نشد");
+    } finally {
+      setExporting(false);
+    }
   }
   return (
     <div className="space-y-4">
