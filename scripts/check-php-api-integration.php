@@ -222,17 +222,6 @@ try {
     $cashierCustomerDelete = api('DELETE', '/api/v1/records/customers?id=ci-customer-updated', null, csrf_headers());
     check($cashierCustomerDelete['status'] === 403, 'cashier cannot delete customer records');
 
-    // Eight failed attempts are allowed; the ninth is throttled for this IP.
-    $lastLogin = [];
-    for ($attempt = 1; $attempt <= 9; $attempt++) {
-        $lastLogin = api('POST', '/api/v1/auth/login', [
-            'username' => 'ci_lockout',
-            'password' => 'Definitely-Wrong-Password!',
-        ]);
-        if ($attempt < 9) check($lastLogin['status'] === 401, 'failed login attempt ' . $attempt);
-    }
-    check($lastLogin['status'] === 429 && ($lastLogin['json']['error'] ?? '') === 'too_many_attempts', 'login rate limit activates after eight failures');
-
     $cashierLogout = api('POST', '/api/v1/auth/logout', [], csrf_headers());
     check($cashierLogout['status'] === 200, 'cashier logout');
     $csrf = '';
@@ -249,6 +238,17 @@ try {
     check(!array_key_exists('customerPhone', $kitchenData['orders'][0] ?? []), 'kitchen cannot see customer phone');
     check(!array_key_exists('customerId', $kitchenData['orders'][0] ?? []), 'kitchen cannot see customer id');
     check(!array_key_exists('note', $kitchenData['orders'][0] ?? []), 'kitchen cannot see private order note');
+
+    // Eight failed attempts are allowed; the ninth is throttled for this IP.
+    $lastLogin = [];
+    for ($attempt = 1; $attempt <= 9; $attempt++) {
+        $lastLogin = api('POST', '/api/v1/auth/login', [
+            'username' => 'ci_lockout',
+            'password' => 'Definitely-Wrong-Password!',
+        ]);
+        if ($attempt < 9) check($lastLogin['status'] === 401, 'failed login attempt ' . $attempt);
+    }
+    check($lastLogin['status'] === 429 && ($lastLogin['json']['error'] ?? '') === 'too_many_attempts', 'login rate limit activates after eight failures');
 
     echo "PASS: PHP API integration (setup, session/CSRF, records, canonical pricing, idempotency, stock, loyalty, cancellation rollback).\n";
 } catch (Throwable $e) {
