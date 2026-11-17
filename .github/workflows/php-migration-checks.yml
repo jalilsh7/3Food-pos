@@ -9,7 +9,7 @@ on:
       - migration/php-mysql
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   checks:
@@ -28,7 +28,7 @@ jobs:
           php-version: '8.2'
           extensions: pdo, pdo_mysql
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci
       - name: PHP syntax
         run: php -l php-backend/public/api/index.php
       - name: TypeScript
@@ -44,15 +44,3 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Persist synchronized npm lockfile
-        if: success()
-        run: |
-          if git diff --quiet -- package-lock.json; then
-            echo "package-lock.json is already synchronized"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
-          git commit -m "chore: synchronize npm lockfile"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
