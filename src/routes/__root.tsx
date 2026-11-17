@@ -24,18 +24,26 @@ export const Route = createRootRoute({
       },
     ],
   }),
-  component: () => (
+  // TanStack Start owns the document shell in its server-rendered build.
+  // The cPanel build uses a plain Vite HTML entry and renders this route
+  // component inside #root, so the app content must not return <html>/<body>.
+  shellComponent: ({ children }) => (
     <html lang="fa" dir="rtl" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body>
-        <PreviewHostBridge />
-        <AuthProvider>
-          <Outlet />
-        </AuthProvider>
+        {children}
         <Scripts />
       </body>
     </html>
+  ),
+  component: () => (
+    <>
+      <PreviewHostBridge />
+      <AuthProvider>
+        <Outlet />
+      </AuthProvider>
+    </>
   ),
 });
