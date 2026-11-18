@@ -42,5 +42,21 @@ test("cPanel audit rejects remotely hosted HTML assets", () => {
     writeFileSync(join(root, "index.html"), '<script src="https://example.com/app.js"></script>');
   });
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /remote script\/stylesheet asset reference/i);
+  assert.match(result.stderr, /remote script\\/stylesheet asset reference/i);
+});
+
+test("cPanel audit rejects remote CSS resources", () => {
+  const result = fixture((root) => {
+    writeFileSync(join(root, "assets", "app.css"), 'body { background-image: url("https://cdn.example.com/bg.png"); }');
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /remote CSS resource URL/i);
+});
+
+test("cPanel audit rejects remote browser runtime requests", () => {
+  const result = fixture((root) => {
+    writeFileSync(join(root, "assets", "app.js"), 'fetch("https://api.example.com/data")');
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /remote browser runtime request/i);
 });
