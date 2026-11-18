@@ -1,17 +1,17 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { phpApi, type AppearanceSettings } from "@/lib/api/php-client";
-export const DEFAULT_APPEARANCE: AppearanceSettings = { primary:"#c2410c",secondary:"#1f6b4a",mode:"light",fontFamily:"vazirmatn",fontSize:15,cardRadius:16,buttonRadius:12,logoUrl:null };
+export const DEFAULT_APPEARANCE: AppearanceSettings = { primary:"#c2410c",secondary:"#1f6b4a",mode:"light",fontFamily:"byekan",fontSize:15,cardRadius:16,buttonRadius:12,logoUrl:null };
 type AppearanceContextValue={settings:AppearanceSettings;update:(patch:Partial<AppearanceSettings>)=>void;save:()=>Promise<void>;reset:()=>Promise<void>;uploadLogo:(file:File)=>Promise<void>;loading:boolean};
 const AppearanceContext=createContext<AppearanceContextValue|null>(null);
 function safeColor(value:string,fallback:string){return /^#[0-9a-f]{6}$/i.test(value)?value:fallback;}
 function applyAppearance(s:AppearanceSettings){
  const root=document.documentElement,dark=s.mode==="dark";
- const fonts={vazirmatn:'"Vazirmatn", "Segoe UI", sans-serif',tahoma:'Tahoma, "Segoe UI", sans-serif',system:'system-ui, "Segoe UI", sans-serif'};
+ const fonts={byekan:'"BYekan", "B Yekan", Tahoma, sans-serif'};
  root.style.setProperty("--color-chili",safeColor(s.primary,DEFAULT_APPEARANCE.primary));root.style.setProperty("--color-leaf",safeColor(s.secondary,DEFAULT_APPEARANCE.secondary));
  root.style.setProperty("--color-bg",dark?"#171a1f":"#f4efe6");root.style.setProperty("--color-surface",dark?"#22262d":"#fffdf8");root.style.setProperty("--color-ink",dark?"#f4f5f7":"#1c1712");
  root.style.setProperty("--color-muted",dark?"#a7b0bb":"#6f655c");root.style.setProperty("--color-line",dark?"#3b414a":"#e4d9cb");
  root.style.setProperty("--radius-card",`${Math.min(28,Math.max(8,s.cardRadius))}px`);root.style.setProperty("--radius-2xl",`${Math.min(28,Math.max(8,s.cardRadius))}px`);
- root.style.setProperty("--radius-xl",`${Math.min(24,Math.max(6,s.buttonRadius))}px`);root.style.setProperty("--font-sans",fonts[s.fontFamily]??fonts.vazirmatn);
+ root.style.setProperty("--radius-xl",`${Math.min(24,Math.max(6,s.buttonRadius))}px`);root.style.setProperty("--font-sans",fonts[s.fontFamily]??fonts.byekan);
  root.style.setProperty("--app-font-size",`${Math.min(20,Math.max(13,s.fontSize))}px`);root.dataset.theme=dark?"dark":"light";
 }
 export function AppearanceProvider({children}:{children:ReactNode}){
