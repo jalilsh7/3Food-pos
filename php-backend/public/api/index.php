@@ -2134,7 +2134,8 @@ if ($method === 'GET' && $path === '/reports/summary') {
     }
     ksort($daily); ksort($expenseGroups); uasort($byProduct,static fn($a,$b)=>$b['quantity']<=>$a['quantity']);
     $monthly=[];
-    foreach($daily as $day=>$value){$month=substr((string)$day,0,7);$monthly[$month]=($monthly[$month]??0)+$value;}\n    ksort($monthly);
+    foreach($daily as $day=>$value){$month=substr((string)$day,0,7);$monthly[$month]=($monthly[$month]??0)+$value;}
+    ksort($monthly);
     $lowStock=[]; $inventoryValue=0;
     foreach($pdo->query("SELECT payload FROM pos_records WHERE resource='ingredients'")->fetchAll(PDO::FETCH_COLUMN) as $raw){
         $ingredient=json_decode((string)$raw,true);if(!is_array($ingredient))continue;
