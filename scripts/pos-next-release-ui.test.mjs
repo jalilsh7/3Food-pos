@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const app = readFileSync(new URL("../src/components/grill/app.tsx", import.meta.url), "utf8");
+const model = readFileSync(new URL("../src/lib/pos/model.ts", import.meta.url), "utf8");
 const phpApi = readFileSync(new URL("../php-backend/public/api/index.php", import.meta.url), "utf8");
 
 test("customer auto-enrollment reuses a club record after Iranian phone normalization", () => {
