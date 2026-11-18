@@ -56,5 +56,5 @@
 - کدهای PWA/Preview وابسته به Grok و فایل‌های مرتبط حذف شده‌اند؛ `AGENTS.md` و `AI_HANDOFF_FA.md` با معماری cPanel به‌روز شده‌اند.
 - ممیزی جدید import graph مرورگر قبل از build اضافه شده است و ممیزی bundle خروجی نیز نشانگرهای Grok/App Builder و assetهای خارجی را رد می‌کند.
 - routeTree قدیمی به مسیر حذف‌شده `/api/sms` اشاره می‌کرد؛ ارجاع stale و type registration قدیمی TanStack Start حذف شدند.
-- فایل‌های legacy مربوط به Better Auth، OAuth، TanStack Start server helpers، connector app-data و PostgreSQL/PGLite هنوز در مخزن وجود دارند. حذف آن‌ها و حذف dependencyهای مربوطه هنوز تکمیل نشده؛ این کار نیازمند بررسی کامل callers/tests و اجرای CI است.
-- تست و build روی آخرین commit باید از نتیجه GitHub Actions گزارش شوند. هیچ تغییر زنده‌ای روی cPanel یا دیتابیس production در این پاک‌سازی انجام نشده است.
+- فایل‌های runtime قدیمی Better Auth/OAuth، TanStack Start server helpers، connector app-data، PGLite/PostgreSQL و helperهای preview از شاخه پاک‌سازی حذف شدند؛ dependencyهای مستقیم و lockfile نیز همگام شدند.
+- workflow پاک‌سازی برای typecheck، تست‌ها، lint و build مستقل cPanel موفق شده است. workflow اصلی PHP/MySQL در حال اجرای نهایی است؛ تست مرورگر واقعی و staging هنوز باقی است. هیچ تغییر زنده‌ای روی cPanel یا دیتابیس production انجام نشده است.
