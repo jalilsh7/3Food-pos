@@ -45,6 +45,8 @@ async function deleteCentralRecord(resource: string, id: string, commit: () => v
   }
 }
 
+const INITIAL_RENDER_TIME = Date.now();
+
 type View = "pos" | "orders" | "menu" | "stock" | "customers" | "codes" | "reports" | "suppliers" | "sms" | "users" | "settings";
 
 const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[] = [
@@ -240,7 +242,7 @@ function UsersScreen() {
     }
   }
 
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => { queueMicrotask(() => { void refresh(); }); }, []);
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -455,13 +457,16 @@ function PosScreen() {
   const [picked, setPicked] = useState<string[]>([]);
   const [note, setNote] = useState("");
   const [stockWarningMutedUntil, setStockWarningMutedUntil] = useState(0);
-  const [stockClock, setStockClock] = useState(Date.now());
+  const [stockClock, setStockClock] = useState(INITIAL_RENDER_TIME);
   useEffect(() => {
-    try {
-      setStockWarningMutedUntil(Number(window.localStorage.getItem("3food-pos-stock-warning-muted-until") || 0));
-    } catch {
-      setStockWarningMutedUntil(0);
-    }
+    queueMicrotask(() => {
+      try {
+        setStockWarningMutedUntil(Number(window.localStorage.getItem("3food-pos-stock-warning-muted-until") || 0));
+      } catch {
+        setStockWarningMutedUntil(0);
+      }
+      setStockClock(Date.now());
+    });
     const timer = window.setInterval(() => setStockClock(Date.now()), 30000);
     return () => window.clearInterval(timer);
   }, []);
@@ -728,8 +733,8 @@ function OrdersScreen({ role }: { role: Role }) {
   const discounts = usePos((s) => s.discounts);
   const setStatus = usePos((s) => s.setStatus);
   const [focus, setFocus] = useState<Order | null>(null);
-  const [clockNow, setClockNow] = useState(Date.now());
-  useEffect(() => { const timer=window.setInterval(()=>setClockNow(Date.now()),30000); return ()=>window.clearInterval(timer); }, []);
+  const [clockNow, setClockNow] = useState(INITIAL_RENDER_TIME);
+  useEffect(() => { queueMicrotask(() => setClockNow(Date.now())); const timer=window.setInterval(()=>setClockNow(Date.now()),30000); return ()=>window.clearInterval(timer); }, []);
   const [editing, setEditing] = useState<Order | null>(null);
   const [editLines, setEditLines] = useState<CartLine[]>([]);
   const [editPhone, setEditPhone] = useState("");
@@ -1337,6 +1342,9 @@ function createXlsxBlob(rows: unknown[][]): Blob {
   return new Blob(blobParts, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 }
 
+const REPORT_INITIAL_TO = tehranDate();
+const REPORT_INITIAL_FROM = tehranDate(Date.now() - 6 * 86400000);
+
 function ReportsScreen() {
   const orders = usePos((s) => s.orders);
   const expenses = usePos((s) => s.expenses);
@@ -1351,8 +1359,8 @@ function ReportsScreen() {
   const [note, setNote] = useState("");
   const [expenseDate,setExpenseDate]=useState(tehranDate());
   const [expenseDateText,setExpenseDateText]=useState(()=>isoToJalali(tehranDate()));
-  const initialFrom=tehranDate(Date.now()-6*86400000);
-  const initialTo=tehranDate();
+  const initialFrom=REPORT_INITIAL_FROM;
+  const initialTo=REPORT_INITIAL_TO;
   const [from, setFrom] = useState(initialFrom);
   const [to, setTo] = useState(initialTo);
   const [fromText,setFromText]=useState(()=>isoToJalali(initialFrom));
@@ -1370,7 +1378,7 @@ function ReportsScreen() {
     return () => { active=false; };
   }, []);
   const done = useMemo(() => orders.filter((o) => o.status !== "cancelled" && tehranDate(o.createdAt) >= from && tehranDate(o.createdAt) <= to), [orders,from,to]);
-  useEffect(() => { let active=true; setReportError(""); void phpApi.getReportSummary(from,to).then(r=>{if(active)setServerSummary(r);}).catch(e=>{if(active){setServerSummary(null);setReportError(e instanceof Error?e.message:"گزارش سرور دریافت نشد");}}); return ()=>{active=false;}; },[from,to]);
+  useEffect(() => { let active=true; void phpApi.getReportSummary(from,to).then(r=>{if(active){setServerSummary(r);setReportError("");}}).catch(e=>{if(active){setServerSummary(null);setReportError(e instanceof Error?e.message:"گزارش سرور دریافت نشد");}}); return ()=>{active=false;}; },[from,to]);
   const visibleExpenses = expenses.filter(e => e.date >= from && e.date <= to && (expenseFilterCategory === "all" || e.category === expenseFilterCategory));
   const sales = done.reduce((sum, o) => sum + o.total, 0);
   const costGuess = done.reduce((sum, o) => sum + o.lines.reduce((lineSum, line) => lineSum + (products.find((x) => x.id === line.productId)?.cost ?? 0) * line.qty, 0), 0);
@@ -1505,7 +1513,7 @@ function SuppliersScreen(){
       setBusy(false);
     }
   }, []);
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { queueMicrotask(() => { void refresh(); }); }, [refresh]);
   async function addSupplier(e:FormEvent<HTMLFormElement>){
     e.preventDefault();if(!draft.name.trim())return;
     const item:Supplier={id:uid("sup"),...draft,name:draft.name.trim(),balance:0,active:true};
@@ -1578,13 +1586,15 @@ function SmsScreen() {
   const [campaignText,setCampaignText]=useState("");
   const [campaignBusy,setCampaignBusy]=useState(false);
   const [campaignProgress,setCampaignProgress]=useState("");
+  const [campaignClock,setCampaignClock]=useState(INITIAL_RENDER_TIME);
+  useEffect(() => { const timer=window.setInterval(()=>setCampaignClock(Date.now()),60000); return ()=>window.clearInterval(timer); }, []);
   const campaignRecipients=customers.filter(customer=>{
     if(campaignSegment==="all")return true;
     if(["bronze","silver","gold","platinum"].includes(campaignSegment))return tierOf(customer.points,settings)===campaignSegment;
     if(campaignSegment==="birthday"){return !!customer.birthday&&customer.birthday.slice(5,7)===tehranDate().slice(5,7);}
     if(campaignSegment==="inactive60"){
       const latest=orders.filter(order=>order.customerId===customer.id||normalizeIranPhone(order.customerPhone)===normalizeIranPhone(customer.phone)).reduce((max,order)=>Math.max(max,new Date(order.createdAt).getTime()),0);
-      const baseline=latest||new Date(customer.createdAt||0).getTime();return !baseline||Date.now()-baseline>=60*86400000;
+      const baseline=latest||new Date(customer.createdAt||0).getTime();return !baseline||campaignClock-baseline>=60*86400000;
     }
     return false;
   });
