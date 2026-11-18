@@ -69,19 +69,19 @@ jobs:
           MYSQL_TEST_DATABASE: threefood_test
           MYSQL_TEST_USERNAME: root
           MYSQL_TEST_PASSWORD: root-ci-password
-          POS_TEST_BASE_URL: http://127.0.0.1:8088
+          POS_TEST_BASE_URL: http://127.0.0.1:8099
           POS_TEST_SETUP_TOKEN: ci-only-setup-token-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         run: |
           mkdir -p php-backend/private
           php -r '$c = require "php-backend/private/config.example.php"; $c["app_key"] = str_repeat("a", 64); $c["setup_token"] = getenv("POS_TEST_SETUP_TOKEN"); $c["db"] = ["host" => "127.0.0.1", "port" => 3306, "database" => "threefood_test", "username" => "root", "password" => "root-ci-password", "charset" => "utf8mb4"]; file_put_contents("php-backend/private/config.php", "<?php\ndeclare(strict_types=1);\nreturn " . var_export($c, true) . ";\n");'
-          PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8088 -t php-backend/public > /tmp/3food-pos-api.log 2>&1 &
+          php -S 127.0.0.1:8099 -t php-backend/public > /tmp/3food-pos-api.log 2>&1 &
           echo $! > /tmp/3food-pos-api.pid
           trap 'kill "$(cat /tmp/3food-pos-api.pid)" 2>/dev/null || true; rm -f php-backend/private/config.php' EXIT
           for attempt in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8088/api/v1/health >/dev/null; then break; fi
+            if curl -fsS http://127.0.0.1:8099/api/v1/health >/dev/null; then break; fi
             sleep 1
           done
-          curl -fsS http://127.0.0.1:8088/api/v1/health >/dev/null
+          curl -fsS http://127.0.0.1:8099/api/v1/health >/dev/null
           php scripts/check-php-api-integration.php
       - name: TypeScript
         run: npm run typecheck
@@ -119,20 +119,20 @@ jobs:
           if ($path !== '/' && is_file($file)) return false;
           require $public . '/index.html';
           PHP
-          PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8088 -t dist-cpanel/public /tmp/3food-pos-cpanel-router.php > /tmp/3food-pos-cpanel.log 2>&1 &
+          PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8099 -t dist-cpanel/public /tmp/3food-pos-cpanel-router.php > /tmp/3food-pos-cpanel.log 2>&1 &
           echo $! > /tmp/3food-pos-cpanel.pid
           trap 'kill "$(cat /tmp/3food-pos-cpanel.pid)" 2>/dev/null || true; rm -f dist-cpanel/private/config.php' EXIT
           for attempt in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8088/api/v1/health >/dev/null; then break; fi
+            if curl -fsS http://127.0.0.1:8099/api/v1/health >/dev/null; then break; fi
             sleep 1
           done
-          if ! curl -fsS http://127.0.0.1:8088/api/v1/health >/dev/null; then
+          if ! curl -fsS http://127.0.0.1:8099/api/v1/health >/dev/null; then
             echo "Packaged API health failed; PHP server log follows:"
-            curl -sS -i http://127.0.0.1:8088/api/v1/health || true
+            curl -sS -i http://127.0.0.1:8099/api/v1/health || true
             cat /tmp/3food-pos-cpanel.log
             exit 1
           fi
-          node scripts/browser-smoke.mjs http://127.0.0.1:8088/ screenshots/3food-pos-ci-smoke.png
+          node scripts/browser-smoke.mjs http://127.0.0.1:8099/ screenshots/3food-pos-ci-smoke.png
       - name: Upload cPanel deployment package
         uses: actions/upload-artifact@v4
         with:
