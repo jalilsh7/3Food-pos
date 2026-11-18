@@ -495,9 +495,11 @@ function PosScreen() {
     }
   }
   const customer = customers.find((c) => normalizeIranPhone(c.phone) === normalizeIranPhone(phone)) ?? null;
-  useEffect(() => {
-    setGuestName(customer?.name || "مشتری عزیز");
-  }, [customer?.id]);
+  function updateCustomerPhone(value: string) {
+    setPhone(value);
+    const matched = customers.find((item) => normalizeIranPhone(item.phone) === normalizeIranPhone(value));
+    setGuestName(matched?.name || "مشتری عزیز");
+  }
   const uses = customer && code ? customerCodeUses(orders, customer.id, code) : 0;
   const q = quoteOrder({ lines: cart, customer, code, discounts, pointsToUse: points, taxPercent: settings.taxPercent, taxEnabled: settings.taxEnabled, tomanPerPoint: settings.tomanPerPoint, usesSoFar: uses, settings });
 
@@ -663,7 +665,7 @@ function PosScreen() {
         </ul>
         <div className="mt-3 space-y-2">
           <Field label="نام مشتری"><input className={inputCls} value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="مشتری عزیز" /></Field>
-          <Field label="موبایل مشتری"><input className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0912..." /></Field>
+          <Field label="موبایل مشتری"><input className={inputCls} value={phone} onChange={(e) => updateCustomerPhone(e.target.value)} placeholder="0912..." /></Field>
           {customer ? (
             <p className="rounded-xl bg-leaf-ink px-3 py-2 text-sm text-leaf">{TIER_LABEL[tierOf(customer.points,settings)]} ({customer.points.toLocaleString("fa-IR")} امتیاز، تخفیف {(tierOf(customer.points,settings)==="silver"?settings.loyaltySilverDiscount??3:tierOf(customer.points,settings)==="gold"?settings.loyaltyGoldDiscount??5:tierOf(customer.points,settings)==="platinum"?settings.loyaltyPlatinumDiscount??8:0).toLocaleString("fa-IR")}٪)</p>
           ) : null}
