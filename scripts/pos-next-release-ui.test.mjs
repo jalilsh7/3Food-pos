@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const app = readFileSync(new URL("../src/components/grill/app.tsx", import.meta.url), "utf8");
+const phpApi = readFileSync(new URL("../php-backend/public/api/index.php", import.meta.url), "utf8");
 
 test("customer auto-enrollment reuses a club record after Iranian phone normalization", () => {
   assert.match(app, /function normalizeIranPhone\(value:string\)/);
@@ -50,4 +51,12 @@ test("reports print action targets a visible print root for PDF and paper output
   const reports = app.slice(start, end);
   assert.match(reports, /<div id="print-root"/);
   assert.match(reports, /onClick=\{\(\)=>window\.print\(\)\}/);
+});
+
+test("recipe-based cost of goods sold follows weighted ingredient purchase costs", () => {
+  const start = phpApi.indexOf("function product_unit_cost(");
+  const end = phpApi.indexOf("\nfunction request_json", start);
+  const helper = phpApi.slice(start, end);
+  assert.match(helper, /if\(!is_array\(\$recipe\)\|\|!\$recipe\)return \$configured/);
+  assert.match(helper, /return \$validLines>0\?\(int\)round\(\$total\):\$configured/);
 });
