@@ -171,9 +171,8 @@ export default defineConfig(({ command, isPreview, mode }) => ({
             ? [
                 nitro({
                   preset: "vercel",
-                  // Auto-registers server/middleware/* (the PWA install page +
-                  // manifest + head-tag middleware). Nitro v3 defaults serverDir to
-                  // false, so removing this silently unwires /?install=1 on deploys.
+                  // Keep the project's server directory enabled for Nitro handlers.
+                  // Nitro v3 otherwise defaults serverDir to false.
                   serverDir: "./server",
                 }),
               ]
