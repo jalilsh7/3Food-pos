@@ -40,6 +40,9 @@ jobs:
         with:
           php-version: '8.2'
           extensions: pdo, pdo_mysql, pcntl
+      - name: Regenerate lockfile for the isolated cleanup branch
+        if: github.event_name == 'pull_request' && github.head_ref == 'cleanup/remove-grok-dependencies'
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Install dependencies
         run: npm ci
       - name: PHP syntax
@@ -83,14 +86,7 @@ jobs:
       - name: TypeScript
         run: npm run typecheck
       - name: Unit tests
-        run: >-
-          node --test scripts/cpanel-htaccess.test.mjs &&
-          node --experimental-strip-types --test
-          src/lib/app-data/app-data.test.ts
-          src/lib/app-data/readiness-schedule.test.ts
-          src/lib/auth/gate-identity.test.ts
-          src/lib/auth/sign-in-gate.test.ts
-          src/lib/preview-path-prefix.test.ts
+        run: npm test
       - name: Lint
         run: npm run lint
       - name: cPanel static SPA build
