@@ -59,20 +59,24 @@ function loyalty_discount_rate(int $points, array $settings): int {
 
 function product_unit_cost(PDO $pdo, array $product): int {
     $configured=max(0,(int)($product['cost']??0));
-    if($configured>0)return $configured;
     $recipe=$product['recipe']??[];
-    if(!is_array($recipe)||!$recipe)return 0;
+    if(!is_array($recipe)||!$recipe)return $configured;
     $stmt=$pdo->prepare("SELECT payload FROM pos_records WHERE resource='ingredients' AND id=? LIMIT 1");
     $total=0.0;
+    $validLines=0;
     foreach($recipe as $line){
         if(!is_array($line))continue;
         $id=(string)($line['ingredientId']??'');$qty=max(0,(float)($line['qty']??0));
         if($id===''||$qty<=0)continue;
         $stmt->execute([$id]);$raw=$stmt->fetchColumn();
         $ingredient=is_string($raw)?json_decode($raw,true):null;
-        if(is_array($ingredient))$total+=max(0,(float)($ingredient['costPerUnit']??0))*$qty;
+        if(is_array($ingredient)){
+            $total+=max(0,(float)($ingredient['costPerUnit']??0))*$qty;
+            $validLines++;
+        }
     }
-    return (int)round($total);
+    // Recipe-based COGS follows the current weighted ingredient cost after supplier receipts.
+    return $validLines>0?(int)round($total):$configured;
 }
 
 function request_json(): array {
