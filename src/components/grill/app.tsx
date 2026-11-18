@@ -443,7 +443,7 @@ function PosScreen() {
   const [productQuery, setProductQuery] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [phone, setPhone] = useState("");
-  const [guestName, setGuestName] = useState("");
+  const [guestName, setGuestName] = useState("مشتری عزیز");
   const [code, setCode] = useState("");
   const [points, setPoints] = useState(0);
   const [pay, setPay] = useState<Order["payment"]>("cash");
@@ -493,6 +493,9 @@ function PosScreen() {
     }
   }
   const customer = customers.find((c) => normalizeIranPhone(c.phone) === normalizeIranPhone(phone)) ?? null;
+  useEffect(() => {
+    setGuestName(customer?.name || "مشتری عزیز");
+  }, [customer?.id]);
   const uses = customer && code ? customerCodeUses(orders, customer.id, code) : 0;
   const q = quoteOrder({ lines: cart, customer, code, discounts, pointsToUse: points, taxPercent: settings.taxPercent, taxEnabled: settings.taxEnabled, tomanPerPoint: settings.tomanPerPoint, usesSoFar: uses, settings });
 
@@ -517,6 +520,12 @@ function PosScreen() {
       // Every identified buyer joins the shared customer club before the order is created.
       // The phone is the stable lookup key; the server then updates points and purchase totals.
       let checkoutCustomer = customer;
+      if (checkoutCustomer && guestName.trim() && guestName.trim() !== checkoutCustomer.name) {
+        const renamedCustomer = { ...checkoutCustomer, name: guestName.trim() };
+        const savedCustomer = await phpApi.saveRecord("customers", renamedCustomer);
+        checkoutCustomer = savedCustomer.item ?? renamedCustomer;
+        usePos.getState().saveCustomer(checkoutCustomer);
+      }
       if (!checkoutCustomer) {
         const normalizedPhone = normalizeIranPhone(phone);
         if (!/^09[0-9]{9}$/.test(normalizedPhone)) throw new Error("برای ثبت سفارش، شماره موبایل معتبر ایران را وارد کنید.");
@@ -526,7 +535,7 @@ function PosScreen() {
         } else {
           const createdCustomer = {
             id: uid("cu"),
-            name: guestName.trim() || "بدون نام",
+            name: guestName.trim() || "مشتری عزیز",
             phone: normalizedPhone,
             points: 0,
             birthday: "",
@@ -579,7 +588,7 @@ function PosScreen() {
       }
       pendingIdempotencyKey.current = null;
       setMsg(`سفارش ${res.order.number.toLocaleString("fa-IR")} ثبت شد`);
-      setCart([]); setCode(""); setPoints(0); setSendInvoiceSms(null); setPrinted(res.order);
+      setCart([]); setPhone(""); setGuestName("مشتری عزیز"); setCode(""); setPoints(0); setSendInvoiceSms(null); setPrinted(res.order);
       const fresh = usePos.getState().customers.find((c) => c.id === res.order.customerId);
       const vars = orderVars(res.order, String(fresh?.points ?? 0));
       void pushSms("order_created", res.order.customerPhone, vars);
@@ -651,12 +660,11 @@ function PosScreen() {
           ))}
         </ul>
         <div className="mt-3 space-y-2">
+          <Field label="نام مشتری"><input className={inputCls} value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="مشتری عزیز" /></Field>
           <Field label="موبایل مشتری"><input className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0912..." /></Field>
           {customer ? (
-            <p className="rounded-xl bg-leaf-ink px-3 py-2 text-sm text-leaf">{customer.name} — {TIER_LABEL[tierOf(customer.points,settings)]} ({customer.points.toLocaleString("fa-IR")} امتیاز، تخفیف {(tierOf(customer.points,settings)==="silver"?settings.loyaltySilverDiscount??3:tierOf(customer.points,settings)==="gold"?settings.loyaltyGoldDiscount??5:tierOf(customer.points,settings)==="platinum"?settings.loyaltyPlatinumDiscount??8:0).toLocaleString("fa-IR")}٪)</p>
-          ) : (
-            <Field label="نام (اگر عضو نیست)"><input className={inputCls} value={guestName} onChange={(e) => setGuestName(e.target.value)} /></Field>
-          )}
+            <p className="rounded-xl bg-leaf-ink px-3 py-2 text-sm text-leaf">{TIER_LABEL[tierOf(customer.points,settings)]} ({customer.points.toLocaleString("fa-IR")} امتیاز، تخفیف {(tierOf(customer.points,settings)==="silver"?settings.loyaltySilverDiscount??3:tierOf(customer.points,settings)==="gold"?settings.loyaltyGoldDiscount??5:tierOf(customer.points,settings)==="platinum"?settings.loyaltyPlatinumDiscount??8:0).toLocaleString("fa-IR")}٪)</p>
+          ) : null}
           <Field label="کد تخفیف"><input className={inputCls} value={code} onChange={(e) => setCode(e.target.value)} placeholder="WELCOME" /></Field>
           {q.codeError ? <p className="text-sm text-warn">{q.codeError}</p> : null}
           {customer ? <Field label="استفاده از امتیاز"><input className={inputCls} type="number" min={0} value={points} onChange={(e) => setPoints(Number(e.target.value))} /></Field> : null}
