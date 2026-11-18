@@ -160,6 +160,20 @@ try {
     $meAfterPasswordChange = api('GET', '/api/v1/auth/me');
     check($meAfterPasswordChange['status'] === 200 && ($meAfterPasswordChange['json']['user']['must_change_password'] ?? null) === false, 'password change clears forced-password flag for refresh');
 
+    $managerBootstrapForFeatures = api('GET', '/api/v1/bootstrap');
+    check($managerBootstrapForFeatures['status'] === 200, 'manager bootstrap for next-release resources');
+    check(count($managerBootstrapForFeatures['json']['data']['expense_categories'] ?? []) >= 8, 'default restaurant expense categories are seeded automatically');
+    $supplierCreate = api('POST', '/api/v1/records/suppliers', ['item' => ['id'=>'ci-supplier','name'=>'CI Supplier','phone'=>'09120000000','contact'=>'Test','notes'=>'','balance'=>0,'active'=>true]], csrf_headers());
+    check($supplierCreate['status'] === 200, 'manager can create supplier record');
+    $supplierPurchase = api('POST', '/api/v1/suppliers/ci-supplier/purchases', ['item' => ['id'=>'ci-supplier-purchase','kind'=>'purchase','title'=>'مواد بسته‌بندی','amount'=>1000,'paid'=>200,'note'=>'CI']], csrf_headers());
+    check($supplierPurchase['status'] === 200 && (int)($supplierPurchase['json']['supplier']['balance'] ?? -1) === 800, 'supplier purchase and debt update commit atomically');
+    $supplierPayment = api('POST', '/api/v1/suppliers/ci-supplier/purchases', ['item' => ['id'=>'ci-supplier-payment','kind'=>'payment','title'=>'تسویه','amount'=>0,'paid'=>300,'note'=>'CI']], csrf_headers());
+    check($supplierPayment['status'] === 200 && (int)($supplierPayment['json']['supplier']['balance'] ?? -1) === 500, 'supplier settlement reduces outstanding debt atomically');
+    $reportDate = (new DateTimeImmutable('now', new DateTimeZone('Asia/Tehran')))->format('Y-m-d');
+    $reportSummary = api('GET', '/api/v1/reports/summary?from=' . $reportDate . '&to=' . $reportDate);
+    check($reportSummary['status'] === 200 && isset($reportSummary['json']['net_profit']) && isset($reportSummary['json']['monthly']), 'manager can retrieve server-side sales, profit and monthly reports');
+
+
 
     $appearanceSettings = [
         'primary' => '#123456', 'secondary' => '#654321', 'mode' => 'dark',
