@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - migration/php-mysql
+      - cleanup/remove-grok-dependencies
   pull_request:
     branches:
       - migration/php-mysql
+      - cleanup/remove-grok-dependencies
 
 permissions:
   contents: read
