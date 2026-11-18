@@ -42,6 +42,12 @@ function seed(): PosState {
       paperWidth: 80,
       autoPrint: false,
       invoiceSmsEnabledDefault: false,
+      loyaltySilverPoints: 500,
+      loyaltyGoldPoints: 1500,
+      loyaltyPlatinumPoints: 4000,
+      loyaltySilverDiscount: 3,
+      loyaltyGoldDiscount: 5,
+      loyaltyPlatinumDiscount: 8,
       printCustomer: true,
       printKitchen: true,
       headerNote: "",
@@ -152,6 +158,7 @@ export const usePos = create<PosState & Actions>()(
           taxEnabled: input.taxEnabled,
           tomanPerPoint: s.settings.tomanPerPoint,
           usesSoFar: uses,
+          settings: s.settings,
         });
         if (input.code && q.codeError) return { ok: false, error: q.codeError };
         if (input.pointsToUse > 0 && q.pointsError) return { ok: false, error: q.pointsError };
