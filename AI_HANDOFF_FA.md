@@ -52,7 +52,7 @@ PR پاک‌سازی: https://github.com/jalilsh7/3Food-pos/pull/1
 - بازنویسی `AGENTS.md`؛ دستورالعمل قدیمی App Builder/Grok با معماری واقعی cPanel جایگزین شده است.
 - دستور `build:cpanel` اکنون ممیزی source graph، build، ممیزی خروجی و بسته‌بندی را پشت سر هم اجرا می‌کند.
 
-**وضعیت حذف legacy:** فایل‌های runtime مربوط به Better Auth، OAuth، TanStack Start server helpers، app-data connector، PGLite/PostgreSQL و helperهای preview قدیمی از شاخه پاک‌سازی حذف شده‌اند. وابستگی‌های مستقیم مربوطه نیز از package manifest و lockfile خارج شده‌اند. CI مستقل Node شامل typecheck، تست‌ها، lint و build cPanel روی شاخه پاک‌سازی موفق شده است؛ نتیجه‌ی تست PHP/MySQL در workflow جداگانه هنوز باید نهایی شود.
+**وضعیت حذف legacy و CI:** فایل‌های runtime مربوط به Better Auth، OAuth، TanStack Start server helpers، app-data connector، PGLite/PostgreSQL و helperهای preview قدیمی از شاخه پاک‌سازی حذف شده‌اند. وابستگی‌های مستقیم قدیمی و کتابخانه‌های UI بلااستفاده نیز از manifest و lockfile خارج شده‌اند. اجرای کامل GitHub Actions در run `44279040124` موفق شده است: PHP syntax، MySQL schema، PHP API integration، TypeScript، تست‌ها، lint، build مستقل cPanel و بارگذاری artifact.
 
 ## 4) وضعیت فنی و موارد باقی‌مانده
 
@@ -60,7 +60,7 @@ PR پاک‌سازی: https://github.com/jalilsh7/3Food-pos/pull/1
 - API health و auth/me در هاست قبلاً پاسخ داده‌اند؛ نشست کاربر در وضعیت unauthenticated و setup در وضعیت setup_required بوده است.
 - بررسی قبلی مرورگر نشان داده بود CPU در اجرای JavaScript مصرف می‌شود، اما source map در دسترس نبود. تست مرورگر واقعی بعد از build مستقل هنوز لازم است.
 - وضعیت داده‌ها و عملیات چنددستگاهی باید با بررسی کد فعلی و تست MySQL واقعی تأیید شود؛ polling دوره‌ای به‌تنهایی اثبات همگام‌سازی کامل نیست.
-- typecheck، unit tests، lint و build مستقل cPanel در workflow پاک‌سازی موفق شده‌اند. PHP syntax و API/MySQL integration در workflow اصلی در حال بررسی نهایی هستند. تست واقعی مرورگر و staging همچنان باقی است.
+- CI کامل شامل PHP syntax، API/MySQL integration، typecheck، unit tests، lint، build و artifact upload موفق شده است. تست مرورگر واقعی و staging cPanel همچنان باقی است.
 - باید روی staging واقعی، ورود، ساخت مدیر، نقش‌ها، ثبت سفارش، هم‌زمانی، موجودی، تخفیف، بکاپ/بازیابی و SMS تست شوند.
 - نسخه production هاست نباید بدون تأیید مالک و backup دستکاری شود.
 
@@ -80,7 +80,7 @@ PR پاک‌سازی: https://github.com/jalilsh7/3Food-pos/pull/1
 3. ممیزی import graph را کامل کنید و فقط فایل‌های legacy اثبات‌شده‌ی بدون مصرف را حذف کنید.
 4. وابستگی‌های بلااستفاده را با lockfile به‌روز حذف کنید؛ هیچ dependency صرفاً با حدس حذف نشود.
 5. پس از هر تغییر، typecheck، تست، lint و `npm run build:cpanel` را اجرا کنید.
-6. تست مرورگر واقعی را روی artifact نهایی اجرا کنید و مسیر تایپ در فیلدهای ورود را نیز بررسی کنید.
+6. تست مرورگر واقعی را روی artifact نهایی اجرا کنید؛ `scripts/browser-smoke.mjs` اکنون تایپ حرف‌به‌حرف در فیلدهای ورود را اندازه می‌گیرد.
 7. artifact را فقط پس از موفقیت کامل CI به‌عنوان خروجی آماده staging معرفی کنید.
 8. استقرار cPanel و تست عملیاتی را جداگانه و فقط با اجازه مالک انجام دهید.
 
