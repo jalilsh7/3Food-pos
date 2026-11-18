@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - migration/php-mysql
+      - cleanup/remove-grok-dependencies
       - feature/3food-pos-next-release
   pull_request:
     branches:
