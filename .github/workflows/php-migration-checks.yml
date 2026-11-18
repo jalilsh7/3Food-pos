@@ -30,11 +30,15 @@ jobs:
           --health-timeout=5s
           --health-retries=10
     runs-on: ubuntu-latest
+    env:
+      GIT_CONFIG_COUNT: 1
+      GIT_CONFIG_KEY_0: init.defaultBranch
+      GIT_CONFIG_VALUE_0: main
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -61,8 +65,9 @@ jobs:
           MYSQL_TEST_DATABASE: threefood_test
           MYSQL_TEST_USERNAME: root
           MYSQL_TEST_PASSWORD: root-ci-password
+          MYSQL_PWD: root-ci-password
         run: |
-          mysql --host=127.0.0.1 --user=root --password="$MYSQL_TEST_PASSWORD" threefood_test < php-backend/schema.sql
+          mysql --host=127.0.0.1 --user=root threefood_test < php-backend/schema.sql
           php scripts/check-mysql-schema.php
           php scripts/check-mysql-transaction-invariants.php
       - name: Run PHP API integration tests
@@ -141,7 +146,7 @@ jobs:
           mkdir -p performance-results
           node scripts/performance-smoke.mjs http://127.0.0.1:8099/ | tee performance-results/performance.json
       - name: Upload performance report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: 3food-pos-performance-report
           path: performance-results/performance.json
