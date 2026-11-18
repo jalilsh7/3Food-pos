@@ -19,7 +19,7 @@
 - تغییر رمز: `POST /auth/change-password`
 - bootstrap داده: `GET /bootstrap`
 - رکوردها: `GET/POST/DELETE /records/{resource}`
-- ثبت سفارش با کلید idempotency: `POST /orders`
+- ثبت سفارش با کلید idempotency اجباری و UUID معتبر: `POST /orders`؛ درخواست بدون کلید معتبر با خطای `invalid_idempotency_key` رد می‌شود.
 - ویرایش سفارش: `PATCH /orders/{id}`؛ فقط مدیر و فقط وضعیت `new`
 - تغییر وضعیت: `PATCH /orders/{id}/status`
 
