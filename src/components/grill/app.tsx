@@ -1261,7 +1261,7 @@ function ReportsScreen() {
       <Card><h3 className="mb-2 font-semibold">محصولات پرفروش</h3>{top.length?top.map(([name,v])=><p key={name} className="flex justify-between border-b border-line py-1 text-sm"><span>{name} · {v.qty.toLocaleString("fa-IR")} عدد</span><b>{money(v.revenue)}</b></p>):<Empty text="فروشی ثبت نشده است"/>}</Card>
       <Card><h3 className="mb-2 font-semibold">گزارش روش‌های پرداخت</h3>{payments.map(p=><p key={p.method} className="flex justify-between py-1 text-sm"><span>{p.label}</span><b>{money(p.amount)}</b></p>)}</Card>
       <Card><h3 className="mb-2 font-semibold">هزینه‌ها بر اساس دسته</h3>{expenseByCategory.map(([name,value])=><p key={name} className="flex justify-between py-1 text-sm"><span>{name}</span><b>{money(value)}</b></p>)}<p className="mt-2 border-t border-line pt-2 text-xs text-muted">خرید مواد اولیه (سرمایه‌گذاری موجودی، خارج از هزینه عملیاتی سود و زیان): {money(inventoryPurchases)}</p></Card>
-      <Card><h3 className="mb-3 font-semibold">ثبت هزینه جدید</h3><form className="grid gap-2 sm:grid-cols-2" onSubmit={e=>void addCost(e)}>
+      <Card><h3 className="mb-3 font-semibold">ثبت هزینه جدید</h3><p className="mb-2 text-xs text-muted">برای خرید مواد اولیه که باید موجودی انبار را افزایش دهد، از بخش تأمین‌کنندگان استفاده کن؛ ثبت هزینه به‌تنهایی موجودی را تغییر نمی‌دهد.</p><form className="grid gap-2 sm:grid-cols-2" onSubmit={e=>void addCost(e)}>
         <Field label="شرح هزینه"><input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} required/></Field>
         <Field label="مبلغ (تومان)"><input className={inputCls} type="number" min="1" value={amount||""} onChange={e=>setAmount(Number(e.target.value))} required/></Field>
         <Field label="دسته‌بندی"><select className={inputCls} value={cat} onChange={e=>setCat(e.target.value)} required>{categories.filter(c=>c.active!==false).map(c=><option key={c.id} value={c.name}>{c.name}</option>)}</select></Field>
@@ -1304,7 +1304,7 @@ function SuppliersScreen(){
     setBusy(true);
     try{
       const result=await phpApi.createSupplierTransaction<Purchase & {kind:string},Supplier>(supplier.id,{...item,kind:"purchase"});
-      setPurchases(old=>[result.item,...old]);setSuppliers(old=>old.map(s=>s.id===supplier.id?result.supplier:s));setPurchase({supplierId:"",title:"",amount:0,paid:0,note:"",ingredientId:"",quantity:0,unitCost:0});
+      setPurchases(old=>[result.item,...old]);setSuppliers(old=>old.map(s=>s.id===supplier.id?result.supplier:s));const snapshot=await phpApi.bootstrap<ServerBootstrap>();hydratePosFromServer(snapshot.data,snapshot.next_order,"manager");setPurchase({supplierId:"",title:"",amount:0,paid:0,note:"",ingredientId:"",quantity:0,unitCost:0});
     }catch(e){setError(e instanceof Error?e.message:"ثبت خرید انجام نشد");}
     finally{setBusy(false);}
   }
