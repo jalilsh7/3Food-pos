@@ -15,7 +15,8 @@
     "test": "node --test 'scripts/**/*.test.mjs'",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "build:cpanel": "node scripts/audit-cpanel-source.mjs && vite build --mode cpanel && node scripts/audit-cpanel.mjs dist && node scripts/package-cpanel.mjs"
+    "build:cpanel": "node scripts/audit-cpanel-source.mjs && vite build --mode cpanel && node scripts/audit-cpanel.mjs dist && node scripts/package-cpanel.mjs",
+    "test:performance": "node scripts/performance-smoke.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",
