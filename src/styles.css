@@ -1,4 +1,9 @@
-@import "tailwindcss";\n\n@font-face {\n  font-family: "BYekan";\n  src: local("BYekan"), local("B Yekan");\n  font-style: normal;\n  font-weight: 100 900;\n  font-display: swap;\n}
+@import "tailwindcss";
+
+/* BYekan is loaded locally when installed on the device. Bundle a licensed WOFF2 before release to guarantee cross-device typography. */
+:root {
+  font-family: "BYekan", "B Yekan", Tahoma, sans-serif;
+}
 
 @theme {
   --color-bg: #f4efe6;
