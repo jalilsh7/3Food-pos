@@ -1,5 +1,4 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
-import { AuthProvider } from "@/lib/auth/provider";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "گریل‌کَش | صندوق فست‌فود";
@@ -15,10 +14,6 @@ export const Route = createRootRoute({
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "stylesheet", href: appCss },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap",
-      },
     ],
   }),
   // TanStack Start owns the document shell in its server-rendered build.
@@ -36,10 +31,6 @@ export const Route = createRootRoute({
     </html>
   ),
   component: () => (
-    <>
-      <AuthProvider>
-        <Outlet />
-      </AuthProvider>
-    </>
+    <Outlet />
   ),
 });

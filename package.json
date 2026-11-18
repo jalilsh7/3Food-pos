@@ -1,5 +1,5 @@
 {
-  "name": "app-builder-workspace",
+  "name": "3food-pos",
   "private": true,
   "sideEffects": false,
   "type": "module",
@@ -7,19 +7,15 @@
     "nf3": "0.3.17"
   },
   "scripts": {
-    "dev": "node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080",
-    "build": "node scripts/with-app-env.mjs vite build && npm run db:migrate",
-    "db:migrate": "node scripts/migrate.mjs",
-    "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
-    "preview": "node scripts/with-app-env.mjs vite preview",
-    "preview:restart": "node scripts/preview.mjs restart",
-    "preview:stop": "node scripts/preview.mjs stop",
+    "dev": "vite --mode cpanel --host 0.0.0.0 --port 8080",
+    "build": "vite build --mode cpanel",
+    "build:dev": "vite build --mode cpanel --mode development",
+    "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "check:auth": "node scripts/check-auth-invariant.mjs",
     "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/app-data/readiness-schedule.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/sign-in-gate.test.ts src/lib/preview-path-prefix.test.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "build:cpanel": "node scripts/with-app-env.mjs vite build --mode cpanel && node scripts/package-cpanel.mjs"
+    "build:cpanel": "vite build --mode cpanel && node scripts/package-cpanel.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",
