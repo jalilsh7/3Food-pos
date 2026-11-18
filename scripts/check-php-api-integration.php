@@ -210,6 +210,8 @@ try {
     check($productUpdated['status'] === 201 && ($productUpdated['json']['item']['name'] ?? '') === 'CI Edited Product', 'product edit saves updated product data after a validation 401');
     $productRead = api('GET', '/api/v1/records/products');
     check(($productRead['json']['items'][0]['name'] ?? '') === 'CI Edited Product', 'edited product persists in MySQL');
+    $restoreProduct = api('POST', '/api/v1/records/products', ['item' => $product], csrf_headers());
+    check($restoreProduct['status'] === 201, 'restore product fixture after edit persistence assertion');
 
     $key = '11111111-1111-4111-8111-111111111111';
     $orderBody = [
