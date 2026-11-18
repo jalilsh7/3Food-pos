@@ -46,7 +46,7 @@ try {
       const nav = performance.getEntriesByType("navigation")[0];
       const resources = performance.getEntriesByType("resource");
       const byType = type => resources
-        .filter(item => item.initiatorType === type || (type === "script" && /\\.m?js(?:$|\\?)/i.test(item.name)) || (type === "css" && /\\.css(?:$|\\?)/i.test(item.name)))
+        .filter(item => item.initiatorType === type || (type === "css" && item.initiatorType === "stylesheet") || (type === "script" && /\.m?js(?:$|\?)/i.test(item.name)) || (type === "css" && /\.css(?:$|\?)/i.test(item.name)))
         .reduce((sum, item) => sum + (item.transferSize || item.encodedBodySize || 0), 0);
       const paint = name => performance.getEntriesByName(name)[0]?.startTime ?? null;
       return {
