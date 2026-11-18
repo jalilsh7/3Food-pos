@@ -42,6 +42,21 @@ function utf8_length(string $value): int {
     return $count === false ? strlen($value) : $count;
 }
 
+function loyalty_tier(int $points, array $settings): string {
+    $silver=max(1,(int)($settings['loyaltySilverPoints']??500));
+    $gold=max($silver+1,(int)($settings['loyaltyGoldPoints']??1500));
+    $platinum=max($gold+1,(int)($settings['loyaltyPlatinumPoints']??4000));
+    if($points >= $platinum)return 'platinum';
+    if($points >= $gold)return 'gold';
+    if($points >= $silver)return 'silver';
+    return 'bronze';
+}
+function loyalty_discount_rate(int $points, array $settings): int {
+    $tier=loyalty_tier($points,$settings);
+    $key=['silver'=>'loyaltySilverDiscount','gold'=>'loyaltyGoldDiscount','platinum'=>'loyaltyPlatinumDiscount'][$tier]??null;
+    return $key===null?0:max(0,min(100,(int)($settings[$key]??(['silver'=>3,'gold'=>5,'platinum'=>8][$tier]))));
+}
+
 function request_json(): array {
     $raw = file_get_contents('php://input');
     if ($raw === false || $raw === '') return [];
@@ -1195,8 +1210,10 @@ if ($method === 'POST' && $path === '/orders') {
     $codeDiscount = (int)$totals['codeDiscount'];
     $pointsDiscount = (int)$totals['pointsDiscount'];
     $discountTotal = $tierDiscount + $codeDiscount + $pointsDiscount;
+    $tierSettingsRaw=$pdo->query("SELECT payload FROM pos_records WHERE resource='settings' AND id='main' LIMIT 1")->fetchColumn();
+    $tierSettings=is_string($tierSettingsRaw)?json_decode($tierSettingsRaw,true):[];if(!is_array($tierSettings))$tierSettings=[];
     $customerPoints = max(0, (int)($customerRecord['points'] ?? 0));
-    $tierRate = $customerPoints >= 4000 ? 8 : ($customerPoints >= 1500 ? 5 : ($customerPoints >= 500 ? 3 : 0));
+    $tierRate = loyalty_discount_rate($customerPoints,$tierSettings);
     $expectedTierDiscount = (int)round($subtotal * $tierRate / 100);
     $expectedCodeDiscount = 0;
     if ($discountCode !== '') {
@@ -1211,7 +1228,7 @@ if ($method === 'POST' && $path === '/orders') {
         $startsAt = trim((string)($discountRecord['startsAt'] ?? ''));
         $endsAt = trim((string)($discountRecord['endsAt'] ?? ''));
         $audience = (string)($discountRecord['audience'] ?? 'all');
-        $tier = $customerPoints >= 4000 ? 'platinum' : ($customerPoints >= 1500 ? 'gold' : ($customerPoints >= 500 ? 'silver' : 'bronze'));
+        $tier = loyalty_tier($customerPoints,$tierSettings);
         if (!in_array($discountType, ['percent','fixed'], true) || !is_finite($discountValue) || $discountValue <= 0 || ($discountType === 'percent' && $discountValue > 100)) {
             json_response(['ok' => false, 'error' => 'invalid_discount_config', 'message' => 'تعریف کد تخفیف معتبر نیست'], 409);
         }
