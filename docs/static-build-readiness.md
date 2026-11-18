@@ -1,42 +1,56 @@
-# وضعیت build استاتیک و بسته cPanel
+# وضعیت build مستقل و بسته cPanel
 
-تاریخ بررسی: 2026-11-17
+آخرین بررسی: 2026-11-18  
+شاخه: `cleanup/remove-grok-dependencies`  
+PR: https://github.com/jalilsh7/3Food-pos/pull/1
 
-## پیاده‌سازی انجام‌شده
+## معماری build
 
-- مسیر build مخصوص cPanel از TanStack Start/Nitro جدا شده است. در `vite.config.ts` برای `--mode cpanel` فقط Vite، React و `TanStackRouterVite` اجرا می‌شوند؛ build عادی/dev همچنان مسیر قبلی Start/Nitro را حفظ می‌کند.
-- `src/main.tsx` ورودی client-only React Router را فراهم می‌کند و `index.html` پوسته استاتیک است.
-- `src/routes/__root.tsx` اکنون محتوای route را از document shell جدا می‌کند؛ Start در مسیر قدیمی shell خودش را دارد و Vite SPA محتوای route را در `#root` رندر می‌کند.
-- دستور `npm run build:cpanel` خروجی React را می‌سازد و سپس `scripts/package-cpanel.mjs` بسته ترکیبی تولید می‌کند:
-  - `dist-cpanel/public/`: HTML، JS/CSS، assets، `.htaccess` و PHP API
-  - `dist-cpanel/private/`: نمونه config و deny rule، بیرون Document Root
-  - `dist-cpanel/database/`: schema و migrationهای MySQL
-  - راهنمای فارسی نصب و manifest بسته
-- فایل `php-backend/public/.htaccess` ابتدا API را route می‌کند و فقط پس از آن مسیرهای ناموجود را به `index.html` می‌فرستد؛ فایل‌های واقعی و پوشه‌ها دست‌نخورده می‌مانند.
-- تست `scripts/cpanel-htaccess.test.mjs` ترتیب و شرط‌های rewrite را بررسی می‌کند.
-- workflow CI پس از build، بسته `dist-cpanel/` را به‌صورت artifact با ماندگاری ۱۴ روز منتشر می‌کند.
+- Frontend: React + TypeScript + Vite + TanStack Router به‌صورت SPA استاتیک.
+- Backend: PHP API در `public/api` با مسیر same-origin زیر `/api/v1`.
+- Database: MySQL/InnoDB.
+- هاست cPanel فقط به PHP و MySQL نیاز دارد؛ Node فقط در مرحله build/CI استفاده می‌شود.
+- runtime هیچ وابستگی به Grok/App Builder، Better Auth، TanStack Start/Nitro، PostgreSQL/PGLite، preview-host identity یا اسکریپت‌های تزریقی ندارد.
+
+## کنترل‌های build
+
+دستور `npm run build:cpanel` به‌ترتیب:
+1. زنجیره import واقعی مرورگر را بررسی می‌کند و ورود ماژول سروری، import محلی گمشده و نشانگرهای پلتفرم را رد می‌کند.
+2. SPA را با Vite می‌سازد.
+3. bundle خروجی را برای نشانگرهای Grok/App Builder و script/style خارجی بررسی می‌کند.
+4. بسته `dist-cpanel/` را می‌سازد و وجود فایل‌های ضروری و نبود config خصوصی واقعی را بررسی می‌کند.
+
+ساختار بسته:
+- `dist-cpanel/public/`: HTML، JS/CSS، assets، `.htaccess` و PHP API
+- `dist-cpanel/private/`: فقط نمونه config و deny rule؛ بیرون Document Root
+- `dist-cpanel/database/`: schema و migrationهای MySQL
 
 ## نتیجه CI
 
-- build اولیه plain Vite برای cPanel روی commit `4556531a4be29884c278477cd2072d0caf9f5e65` موفق شد؛ خروجی شامل `dist/index.html` و bundleهای JS/CSS بود.
-- اجرای کامل CI روی commit `d3632e38036d6002a6c38f713018ca367d69d8db` موفق شد: PHP syntax، TypeScript، تست‌ها، ESLint، build استاتیک، اعتبارسنجی ساختار بسته و upload artifact.
-- artifact با نام `3food-pos-cpanel` در [اجرای GitHub Actions](https://github.com/jalilsh7/3Food-pos/actions/runs/44098838943) موجود است؛ حجم 471,264 بایت و مهلت نگهداری تا 2026-12-01.
-- تست Apache واقعی، اتصال PDO/MySQL، ورود مدیر، سفارش هم‌زمان و SMS هنوز روی cPanel اجرا نشده‌اند.
+اجرای کامل [GitHub Actions run 44280981233](https://github.com/jalilsh7/3Food-pos/actions/runs/44280981233) موفق شد:
+- PHP syntax checks
+- ایجاد schema تازه MySQL و بررسی ساختار
+- تست یکپارچگی PHP API
+- TypeScript، تست‌های واحد و lint
+- build مستقل cPanel و ممیزی source/output
+- Playwright smoke روی بسته نهایی، با سرور PHP و MySQL تستی
+- بارگذاری artifact بسته cPanel
 
-## ساختار نصب روی cPanel
+در smoke test مرورگر، صفحه با HTTP 200 بارگذاری شد. تایپ ۴۶ نویسه در فرم ورود در هر دو viewport دسکتاپ و موبایل آزمایش شد؛ زمان ثبت‌شده برای نام کاربری ۴۲ms و رمز عبور ۳۲ms بود. فرم submit نشد و هیچ credential واقعی استفاده نشد.
 
-پس از دریافت artifact:
-- Document Root زیردامنه باید روی پوشه `public` تنظیم شود.
-- پوشه `private` باید sibling پوشه public و خارج از web root بماند.
-- `private/config.example.php` را به `private/config.php` کپی و فقط روی سرور مقداردهی کنید.
-- SQL داخل `database/` را با توجه به خالی/موجود بودن دیتابیس اجرا کنید.
+Artifact:
+- نام: `3food-pos-cpanel`
+- حجم: 255,262 بایت
+- نگهداری تا: 2026-12-02
+- دانلود از بخش Artifacts در اجرای GitHub Actions بالا
 
-هیچ config واقعی یا credential در artifact قرار نمی‌گیرد. build موفق به‌تنهایی به معنی آماده‌بودن انتشار عملیاتی نیست.
+## موارد خارج از CI
 
-## موارد باقی‌مانده
+این موارد هنوز باید روی staging واقعی cPanel/LiteSpeed بررسی شوند:
+- Apache/LiteSpeed rewrite و مسیرهای واقعی Document Root
+- PHP 8.2 و PDO MySQL روی همان هاست مقصد
+- setup مدیر اولیه، ورود/خروج و کنترل نقش‌ها
+- ثبت سفارش هم‌زمان، موجودی و همگام‌سازی چند دستگاه
+- backup/restore و پیامک با credential واقعی و opt-in
 
-- اتصال کامل همه عملیات UI و حذف Zustand persist به‌عنوان منبع حقیقت.
-- تست end-to-end در مرورگر و تست Apache/cPanel با PHP 8.2 و PDO MySQL واقعی.
-- آزمون تراکنش‌ها و هم‌زمانی با چند نشست واقعی روی MySQL.
-- بکاپ/بازیابی و تست واقعی ارسال SMS.
-- بررسی deploy روی root و مسیر staging در صورت استفاده از subpath.
+موفقیت CI و artifact به معنی استقرار یا تأیید production نیست. هیچ فایل زنده cPanel یا دیتابیس production در این پاک‌سازی تغییر نکرده است.
