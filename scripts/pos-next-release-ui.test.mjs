@@ -37,3 +37,9 @@ test("new product form remains ready for consecutive product entry after save", 
     /if \(ok\) setDraft\(products\.some\(\(item\) => item\.id === draft\.id\) \? null : \{ id: uid\("p"\), name: "", categoryId: draft\.categoryId/,
   );
 });
+
+test("Excel-compatible export includes profit and individual expense rows", () => {
+  assert.match(app, /\["سود و زیان","سود خالص"/);
+  assert.match(app, /expenseItemRows\.map\(row=>\["ریز هزینه"/);
+  assert.match(app, /["]مالیات وصول‌شده["]/);
+});
