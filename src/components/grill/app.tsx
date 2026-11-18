@@ -887,7 +887,7 @@ function OrdersScreen({ role }: { role: Role }) {
               <p className="text-sm text-muted">{o.lines.map((l) => `${l.qty} ${l.name}`).join(" · ")} — {money(o.total)}</p>
               <p className="text-xs text-muted">ثبت: {new Date(o.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})} · زمان سپری‌شده: {formatElapsed(clockNow-new Date(o.createdAt).getTime())}</p>
             </div>
-            <span className="rounded-full bg-warn-bg px-3 py-1 text-xs text-warn">{statusFa(o.status)}</span>
+            <span className={`order-status order-status-${o.status}`}>{statusFa(o.status)}</span>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {steps.filter((st) => canMove(o.status, st)).map((st) => <Btn key={st} tone="ghost" onClick={() => jump(o, st)}>{statusFa(st)}</Btn>)}
