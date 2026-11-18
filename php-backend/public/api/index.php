@@ -161,6 +161,13 @@ function current_user(PDO $pdo): ?array {
         session_regenerate_id(true);
         return null;
     }
+    // Normalize MySQL TINYINT values before JSON serialization. Some PDO
+    // driver configurations return "0"/"1" strings; JavaScript treats "0"
+    // as truthy and would incorrectly force the password-change screen.
+    $user['id'] = (int)$user['id'];
+    $user['is_active'] = (bool)$user['is_active'];
+    $user['must_change_password'] = (bool)$user['must_change_password'];
+    $user['session_version'] = (int)$user['session_version'];
     return $user;
 }
 
@@ -426,7 +433,11 @@ if ($method === 'POST' && $path === '/auth/login') {
 if ($method === 'GET' && $path === '/auth/me') {
     $user = current_user($pdo);
     if (!$user) json_response(['ok' => true, 'authenticated' => false]);
-    json_response(['ok' => true, 'authenticated' => true, 'user' => $user, 'csrf_token' => csrf_token()]);
+    json_response(['ok' => true, 'authenticated' => true, 'user' => [
+        'id' => (int)$user['id'], 'username' => (string)$user['username'],
+        'display_name' => (string)$user['display_name'], 'role' => (string)$user['role'],
+        'must_change_password' => (bool)$user['must_change_password'],
+    ], 'csrf_token' => csrf_token()]);
 }
 
 if ($method === 'POST' && $path === '/auth/logout') {

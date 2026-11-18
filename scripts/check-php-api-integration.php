@@ -144,6 +144,23 @@ try {
     $csrf = (string)($setup['json']['csrf_token'] ?? '');
     check(strlen($csrf) >= 32 && $cookie !== '', 'setup session and CSRF token');
 
+    $meAfterSetup = api('GET', '/api/v1/auth/me');
+    check($meAfterSetup['status'] === 200 && ($meAfterSetup['json']['user']['must_change_password'] ?? null) === false, 'auth/me returns a real boolean for the password-change flag');
+    $wrongCurrentPassword = api('POST', '/api/v1/auth/change-password', [
+        'current_password' => 'definitely-not-the-current-password',
+        'new_password' => 'CI-Only-New-Password-2026!',
+    ], csrf_headers());
+    check($wrongCurrentPassword['status'] === 401 && ($wrongCurrentPassword['json']['error'] ?? '') === 'current_password_invalid', 'wrong current password is a field error, not a session expiry');
+    $passwordChanged = api('POST', '/api/v1/auth/change-password', [
+        'current_password' => 'CI-Only-Strong-Password-2026!',
+        'new_password' => 'CI-Only-New-Password-2026!',
+    ], csrf_headers());
+    check($passwordChanged['status'] === 200 && strlen((string)($passwordChanged['json']['csrf_token'] ?? '')) >= 32, 'valid password change rotates the session CSRF token');
+    $csrf = (string)$passwordChanged['json']['csrf_token'];
+    $meAfterPasswordChange = api('GET', '/api/v1/auth/me');
+    check($meAfterPasswordChange['status'] === 200 && ($meAfterPasswordChange['json']['user']['must_change_password'] ?? null) === false, 'password change clears forced-password flag for refresh');
+
+
     $appearanceSettings = [
         'primary' => '#123456', 'secondary' => '#654321', 'mode' => 'dark',
         'fontFamily' => 'tahoma', 'fontSize' => 17, 'cardRadius' => 20,
@@ -187,6 +204,12 @@ try {
         $saved = api('POST', '/api/v1/records/' . $resource, ['item' => $item], csrf_headers());
         check($saved['status'] === 201, 'seed ' . $resource . ': ' . json_encode($saved['json']));
     }
+    $editedProduct = $product;
+    $editedProduct['name'] = 'CI Edited Product';
+    $productUpdated = api('POST', '/api/v1/records/products', ['item' => $editedProduct], csrf_headers());
+    check($productUpdated['status'] === 201 && ($productUpdated['json']['item']['name'] ?? '') === 'CI Edited Product', 'product edit saves updated product data after a validation 401');
+    $productRead = api('GET', '/api/v1/records/products');
+    check(($productRead['json']['items'][0]['name'] ?? '') === 'CI Edited Product', 'edited product persists in MySQL');
 
     $key = '11111111-1111-4111-8111-111111111111';
     $orderBody = [

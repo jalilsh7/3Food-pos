@@ -82,8 +82,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 
   if (!response.ok || payload.ok !== true) {
-    if (response.status === 401) csrfToken = null;
     const code = typeof payload.error === "string" ? payload.error : "request_failed";
+    // A bad current password is a field-level 401, not an expired session.
+    // Keep CSRF state unless the server explicitly says the session is unauthorized.
+    if (response.status === 401 && code === "unauthorized") csrfToken = null;
     const message = typeof payload.message === "string" ? payload.message : "درخواست انجام نشد.";
     throw new PhpApiError(response.status, code, message);
   }
@@ -138,6 +140,10 @@ export const phpApi = {
       }>
     >("/auth/me").then((result) => {
       csrfToken = result.authenticated ? (result.csrf_token ?? null) : null;
+      if (result.authenticated && result.user) {
+        const flag = result.user.must_change_password as unknown;
+        result.user.must_change_password = flag === true || flag === 1 || flag === "1";
+      }
       return result;
     }),
 
