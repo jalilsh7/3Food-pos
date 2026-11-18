@@ -5,8 +5,9 @@ type ReceiptQrProps = { value: string; size?: number };
 
 export function ReceiptQr({ value, size = 112 }: ReceiptQrProps) {
   const matrix = useMemo(() => {
-    qrcode.stringToBytes = (input: string) => Array.from(new TextEncoder().encode(input));
-    const code = qrcode(0, "M");
+    const qrFactory = qrcode as typeof qrcode & { stringToBytes: (input: string) => number[] };
+    qrFactory.stringToBytes = (input: string) => Array.from(new TextEncoder().encode(input));
+    const code = qrFactory(0, "M");
     code.addData(value, "Byte");
     code.make();
     const count = code.getModuleCount();
