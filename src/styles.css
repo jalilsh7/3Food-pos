@@ -122,7 +122,7 @@
 @layer components {
   .pos-topbar {
     border-bottom: 1px solid rgb(224 233 225 / 0.8);
-    background: rgb(255 255 255 / 0.88);
+    background: color-mix(in srgb, var(--color-surface) 90%, transparent);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
   }
@@ -149,7 +149,7 @@
   }
   .pos-nav-item:hover {
     color: var(--color-ink);
-    background: rgb(255 255 255 / 0.72);
+    background: color-mix(in srgb, var(--color-surface) 78%, transparent);
     border-color: var(--color-line);
   }
   .pos-nav-item.is-active {
@@ -169,7 +169,7 @@
   .pos-logout:hover {
     color: var(--color-chili);
     border-color: color-mix(in srgb, var(--color-chili) 28%, var(--color-line));
-    background: color-mix(in srgb, var(--color-chili) 5%, white);
+    background: color-mix(in srgb, var(--color-chili) 8%, var(--color-surface));
   }
 }
 
