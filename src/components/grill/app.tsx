@@ -1103,6 +1103,8 @@ function ReportsScreen() {
   const expenses = usePos((s) => s.expenses);
   const products = usePos((s) => s.products);
   const addExpense = usePos((s) => s.addExpense);
+  const saveExpense = usePos((s) => s.saveExpense);
+  const removeExpense = usePos((s) => s.removeExpense);
   const [categories, setCategories] = useState<{id:string;name:string;active?:boolean}[]>([]);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState(0);
@@ -1151,6 +1153,27 @@ function ReportsScreen() {
     const ok=await saveCentralRecord("expense_categories",item,()=>setCategories(old=>[...old,item]));
     if(ok){setNewCategory("");setCat(name);}setCategoryBusy(false);
   }
+  async function editCategory(category:{id:string;name:string;active?:boolean}){
+    const name=window.prompt("ویرایش نام دسته هزینه",category.name);if(name===null||!name.trim())return;
+    const updated={...category,name:name.trim()};
+    if(await saveCentralRecord("expense_categories",updated,()=>setCategories(old=>old.map(c=>c.id===category.id?updated:c)))){}
+  }
+  async function deleteCategory(category:{id:string;name:string;active?:boolean}){
+    if(expenses.some(e=>e.category===category.name)){window.alert("این دسته در سوابق هزینه استفاده شده است؛ ابتدا هزینه‌های مرتبط را به دسته دیگری منتقل کنید.");return;}
+    if(!window.confirm("دسته «"+category.name+"» حذف شود؟"))return;
+    await deleteCentralRecord("expense_categories",category.id,()=>setCategories(old=>old.filter(c=>c.id!==category.id)));
+  }
+  async function editExpense(expense:typeof expenses[number]){
+    const title=window.prompt("شرح هزینه",expense.title);if(title===null||!title.trim())return;
+    const raw=window.prompt("مبلغ هزینه (تومان)",String(expense.amount));if(raw===null)return;
+    const amount=Number(raw);if(!Number.isFinite(amount)||amount<=0){window.alert("مبلغ معتبر نیست.");return;}
+    const updated={...expense,title:title.trim(),amount};
+    await saveCentralRecord("expenses",updated,()=>saveExpense(updated));
+  }
+  async function deleteExpense(expense:typeof expenses[number]){
+    if(!window.confirm("هزینه «"+expense.title+"» حذف شود؟"))return;
+    await deleteCentralRecord("expenses",expense.id,()=>removeExpense(expense.id));
+  }
   async function addCost(event:FormEvent<HTMLFormElement>){
     event.preventDefault();if(!title.trim()||amount<=0||!cat)return;
     const item={id:uid("ex"),title:title.trim(),amount,category:cat,date:new Date().toISOString().slice(0,10),note:note.trim(),createdAt:new Date().toISOString()};
@@ -1178,8 +1201,8 @@ function ReportsScreen() {
         <Field label="توضیحات"><input className={inputCls} value={note} onChange={e=>setNote(e.target.value)}/></Field>
         <div><Btn type="submit">ثبت هزینه</Btn></div>
       </form></Card>
-      <Card><h3 className="mb-2 font-semibold">افزودن دسته هزینه</h3><form className="flex gap-2" onSubmit={e=>void createCategory(e)}><input className={inputCls} value={newCategory} onChange={e=>setNewCategory(e.target.value)} placeholder="نام دسته جدید" required/><Btn type="submit" disabled={categoryBusy}>افزودن</Btn></form><div className="mt-3 flex flex-wrap gap-2">{categories.map(c=><span key={c.id} className="rounded-full border border-line px-3 py-1 text-xs">{c.name}</span>)}</div></Card>
-      <Card><h3 className="mb-2 font-semibold">سوابق هزینه‌ها</h3>{visibleExpenses.map(e=><div key={e.id} className="flex flex-wrap justify-between gap-2 border-b border-line py-2 text-sm"><span>{e.title} · {e.category} · {new Date(e.date+"T12:00:00").toLocaleDateString("fa-IR")}</span><b>{money(e.amount)}</b></div>)}</Card>
+      <Card><h3 className="mb-2 font-semibold">افزودن دسته هزینه</h3><form className="flex gap-2" onSubmit={e=>void createCategory(e)}><input className={inputCls} value={newCategory} onChange={e=>setNewCategory(e.target.value)} placeholder="نام دسته جدید" required/><Btn type="submit" disabled={categoryBusy}>افزودن</Btn></form><div className="mt-3 space-y-2">{categories.map(c=><div key={c.id} className="flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2 text-sm"><span>{c.name}</span><span className="flex gap-1"><Btn tone="ghost" onClick={()=>void editCategory(c)}>ویرایش</Btn><Btn tone="ghost" onClick={()=>void deleteCategory(c)}>حذف</Btn></span></div>)}</div></Card>
+      <Card><h3 className="mb-2 font-semibold">سوابق هزینه‌ها</h3>{visibleExpenses.map(e=><div key={e.id} className="flex flex-wrap justify-between gap-2 border-b border-line py-2 text-sm"><span>{e.title} · {e.category} · {new Date(e.date+"T12:00:00").toLocaleDateString("fa-IR")}</span><span className="flex items-center gap-2"><b>{money(e.amount)}</b><Btn tone="ghost" onClick={()=>void editExpense(e)}>ویرایش</Btn><Btn tone="ghost" onClick={()=>void deleteExpense(e)}>حذف</Btn></span></div>)}</Card>
     </div>
   );
 }
