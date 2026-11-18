@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   ChefHat, ClipboardList, LayoutDashboard, MessageSquare, Percent,
-  Settings as SettingsIcon, ShoppingBag, Users, UtensilsCrossed, Warehouse, Truck,
+  Settings as SettingsIcon, ShoppingBag, Users, UtensilsCrossed, Warehouse, Truck, LogOut,
 } from "lucide-react";
 import { Btn, Card, Empty, Field, inputCls } from "./bits";
 import { ReceiptView } from "./receipt";
@@ -146,13 +146,29 @@ export function GrillApp() {
   const allowed = NAV.filter((n) => n.roles.includes(user.role));
   const [viewFallback] = allowed;
   return (
-    <div className="min-h-screen bg-bg text-ink">
-      <header className="sticky top-0 z-20 flex min-w-0 items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3">
-        <div>
-          <div className="flex items-center gap-2">{appearance.logoUrl ? <img src={appearance.logoUrl} alt="لوگوی فروشگاه" className="h-9 w-9 rounded-lg object-contain" /> : null}<p className="text-lg font-bold">{shop}</p></div>
-          <p className="text-xs text-muted">{user.display_name} — {ROLE_LABEL[user.role]}</p>
+    <div className="pos-app min-h-screen bg-bg text-ink">
+      <header className="pos-topbar sticky top-0 z-30 flex min-w-0 items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          {appearance.logoUrl ? (
+            <img src={appearance.logoUrl} alt="لوگوی فروشگاه" className="h-11 w-11 rounded-2xl border border-line bg-surface object-contain p-1" />
+          ) : (
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-chili text-chili-ink shadow-sm"><UtensilsCrossed size={21} /></div>
+          )}
+          <div className="min-w-0">
+            <p className="truncate text-base font-extrabold tracking-tight sm:text-lg">{shop}</p>
+            <p className="text-[11px] font-medium text-muted sm:text-xs">سامانه مدیریت و فروش 3Food</p>
+          </div>
         </div>
-        <button type="button" onClick={() => void logout()} className="rounded-xl border border-line px-3 py-2 text-sm">خروج امن</button>
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="hidden text-left sm:block">
+            <p className="text-sm font-bold">{user.display_name}</p>
+            <p className="text-[11px] text-muted">{ROLE_LABEL[user.role]}</p>
+          </div>
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-leaf/10 text-sm font-bold text-leaf">{user.display_name.trim().slice(0, 1) || "ک"}</span>
+          <button type="button" onClick={() => void logout()} className="pos-logout inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-xs font-semibold sm:text-sm">
+            <LogOut size={16} /><span className="hidden sm:inline">خروج امن</span>
+          </button>
+        </div>
       </header>
       <PosWorkspace allowed={allowed} initialView={viewFallback?.id ?? "orders"} role={user.role} />
     </div>
@@ -163,19 +179,31 @@ function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; ini
   const [view, setView] = useState<View>(initialView);
   const current = allowed.some((n) => n.id === view) ? view : allowed[0]?.id ?? "orders";
   return (
-    <div className="mx-auto grid min-w-0 max-w-6xl gap-4 px-3 py-4 lg:grid-cols-[180px_1fr]">
-      <nav className="grid min-w-0 grid-cols-3 gap-2 lg:flex lg:flex-col">
-        {allowed.map((n) => {
-          const Icon = n.icon;
-          const on = current === n.id;
-          return (
-            <button key={n.id} onClick={() => setView(n.id)} className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-semibold ${on ? "bg-chili text-chili-ink" : "bg-surface text-ink border border-line"}`}>
-              <Icon size={18} />{n.label}
-            </button>
-          );
-        })}
+    <div className="pos-layout mx-auto grid w-full max-w-[1600px] min-w-0 gap-4 px-3 py-4 sm:px-5 lg:grid-cols-[248px_minmax(0,1fr)] lg:gap-6 lg:px-7 lg:py-7">
+      <nav className="pos-nav min-w-0 lg:sticky lg:top-[92px] lg:flex lg:h-[calc(100vh-116px)] lg:flex-col">
+        <div className="hidden px-3 pb-4 pt-2 lg:block">
+          <p className="text-[10px] font-bold tracking-[0.18em] text-muted">WORKSPACE</p>
+          <p className="mt-1 text-sm font-extrabold">دسترسی سریع</p>
+        </div>
+        <div className="pos-nav-list flex min-w-0 gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
+          {allowed.map((n) => {
+            const Icon = n.icon;
+            const on = current === n.id;
+            return (
+              <button key={n.id} type="button" aria-current={on ? "page" : undefined} onClick={() => setView(n.id)} className={`pos-nav-item inline-flex shrink-0 items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold ${on ? "is-active" : ""}`}>
+                <span className="grid h-8 w-8 place-items-center rounded-xl"><Icon size={18} strokeWidth={2} /></span>
+                <span>{n.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-auto hidden rounded-2xl border border-line bg-surface/80 p-4 lg:block">
+          <p className="text-xs font-bold text-ink">3Food POS</p>
+          <p className="mt-1 text-[11px] leading-6 text-muted">مدیریت یکپارچه فروش، سفارش و موجودی</p>
+          <span className="mt-2 inline-flex items-center gap-2 text-[10px] font-semibold text-leaf"><span className="h-1.5 w-1.5 rounded-full bg-leaf" /> سامانه فعال</span>
+        </div>
       </nav>
-      <main className="min-w-0">
+      <main className="pos-main min-w-0">
         {current === "pos" ? <PosScreen /> : null}
         {current === "orders" ? <OrdersScreen role={role} /> : null}
         {current === "menu" ? <MenuScreen /> : null}
@@ -1711,7 +1739,7 @@ function AppearanceSettingsPanel(){
  <Field label="رنگ اصلی"><div className="flex items-center gap-3"><input aria-label="رنگ اصلی" type="color" value={settings.primary} onChange={e=>update({primary:e.target.value})} className="h-11 w-16 cursor-pointer rounded-lg border border-line bg-surface p-1"/><span className="text-xs text-muted">{settings.primary}</span></div></Field>
  <Field label="رنگ مکمل"><div className="flex items-center gap-3"><input aria-label="رنگ مکمل" type="color" value={settings.secondary} onChange={e=>update({secondary:e.target.value})} className="h-11 w-16 cursor-pointer rounded-lg border border-line bg-surface p-1"/><span className="text-xs text-muted">{settings.secondary}</span></div></Field>
  <Field label="حالت نمایش"><select className={inputCls} value={settings.mode} onChange={e=>update({mode:e.target.value as AppearanceSettings["mode"]})}><option value="light">روشن</option><option value="dark">تیره</option></select></Field>
- <Field label="فونت سراسری"><div className={inputCls}>BYekan (بی‌یکان) — ثابت برای تمام کاربران</div></Field>
+ <Field label="فونت سراسری"><div className={inputCls}>IRANYekanWeb FarsiNum — ایران‌یکان فارسی</div></Field>
  <Field label={`اندازه متن: ${settings.fontSize} پیکسل`}><input className="w-full accent-chili" type="range" min="13" max="20" value={settings.fontSize} onChange={e=>update({fontSize:Number(e.target.value)})}/></Field>
  <Field label={`گردی کارت‌ها: ${settings.cardRadius} پیکسل`}><input className="w-full accent-chili" type="range" min="8" max="28" value={settings.cardRadius} onChange={e=>update({cardRadius:Number(e.target.value)})}/></Field>
  <Field label={`گردی دکمه‌ها: ${settings.buttonRadius} پیکسل`}><input className="w-full accent-chili" type="range" min="6" max="24" value={settings.buttonRadius} onChange={e=>update({buttonRadius:Number(e.target.value)})}/></Field>
