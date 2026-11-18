@@ -41,6 +41,7 @@ function seed(): PosState {
       tomanPerPoint: 1000,
       paperWidth: 80,
       autoPrint: false,
+      invoiceSmsEnabledDefault: false,
       printCustomer: true,
       printKitchen: true,
       headerNote: "",
@@ -79,7 +80,7 @@ type Actions = {
     payment: Order["payment"];
     guestName: string;
     guestPhone: string;
-    serverOrder?: { id: string; number: number };
+    serverOrder?: { id: string; number: number; createdAt?: string };
   }) => { ok: true; order: Order } | { ok: false; error: string };
   setStatus: (id: string, status: OrderStatus) => Order | null;
   logSms: (log: SmsLog) => void;
@@ -181,7 +182,7 @@ export const usePos = create<PosState & Actions>()(
         const order: Order = {
           id: input.serverOrder?.id ?? uid("or"),
           number: input.serverOrder?.number ?? s.nextOrder,
-          createdAt: new Date().toISOString(),
+          createdAt: input.serverOrder?.createdAt ?? new Date().toISOString(),
           status: "new",
           lines: input.lines,
           subtotal: q.subtotal,
