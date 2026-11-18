@@ -953,11 +953,13 @@ if (preg_match('#^/suppliers/([A-Za-z0-9_-]+)/purchases$#D', $path, $supplierMat
         if(!is_array($supplier) || empty($supplier['active'])) {
             $pdo->rollBack(); json_response(['ok'=>false,'error'=>'supplier_not_found','message'=>'تأمین‌کننده فعال پیدا نشد'],404);
         }
+        $currentBalance=max(0,(int)($supplier['balance']??0));
+        if($item['kind']==='payment' && $paid>$currentBalance){$pdo->rollBack();json_response(['ok'=>false,'error'=>'supplier_payment_exceeds_balance','message'=>'مبلغ پرداخت از بدهی تأمین‌کننده بیشتر است'],409);}
         $item['supplierId']=$supplierId;
         $tehranNow = new DateTimeImmutable('now', new DateTimeZone('Asia/Tehran'));
         $item['date']=$tehranNow->format('Y-m-d');
         $item['createdAt']=$tehranNow->format('c');
-        $balance=max(0,(int)($supplier['balance']??0)+($item['kind']==='purchase'?$amount-$paid:-$paid));
+        $balance=max(0,$currentBalance+($item['kind']==='purchase'?$amount-$paid:-$paid));
         $supplier['balance']=$balance;
         $payload=json_encode($item,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
         $insert=$pdo->prepare("INSERT INTO pos_records (id,resource,payload,updated_by) VALUES (?,'supplier_purchases',?,?)");
