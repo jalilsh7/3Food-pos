@@ -83,3 +83,10 @@ test("complete customer summaries are included in report export beyond the top t
   assert.match(phpApi, /'all_customers'=>\$customerRows/);
   assert.match(app, /allCustomerRows\.map\(row=>\["مشتری"/);
 });
+
+test("report API and Excel-compatible export include all products and inventory items", () => {
+  assert.match(phpApi, /'all_products'=>array_map/);
+  assert.match(phpApi, /'inventory_items'=>\$allInventory/);
+  assert.match(app, /allProductRows\.map\(row=>\["محصول"/);
+  assert.match(app, /inventoryRows\.map\(row=>\["انبار"/);
+});
