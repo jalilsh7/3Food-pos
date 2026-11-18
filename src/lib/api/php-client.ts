@@ -167,6 +167,8 @@ export const phpApi = {
 
   listUsers: () => request<ApiEnvelope<{ users: ManagedUser[] }>>("/users"),
 
+  getReportSummary: (from: string, to: string) => request<ApiEnvelope<Record<string, unknown>>>(`/reports/summary?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+
   createUser: (input: { username: string; password: string; display_name: string; role: PosRole }) =>
     request<ApiEnvelope<{ user: ManagedUser }>>("/users", { method: "POST", csrf: true, body: input }),
 
