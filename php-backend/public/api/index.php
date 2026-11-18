@@ -296,7 +296,7 @@ if ($method === 'GET' && $path === '/preflight') {
 }
 
 if ($method === 'GET' && $path === '/appearance') {
-    $defaults = ['primary'=>'#c2410c','secondary'=>'#1f6b4a','mode'=>'light','fontFamily'=>'vazirmatn','fontSize'=>15,'cardRadius'=>16,'buttonRadius'=>12,'logoUrl'=>null];
+    $defaults = ['primary'=>'#c2410c','secondary'=>'#1f6b4a','mode'=>'light','fontFamily'=>'byekan','fontSize'=>15,'cardRadius'=>16,'buttonRadius'=>12,'logoUrl'=>null];
     $stored = $pdo->query('SELECT settings FROM app_appearance_settings WHERE id = 1')->fetchColumn();
     $settings = is_string($stored) ? json_decode($stored, true) : null;
     if (!is_array($settings)) $settings = $defaults;
@@ -310,7 +310,7 @@ if ($method === 'POST' && $path === '/appearance') {
     $fontSize=filter_var($input['fontSize']??null,FILTER_VALIDATE_INT); $cardRadius=filter_var($input['cardRadius']??null,FILTER_VALIDATE_INT);
     $buttonRadius=filter_var($input['buttonRadius']??null,FILTER_VALIDATE_INT); $logoUrl=$input['logoUrl']??null;
     if (!preg_match('/^#[0-9a-f]{6}$/D',$primary)||!preg_match('/^#[0-9a-f]{6}$/D',$secondary)||
-        !in_array($mode,['light','dark'],true)||!in_array($font,['vazirmatn','tahoma','system'],true)||
+        !in_array($mode,['light','dark'],true)||!in_array($font,['byekan'],true)||
         $fontSize===false||$fontSize<13||$fontSize>20||$cardRadius===false||$cardRadius<8||$cardRadius>28||
         $buttonRadius===false||$buttonRadius<6||$buttonRadius>24||
         !($logoUrl===null||(is_string($logoUrl)&&preg_match('#^/uploads/appearance/[a-f0-9]{32}\.(png|jpg|webp)$#D',$logoUrl)))) {
@@ -326,7 +326,7 @@ if ($method === 'POST' && $path === '/appearance') {
 if ($method === 'POST' && $path === '/appearance/reset') {
     $actor=require_role($pdo,['manager']); require_csrf(); $pdo->exec('DELETE FROM app_appearance_settings WHERE id=1');
     audit($pdo,(int)$actor['id'],'appearance_reset','appearance','1');
-    json_response(['ok'=>true,'settings'=>['primary'=>'#c2410c','secondary'=>'#1f6b4a','mode'=>'light','fontFamily'=>'vazirmatn','fontSize'=>15,'cardRadius'=>16,'buttonRadius'=>12,'logoUrl'=>null]]);
+    json_response(['ok'=>true,'settings'=>['primary'=>'#c2410c','secondary'=>'#1f6b4a','mode'=>'light','fontFamily'=>'byekan','fontSize'=>15,'cardRadius'=>16,'buttonRadius'=>12,'logoUrl'=>null]]);
 }
 if ($method === 'POST' && $path === '/appearance/logo') {
     $actor=require_role($pdo,['manager']); require_csrf();
