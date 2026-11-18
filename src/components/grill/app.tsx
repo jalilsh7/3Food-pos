@@ -1001,7 +1001,8 @@ function CustomersScreen({ role }: { role: Role }) {
   const [q, setQ] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", phone: "", birthday: "" });
-  const normalizedQuery=normalizeIranPhone(q);\n  const list = customers.filter((c) => c.name.includes(q) || (normalizedQuery.length>0 && normalizeIranPhone(c.phone).includes(normalizedQuery)));
+  const normalizedQuery=normalizeIranPhone(q);
+  const list = customers.filter((c) => c.name.includes(q) || (normalizedQuery.length>0 && normalizeIranPhone(c.phone).includes(normalizedQuery)));
   const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId) ?? null;
   const selectedOrders = selectedCustomer
     ? orders.filter((order) => order.customerId === selectedCustomer.id || normalizeIranPhone(order.customerPhone) === normalizeIranPhone(selectedCustomer.phone))
