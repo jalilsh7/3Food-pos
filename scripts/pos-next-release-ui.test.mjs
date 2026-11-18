@@ -41,7 +41,7 @@ test("new product form remains ready for consecutive product entry after save", 
 
 test("Excel-compatible export includes profit and individual expense rows", () => {
   assert.match(app, /\["سود و زیان","سود خالص"/);
-  assert.match(app, /expenseItemRows\.map\(row=>\["ریز هزینه"/);
+  assert.match(app, /visibleExpenseItemRows\.map\(row=>\["ریز هزینه"/);
   assert.match(app, /["]مالیات وصول‌شده["]/);
 });
 
