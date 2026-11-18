@@ -92,7 +92,7 @@ jobs:
       - name: cPanel static SPA build
         run: npm run build:cpanel
       - name: Install Chromium for built-package smoke test
-        run: npx playwright install chromium
+        run: npx playwright install --with-deps chromium
       - name: Smoke test packaged cPanel app and login typing
         env:
           MYSQL_TEST_HOST: 127.0.0.1
