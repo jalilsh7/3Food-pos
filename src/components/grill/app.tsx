@@ -370,8 +370,8 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
 }
 
 async function sendRaw(phone: string, text: string) {
-  if (!phone || !text) return;
-  await postSms(phone, text, "manual", "");
+  if (!phone || !text) return false;
+  return await postSms(phone, text, "manual", "");
 }
 
 async function postSms(phone: string, text: string, event: string, bodyId: string) {
@@ -396,6 +396,7 @@ async function postSms(phone: string, text: string, event: string, bodyId: strin
     log = { ...log, detail: `${log.detail} — ذخیره گزارش در سرور ناموفق بود: ${err instanceof Error ? err.message : "خطای نامشخص"}` };
   }
   usePos.getState().logSms(log);
+  return log.ok;
 }
 
 function PosScreen() {
@@ -1312,7 +1313,31 @@ function SmsScreen() {
   const logs = usePos((s) => s.smsLogs);
   const saveTemplate = usePos((s) => s.saveTemplate);
   const customers = usePos((s) => s.customers);
+  const orders = usePos((s) => s.orders);
+  const settings = usePos((s) => s.settings);
   const [manual, setManual] = useState({ to: "", text: "" });
+  const [campaignSegment,setCampaignSegment]=useState("all");
+  const [campaignText,setCampaignText]=useState("");
+  const [campaignBusy,setCampaignBusy]=useState(false);
+  const [campaignProgress,setCampaignProgress]=useState("");
+  const campaignRecipients=customers.filter(customer=>{
+    if(campaignSegment==="all")return true;
+    if(["bronze","silver","gold","platinum"].includes(campaignSegment))return tierOf(customer.points,settings)===campaignSegment;
+    if(campaignSegment==="birthday"){return !!customer.birthday&&customer.birthday.slice(5,7)===tehranDate().slice(5,7);}
+    if(campaignSegment==="inactive60"){
+      const latest=orders.filter(order=>order.customerId===customer.id||normalizeIranPhone(order.customerPhone)===normalizeIranPhone(customer.phone)).reduce((max,order)=>Math.max(max,new Date(order.createdAt).getTime()),0);
+      const baseline=latest||new Date(customer.createdAt||0).getTime();return !baseline||Date.now()-baseline>=60*86400000;
+    }
+    return false;
+  });
+  async function runCampaign(){
+    if(campaignBusy||!campaignText.trim()||!campaignRecipients.length)return;
+    if(campaignText.length>950){window.alert("متن پیامک باید حداکثر ۹۵۰ نویسه باشد.");return;}
+    if(!window.confirm(`پیامک برای ${campaignRecipients.length.toLocaleString("fa-IR")} مشتری ارسال شود؟`))return;
+    setCampaignBusy(true);let sent=0,failed=0;
+    for(const customer of campaignRecipients){const ok=await sendRaw(customer.phone,campaignText);if(ok)sent++;else failed++;setCampaignProgress(`${(sent+failed).toLocaleString("fa-IR")} از ${campaignRecipients.length.toLocaleString("fa-IR")} · موفق ${sent.toLocaleString("fa-IR")} · ناموفق ${failed.toLocaleString("fa-IR")}`);}
+    setCampaignBusy(false);setCampaignProgress(`پایان کمپین — موفق ${sent.toLocaleString("fa-IR")}، ناموفق ${failed.toLocaleString("fa-IR")}`);
+  }
   return (
     <div className="space-y-4">
       <h2 className="font-bold">ملی‌پیامک</h2>
@@ -1340,6 +1365,14 @@ function SmsScreen() {
             <Btn tone="ghost" onClick={() => { for (const c of customers) void sendRaw(c.phone, manual.text); }}>ارسال به اعضای باشگاه</Btn>
           </div>
         </div>
+      </Card>
+      <Card>
+        <h3 className="mb-2 font-semibold">کمپین باشگاه مشتریان</h3>
+        <p className="mb-2 text-xs text-muted">ارسال هدفمند بر اساس سطح عضویت، تولد یا مشتریان غیرفعال. ارسال‌ها به‌ترتیب انجام و نتیجه هر شماره ثبت می‌شود.</p>
+        <Field label="گروه مشتریان"><select className={inputCls} value={campaignSegment} onChange={e=>setCampaignSegment(e.target.value)}><option value="all">همه اعضا</option><option value="inactive60">بدون خرید در ۶۰ روز اخیر</option><option value="birthday">متولدین ماه جاری</option><option value="bronze">سطح برنز</option><option value="silver">سطح نقره</option><option value="gold">سطح طلا</option><option value="platinum">سطح پلاتین</option></select></Field>
+        <p className="my-2 text-sm">تعداد گیرندگان: <b>{campaignRecipients.length.toLocaleString("fa-IR")}</b></p>
+        <textarea className={inputCls} rows={3} maxLength={950} value={campaignText} onChange={e=>setCampaignText(e.target.value)} placeholder="متن پیامک کمپین..."/>
+        <div className="mt-2 flex flex-wrap items-center gap-2"><Btn onClick={()=>void runCampaign()} disabled={campaignBusy||!campaignText.trim()||campaignRecipients.length===0}>{campaignBusy?"در حال ارسال...":"ارسال کمپین"}</Btn><span className="text-xs text-muted">{campaignProgress}</span></div>
       </Card>
       <Card>
         <h3 className="mb-2 font-semibold">لاگ ارسال</h3>
