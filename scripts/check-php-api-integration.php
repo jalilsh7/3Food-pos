@@ -163,7 +163,7 @@ try {
 
     $appearanceSettings = [
         'primary' => '#123456', 'secondary' => '#654321', 'mode' => 'dark',
-        'fontFamily' => 'tahoma', 'fontSize' => 17, 'cardRadius' => 20,
+        'fontFamily' => 'byekan', 'fontSize' => 17, 'cardRadius' => 20,
         'buttonRadius' => 10, 'logoUrl' => null,
     ];
     $appearanceSaved = api('POST', '/api/v1/appearance', ['settings' => $appearanceSettings], csrf_headers());
