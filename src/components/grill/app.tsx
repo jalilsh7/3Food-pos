@@ -546,7 +546,7 @@ function PosScreen() {
       }
       pendingIdempotencyKey.current = null;
       setMsg(`سفارش ${res.order.number.toLocaleString("fa-IR")} ثبت شد`);
-      setCart([]); setCode(""); setPoints(0); setPrinted(res.order);
+      setCart([]); setCode(""); setPoints(0); setSendInvoiceSms(null); setPrinted(res.order);
       const fresh = usePos.getState().customers.find((c) => c.id === res.order.customerId);
       const vars = orderVars(res.order, String(fresh?.points ?? 0));
       void pushSms("order_created", res.order.customerPhone, vars);
