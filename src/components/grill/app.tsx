@@ -1156,7 +1156,7 @@ function ReportsScreen() {
   async function editCategory(category:{id:string;name:string;active?:boolean}){
     const name=window.prompt("ویرایش نام دسته هزینه",category.name);if(name===null||!name.trim())return;
     const updated={...category,name:name.trim()};
-    if(await saveCentralRecord("expense_categories",updated,()=>setCategories(old=>old.map(c=>c.id===category.id?updated:c)))){}
+    await saveCentralRecord("expense_categories",updated,()=>setCategories(old=>old.map(c=>c.id===category.id?updated:c)));
   }
   async function deleteCategory(category:{id:string;name:string;active?:boolean}){
     if(expenses.some(e=>e.category===category.name)){window.alert("این دسته در سوابق هزینه استفاده شده است؛ ابتدا هزینه‌های مرتبط را به دسته دیگری منتقل کنید.");return;}
@@ -1234,21 +1234,28 @@ function SuppliersScreen(){
     const item:Purchase={id:uid("pur"),...purchase,title:purchase.title.trim(),date:new Date().toISOString().slice(0,10),note:purchase.note.trim()};
     setBusy(true);
     try{
-      await phpApi.saveRecord("supplier_purchases",item);
-      const updated={...supplier,balance:Math.max(0,supplier.balance+item.amount-item.paid)};
-      await phpApi.saveRecord("suppliers",updated);
-      setPurchases(old=>[item,...old]);setSuppliers(old=>old.map(s=>s.id===updated.id?updated:s));setPurchase({supplierId:"",title:"",amount:0,paid:0,note:""});
+      const result=await phpApi.createSupplierTransaction<Purchase & {kind:string},Supplier>(supplier.id,{...item,kind:"purchase"});
+      setPurchases(old=>[result.item,...old]);setSuppliers(old=>old.map(s=>s.id===supplier.id?result.supplier:s));setPurchase({supplierId:"",title:"",amount:0,paid:0,note:""});
     }catch(e){setError(e instanceof Error?e.message:"ثبت خرید انجام نشد");}
     finally{setBusy(false);}
+  }
+  async function editSupplier(supplier:Supplier){
+    const name=window.prompt("نام تأمین‌کننده",supplier.name);if(name===null||!name.trim())return;
+    const phone=window.prompt("شماره تماس",supplier.phone);if(phone===null)return;
+    const contact=window.prompt("نام رابط",supplier.contact);if(contact===null)return;
+    const updated={...supplier,name:name.trim(),phone:phone.trim(),contact:contact.trim()};
+    await saveCentralRecord("suppliers",updated,()=>setSuppliers(old=>old.map(s=>s.id===supplier.id?updated:s)));
+  }
+  async function toggleSupplier(supplier:Supplier){
+    const updated={...supplier,active:!supplier.active};
+    await saveCentralRecord("suppliers",updated,()=>setSuppliers(old=>old.map(s=>s.id===supplier.id?updated:s)));
   }
   async function settle(supplier:Supplier){
     const raw=window.prompt("مبلغ پرداختی برای تسویه (تومان):");if(raw===null)return;
     const amount=Number(raw);if(!Number.isFinite(amount)||amount<=0||amount>supplier.balance){setError("مبلغ تسویه معتبر نیست.");return;}
-    const updated={...supplier,balance:supplier.balance-amount};
-    if(await saveCentralRecord("suppliers",updated,()=>setSuppliers(old=>old.map(s=>s.id===supplier.id?updated:s)))){
-      const item={id:uid("pay"),supplierId:supplier.id,title:"پرداخت/تسویه",amount:0,paid:amount,date:new Date().toISOString().slice(0,10),note:"تسویه حساب"};
-      await saveCentralRecord("supplier_purchases",item,()=>setPurchases(old=>[item,...old]));
-    }
+    const item={id:uid("pay"),supplierId:supplier.id,title:"پرداخت/تسویه",amount:0,paid:amount,date:new Date().toISOString().slice(0,10),note:"تسویه حساب",kind:"payment"};
+    try{const result=await phpApi.createSupplierTransaction<typeof item,Supplier>(supplier.id,item);setSuppliers(old=>old.map(s=>s.id===supplier.id?result.supplier:s));setPurchases(old=>[result.item as Purchase,...old]);}
+    catch(e){setError(e instanceof Error?e.message:"ثبت تسویه انجام نشد");}
   }
   return <div className="space-y-4"><h2 className="font-bold">مدیریت تأمین‌کنندگان</h2>{error?<p className="text-sm text-warn">{error}</p>:null}
     <Card><h3 className="mb-2 font-semibold">ثبت تأمین‌کننده</h3><form className="grid gap-2 sm:grid-cols-2" onSubmit={e=>void addSupplier(e)}>
@@ -1264,7 +1271,7 @@ function SuppliersScreen(){
       <Field label="پرداخت‌شده"><input className={inputCls} type="number" min="0" value={purchase.paid||""} onChange={e=>setPurchase({...purchase,paid:Number(e.target.value)})}/></Field>
       <Field label="یادداشت"><input className={inputCls} value={purchase.note} onChange={e=>setPurchase({...purchase,note:e.target.value})}/></Field><div><Btn type="submit" disabled={busy}>ثبت خرید</Btn></div>
     </form></Card>
-    {suppliers.map(s=><Card key={s.id}><div className="flex flex-wrap items-center justify-between gap-2"><div><b>{s.name}</b><p className="text-xs text-muted">{s.phone} · رابط: {s.contact||"—"}</p></div><div className="text-left"><b>{money(s.balance)} بدهی</b><div><Btn tone="ghost" onClick={()=>void settle(s)} disabled={s.balance<=0}>ثبت تسویه</Btn></div></div></div>
+    {suppliers.map(s=><Card key={s.id}><div className="flex flex-wrap items-center justify-between gap-2"><div><b>{s.name}</b><p className="text-xs text-muted">{s.phone} · رابط: {s.contact||"—"}</p></div><div className="text-left"><b>{money(s.balance)} بدهی</b><div className="flex gap-1"><Btn tone="ghost" onClick={()=>void editSupplier(s)}>ویرایش</Btn><Btn tone="ghost" onClick={()=>void toggleSupplier(s)}>{s.active?"غیرفعال‌کردن":"فعال‌کردن"}</Btn><Btn tone="ghost" onClick={()=>void settle(s)} disabled={s.balance<=0}>ثبت تسویه</Btn></div></div></div>
       <div className="mt-2 border-t border-line pt-2 text-sm">{purchases.filter(p=>p.supplierId===s.id).map(p=><p key={p.id} className="flex justify-between"><span>{p.title} · {new Date(p.date+"T12:00:00").toLocaleDateString("fa-IR")}</span><span>{money(p.amount)} / پرداخت {money(p.paid)}</span></p>)}</div></Card>)}
     {busy?<p className="text-xs text-muted">در حال بارگذاری...</p>:null}
   </div>;
