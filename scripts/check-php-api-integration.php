@@ -490,7 +490,7 @@ try {
     $cookie = '';
     $secondManagerLogin = api('POST', '/api/v1/auth/login', [
         'username' => 'ci_manager',
-        'password' => 'CI-Only-Strong-Password-2026!',
+        'password' => 'CI-Only-New-Password-2026!',
     ]);
     check($secondManagerLogin['status'] === 200, 'second independent manager session for concurrency test');
     $managerSecondCookie = $cookie;
