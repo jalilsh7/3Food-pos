@@ -893,13 +893,11 @@ if ($method === 'GET' && $path === '/bootstrap') {
     $user = require_user($pdo);
     if ($user['role'] === 'manager') {
         $defaults = ['قبوض آب، برق و گاز','مواد اولیه','حقوق و دستمزد','اجاره','تعمیرات و نگهداری','بسته‌بندی','حمل‌ونقل','سایر هزینه‌ها'];
-        $exists = (int)$pdo->query("SELECT COUNT(*) FROM pos_records WHERE resource = 'expense_categories'")->fetchColumn();
-        if ($exists === 0) {
-            $seed = $pdo->prepare("INSERT IGNORE INTO pos_records (id, resource, payload, updated_by) VALUES (?, 'expense_categories', ?, ?)");
-            foreach ($defaults as $index => $label) {
-                $id = 'expense_cat_' . ($index + 1);
-                $seed->execute([$id, json_encode(['id'=>$id,'name'=>$label,'active'=>true], JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES), (int)$user['id']]);
-            }
+        // Seed each built-in category independently so pre-existing custom categories do not suppress defaults.
+        $seed = $pdo->prepare("INSERT IGNORE INTO pos_records (id, resource, payload, updated_by) VALUES (?, 'expense_categories', ?, ?)");
+        foreach ($defaults as $index => $label) {
+            $id = 'expense_cat_' . ($index + 1);
+            $seed->execute([$id, json_encode(['id'=>$id,'name'=>$label,'active'=>true], JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES), (int)$user['id']]);
         }
     }
     $resources = $user['role'] === 'kitchen' ? ['categories','products'] : ($user['role'] === 'cashier' ? ['categories','products','customers','discounts','sms_logs'] : ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings','sms_logs']);
