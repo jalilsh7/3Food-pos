@@ -385,13 +385,13 @@ try {
     }
     unset($backupRecord);
     $restored = api('POST', '/api/v1/backup/restore', ['backup' => $backupData], csrf_headers());
-    check($restored['status'] === 200 && ($restored['json']['restored']['orders'] ?? 0) === 1, 'manager restores complete backup into empty POS database');
+    check($restored['status'] === 200 && ($restored['json']['restored']['orders'] ?? 0) === count($backupData['orders']), 'manager restores complete backup into empty POS database');
     check((int)$pdo->query('SELECT COUNT(*) FROM pos_records')->fetchColumn() === count($backupData['records']), 'restore reconstructs all POS records');
     $restoredSettings = $getPayload($pdo, 'settings', 'main');
     foreach (['smsUser', 'smsKey', 'smsFrom'] as $secretField) {
         check(!array_key_exists($secretField, $restoredSettings), 'restore strips untrusted ' . $secretField);
     }
-    check((int)$pdo->query('SELECT COUNT(*) FROM pos_order_effects')->fetchColumn() === 2, 'restore reconstructs reversible order effects');
+    check((int)$pdo->query('SELECT COUNT(*) FROM pos_order_effects')->fetchColumn() === count($backupData['order_effects']), 'restore reconstructs reversible order effects');
     check((int)$pdo->query('SELECT COUNT(*) FROM pos_discount_redemptions')->fetchColumn() === count($backupData['discount_redemptions']), 'restore reconstructs discount redemption ledger');
     check((int)$pdo->query('SELECT counter_value FROM pos_counters WHERE counter_key = "order_number"')->fetchColumn() === (int)$backupData['counters'][0]['counter_value'], 'restore preserves order number counter');
 
