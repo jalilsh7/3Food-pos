@@ -24,6 +24,8 @@ export function ReceiptView({
     `تاریخ: ${new Date(order.createdAt).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}`,
     ...order.lines.map(line => `${line.name} × ${line.qty} — ${money(line.unitPrice * line.qty)}`),
     `جمع: ${money(order.subtotal)}`,
+    `تخفیف: ${money(order.tierDiscount + order.codeDiscount + order.pointsDiscount)}`,
+    `مالیات: ${money(order.tax)}`,
     `قابل پرداخت: ${money(order.total)}`,
     `پرداخت: ${pay[order.payment]}`,
   ].join("\n");
