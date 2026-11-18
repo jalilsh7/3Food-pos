@@ -636,7 +636,7 @@ $resourceRoles = [
     'supplier_purchases' => ['manager'],
     'templates' => ['manager'],
     'settings' => ['manager'],
-    'sms_logs' => ['manager'],
+    'sms_logs' => ['manager','cashier'],
 
 ];
 
@@ -898,7 +898,7 @@ if ($method === 'GET' && $path === '/bootstrap') {
             }
         }
     }
-    $resources = $user['role'] === 'kitchen' ? ['categories','products'] : ($user['role'] === 'cashier' ? ['categories','products','customers','discounts'] : ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings','sms_logs']);
+    $resources = $user['role'] === 'kitchen' ? ['categories','products'] : ($user['role'] === 'cashier' ? ['categories','products','customers','discounts','sms_logs'] : ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings','sms_logs']);
     $result = [];
     foreach ($resources as $resource) {
         $q = $pdo->prepare('SELECT id, payload FROM pos_records WHERE resource = ? ORDER BY created_at ASC');
