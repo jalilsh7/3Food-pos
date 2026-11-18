@@ -973,6 +973,26 @@ if (preg_match('#^/suppliers/([A-Za-z0-9_-]+)/purchases$#D', $path, $supplierMat
         }
         $currentBalance=max(0,(int)($supplier['balance']??0));
         if($item['kind']==='payment' && $paid>$currentBalance){$pdo->rollBack();json_response(['ok'=>false,'error'=>'supplier_payment_exceeds_balance','message'=>'مبلغ پرداخت از بدهی تأمین‌کننده بیشتر است'],409);}
+        $ingredientId=trim((string)($item['ingredientId']??''));
+        $ingredientQty=max(0,(float)($item['quantity']??0));
+        $ingredientUnitCost=max(0,(int)($item['unitCost']??0));
+        if($ingredientId!=='' && ($item['kind']!=='purchase' || $ingredientQty<=0 || $ingredientUnitCost<=0 || abs($amount-(int)round($ingredientQty*$ingredientUnitCost))>max(1,(int)round($amount*0.01)))){
+            $pdo->rollBack();json_response(['ok'=>false,'error'=>'invalid_inventory_purchase','message'=>'مقدار یا قیمت ماده اولیه با مبلغ خرید هم‌خوانی ندارد'],422);
+        }
+        if($ingredientId!==''){
+            $ingredientStmt=$pdo->prepare("SELECT payload FROM pos_records WHERE resource='ingredients' AND id=? FOR UPDATE");
+            $ingredientStmt->execute([$ingredientId]);$ingredientRaw=$ingredientStmt->fetchColumn();
+            $ingredient=is_string($ingredientRaw)?json_decode($ingredientRaw,true):null;
+            if(!is_array($ingredient)){$pdo->rollBack();json_response(['ok'=>false,'error'=>'ingredient_not_found','message'=>'ماده اولیه انتخاب‌شده پیدا نشد'],404);}
+            $oldStock=(float)($ingredient['stock']??0);$oldCost=max(0,(float)($ingredient['costPerUnit']??0));
+            $newStock=round($oldStock+$ingredientQty,3);
+            $newCost=$oldStock>0?round((($oldStock*$oldCost)+($ingredientQty*$ingredientUnitCost))/($oldStock+$ingredientQty),2):$ingredientUnitCost;
+            $ingredient['stock']=$newStock;$ingredient['costPerUnit']=$newCost;
+            $ingredientUpdate=$pdo->prepare("UPDATE pos_records SET payload=?,updated_by=? WHERE resource='ingredients' AND id=?");
+            $ingredientUpdate->execute([json_encode($ingredient,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR),(int)$actor['id'],$ingredientId]);
+            $item['ingredientId']=$ingredientId;$item['quantity']=$ingredientQty;$item['unitCost']=$ingredientUnitCost;
+            $item['stockAfter']=$newStock;$item['weightedCostAfter']=$newCost;
+        }
         $item['supplierId']=$supplierId;
         $tehranNow = new DateTimeImmutable('now', new DateTimeZone('Asia/Tehran'));
         $item['date']=$tehranNow->format('Y-m-d');
