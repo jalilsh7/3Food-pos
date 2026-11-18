@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+date_default_timezone_set('UTC');
+
 /**
  * 3Food POS - PHP API foundation
  * Phase 1: database connectivity, first-manager setup, sessions and RBAC.
@@ -40,6 +42,39 @@ function utf8_length(string $value): int {
     return $count === false ? strlen($value) : $count;
 }
 
+function loyalty_tier(int $points, array $settings): string {
+    $silver=max(1,(int)($settings['loyaltySilverPoints']??500));
+    $gold=max($silver+1,(int)($settings['loyaltyGoldPoints']??1500));
+    $platinum=max($gold+1,(int)($settings['loyaltyPlatinumPoints']??4000));
+    if($points >= $platinum)return 'platinum';
+    if($points >= $gold)return 'gold';
+    if($points >= $silver)return 'silver';
+    return 'bronze';
+}
+function loyalty_discount_rate(int $points, array $settings): int {
+    $tier=loyalty_tier($points,$settings);
+    $key=['silver'=>'loyaltySilverDiscount','gold'=>'loyaltyGoldDiscount','platinum'=>'loyaltyPlatinumDiscount'][$tier]??null;
+    return $key===null?0:max(0,min(100,(int)($settings[$key]??(['silver'=>3,'gold'=>5,'platinum'=>8][$tier]))));
+}
+
+function product_unit_cost(PDO $pdo, array $product): int {
+    $configured=max(0,(int)($product['cost']??0));
+    if($configured>0)return $configured;
+    $recipe=$product['recipe']??[];
+    if(!is_array($recipe)||!$recipe)return 0;
+    $stmt=$pdo->prepare("SELECT payload FROM pos_records WHERE resource='ingredients' AND id=? LIMIT 1");
+    $total=0.0;
+    foreach($recipe as $line){
+        if(!is_array($line))continue;
+        $id=(string)($line['ingredientId']??'');$qty=max(0,(float)($line['qty']??0));
+        if($id===''||$qty<=0)continue;
+        $stmt->execute([$id]);$raw=$stmt->fetchColumn();
+        $ingredient=is_string($raw)?json_decode($raw,true):null;
+        if(is_array($ingredient))$total+=max(0,(float)($ingredient['costPerUnit']??0))*$qty;
+    }
+    return (int)round($total);
+}
+
 function request_json(): array {
     $raw = file_get_contents('php://input');
     if ($raw === false || $raw === '') return [];
@@ -71,6 +106,8 @@ function db(array $config): PDO {
             PDO::ATTR_EMULATE_PREPARES => false,
             PDO::ATTR_STRINGIFY_FETCHES => false,
         ]);
+        // Store database timestamps in UTC; API presentation converts them to Tehran time.
+        $pdo->exec("SET time_zone = '+00:00'");
         return $pdo;
     } catch (Throwable $e) {
         error_log('[3Food POS] Database connection failed: ' . $e->getMessage());
@@ -292,11 +329,13 @@ if ($method === 'GET' && $path === '/preflight') {
 }
 
 if ($method === 'GET' && $path === '/appearance') {
-    $defaults = ['primary'=>'#c2410c','secondary'=>'#1f6b4a','mode'=>'light','fontFamily'=>'vazirmatn','fontSize'=>15,'cardRadius'=>16,'buttonRadius'=>12,'logoUrl'=>null];
+    $defaults = ['primary'=>'#c2410c','secondary'=>'#1f6b4a','mode'=>'light','fontFamily'=>'byekan','fontSize'=>15,'cardRadius'=>16,'buttonRadius'=>12,'logoUrl'=>null];
     $stored = $pdo->query('SELECT settings FROM app_appearance_settings WHERE id = 1')->fetchColumn();
     $settings = is_string($stored) ? json_decode($stored, true) : null;
     if (!is_array($settings)) $settings = $defaults;
-    json_response(['ok'=>true,'settings'=>array_merge($defaults,$settings)]);
+    $settings = array_merge($defaults,$settings);
+    $settings['fontFamily'] = 'byekan';
+    json_response(['ok'=>true,'settings'=>$settings]);
 }
 if ($method === 'POST' && $path === '/appearance') {
     $actor = require_role($pdo, ['manager']); require_csrf(); $body = request_json(); $input = $body['settings'] ?? null;
@@ -306,7 +345,7 @@ if ($method === 'POST' && $path === '/appearance') {
     $fontSize=filter_var($input['fontSize']??null,FILTER_VALIDATE_INT); $cardRadius=filter_var($input['cardRadius']??null,FILTER_VALIDATE_INT);
     $buttonRadius=filter_var($input['buttonRadius']??null,FILTER_VALIDATE_INT); $logoUrl=$input['logoUrl']??null;
     if (!preg_match('/^#[0-9a-f]{6}$/D',$primary)||!preg_match('/^#[0-9a-f]{6}$/D',$secondary)||
-        !in_array($mode,['light','dark'],true)||!in_array($font,['vazirmatn','tahoma','system'],true)||
+        !in_array($mode,['light','dark'],true)||!in_array($font,['byekan'],true)||
         $fontSize===false||$fontSize<13||$fontSize>20||$cardRadius===false||$cardRadius<8||$cardRadius>28||
         $buttonRadius===false||$buttonRadius<6||$buttonRadius>24||
         !($logoUrl===null||(is_string($logoUrl)&&preg_match('#^/uploads/appearance/[a-f0-9]{32}\.(png|jpg|webp)$#D',$logoUrl)))) {
@@ -322,7 +361,7 @@ if ($method === 'POST' && $path === '/appearance') {
 if ($method === 'POST' && $path === '/appearance/reset') {
     $actor=require_role($pdo,['manager']); require_csrf(); $pdo->exec('DELETE FROM app_appearance_settings WHERE id=1');
     audit($pdo,(int)$actor['id'],'appearance_reset','appearance','1');
-    json_response(['ok'=>true,'settings'=>['primary'=>'#c2410c','secondary'=>'#1f6b4a','mode'=>'light','fontFamily'=>'vazirmatn','fontSize'=>15,'cardRadius'=>16,'buttonRadius'=>12,'logoUrl'=>null]]);
+    json_response(['ok'=>true,'settings'=>['primary'=>'#c2410c','secondary'=>'#1f6b4a','mode'=>'light','fontFamily'=>'byekan','fontSize'=>15,'cardRadius'=>16,'buttonRadius'=>12,'logoUrl'=>null]]);
 }
 if ($method === 'POST' && $path === '/appearance/logo') {
     $actor=require_role($pdo,['manager']); require_csrf();
@@ -592,9 +631,12 @@ $resourceRoles = [
     'customers' => ['manager','cashier'],
     'discounts' => ['manager'],
     'expenses' => ['manager'],
+    'expense_categories' => ['manager'],
+    'suppliers' => ['manager'],
+    'supplier_purchases' => ['manager'],
     'templates' => ['manager'],
     'settings' => ['manager'],
-    'sms_logs' => ['manager'],
+    'sms_logs' => ['manager','cashier'],
 
 ];
 
@@ -712,7 +754,7 @@ if ($method === 'POST' && $path === '/backup/restore') {
             $pdo->rollBack();
             json_response(['ok' => false, 'error' => 'restore_requires_empty_pos', 'message' => 'بازیابی فقط روی دیتابیس عملیاتی خالی انجام می‌شود؛ ابتدا از اطلاعات فعلی پشتیبان بگیرید و دیتابیس مقصد خالی باشد'], 409);
         }
-        $allowedResources = ['categories','products','ingredients','customers','discounts','expenses','templates','settings'];
+        $allowedResources = ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings','sms_logs'];
         $insertRecord = $pdo->prepare('INSERT INTO pos_records (id, resource, payload, updated_by) VALUES (?, ?, ?, ?)');
         foreach ($backup['records'] as $record) {
             if (!is_array($record) || !in_array($record['resource'] ?? '', $allowedResources, true) ||
@@ -789,7 +831,7 @@ if ($method === 'POST' && $path === '/migration/import') {
     $actor = require_role($pdo, ['manager']);
     require_csrf();
     $body = request_json();
-    $allowed = ['categories','products','ingredients','customers','discounts','expenses','templates','settings'];
+    $allowed = ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings'];
     $provided = $body['data'] ?? null;
     if (!is_array($provided)) json_response(['ok' => false, 'error' => 'invalid_import'], 422);
     $encodedBody = json_encode($provided, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
@@ -845,7 +887,18 @@ if ($method === 'POST' && $path === '/migration/import') {
 
 if ($method === 'GET' && $path === '/bootstrap') {
     $user = require_user($pdo);
-    $resources = $user['role'] === 'kitchen' ? ['categories','products'] : ($user['role'] === 'cashier' ? ['categories','products','customers','discounts'] : ['categories','products','ingredients','customers','discounts','expenses','templates','settings','sms_logs']);
+    if ($user['role'] === 'manager') {
+        $defaults = ['قبوض آب، برق و گاز','مواد اولیه','حقوق و دستمزد','اجاره','تعمیرات و نگهداری','بسته‌بندی','حمل‌ونقل','سایر هزینه‌ها'];
+        $exists = (int)$pdo->query("SELECT COUNT(*) FROM pos_records WHERE resource = 'expense_categories'")->fetchColumn();
+        if ($exists === 0) {
+            $seed = $pdo->prepare("INSERT IGNORE INTO pos_records (id, resource, payload, updated_by) VALUES (?, 'expense_categories', ?, ?)");
+            foreach ($defaults as $index => $label) {
+                $id = 'expense_cat_' . ($index + 1);
+                $seed->execute([$id, json_encode(['id'=>$id,'name'=>$label,'active'=>true], JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES), (int)$user['id']]);
+            }
+        }
+    }
+    $resources = $user['role'] === 'kitchen' ? ['categories','products'] : ($user['role'] === 'cashier' ? ['categories','products','customers','discounts','sms_logs'] : ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings','sms_logs']);
     $result = [];
     foreach ($resources as $resource) {
         $q = $pdo->prepare('SELECT id, payload FROM pos_records WHERE resource = ? ORDER BY created_at ASC');
@@ -864,6 +917,7 @@ if ($method === 'GET' && $path === '/bootstrap') {
     foreach ($orders as &$order) {
         $order['id'] = (string)$order['id'];
         $order['orderNumber'] = (int)$order['order_number'];
+        $order['createdAt'] = (new DateTimeImmutable((string)$order['created_at'], new DateTimeZone('UTC')))->format('Y-m-d\\TH:i:s\\Z');
         $order['customerId'] = $order['customer_id'];
         $order['customerName'] = $order['customer_name'];
         $order['customerPhone'] = $order['customer_phone'] ?? $order['guest_phone'] ?? '';
@@ -888,6 +942,76 @@ if ($method === 'GET' && $path === '/bootstrap') {
     }
     $counter = (int)$pdo->query("SELECT counter_value FROM pos_counters WHERE counter_key = 'order_number'")->fetchColumn();
     json_response(['ok' => true, 'data' => $result, 'next_order' => $counter + 1, 'user' => ['id' => (int)$user['id'], 'username' => $user['username'], 'display_name' => $user['display_name'], 'role' => $user['role']]]);
+}
+
+
+if (preg_match('#^/suppliers/([A-Za-z0-9_-]+)/purchases$#D', $path, $supplierMatch) && $method === 'POST') {
+    $actor = require_role($pdo, ['manager']);
+    require_csrf();
+    $supplierId = $supplierMatch[1];
+    $body = request_json();
+    $item = $body['item'] ?? null;
+    if (!is_array($item) || !preg_match('/^[A-Za-z0-9_-]{1,100}$/D', (string)($item['id'] ?? '')) ||
+        !in_array($item['kind'] ?? '', ['purchase','payment'], true) ||
+        trim((string)($item['title'] ?? '')) === '' ||
+        !is_numeric($item['amount'] ?? null) || !is_numeric($item['paid'] ?? null)) {
+        json_response(['ok'=>false,'error'=>'invalid_supplier_transaction','message'=>'اطلاعات خرید یا پرداخت معتبر نیست'],422);
+    }
+    $amount=(int)$item['amount']; $paid=(int)$item['paid'];
+    if ($amount<0 || $paid<0 || $amount>100000000000 || $paid>100000000000 ||
+        ($item['kind']==='purchase' && $paid>$amount) ||
+        ($item['kind']==='payment' && ($amount!==0 || $paid===0))) {
+        json_response(['ok'=>false,'error'=>'invalid_supplier_amount','message'=>'مبلغ خرید یا تسویه معتبر نیست'],422);
+    }
+    try {
+        $pdo->beginTransaction();
+        $supplierStmt=$pdo->prepare("SELECT payload FROM pos_records WHERE resource='suppliers' AND id=? FOR UPDATE");
+        $supplierStmt->execute([$supplierId]); $raw=$supplierStmt->fetchColumn();
+        $supplier=is_string($raw)?json_decode($raw,true):null;
+        if(!is_array($supplier) || empty($supplier['active'])) {
+            $pdo->rollBack(); json_response(['ok'=>false,'error'=>'supplier_not_found','message'=>'تأمین‌کننده فعال پیدا نشد'],404);
+        }
+        $currentBalance=max(0,(int)($supplier['balance']??0));
+        if($item['kind']==='payment' && $paid>$currentBalance){$pdo->rollBack();json_response(['ok'=>false,'error'=>'supplier_payment_exceeds_balance','message'=>'مبلغ پرداخت از بدهی تأمین‌کننده بیشتر است'],409);}
+        $ingredientId=trim((string)($item['ingredientId']??''));
+        $ingredientQty=max(0,(float)($item['quantity']??0));
+        $ingredientUnitCost=max(0,(int)($item['unitCost']??0));
+        if($ingredientId!=='' && ($item['kind']!=='purchase' || $ingredientQty<=0 || $ingredientUnitCost<=0 || abs($amount-(int)round($ingredientQty*$ingredientUnitCost))>max(1,(int)round($amount*0.01)))){
+            $pdo->rollBack();json_response(['ok'=>false,'error'=>'invalid_inventory_purchase','message'=>'مقدار یا قیمت ماده اولیه با مبلغ خرید هم‌خوانی ندارد'],422);
+        }
+        if($ingredientId!==''){
+            $ingredientStmt=$pdo->prepare("SELECT payload FROM pos_records WHERE resource='ingredients' AND id=? FOR UPDATE");
+            $ingredientStmt->execute([$ingredientId]);$ingredientRaw=$ingredientStmt->fetchColumn();
+            $ingredient=is_string($ingredientRaw)?json_decode($ingredientRaw,true):null;
+            if(!is_array($ingredient)){$pdo->rollBack();json_response(['ok'=>false,'error'=>'ingredient_not_found','message'=>'ماده اولیه انتخاب‌شده پیدا نشد'],404);}
+            $oldStock=(float)($ingredient['stock']??0);$oldCost=max(0,(float)($ingredient['costPerUnit']??0));
+            $newStock=round($oldStock+$ingredientQty,3);
+            $newCost=$oldStock>0?round((($oldStock*$oldCost)+($ingredientQty*$ingredientUnitCost))/($oldStock+$ingredientQty),2):$ingredientUnitCost;
+            $ingredient['stock']=$newStock;$ingredient['costPerUnit']=$newCost;
+            $ingredientUpdate=$pdo->prepare("UPDATE pos_records SET payload=?,updated_by=? WHERE resource='ingredients' AND id=?");
+            $ingredientUpdate->execute([json_encode($ingredient,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR),(int)$actor['id'],$ingredientId]);
+            $item['ingredientId']=$ingredientId;$item['quantity']=$ingredientQty;$item['unitCost']=$ingredientUnitCost;
+            $item['stockAfter']=$newStock;$item['weightedCostAfter']=$newCost;
+        }
+        $item['supplierId']=$supplierId;
+        $tehranNow = new DateTimeImmutable('now', new DateTimeZone('Asia/Tehran'));
+        $item['date']=$tehranNow->format('Y-m-d');
+        $item['createdAt']=$tehranNow->format('c');
+        $balance=max(0,$currentBalance+($item['kind']==='purchase'?$amount-$paid:-$paid));
+        $supplier['balance']=$balance;
+        $payload=json_encode($item,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+        $insert=$pdo->prepare("INSERT INTO pos_records (id,resource,payload,updated_by) VALUES (?,'supplier_purchases',?,?)");
+        $insert->execute([(string)$item['id'],$payload,(int)$actor['id']]);
+        $update=$pdo->prepare("UPDATE pos_records SET payload=?,updated_by=? WHERE resource='suppliers' AND id=?");
+        $update->execute([json_encode($supplier,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR),(int)$actor['id'],$supplierId]);
+        audit($pdo,(int)$actor['id'],$item['kind']==='purchase'?'supplier_purchase_recorded':'supplier_payment_recorded','supplier',$supplierId,['amount'=>$amount,'paid'=>$paid,'balance'=>$balance]);
+        $pdo->commit();
+        json_response(['ok'=>true,'item'=>$item,'supplier'=>$supplier]);
+    } catch(Throwable $e) {
+        if($pdo->inTransaction())$pdo->rollBack();
+        error_log('[3Food POS] Supplier transaction failed: '.$e->getMessage());
+        json_response(['ok'=>false,'error'=>'supplier_transaction_failed','message'=>'ثبت خرید یا تسویه انجام نشد'],500);
+    }
 }
 
 if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
@@ -998,7 +1122,7 @@ if ($method === 'POST' && $path === '/orders') {
         'payment' => $body['payment'] ?? 'cash',
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
     if ($idempotencyKey !== null) {
-        $existingStmt = $pdo->prepare('SELECT id, order_number, status, items, totals, request_hash FROM pos_orders WHERE idempotency_key = ? LIMIT 1');
+        $existingStmt = $pdo->prepare('SELECT id, order_number, status, items, totals, request_hash, created_at FROM pos_orders WHERE idempotency_key = ? LIMIT 1');
         $existingStmt->execute([$idempotencyKey]);
         $existing = $existingStmt->fetch();
         if (is_array($existing)) {
@@ -1009,6 +1133,7 @@ if ($method === 'POST' && $path === '/orders') {
                 'id' => (string)$existing['id'],
                 'orderNumber' => (int)$existing['order_number'],
                 'status' => (string)$existing['status'],
+                'createdAt' => (new DateTimeImmutable((string)$existing['created_at'], new DateTimeZone('UTC')))->format('Y-m-d\\TH:i:s\\Z'),
                 'items' => json_decode((string)$existing['items'], true) ?: [],
                 'totals' => json_decode((string)$existing['totals'], true) ?: [],
             ]]);
@@ -1069,6 +1194,7 @@ if ($method === 'POST' && $path === '/orders') {
             'productId' => $productId,
             'qty' => (int)$line['qty'],
             'unitPrice' => $unitPrice,
+            'unitCost' => product_unit_cost($pdo,$product),
             'optionIds' => $optionIds,
             'optionLabels' => $optionLabels,
             'note' => isset($line['note']) ? substr(trim((string)$line['note']), 0, 500) : '',
@@ -1125,8 +1251,10 @@ if ($method === 'POST' && $path === '/orders') {
     $codeDiscount = (int)$totals['codeDiscount'];
     $pointsDiscount = (int)$totals['pointsDiscount'];
     $discountTotal = $tierDiscount + $codeDiscount + $pointsDiscount;
+    $tierSettingsRaw=$pdo->query("SELECT payload FROM pos_records WHERE resource='settings' AND id='main' LIMIT 1")->fetchColumn();
+    $tierSettings=is_string($tierSettingsRaw)?json_decode($tierSettingsRaw,true):[];if(!is_array($tierSettings))$tierSettings=[];
     $customerPoints = max(0, (int)($customerRecord['points'] ?? 0));
-    $tierRate = $customerPoints >= 4000 ? 8 : ($customerPoints >= 1500 ? 5 : ($customerPoints >= 500 ? 3 : 0));
+    $tierRate = loyalty_discount_rate($customerPoints,$tierSettings);
     $expectedTierDiscount = (int)round($subtotal * $tierRate / 100);
     $expectedCodeDiscount = 0;
     if ($discountCode !== '') {
@@ -1141,7 +1269,7 @@ if ($method === 'POST' && $path === '/orders') {
         $startsAt = trim((string)($discountRecord['startsAt'] ?? ''));
         $endsAt = trim((string)($discountRecord['endsAt'] ?? ''));
         $audience = (string)($discountRecord['audience'] ?? 'all');
-        $tier = $customerPoints >= 4000 ? 'platinum' : ($customerPoints >= 1500 ? 'gold' : ($customerPoints >= 500 ? 'silver' : 'bronze'));
+        $tier = loyalty_tier($customerPoints,$tierSettings);
         if (!in_array($discountType, ['percent','fixed'], true) || !is_finite($discountValue) || $discountValue <= 0 || ($discountType === 'percent' && $discountValue > 100)) {
             json_response(['ok' => false, 'error' => 'invalid_discount_config', 'message' => 'تعریف کد تخفیف معتبر نیست'], 409);
         }
@@ -1265,10 +1393,8 @@ if ($method === 'POST' && $path === '/orders') {
                 json_response(['ok' => false, 'error' => 'ingredient_not_found', 'message' => 'یکی از مواد اولیه دستور محصول در انبار پیدا نشد'], 409);
             }
             $available = (float)($ingredient['stock'] ?? 0);
-            if ($available + 0.000001 < $needed) {
-                $pdo->rollBack();
-                json_response(['ok' => false, 'error' => 'insufficient_stock', 'message' => 'موجودی یکی از مواد اولیه کافی نیست: ' . (string)($ingredient['name'] ?? $ingredientId)], 409);
-            }
+            // Restaurant policy: stock depletion warns the operator but never blocks a valid sale.
+            // Negative stock is retained as an explicit backorder/shortage signal for replenishment reports.
             $ingredient['stock'] = round($available - $needed, 3);
             $ingredientUpdate->execute([
                 json_encode($ingredient, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
@@ -1357,12 +1483,12 @@ if ($method === 'POST' && $path === '/orders') {
         }
         audit($pdo, (int)$actor['id'], 'order_created', 'order', (string)$id, ['order_number' => $orderNumber]);
         $pdo->commit();
-        json_response(['ok' => true, 'order' => ['id' => (string)$id, 'orderNumber' => $orderNumber, 'status' => 'new', 'items' => $canonicalItems, 'totals' => $totals]], 201);
+        json_response(['ok' => true, 'order' => ['id' => (string)$id, 'orderNumber' => $orderNumber, 'status' => 'new', 'createdAt' => gmdate('Y-m-d\\TH:i:s\\Z'), 'items' => $canonicalItems, 'totals' => $totals]], 201);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         // A concurrent retry may win the unique idempotency key after our initial lookup.
         if ($idempotencyKey !== null && $e instanceof PDOException && (string)$e->getCode() === '23000') {
-            $retryStmt = $pdo->prepare('SELECT id, order_number, status, items, totals, request_hash FROM pos_orders WHERE idempotency_key = ? LIMIT 1');
+            $retryStmt = $pdo->prepare('SELECT id, order_number, status, items, totals, request_hash, created_at FROM pos_orders WHERE idempotency_key = ? LIMIT 1');
             $retryStmt->execute([$idempotencyKey]);
             $retry = $retryStmt->fetch();
             if (is_array($retry)) {
@@ -1373,6 +1499,7 @@ if ($method === 'POST' && $path === '/orders') {
                     'id' => (string)$retry['id'],
                     'orderNumber' => (int)$retry['order_number'],
                     'status' => (string)$retry['status'],
+                    'createdAt' => (new DateTimeImmutable((string)$retry['created_at'], new DateTimeZone('UTC')))->format('Y-m-d\\TH:i:s\\Z'),
                     'items' => json_decode((string)$retry['items'], true) ?: [],
                     'totals' => json_decode((string)$retry['totals'], true) ?: [],
                 ]]);
@@ -1606,8 +1733,10 @@ if (preg_match('#^/orders/(\d+)$#', $path, $editMatch) && $method === 'PATCH') {
     $codeDiscount = (int)$totals['codeDiscount'];
     $pointsDiscount = (int)$totals['pointsDiscount'];
     $discountTotal = $tierDiscount + $codeDiscount + $pointsDiscount;
+    $tierSettingsRaw=$pdo->query("SELECT payload FROM pos_records WHERE resource='settings' AND id='main' LIMIT 1")->fetchColumn();
+    $tierSettings=is_string($tierSettingsRaw)?json_decode($tierSettingsRaw,true):[];if(!is_array($tierSettings))$tierSettings=[];
     $customerPoints = max(0, (int)($customerRecord['points'] ?? 0));
-    $tierRate = $customerPoints >= 4000 ? 8 : ($customerPoints >= 1500 ? 5 : ($customerPoints >= 500 ? 3 : 0));
+    $tierRate = loyalty_discount_rate($customerPoints,$tierSettings);
     $expectedTierDiscount = (int)round($subtotal * $tierRate / 100);
     $expectedCodeDiscount = 0;
     if ($discountCode !== '') {
@@ -1622,7 +1751,7 @@ if (preg_match('#^/orders/(\d+)$#', $path, $editMatch) && $method === 'PATCH') {
         $startsAt = trim((string)($discountRecord['startsAt'] ?? ''));
         $endsAt = trim((string)($discountRecord['endsAt'] ?? ''));
         $audience = (string)($discountRecord['audience'] ?? 'all');
-        $tier = $customerPoints >= 4000 ? 'platinum' : ($customerPoints >= 1500 ? 'gold' : ($customerPoints >= 500 ? 'silver' : 'bronze'));
+        $tier = loyalty_tier($customerPoints,$tierSettings);
         if (!in_array($discountType, ['percent','fixed'], true) || !is_finite($discountValue) || $discountValue <= 0 || ($discountType === 'percent' && $discountValue > 100)) {
             json_response(['ok' => false, 'error' => 'invalid_discount_config', 'message' => 'تعریف کد تخفیف معتبر نیست'], 409);
         }
@@ -1988,6 +2117,84 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
         error_log('[3Food POS] Order status update failed: ' . $e->getMessage());
         json_response(['ok' => false, 'error' => 'order_status_update_failed', 'message' => 'تغییر وضعیت سفارش انجام نشد'], 500);
     }
+}
+
+
+if ($method === 'GET' && $path === '/reports/summary') {
+    $actor = require_role($pdo, ['manager']);
+    $from = (string)($_GET['from'] ?? date('Y-m-01'));
+    $to = (string)($_GET['to'] ?? date('Y-m-d'));
+    if (!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/D', $from) || !preg_match('/^\\d{4}-\\d{2}-\\d{2}$/D', $to)) {
+        json_response(['ok'=>false,'error'=>'invalid_report_range','message'=>'بازه تاریخ گزارش معتبر نیست'],422);
+    }
+    $fromDate = DateTimeImmutable::createFromFormat('!Y-m-d', $from);
+    $toDate = DateTimeImmutable::createFromFormat('!Y-m-d', $to);
+    if (!$fromDate || !$toDate || $toDate < $fromDate || $toDate->diff($fromDate)->days > 366) {
+        json_response(['ok'=>false,'error'=>'invalid_report_range','message'=>'بازه گزارش حداکثر ۳۶۶ روز و باید معتبر باشد'],422);
+    }
+    $ordersStmt = $pdo->prepare("SELECT id, order_number, status, payment_method, items, totals, created_at FROM pos_orders WHERE created_at >= ? AND created_at < DATE_ADD(?, INTERVAL 1 DAY) ORDER BY created_at ASC");
+    $tehran = new DateTimeZone('Asia/Tehran'); $utc = new DateTimeZone('UTC');
+    $fromUtc = (new DateTimeImmutable($from . ' 00:00:00', $tehran))->setTimezone($utc)->format('Y-m-d H:i:s');
+    $toUtc = (new DateTimeImmutable($to . ' 00:00:00', $tehran))->modify('+1 day')->setTimezone($utc)->format('Y-m-d H:i:s');
+    $ordersStmt = $pdo->prepare('SELECT id, order_number, status, payment_method, items, totals, created_at FROM pos_orders WHERE created_at >= ? AND created_at < ? ORDER BY created_at ASC');
+    $ordersStmt->execute([$fromUtc, $toUtc]);
+    $orders = $ordersStmt->fetchAll();
+    $products = []; $categoryNames=[]; $byCategory=[];
+    foreach ($pdo->query("SELECT id,payload FROM pos_records WHERE resource='categories'")->fetchAll() as $row) { $category=json_decode((string)$row['payload'],true); if(is_array($category))$categoryNames[(string)$row['id']]=(string)($category['name']??'بدون دسته'); }
+    foreach ($pdo->query("SELECT id,payload FROM pos_records WHERE resource='products'")->fetchAll() as $row) {
+        $p = json_decode((string)$row['payload'], true);
+        if (is_array($p)) $products[(string)$row['id']] = $p;
+    }
+    $sales=0; $count=0; $cancelled=0; $cost=0; $taxCollected=0; $discountsTotal=0; $daily=[]; $byPayment=['cash'=>0,'card'=>0,'online'=>0]; $byProduct=[];
+    foreach ($orders as $order) {
+        if ($order['status'] === 'cancelled') { $cancelled++; continue; }
+        $totals=json_decode((string)$order['totals'],true) ?: [];
+        $total=(int)($totals['total']??0); $tax=(int)($totals['tax']??0); $discount=(int)($totals['tierDiscount']??0)+(int)($totals['codeDiscount']??0)+(int)($totals['pointsDiscount']??0); $revenue=max(0,(int)($totals['subtotal']??$total)-$discount); $sales+=$revenue; $taxCollected+=$tax; $discountsTotal+=$discount; $count++;
+        $payment=(string)($order['payment_method']??'cash'); if(isset($byPayment[$payment])) $byPayment[$payment]+=$total;
+        $day=(new DateTimeImmutable((string)$order['created_at'],new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Asia/Tehran'))->format('Y-m-d'); $daily[$day]=($daily[$day]??0)+$revenue;
+        $items=json_decode((string)$order['items'],true) ?: [];
+        foreach($items as $line){
+            if(!is_array($line)) continue;
+            $productId=(string)($line['productId']??''); $qty=max(0,(int)($line['qty']??0));
+            $name=(string)($line['name']??'محصول'); $unit=(int)($line['unitPrice']??0);
+            $byProduct[$name]??=['quantity'=>0,'revenue'=>0]; $byProduct[$name]['quantity']+=$qty; $byProduct[$name]['revenue']+=$unit*$qty;
+            $categoryId=(string)($products[$productId]['categoryId']??'');$categoryName=$categoryNames[$categoryId]??'بدون دسته';$byCategory[$categoryName]??=['quantity'=>0,'revenue'=>0];$byCategory[$categoryName]['quantity']+=$qty;$byCategory[$categoryName]['revenue']+=$unit*$qty;
+            $cost += max(0,(int)($line['unitCost']??($products[$productId]['cost']??0)))*$qty;
+        }
+    }
+    $expenseStmt=$pdo->prepare("SELECT payload FROM pos_records WHERE resource='expenses'");
+    $expenseStmt->execute(); $expenses=[]; $expenseTotal=0; $expenseGroups=[];
+    foreach($expenseStmt->fetchAll(PDO::FETCH_COLUMN) as $raw){
+        $e=json_decode((string)$raw,true); if(!is_array($e)) continue;
+        $date=(string)($e['date']??''); if($date<$from||$date>$to) continue;
+        $amount=max(0,(int)($e['amount']??0));
+        $category=(string)($e['category']??'سایر هزینه‌ها');
+        // Raw-material purchases increase inventory; consumed ingredient cost is counted in COGS above.
+        if ($category !== 'مواد اولیه') $expenseTotal += $amount;
+        $expenseGroups[$category]=($expenseGroups[$category]??0)+$amount;
+        $expenses[]=['id'=>(string)($e['id']??''),'title'=>(string)($e['title']??''),'amount'=>$amount,'category'=>$category,'date'=>$date];
+    }
+    ksort($daily); ksort($expenseGroups); uasort($byProduct,static fn($a,$b)=>$b['quantity']<=>$a['quantity']); uasort($byCategory,static fn($a,$b)=>$b['revenue']<=>$a['revenue']);
+    $monthly=[];
+    foreach($daily as $day=>$value){$month=substr((string)$day,0,7);$monthly[$month]=($monthly[$month]??0)+$value;}
+    ksort($monthly);
+    $inventoryPurchases=0;
+    foreach($pdo->query("SELECT payload FROM pos_records WHERE resource='supplier_purchases'")->fetchAll(PDO::FETCH_COLUMN) as $rawPurchase){$purchase=json_decode((string)$rawPurchase,true);$purchaseDate=(string)($purchase['date']??'');if(is_array($purchase)&&$purchaseDate>=$from&&$purchaseDate<=$to&&($purchase['kind']??'')==='purchase'&&!empty($purchase['ingredientId']))$inventoryPurchases+=(int)($purchase['amount']??0);}
+    $inventoryPurchases+=array_sum(array_map(static fn($e)=>($e['category']??'')==='مواد اولیه'?(int)($e['amount']??0):0,$expenses));
+    $lowStock=[]; $inventoryValue=0;
+    foreach($pdo->query("SELECT payload FROM pos_records WHERE resource='ingredients'")->fetchAll(PDO::FETCH_COLUMN) as $raw){
+        $ingredient=json_decode((string)$raw,true);if(!is_array($ingredient))continue;
+        $stock=(float)($ingredient['stock']??0);$min=(float)($ingredient['minStock']??0);$unitCost=(float)($ingredient['costPerUnit']??0);
+        $inventoryValue+=max(0,$stock)*max(0,$unitCost);
+        if($stock<=$min)$lowStock[]=['name'=>(string)($ingredient['name']??''),'stock'=>$stock,'minStock'=>$min,'unit'=>(string)($ingredient['unit']??'')];
+    }
+    $customerRows=[];
+    foreach($pdo->query("SELECT payload FROM pos_records WHERE resource='customers'")->fetchAll(PDO::FETCH_COLUMN) as $raw){
+        $customer=json_decode((string)$raw,true);if(!is_array($customer))continue;
+        $customerRows[]=['name'=>(string)($customer['name']??''),'phone'=>(string)($customer['phone']??''),'totalSpent'=>(int)($customer['totalSpent']??0),'visits'=>(int)($customer['visits']??0),'points'=>(int)($customer['points']??0)];
+    }
+    usort($customerRows,static fn($a,$b)=>$b['totalSpent']<=>$a['totalSpent']);
+    json_response(['ok'=>true,'range'=>['from'=>$from,'to'=>$to],'sales'=>$sales,'orders'=>$count,'cancelled'=>$cancelled,'average_order'=>$count?intdiv($sales,$count):0,'tax_collected'=>$taxCollected,'discounts'=>$discountsTotal,'cost_of_goods'=>$cost,'expenses'=>$expenseTotal,'inventory_purchases'=>$inventoryPurchases,'gross_profit'=>$sales-$cost,'net_profit'=>$sales-$cost-$expenseTotal,'daily'=>array_map(static fn($d,$v)=>['date'=>$d,'sales'=>$v],array_keys($daily),array_values($daily)),'monthly'=>array_map(static fn($m,$v)=>['month'=>$m,'sales'=>$v],array_keys($monthly),array_values($monthly)),'payments'=>$byPayment,'products'=>array_slice(array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),0,100),'product_categories'=>array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byCategory),array_values($byCategory)),'expense_categories'=>$expenseGroups,'expense_items'=>$expenses,'inventory'=>['value'=>round($inventoryValue),'low_stock_count'=>count($lowStock)],'low_stock'=>$lowStock,'top_customers'=>array_slice($customerRows,0,20)]);
 }
 
 if ($method === 'POST' && $path === '/sms/send') {
