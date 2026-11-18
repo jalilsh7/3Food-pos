@@ -96,6 +96,8 @@ export type Expense = {
   amount: number;
   category: string;
   date: string;
+  note?: string;
+  createdAt?: string;
 };
 
 export type SmsEvent =
@@ -132,6 +134,13 @@ export type Settings = {
   tomanPerPoint: number;
   paperWidth: 58 | 80;
   autoPrint: boolean;
+  invoiceSmsEnabledDefault?: boolean;
+  loyaltySilverPoints?: number;
+  loyaltyGoldPoints?: number;
+  loyaltyPlatinumPoints?: number;
+  loyaltySilverDiscount?: number;
+  loyaltyGoldDiscount?: number;
+  loyaltyPlatinumDiscount?: number;
   printCustomer: boolean;
   printKitchen: boolean;
   headerNote: string;
@@ -170,10 +179,13 @@ export const TIER_OFF: Record<Tier, number> = {
   platinum: 8,
 };
 
-export function tierOf(points: number): Tier {
-  if (points >= 4000) return "platinum";
-  if (points >= 1500) return "gold";
-  if (points >= 500) return "silver";
+export function tierOf(points: number, settings?: Partial<Settings>): Tier {
+  const silver = Math.max(1, settings?.loyaltySilverPoints ?? 500);
+  const gold = Math.max(silver + 1, settings?.loyaltyGoldPoints ?? 1500);
+  const platinum = Math.max(gold + 1, settings?.loyaltyPlatinumPoints ?? 4000);
+  if (points >= platinum) return "platinum";
+  if (points >= gold) return "gold";
+  if (points >= silver) return "silver";
   return "bronze";
 }
 
@@ -212,10 +224,11 @@ export function quoteOrder(input: {
   tomanPerPoint: number;
   usesSoFar?: number;
   now?: Date;
+  settings?: Partial<Settings>;
 }): Quote {
   const subtotal = input.lines.reduce((s, l) => s + l.unitPrice * l.qty, 0);
-  const tier = input.customer ? tierOf(input.customer.points) : null;
-  const tierRate = tier ? TIER_OFF[tier] : 0;
+  const tier = input.customer ? tierOf(input.customer.points, input.settings) : null;
+  const tierRate = tier === "silver" ? input.settings?.loyaltySilverDiscount ?? TIER_OFF.silver : tier === "gold" ? input.settings?.loyaltyGoldDiscount ?? TIER_OFF.gold : tier === "platinum" ? input.settings?.loyaltyPlatinumDiscount ?? TIER_OFF.platinum : 0;
   const tierDiscount = Math.round((subtotal * tierRate) / 100);
   const afterTier = subtotal - tierDiscount;
   let codeDiscount = 0;
