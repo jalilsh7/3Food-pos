@@ -180,9 +180,12 @@ export const TIER_OFF: Record<Tier, number> = {
 };
 
 export function tierOf(points: number, settings?: Partial<Settings>): Tier {
-  if (points >= (settings?.loyaltyPlatinumPoints ?? 4000)) return "platinum";
-  if (points >= (settings?.loyaltyGoldPoints ?? 1500)) return "gold";
-  if (points >= (settings?.loyaltySilverPoints ?? 500)) return "silver";
+  const silver = Math.max(1, settings?.loyaltySilverPoints ?? 500);
+  const gold = Math.max(silver + 1, settings?.loyaltyGoldPoints ?? 1500);
+  const platinum = Math.max(gold + 1, settings?.loyaltyPlatinumPoints ?? 4000);
+  if (points >= platinum) return "platinum";
+  if (points >= gold) return "gold";
+  if (points >= silver) return "silver";
   return "bronze";
 }
 
