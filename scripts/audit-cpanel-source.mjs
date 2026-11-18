@@ -59,6 +59,9 @@ function visit(path) {
   for (const specifier of importsOf(source)) {
     const target = resolveImport(path, specifier);
     if (target) visit(target);
+    else if (specifier.startsWith(".") || specifier.startsWith("@/")) {
+      failures.push(relative + ": unresolved local import " + specifier);
+    }
   }
 }
 
