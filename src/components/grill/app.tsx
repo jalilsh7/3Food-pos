@@ -407,6 +407,7 @@ function PosScreen() {
   const [code, setCode] = useState("");
   const [points, setPoints] = useState(0);
   const [pay, setPay] = useState<Order["payment"]>("cash");
+  const [sendInvoiceSms, setSendInvoiceSms] = useState(settings.invoiceSmsEnabledDefault ?? false);
   const [msg, setMsg] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const pendingIdempotencyKey = useRef<string | null>(null);
@@ -505,6 +506,10 @@ function PosScreen() {
       const fresh = usePos.getState().customers.find((c) => c.id === res.order.customerId);
       const vars = orderVars(res.order, String(fresh?.points ?? 0));
       void pushSms("order_created", res.order.customerPhone, vars);
+      if (sendInvoiceSms && res.order.customerPhone) {
+        const invoice = [`${settings.shopName} - فاکتور سفارش ${res.order.number}`, ...res.order.lines.map(line => `${line.name} × ${line.qty}: ${money(line.unitPrice * line.qty)}`), `جمع: ${money(res.order.subtotal)}`, `مبلغ نهایی: ${money(res.order.total)}`, `تاریخ: ${new Date(res.order.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})}`].join("\\n").slice(0, 950);
+        void postSms(res.order.customerPhone, invoice, "order_invoice", "");
+      }
       if (res.order.pointsEarned) void pushSms("points_earned", res.order.customerPhone, vars);
       if (res.order.discountCode) void pushSms("discount_used", res.order.customerPhone, vars);
       if (settings.autoPrint) setTimeout(() => window.print(), 300);
@@ -575,7 +580,7 @@ function PosScreen() {
               <button key={p} onClick={() => setPay(p)} className={`flex-1 rounded-xl py-3 text-sm ${pay === p ? "bg-ink text-bg" : "border border-line"}`}>{p === "cash" ? "نقد" : p === "card" ? "کارت" : "آنلاین"}</button>
             ))}
           </div>
-          <p className="flex justify-between text-sm"><span>جمع</span><span>{money(q.subtotal)}</span></p>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sendInvoiceSms} onChange={e=>setSendInvoiceSms(e.target.checked)}/>ارسال پیامک ریز فاکتور برای مشتری</label>\n          <p className="flex justify-between text-sm"><span>جمع</span><span>{money(q.subtotal)}</span></p>
           {q.tierDiscount ? <p className="flex justify-between text-sm"><span>سطح عضویت</span><span>{money(q.tierDiscount)}</span></p> : null}
           {q.codeDiscount ? <p className="flex justify-between text-sm"><span>کد</span><span>{money(q.codeDiscount)}</span></p> : null}
           <p className="flex justify-between text-base font-bold"><span>قابل پرداخت</span><span>{money(q.total)}</span></p>
@@ -1558,7 +1563,7 @@ function SettingsScreen() {
         <Field label="پایین فیش"><input className={inputCls} value={settings.footerNote} onChange={(e) => patchSettings({ footerNote: e.target.value })} onBlur={persistSettings} /></Field>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.autoPrint} onChange={(e) => { const value = e.target.checked; patchSettings({ autoPrint: value }); const current = usePos.getState().settings; void saveCentralRecord("settings", { id: "main", ...current, autoPrint: value, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} />چاپ خودکار</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.printCustomer} onChange={(e) => { const value = e.target.checked; patchSettings({ printCustomer: value }); const current = usePos.getState().settings; void saveCentralRecord("settings", { id: "main", ...current, printCustomer: value, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} />فیش مشتری</label>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.printKitchen} onChange={(e) => { const value = e.target.checked; patchSettings({ printKitchen: value }); const current = usePos.getState().settings; void saveCentralRecord("settings", { id: "main", ...current, printKitchen: value, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} />فیش آشپزخانه</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.printKitchen} onChange={(e) => { const value = e.target.checked; patchSettings({ printKitchen: value }); const current = usePos.getState().settings; void saveCentralRecord("settings", { id: "main", ...current, printKitchen: value, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} />فیش آشپزخانه</label>\n        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.invoiceSmsEnabledDefault ?? false} onChange={(e) => { const value=e.target.checked; patchSettings({invoiceSmsEnabledDefault:value}); const current=usePos.getState().settings; void saveCentralRecord("settings",{id:"main",...current,invoiceSmsEnabledDefault:value,smsUser:"",smsKey:"",smsFrom:""},()=>{}); }}/>ارسال پیامک ریز فاکتور به‌صورت پیش‌فرض فعال باشد</label>
       </Card>
       <Card>
         <p className="mb-2 text-sm text-muted">نسخه پشتیبان از داده‌های مرکزی MySQL ساخته می‌شود و شامل تاریخچه سفارش‌ها و دفترهای تراکنشی است؛ کلید پیامک داخل فایل قرار نمی‌گیرد.</p>
