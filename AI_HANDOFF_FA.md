@@ -41,6 +41,7 @@ PR پاک‌سازی: https://github.com/jalilsh7/3Food-pos/pull/1
 - کدهای متروک Better Auth، OAuth broker/Grok، PGLite/PostgreSQL، TanStack Start server functions و App Builder connector از سورس حذف شده‌اند؛ این مسیرها متعلق به معماری قدیمی بودند و از entrypoint فعال React/PHP استفاده نمی‌شدند.
 - migration قدیمی Better Auth و تست‌های مرتبط با app-data/auth حذف شده‌اند؛ قرارداد احراز هویت فعلی PHP session و MySQL است.
 - وابستگی‌های مستقیم `@electric-sql/pglite`, `@tanstack/react-start`, `better-auth`, `jose`, `kysely`, `nitro`, `pg` و `@types/pg` از manifest حذف شده‌اند.
+- اعتبارنامه‌ی preview OAuth که در نسخه‌های قدیمی Git وجود داشته، با حذف فایل از HEAD از تاریخچه commitها پاک نمی‌شود؛ اگر در سرویس خارجی هنوز فعال است باید در همان سرویس revoke/rotate شود. تاریخچه Git در این پاک‌سازی بازنویسی نشده است.
 - lockfile با npm بررسی و تأیید شد؛ manifest و `package-lock.json` همگام هستند.
 - تست TypeScriptهای حذف‌شده‌ی ماژول‌های قدیمی از script تست خارج شده‌اند؛ تست‌های مستقل PHP/API و اسکریپت‌های فعال حفظ شده‌اند.
 - حذف فایل‌ها و افزونه‌های PWA/Preview وابسته به Grok و نشانگرهای مربوط به آن‌ها.
