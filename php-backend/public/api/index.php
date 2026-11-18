@@ -57,6 +57,24 @@ function loyalty_discount_rate(int $points, array $settings): int {
     return $key===null?0:max(0,min(100,(int)($settings[$key]??(['silver'=>3,'gold'=>5,'platinum'=>8][$tier]))));
 }
 
+function product_unit_cost(PDO $pdo, array $product): int {
+    $configured=max(0,(int)($product['cost']??0));
+    if($configured>0)return $configured;
+    $recipe=$product['recipe']??[];
+    if(!is_array($recipe)||!$recipe)return 0;
+    $stmt=$pdo->prepare("SELECT payload FROM pos_records WHERE resource='ingredients' AND id=? LIMIT 1");
+    $total=0.0;
+    foreach($recipe as $line){
+        if(!is_array($line))continue;
+        $id=(string)($line['ingredientId']??'');$qty=max(0,(float)($line['qty']??0));
+        if($id===''||$qty<=0)continue;
+        $stmt->execute([$id]);$raw=$stmt->fetchColumn();
+        $ingredient=is_string($raw)?json_decode($raw,true):null;
+        if(is_array($ingredient))$total+=max(0,(float)($ingredient['costPerUnit']??0))*$qty;
+    }
+    return (int)round($total);
+}
+
 function request_json(): array {
     $raw = file_get_contents('php://input');
     if ($raw === false || $raw === '') return [];
@@ -1156,7 +1174,7 @@ if ($method === 'POST' && $path === '/orders') {
             'productId' => $productId,
             'qty' => (int)$line['qty'],
             'unitPrice' => $unitPrice,
-            'unitCost' => max(0,(int)($product['cost']??0)),
+            'unitCost' => product_unit_cost($pdo,$product),
             'optionIds' => $optionIds,
             'optionLabels' => $optionLabels,
             'note' => isset($line['note']) ? substr(trim((string)$line['note']), 0, 500) : '',
