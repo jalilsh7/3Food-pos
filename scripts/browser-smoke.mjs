@@ -106,6 +106,34 @@ try {
 
     const title = await page.title();
     const hasCanvas = (await page.locator("canvas").count()) > 0;
+    // Exercise the actual controlled login inputs one character at a time.
+    // This intentionally never submits the form or sends credentials to the API.
+    const usernameInput = page.locator('input[autocomplete="username"]').first();
+    const passwordInput = page
+      .locator('input[autocomplete="current-password"], input[autocomplete="new-password"]')
+      .first();
+    let loginTyping = { tested: false };
+    if ((await usernameInput.count()) > 0 && (await passwordInput.count()) > 0) {
+      const usernameSample = "smoke-user-0123456789";
+      const passwordSample = "smoke-password-0123456789";
+      await usernameInput.fill("");
+      let started = Date.now();
+      await usernameInput.pressSequentially(usernameSample, { delay: 0 });
+      const usernameMs = Date.now() - started;
+      await passwordInput.fill("");
+      started = Date.now();
+      await passwordInput.pressSequentially(passwordSample, { delay: 0 });
+      const passwordMs = Date.now() - started;
+      await usernameInput.fill("");
+      await passwordInput.fill("");
+      loginTyping = {
+        tested: true,
+        usernameMs,
+        passwordMs,
+        characters: usernameSample.length + passwordSample.length,
+        slow: usernameMs > 500 || passwordMs > 500,
+      };
+    }
     const bodyText = await page
       .locator("body")
       .innerText()
@@ -123,6 +151,7 @@ try {
       status,
       title,
       hasCanvas,
+      loginTyping,
       bodyTextLen: normalizeBodyText(bodyText).length,
       bodyTextHash: normalizedBodyTextHash(bodyText),
       bodyTextPrefix: bodyTextPrefix(bodyText),
