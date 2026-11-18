@@ -893,11 +893,17 @@ if ($method === 'GET' && $path === '/bootstrap') {
     $user = require_user($pdo);
     if ($user['role'] === 'manager') {
         $defaults = ['قبوض آب، برق و گاز','مواد اولیه','حقوق و دستمزد','اجاره','تعمیرات و نگهداری','بسته‌بندی','حمل‌ونقل','سایر هزینه‌ها'];
-        // Seed each built-in category independently so pre-existing custom categories do not suppress defaults.
-        $seed = $pdo->prepare("INSERT IGNORE INTO pos_records (id, resource, payload, updated_by) VALUES (?, 'expense_categories', ?, ?)");
-        foreach ($defaults as $index => $label) {
-            $id = 'expense_cat_' . ($index + 1);
-            $seed->execute([$id, json_encode(['id'=>$id,'name'=>$label,'active'=>true], JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES), (int)$user['id']]);
+        // Seed defaults once. A marker prevents intentionally deleted categories from reappearing on every refresh.
+        $seeded = $pdo->prepare("SELECT id FROM pos_records WHERE resource = 'system_meta' AND id = 'expense_categories_seeded' LIMIT 1");
+        $seeded->execute();
+        if ($seeded->fetchColumn() === false) {
+            $seed = $pdo->prepare("INSERT IGNORE INTO pos_records (id, resource, payload, updated_by) VALUES (?, 'expense_categories', ?, ?)");
+            foreach ($defaults as $index => $label) {
+                $id = 'expense_cat_' . ($index + 1);
+                $seed->execute([$id, json_encode(['id'=>$id,'name'=>$label,'active'=>true], JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES), (int)$user['id']]);
+            }
+            $marker = $pdo->prepare("INSERT IGNORE INTO pos_records (id, resource, payload, updated_by) VALUES ('expense_categories_seeded', 'system_meta', ?, ?)");
+            $marker->execute(['{"seeded":true}', (int)$user['id']]);
         }
     }
     $resources = $user['role'] === 'kitchen' ? ['categories','products'] : ($user['role'] === 'cashier' ? ['categories','products','customers','discounts','sms_logs'] : ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings','sms_logs']);
