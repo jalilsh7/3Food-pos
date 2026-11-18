@@ -589,7 +589,8 @@ function PosScreen() {
               <button key={p} onClick={() => setPay(p)} className={`flex-1 rounded-xl py-3 text-sm ${pay === p ? "bg-ink text-bg" : "border border-line"}`}>{p === "cash" ? "نقد" : p === "card" ? "کارت" : "آنلاین"}</button>
             ))}
           </div>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={shouldSendInvoiceSms} onChange={e=>setSendInvoiceSms(e.target.checked)}/>ارسال پیامک ریز فاکتور برای مشتری</label>\n          <p className="flex justify-between text-sm"><span>جمع</span><span>{money(q.subtotal)}</span></p>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={shouldSendInvoiceSms} onChange={e=>setSendInvoiceSms(e.target.checked)}/>ارسال پیامک ریز فاکتور برای مشتری</label>
+          <p className="flex justify-between text-sm"><span>جمع</span><span>{money(q.subtotal)}</span></p>
           {q.tierDiscount ? <p className="flex justify-between text-sm"><span>سطح عضویت</span><span>{money(q.tierDiscount)}</span></p> : null}
           {q.codeDiscount ? <p className="flex justify-between text-sm"><span>کد</span><span>{money(q.codeDiscount)}</span></p> : null}
           <p className="flex justify-between text-base font-bold"><span>قابل پرداخت</span><span>{money(q.total)}</span></p>
@@ -811,7 +812,8 @@ function OrdersScreen({ role }: { role: Role }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="font-bold">#{o.number.toLocaleString("fa-IR")} — {o.customerName}</p>
-              <p className="text-sm text-muted">{o.lines.map((l) => `${l.qty} ${l.name}`).join(" · ")} — {money(o.total)}</p>\n              <p className="text-xs text-muted">ثبت: {new Date(o.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})} · زمان سپری‌شده: {formatElapsed(clockNow-new Date(o.createdAt).getTime())}</p>
+              <p className="text-sm text-muted">{o.lines.map((l) => `${l.qty} ${l.name}`).join(" · ")} — {money(o.total)}</p>
+              <p className="text-xs text-muted">ثبت: {new Date(o.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})} · زمان سپری‌شده: {formatElapsed(clockNow-new Date(o.createdAt).getTime())}</p>
             </div>
             <span className="rounded-full bg-warn-bg px-3 py-1 text-xs text-warn">{statusFa(o.status)}</span>
           </div>
@@ -1275,7 +1277,8 @@ function ReportsScreen() {
 function SuppliersScreen(){
   type Supplier={id:string;name:string;phone:string;contact:string;notes:string;balance:number;active:boolean};
   type Purchase={id:string;supplierId:string;title:string;amount:number;date:string;paid:number;note:string;kind?:string;ingredientId?:string;quantity?:number;unitCost?:number};
-  const ingredients=usePos((s)=>s.ingredients);\n  const [suppliers,setSuppliers]=useState<Supplier[]>([]);
+  const ingredients=usePos((s)=>s.ingredients);
+  const [suppliers,setSuppliers]=useState<Supplier[]>([]);
   const [purchases,setPurchases]=useState<Purchase[]>([]);
   const [draft,setDraft]=useState({name:"",phone:"",contact:"",notes:""});
   const [purchase,setPurchase]=useState({supplierId:"",title:"",amount:0,paid:0,note:"",ingredientId:"",quantity:0,unitCost:0});
@@ -1294,7 +1297,8 @@ function SuppliersScreen(){
     if(await saveCentralRecord("suppliers",item,()=>setSuppliers(old=>[item,...old])))setDraft({name:"",phone:"",contact:"",notes:""});
   }
   async function addPurchase(e:FormEvent<HTMLFormElement>){
-    e.preventDefault();const total=purchase.ingredientId?Math.round(purchase.quantity*purchase.unitCost):purchase.amount;\n    if(!purchase.supplierId||!purchase.title.trim()||total<=0||purchase.paid<0||purchase.paid>total||(purchase.ingredientId&&(purchase.quantity<=0||purchase.unitCost<=0)))return;
+    e.preventDefault();const total=purchase.ingredientId?Math.round(purchase.quantity*purchase.unitCost):purchase.amount;
+    if(!purchase.supplierId||!purchase.title.trim()||total<=0||purchase.paid<0||purchase.paid>total||(purchase.ingredientId&&(purchase.quantity<=0||purchase.unitCost<=0)))return;
     const supplier=suppliers.find(s=>s.id===purchase.supplierId);if(!supplier)return;
     const item:Purchase={id:uid("pur"),...purchase,amount:total,title:purchase.title.trim(),date:tehranDate(),note:purchase.note.trim()};
     setBusy(true);
@@ -1660,7 +1664,8 @@ function SettingsScreen() {
         <Field label="پایین فیش"><input className={inputCls} value={settings.footerNote} onChange={(e) => patchSettings({ footerNote: e.target.value })} onBlur={persistSettings} /></Field>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.autoPrint} onChange={(e) => { const value = e.target.checked; patchSettings({ autoPrint: value }); const current = usePos.getState().settings; void saveCentralRecord("settings", { id: "main", ...current, autoPrint: value, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} />چاپ خودکار</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.printCustomer} onChange={(e) => { const value = e.target.checked; patchSettings({ printCustomer: value }); const current = usePos.getState().settings; void saveCentralRecord("settings", { id: "main", ...current, printCustomer: value, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} />فیش مشتری</label>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.printKitchen} onChange={(e) => { const value = e.target.checked; patchSettings({ printKitchen: value }); const current = usePos.getState().settings; void saveCentralRecord("settings", { id: "main", ...current, printKitchen: value, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} />فیش آشپزخانه</label>\n        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.invoiceSmsEnabledDefault ?? false} onChange={(e) => { const value=e.target.checked; patchSettings({invoiceSmsEnabledDefault:value}); const current=usePos.getState().settings; void saveCentralRecord("settings",{id:"main",...current,invoiceSmsEnabledDefault:value,smsUser:"",smsKey:"",smsFrom:""},()=>{}); }}/>ارسال پیامک ریز فاکتور به‌صورت پیش‌فرض فعال باشد</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.printKitchen} onChange={(e) => { const value = e.target.checked; patchSettings({ printKitchen: value }); const current = usePos.getState().settings; void saveCentralRecord("settings", { id: "main", ...current, printKitchen: value, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} />فیش آشپزخانه</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.invoiceSmsEnabledDefault ?? false} onChange={(e) => { const value=e.target.checked; patchSettings({invoiceSmsEnabledDefault:value}); const current=usePos.getState().settings; void saveCentralRecord("settings",{id:"main",...current,invoiceSmsEnabledDefault:value,smsUser:"",smsKey:"",smsFrom:""},()=>{}); }}/>ارسال پیامک ریز فاکتور به‌صورت پیش‌فرض فعال باشد</label>
       </Card>
       <Card>
         <p className="mb-2 text-sm text-muted">نسخه پشتیبان از داده‌های مرکزی MySQL ساخته می‌شود و شامل تاریخچه سفارش‌ها و دفترهای تراکنشی است؛ کلید پیامک داخل فایل قرار نمی‌گیرد.</p>
