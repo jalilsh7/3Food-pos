@@ -370,8 +370,9 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
 }
 
 async function sendRaw(phone: string, text: string) {
-  if (!phone || !text) return false;
-  return await postSms(phone, text, "manual", "");
+  const normalized=normalizeIranPhone(phone);
+  if (!/^09[0-9]{9}$/.test(normalized) || !text) return false;
+  return await postSms(normalized, text, "manual", "");
 }
 
 async function postSms(phone: string, text: string, event: string, bodyId: string) {
