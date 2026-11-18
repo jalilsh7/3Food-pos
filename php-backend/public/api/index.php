@@ -1332,10 +1332,8 @@ if ($method === 'POST' && $path === '/orders') {
                 json_response(['ok' => false, 'error' => 'ingredient_not_found', 'message' => 'یکی از مواد اولیه دستور محصول در انبار پیدا نشد'], 409);
             }
             $available = (float)($ingredient['stock'] ?? 0);
-            if ($available + 0.000001 < $needed) {
-                $pdo->rollBack();
-                json_response(['ok' => false, 'error' => 'insufficient_stock', 'message' => 'موجودی یکی از مواد اولیه کافی نیست: ' . (string)($ingredient['name'] ?? $ingredientId)], 409);
-            }
+            // Restaurant policy: stock depletion warns the operator but never blocks a valid sale.
+            // Negative stock is retained as an explicit backorder/shortage signal for replenishment reports.
             $ingredient['stock'] = round($available - $needed, 3);
             $ingredientUpdate->execute([
                 json_encode($ingredient, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
