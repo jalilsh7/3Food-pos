@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   ChefHat, ClipboardList, LayoutDashboard, MessageSquare, Percent,
-  Settings as SettingsIcon, ShoppingBag, Users, UtensilsCrossed, Warehouse,
+  Settings as SettingsIcon, ShoppingBag, Users, UtensilsCrossed, Warehouse, Truck,
 } from "lucide-react";
 import { Btn, Card, Empty, Field, inputCls } from "./bits";
 import { ReceiptView } from "./receipt";
 import {
-  customerCodeUses, fillTemplate, money, quoteOrder, TIER_LABEL, TIER_OFF, tierOf, uid,
+  customerCodeUses, fillTemplate, money, quoteOrder, TIER_LABEL, tierOf, uid,
   type CartLine, type DiscountCode, type Order, type Product, type Role, type SmsEvent, type PosState, type Settings, type SmsLog,
 } from "@/lib/pos/model";
 import { lowStock, usePos } from "@/lib/pos/store";
@@ -46,7 +45,7 @@ async function deleteCentralRecord(resource: string, id: string, commit: () => v
   }
 }
 
-type View = "pos" | "orders" | "menu" | "stock" | "customers" | "codes" | "reports" | "sms" | "users" | "settings";
+type View = "pos" | "orders" | "menu" | "stock" | "customers" | "codes" | "reports" | "suppliers" | "sms" | "users" | "settings";
 
 const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[] = [
   { id: "pos", label: "فروش", icon: ShoppingBag, roles: ["manager", "cashier"] },
@@ -56,6 +55,7 @@ const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[
   { id: "customers", label: "باشگاه", icon: Users, roles: ["manager", "cashier"] },
   { id: "codes", label: "کد تخفیف", icon: Percent, roles: ["manager"] },
   { id: "reports", label: "گزارش", icon: LayoutDashboard, roles: ["manager"] },
+  { id: "suppliers", label: "تأمین‌کنندگان", icon: Truck, roles: ["manager"] },
   { id: "sms", label: "پیامک", icon: MessageSquare, roles: ["manager"] },
   { id: "users", label: "کاربران", icon: Users, roles: ["manager"] },
   { id: "settings", label: "تنظیمات", icon: SettingsIcon, roles: ["manager"] },
@@ -180,9 +180,10 @@ function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; ini
         {current === "orders" ? <OrdersScreen role={role} /> : null}
         {current === "menu" ? <MenuScreen /> : null}
         {current === "stock" ? <StockScreen /> : null}
-        {current === "customers" ? <CustomersScreen /> : null}
+        {current === "customers" ? <CustomersScreen role={role} /> : null}
         {current === "codes" ? <CodesScreen /> : null}
         {current === "reports" ? <ReportsScreen /> : null}
+        {current === "suppliers" ? <SuppliersScreen /> : null}
         {current === "sms" ? <SmsScreen /> : null}
         {current === "users" ? <UsersScreen /> : null}
         {current === "settings" ? <SettingsScreen /> : null}
@@ -349,6 +350,13 @@ function ChangePasswordScreen({ user, onChanged }: { user: ApiUser; onChanged: (
   </form></AuthFrame>;
 }
 
+function normalizeIranPhone(value:string){
+  let digits=value.replace(/[۰-۹]/g,d=>String(d.charCodeAt(0)-1776)).replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-1632)).replace(/[^0-9+]/g,"");
+  if(digits.startsWith("+98"))digits="0"+digits.slice(3);
+  else if(digits.startsWith("0098"))digits="0"+digits.slice(4);
+  else if(digits.startsWith("98")&&digits.length===12)digits="0"+digits.slice(2);
+  return digits.replace(/\D/g,"");
+}
 function orderVars(order: Order, balance = "") {
   return { name: order.customerName || "مشتری", order: String(order.number), total: money(order.total), points: String(order.pointsEarned), code: order.discountCode, balance, shop: usePos.getState().settings.shopName };
 }
@@ -362,8 +370,8 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
 }
 
 async function sendRaw(phone: string, text: string) {
-  if (!phone || !text) return;
-  await postSms(phone, text, "manual", "");
+  if (!phone || !text) return false;
+  return await postSms(phone, text, "manual", "");
 }
 
 async function postSms(phone: string, text: string, event: string, bodyId: string) {
@@ -388,6 +396,7 @@ async function postSms(phone: string, text: string, event: string, bodyId: strin
     log = { ...log, detail: `${log.detail} — ذخیره گزارش در سرور ناموفق بود: ${err instanceof Error ? err.message : "خطای نامشخص"}` };
   }
   usePos.getState().logSms(log);
+  return log.ok;
 }
 
 function PosScreen() {
@@ -398,13 +407,16 @@ function PosScreen() {
   const orders = usePos((s) => s.orders);
   const settings = usePos((s) => s.settings);
   const placeOrder = usePos((s) => s.placeOrder);
-  const [cat, setCat] = useState(categories[0]?.id ?? "");
+  const [cat, setCat] = useState("");
+  const [productQuery, setProductQuery] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [phone, setPhone] = useState("");
   const [guestName, setGuestName] = useState("");
   const [code, setCode] = useState("");
   const [points, setPoints] = useState(0);
   const [pay, setPay] = useState<Order["payment"]>("cash");
+  const [sendInvoiceSms, setSendInvoiceSms] = useState<boolean | null>(null);
+  const shouldSendInvoiceSms = sendInvoiceSms ?? settings.invoiceSmsEnabledDefault ?? false;
   const [msg, setMsg] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const pendingIdempotencyKey = useRef<string | null>(null);
@@ -412,9 +424,9 @@ function PosScreen() {
   const [optFor, setOptFor] = useState<Product | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [note, setNote] = useState("");
-  const customer = customers.find((c) => c.phone === phone.trim()) ?? null;
+  const customer = customers.find((c) => normalizeIranPhone(c.phone) === normalizeIranPhone(phone)) ?? null;
   const uses = customer && code ? customerCodeUses(orders, customer.id, code) : 0;
-  const q = quoteOrder({ lines: cart, customer, code, discounts, pointsToUse: points, taxPercent: settings.taxPercent, taxEnabled: settings.taxEnabled, tomanPerPoint: settings.tomanPerPoint, usesSoFar: uses });
+  const q = quoteOrder({ lines: cart, customer, code, discounts, pointsToUse: points, taxPercent: settings.taxPercent, taxEnabled: settings.taxEnabled, tomanPerPoint: settings.tomanPerPoint, usesSoFar: uses, settings });
 
   function addProduct(p: Product, optionIds: string[], noteText: string) {
     const opts = p.options.filter((o) => optionIds.includes(o.id));
@@ -434,9 +446,34 @@ function PosScreen() {
     setSubmitting(true);
     setMsg("");
     try {
+      // Every identified buyer joins the shared customer club before the order is created.
+      // The phone is the stable lookup key; the server then updates points and purchase totals.
+      let checkoutCustomer = customer;
+      if (!checkoutCustomer) {
+        const normalizedPhone = phone.trim();
+        if (!normalizedPhone) throw new Error("برای ثبت خرید و گزارش سوابق مشتری، شماره موبایل را وارد کنید.");
+        const existing = usePos.getState().customers.find((item) => item.phone.trim() === normalizedPhone);
+        if (existing) {
+          checkoutCustomer = existing;
+        } else {
+          const createdCustomer = {
+            id: uid("cu"),
+            name: guestName.trim() || "بدون نام",
+            phone: normalizedPhone,
+            points: 0,
+            birthday: "",
+            totalSpent: 0,
+            visits: 0,
+            createdAt: new Date().toISOString(),
+          };
+          const savedCustomer = await phpApi.saveRecord("customers", createdCustomer);
+          usePos.getState().saveCustomer(savedCustomer.item ?? createdCustomer);
+          checkoutCustomer = createdCustomer;
+        }
+      }
       const idempotencyKey = pendingIdempotencyKey.current ?? crypto.randomUUID();
       pendingIdempotencyKey.current = idempotencyKey;
-      const server = await phpApi.createOrder<{ id: string; orderNumber: number }>({
+      const server = await phpApi.createOrder<{ id: string; orderNumber: number; createdAt: string }>({
         idempotencyKey,
         items: cart.map((line) => ({
           key: line.key,
@@ -456,17 +493,17 @@ function PosScreen() {
           tax: q.tax,
           total: q.total,
         },
-        customer: customer ? { id: customer.id } : undefined,
+        customer: checkoutCustomer ? { id: checkoutCustomer.id } : undefined,
         discountCode: q.discount?.code ?? '',
         note: cart.map((line) => line.note).filter(Boolean).join(" | ").slice(0, 2000),
         guestName,
-        guestPhone: phone.trim(),
+        guestPhone: normalizeIranPhone(phone),
         payment: pay,
       });
       const res = placeOrder({
-        lines: cart, customer, code, pointsToUse: points, taxEnabled: settings.taxEnabled !== false, payment: pay,
+        lines: cart, customer: checkoutCustomer, code, pointsToUse: points, taxEnabled: settings.taxEnabled !== false, payment: pay,
         guestName, guestPhone: phone.trim(),
-        serverOrder: { id: server.order.id, number: server.order.orderNumber },
+        serverOrder: { id: server.order.id, number: server.order.orderNumber, createdAt: server.order.createdAt },
       });
       if (!res.ok) {
         setMsg(`سفارش در سرور ثبت شد اما همگام‌سازی محلی انجام نشد: ${res.error}. صفحه را تازه‌سازی کنید.`);
@@ -478,6 +515,10 @@ function PosScreen() {
       const fresh = usePos.getState().customers.find((c) => c.id === res.order.customerId);
       const vars = orderVars(res.order, String(fresh?.points ?? 0));
       void pushSms("order_created", res.order.customerPhone, vars);
+      if (shouldSendInvoiceSms && res.order.customerPhone) {
+        const invoice = [`${settings.shopName} - فاکتور سفارش ${res.order.number}`, ...res.order.lines.map(line => `${line.name} × ${line.qty}: ${money(line.unitPrice * line.qty)}`), `جمع: ${money(res.order.subtotal)}`, `تخفیف: ${money(res.order.tierDiscount + res.order.codeDiscount + res.order.pointsDiscount)}`, `مالیات: ${money(res.order.tax)}`, `مبلغ نهایی: ${money(res.order.total)}`, `تاریخ: ${new Date(res.order.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})}`].join("\n").slice(0, 950);
+        void postSms(res.order.customerPhone, invoice, "order_invoice", "");
+      }
       if (res.order.pointsEarned) void pushSms("points_earned", res.order.customerPhone, vars);
       if (res.order.discountCode) void pushSms("discount_used", res.order.customerPhone, vars);
       if (settings.autoPrint) setTimeout(() => window.print(), 300);
@@ -488,14 +529,22 @@ function PosScreen() {
     }
   }
 
-  const shown = products.filter((p) => p.active && (!cat || p.categoryId === cat));
+  const shown = products.filter((p) =>
+    p.active &&
+    (!cat || p.categoryId === cat) &&
+    (!productQuery.trim() || p.name.toLocaleLowerCase("fa").includes(productQuery.trim().toLocaleLowerCase("fa")))
+  );
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
       <div>
-        <div className="mb-3 flex min-w-0 flex-wrap gap-2">
-          {categories.map((c) => (
-            <button key={c.id} onClick={() => setCat(c.id)} className={`rounded-full px-4 py-2 text-sm ${cat === c.id ? "bg-ink text-bg" : "bg-surface border border-line"}`}>{c.name}</button>
-          ))}
+        <div className="mb-3 space-y-2">
+          <input className={inputCls} value={productQuery} onChange={(e) => setProductQuery(e.target.value)} placeholder="جستجوی نام محصول..." />
+          <div className="flex min-w-0 flex-wrap gap-2">
+            <button onClick={() => setCat("")} className={`rounded-full px-4 py-2 text-sm ${cat === "" ? "bg-ink text-bg" : "bg-surface border border-line"}`}>همه دسته‌ها</button>
+            {categories.map((c) => (
+              <button key={c.id} onClick={() => setCat(c.id)} className={`rounded-full px-4 py-2 text-sm ${cat === c.id ? "bg-ink text-bg" : "bg-surface border border-line"}`}>{c.name}</button>
+            ))}
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {shown.map((p) => (
@@ -527,7 +576,7 @@ function PosScreen() {
         <div className="mt-3 space-y-2">
           <Field label="موبایل مشتری"><input className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0912..." /></Field>
           {customer ? (
-            <p className="rounded-xl bg-leaf-ink px-3 py-2 text-sm text-leaf">{customer.name} — {TIER_LABEL[tierOf(customer.points)]} ({customer.points.toLocaleString("fa-IR")} امتیاز، تخفیف {TIER_OFF[tierOf(customer.points)].toLocaleString("fa-IR")}٪)</p>
+            <p className="rounded-xl bg-leaf-ink px-3 py-2 text-sm text-leaf">{customer.name} — {TIER_LABEL[tierOf(customer.points,settings)]} ({customer.points.toLocaleString("fa-IR")} امتیاز، تخفیف {(tierOf(customer.points,settings)==="silver"?settings.loyaltySilverDiscount??3:tierOf(customer.points,settings)==="gold"?settings.loyaltyGoldDiscount??5:tierOf(customer.points,settings)==="platinum"?settings.loyaltyPlatinumDiscount??8:0).toLocaleString("fa-IR")}٪)</p>
           ) : (
             <Field label="نام (اگر عضو نیست)"><input className={inputCls} value={guestName} onChange={(e) => setGuestName(e.target.value)} /></Field>
           )}
@@ -540,6 +589,7 @@ function PosScreen() {
               <button key={p} onClick={() => setPay(p)} className={`flex-1 rounded-xl py-3 text-sm ${pay === p ? "bg-ink text-bg" : "border border-line"}`}>{p === "cash" ? "نقد" : p === "card" ? "کارت" : "آنلاین"}</button>
             ))}
           </div>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={shouldSendInvoiceSms} onChange={e=>setSendInvoiceSms(e.target.checked)}/>ارسال پیامک ریز فاکتور برای مشتری</label>
           <p className="flex justify-between text-sm"><span>جمع</span><span>{money(q.subtotal)}</span></p>
           {q.tierDiscount ? <p className="flex justify-between text-sm"><span>سطح عضویت</span><span>{money(q.tierDiscount)}</span></p> : null}
           {q.codeDiscount ? <p className="flex justify-between text-sm"><span>کد</span><span>{money(q.codeDiscount)}</span></p> : null}
@@ -590,6 +640,14 @@ function statusFa(s: Order["status"]) {
   return { new: "جدید", preparing: "در حال آماده‌سازی", ready: "آماده", delivered: "تحویل شد", cancelled: "لغو" }[s];
 }
 
+function tehranDate(value:Date|string|number = new Date()){
+  return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Tehran",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(value));
+}
+function formatElapsed(ms:number){
+  const total=Math.max(0,Math.floor(ms/60000));const days=Math.floor(total/1440);const hours=Math.floor((total%1440)/60);const minutes=total%60;
+  return days>0?`${days.toLocaleString("fa-IR")} روز و ${hours.toLocaleString("fa-IR")} ساعت`:hours>0?`${hours.toLocaleString("fa-IR")} ساعت و ${minutes.toLocaleString("fa-IR")} دقیقه`:`${minutes.toLocaleString("fa-IR")} دقیقه`;
+}
+
 function OrdersScreen({ role }: { role: Role }) {
   const orders = usePos((s) => s.orders);
   const settings = usePos((s) => s.settings);
@@ -598,6 +656,8 @@ function OrdersScreen({ role }: { role: Role }) {
   const discounts = usePos((s) => s.discounts);
   const setStatus = usePos((s) => s.setStatus);
   const [focus, setFocus] = useState<Order | null>(null);
+  const [clockNow, setClockNow] = useState(Date.now());
+  useEffect(() => { const timer=window.setInterval(()=>setClockNow(Date.now()),30000); return ()=>window.clearInterval(timer); }, []);
   const [editing, setEditing] = useState<Order | null>(null);
   const [editLines, setEditLines] = useState<CartLine[]>([]);
   const [editPhone, setEditPhone] = useState("");
@@ -632,6 +692,7 @@ function OrdersScreen({ role }: { role: Role }) {
     taxEnabled: settings.taxEnabled !== false,
     tomanPerPoint: settings.tomanPerPoint,
     usesSoFar: editCodeUses,
+    settings,
   });
   function beginEdit(order: Order) {
     setEditing(order);
@@ -752,6 +813,7 @@ function OrdersScreen({ role }: { role: Role }) {
             <div>
               <p className="font-bold">#{o.number.toLocaleString("fa-IR")} — {o.customerName}</p>
               <p className="text-sm text-muted">{o.lines.map((l) => `${l.qty} ${l.name}`).join(" · ")} — {money(o.total)}</p>
+              <p className="text-xs text-muted">ثبت: {new Date(o.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})} · زمان سپری‌شده: {formatElapsed(clockNow-new Date(o.createdAt).getTime())}</p>
             </div>
             <span className="rounded-full bg-warn-bg px-3 py-1 text-xs text-warn">{statusFa(o.status)}</span>
           </div>
@@ -840,6 +902,8 @@ function MenuScreen() {
   const removeProduct = usePos((s) => s.removeProduct);
   const [name, setName] = useState("");
   const [draft, setDraft] = useState<Product | null>(null);
+  const [productCategory, setProductCategory] = useState("all");
+  const visibleProducts = products.filter((product) => productCategory === "all" || product.categoryId === productCategory);
   return (
     <div className="space-y-4">
       <Card>
@@ -853,7 +917,13 @@ function MenuScreen() {
       <div className="flex justify-between"><h2 className="font-bold">محصولات</h2>
         <Btn onClick={() => setDraft({ id: uid("p"), name: "", categoryId: categories[0]?.id ?? "", price: 0, cost: 0, options: [], recipe: [], active: true })}>محصول جدید</Btn>
       </div>
-      {products.map((p) => (
+      <Field label="فیلتر دسته‌بندی محصولات">
+        <select className={inputCls} value={productCategory} onChange={(e) => setProductCategory(e.target.value)}>
+          <option value="all">همه دسته‌ها</option>
+          {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+        </select>
+      </Field>
+      {visibleProducts.map((p) => (
         <Card key={p.id} className="flex items-center justify-between gap-2">
           <div><p className="font-semibold">{p.name}</p><p className="text-sm text-muted">{money(p.price)} — تمام‌شده {money(p.cost)}</p></div>
           <div className="flex gap-2"><Btn tone="ghost" onClick={() => setDraft(p)}>ویرایش</Btn><Btn tone="ghost" onClick={() => void deleteCentralRecord("products", p.id, () => removeProduct(p.id))}>حذف</Btn></div>
@@ -881,7 +951,7 @@ function MenuScreen() {
               </label>
             );
           })}
-          <div className="mt-3 flex gap-2"><Btn onClick={() => { if (draft.name) void saveCentralRecord("products", draft, () => saveProduct(draft)).then((ok) => { if (ok) setDraft(null); }); }}>ذخیره</Btn><Btn tone="ghost" onClick={() => setDraft(null)}>بستن</Btn></div>
+          <div className="mt-3 flex gap-2"><Btn onClick={() => { if (draft.name) void saveCentralRecord("products", draft, () => saveProduct(draft)).then((ok) => { if (ok) setDraft(products.some((item) => item.id === draft.id) ? null : { id: uid("p"), name: "", categoryId: draft.categoryId || categories[0]?.id || "", price: 0, cost: 0, options: [], recipe: [], active: true }); }); }}>ذخیره</Btn><Btn tone="ghost" onClick={() => setDraft(null)}>بستن</Btn></div>
         </Card>
       ) : null}
     </div>
@@ -922,17 +992,46 @@ function StockScreen() {
   );
 }
 
-function CustomersScreen() {
+function CustomersScreen({ role }: { role: Role }) {
   const customers = usePos((s) => s.customers);
+  const settings = usePos((s) => s.settings);
+  const patchSettings = usePos((s) => s.patchSettings);
   const orders = usePos((s) => s.orders);
   const saveCustomer = usePos((s) => s.saveCustomer);
   const [q, setQ] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", phone: "", birthday: "" });
-  const list = customers.filter((c) => c.name.includes(q) || c.phone.includes(q));
+  const normalizedQuery=normalizeIranPhone(q);
+  const list = customers.filter((c) => c.name.includes(q) || (normalizedQuery.length>0 && normalizeIranPhone(c.phone).includes(normalizedQuery)));
+  const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId) ?? null;
+  const selectedOrders = selectedCustomer
+    ? orders.filter((order) => order.customerId === selectedCustomer.id || normalizeIranPhone(order.customerPhone) === normalizeIranPhone(selectedCustomer.phone))
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    : [];
   return (
     <div className="space-y-3">
       <h2 className="font-bold">باشگاه مشتریان</h2>
-      <p className="text-sm text-muted">نقره از ۵۰۰ امتیاز (۳٪)، طلا از ۱۵۰۰ (۵٪)، پلاتین از ۴۰۰۰ (۸٪). هر ۱۰۰٬۰۰۰ تومان یک امتیاز.</p>
+      <p className="text-sm text-muted">سطوح عضویت: نقره از {Number(settings.loyaltySilverPoints??500).toLocaleString("fa-IR")} امتیاز ({settings.loyaltySilverDiscount??3}٪)، طلا از {Number(settings.loyaltyGoldPoints??1500).toLocaleString("fa-IR")} ({settings.loyaltyGoldDiscount??5}٪)، پلاتین از {Number(settings.loyaltyPlatinumPoints??4000).toLocaleString("fa-IR")} ({settings.loyaltyPlatinumDiscount??8}٪).</p>
+      {role === "manager" ? (
+        <Card>
+          <h3 className="mb-2 font-semibold">تنظیمات امتیازدهی باشگاه</h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Field label="به‌ازای هر چند تومان خرید، یک امتیاز؟">
+              <input className={inputCls} type="number" min="1" value={settings.pointsPerToman} onChange={(e) => patchSettings({ pointsPerToman: Math.max(1, Number(e.target.value)) })} onBlur={() => {
+                const current = usePos.getState().settings;
+                void saveCentralRecord("settings", { id: "main", ...current, smsUser: "", smsKey: "", smsFrom: "" }, () => {});
+              }} />
+            </Field>
+            <Field label="ارزش هر امتیاز به تومان">
+              <input className={inputCls} type="number" min="1" value={settings.tomanPerPoint} onChange={(e) => patchSettings({ tomanPerPoint: Math.max(1, Number(e.target.value)) })} onBlur={() => {
+                const current = usePos.getState().settings;
+                void saveCentralRecord("settings", { id: "main", ...current, smsUser: "", smsKey: "", smsFrom: "" }, () => {});
+              }} />
+            </Field>
+          </div>
+          <p className="mt-2 text-xs text-muted">این نرخ‌ها برای تمام صندوق‌ها و کاربران یکسان اعمال می‌شود.</p>
+        </Card>
+      ) : null}
       <Card>
         <form className="grid gap-2 sm:grid-cols-4" onSubmit={(e) => {
           e.preventDefault();
@@ -946,16 +1045,35 @@ function CustomersScreen() {
           <Btn type="submit">عضویت</Btn>
         </form>
       </Card>
-      <input className={inputCls} placeholder="جستجو" value={q} onChange={(e) => setQ(e.target.value)} />
+      <input className={inputCls} placeholder="جستجو با شماره موبایل یا نام خانوادگی" value={q} onChange={(e) => setQ(e.target.value)} />
       {list.map((c) => (
         <Card key={c.id}>
           <div className="flex flex-wrap justify-between gap-2">
             <div><p className="font-bold">{c.name}</p><p className="text-sm text-muted">{c.phone}</p></div>
-            <p className="text-sm">{TIER_LABEL[tierOf(c.points)]} — {c.points.toLocaleString("fa-IR")} امتیاز — {money(c.totalSpent)}</p>
+            <p className="text-sm">{TIER_LABEL[tierOf(c.points,settings)]} — {c.points.toLocaleString("fa-IR")} امتیاز — {money(c.totalSpent)}</p>
           </div>
-          <p className="mt-1 text-xs text-muted">{orders.filter((o) => o.customerId === c.id).length.toLocaleString("fa-IR")} سفارش</p>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted">{orders.filter((o) => o.customerId === c.id || normalizeIranPhone(o.customerPhone) === normalizeIranPhone(c.phone)).length.toLocaleString("fa-IR")} سفارش ثبت‌شده</p>
+            <Btn tone="ghost" onClick={() => setSelectedCustomerId(selectedCustomerId === c.id ? null : c.id)}>{selectedCustomerId === c.id ? "بستن سوابق" : "گزارش خریدها"}</Btn>
+          </div>
         </Card>
       ))}
+      {selectedCustomer ? (
+        <Card>
+          <h3 className="font-bold">سوابق خرید {selectedCustomer.name}</h3>
+          <p className="mt-1 text-sm text-muted">موبایل: {selectedCustomer.phone} — مجموع خرید: {money(selectedCustomer.totalSpent)} — {selectedOrders.length.toLocaleString("fa-IR")} سفارش</p>
+          {selectedOrders.length ? (
+            <div className="mt-3 space-y-2">
+              {selectedOrders.map((order) => (
+                <div key={order.id} className="flex flex-wrap justify-between gap-2 border-t border-line pt-2 text-sm">
+                  <span>سفارش {order.number.toLocaleString("fa-IR")} — {new Date(order.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})}</span>
+                  <span className="font-semibold">{money(order.total)}{order.status === "cancelled" ? " — لغو شده" : ""}</span>
+                </div>
+              ))}
+            </div>
+          ) : <Empty text="سفارشی برای این مشتری ثبت نشده است." />}
+        </Card>
+      ) : null}
     </div>
   );
 }
@@ -1007,57 +1125,246 @@ function CodesScreen() {
   );
 }
 
+function asciiDigits(value:string){
+  return value.replace(/[۰-۹]/g,d=>String(d.charCodeAt(0)-1776)).replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-1632));
+}
+function jalaliToIso(value:string):string|null{
+  const match=asciiDigits(value).trim().match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+  if(!match)return null;
+  let jy=Number(match[1]),jm=Number(match[2]),jd=Number(match[3]);
+  if(jm<1||jm>12||jd<1||jd>31)return null;
+  jy+=1595;
+  let days=-355668+365*jy+Math.floor(jy/33)*8+Math.floor(((jy%33)+3)/4)+jd+(jm<7?(jm-1)*31:(jm-7)*30+186);
+  let gy=400*Math.floor(days/146097);days%=146097;
+  if(days>36524){gy+=100*Math.floor(--days/36524);days%=36524;if(days>=365)days++;}
+  gy+=4*Math.floor(days/1461);days%=1461;
+  if(days>365){gy+=Math.floor((days-1)/365);days=(days-1)%365;}
+  let gd=days+1;const leap=gy%4===0&&(gy%100!==0||gy%400===0);
+  const monthDays=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31];let gm=0;
+  while(gm<12&&gd>monthDays[gm]){gd-=monthDays[gm];gm++;}
+  if(gm>=12)return null;
+  const iso=`${gy}-${String(gm+1).padStart(2,"0")}-${String(gd).padStart(2,"0")}`;
+  const expected=`${jy-1595}/${String(jm).padStart(2,"0")}/${String(jd).padStart(2,"0")}`;
+  if(asciiDigits(isoToJalali(iso)).replace(/\u200e/g,"")!==expected)return null;
+  return iso;
+}
+function isoToJalali(value:string){
+  const parts=new Intl.DateTimeFormat("fa-IR-u-ca-persian",{timeZone:"Asia/Tehran",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date(value+"T12:00:00Z"));
+  const part=(type:string)=>parts.find(item=>item.type===type)?.value??"";
+  return `${part("year")}/${part("month")}/${part("day")}`;
+}
+
 function ReportsScreen() {
   const orders = usePos((s) => s.orders);
   const expenses = usePos((s) => s.expenses);
   const products = usePos((s) => s.products);
   const addExpense = usePos((s) => s.addExpense);
+  const saveExpense = usePos((s) => s.saveExpense);
+  const removeExpense = usePos((s) => s.removeExpense);
+  const [categories, setCategories] = useState<{id:string;name:string;active?:boolean}[]>([]);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState(0);
-  const [cat, setCat] = useState("مواد اولیه");
-  const done = useMemo(() => orders.filter((o) => o.status !== "cancelled"), [orders]);
-  const sales = done.reduce((s, o) => s + o.total, 0);
-  const costGuess = done.reduce((s, o) => s + o.lines.reduce((ls, l) => ls + (products.find((x) => x.id === l.productId)?.cost ?? 0) * l.qty, 0), 0);
-  const spend = expenses.reduce((s, e) => s + e.amount, 0);
-  const days = useMemo(() => {
-    const map = new Map<string, number>();
-    for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); map.set(d.toISOString().slice(0, 10), 0); }
-    for (const o of done) { const k = o.createdAt.slice(0, 10); if (map.has(k)) map.set(k, (map.get(k) ?? 0) + o.total); }
-    return [...map.entries()].map(([day, total]) => ({ day: new Date(day).toLocaleDateString("fa-IR", { weekday: "short" }), total }));
-  }, [done]);
-  const rank = new Map<string, number>();
-  for (const o of done) for (const l of o.lines) rank.set(l.name, (rank.get(l.name) ?? 0) + l.qty);
-  const top = [...rank.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const [cat, setCat] = useState("");
+  const [note, setNote] = useState("");
+  const [expenseDate,setExpenseDate]=useState(tehranDate());
+  const [expenseDateText,setExpenseDateText]=useState(()=>isoToJalali(tehranDate()));
+  const initialFrom=tehranDate(Date.now()-6*86400000);
+  const initialTo=tehranDate();
+  const [from, setFrom] = useState(initialFrom);
+  const [to, setTo] = useState(initialTo);
+  const [fromText,setFromText]=useState(()=>isoToJalali(initialFrom));
+  const [toText,setToText]=useState(()=>isoToJalali(initialTo));
+  const [newCategory, setNewCategory] = useState("");
+  const [categoryBusy, setCategoryBusy] = useState(false);
+  const [serverSummary, setServerSummary] = useState<Record<string, unknown> | null>(null);
+  const [reportError, setReportError] = useState("");
+  useEffect(() => {
+    let active = true;
+    void phpApi.listRecords<{id:string;name:string;active?:boolean}>("expense_categories")
+      .then(r => { if(active){setCategories(r.items);setCat(r.items.find(x=>x.active!==false)?.name??"");} })
+      .catch(() => { if(active) setCategories([]); });
+    return () => { active=false; };
+  }, []);
+  const done = useMemo(() => orders.filter((o) => o.status !== "cancelled" && tehranDate(o.createdAt) >= from && tehranDate(o.createdAt) <= to), [orders,from,to]);
+  useEffect(() => { let active=true; setReportError(""); void phpApi.getReportSummary(from,to).then(r=>{if(active)setServerSummary(r);}).catch(e=>{if(active){setServerSummary(null);setReportError(e instanceof Error?e.message:"گزارش سرور دریافت نشد");}}); return ()=>{active=false;}; },[from,to]);
+  const visibleExpenses = expenses.filter(e => e.date >= from && e.date <= to);
+  const sales = done.reduce((sum, o) => sum + o.total, 0);
+  const costGuess = done.reduce((sum, o) => sum + o.lines.reduce((lineSum, line) => lineSum + (products.find((x) => x.id === line.productId)?.cost ?? 0) * line.qty, 0), 0);
+  const spend = visibleExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const reportSales = typeof serverSummary?.sales === "number" ? serverSummary.sales : sales;
+  const reportCost = typeof serverSummary?.cost_of_goods === "number" ? serverSummary.cost_of_goods : costGuess;
+  const reportExpenses = typeof serverSummary?.expenses === "number" ? serverSummary.expenses : spend;
+  const reportNet = typeof serverSummary?.net_profit === "number" ? serverSummary.net_profit : sales-costGuess-spend;
+  const reportTax = typeof serverSummary?.tax_collected === "number" ? serverSummary.tax_collected : 0;
+  const reportDiscounts = typeof serverSummary?.discounts === "number" ? serverSummary.discounts : 0;
+  const reportOrders = typeof serverSummary?.orders === "number" ? serverSummary.orders : done.length;
+  const reportCancelled = typeof serverSummary?.cancelled === "number" ? serverSummary.cancelled : 0;
+  const inventoryPurchases = typeof serverSummary?.inventory_purchases === "number" ? serverSummary.inventory_purchases : 0;
+  const daily = new Map<string,number>();
+  for(const o of done) daily.set(tehranDate(o.createdAt),(daily.get(tehranDate(o.createdAt))??0)+o.total);
+  const dailyRows=[...daily.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+  const productRows=new Map<string,{qty:number;revenue:number}>();
+  for(const o of done) for(const l of o.lines){const p=productRows.get(l.name)??{qty:0,revenue:0};p.qty+=l.qty;p.revenue+=l.unitPrice*l.qty;productRows.set(l.name,p);}
+  const top=[...productRows.entries()].sort((a,b)=>b[1].qty-a[1].qty).slice(0,10);
+  const payments=["cash","card","online"].map(method=>({method,label:method==="cash"?"نقدی":method==="card"?"کارت‌خوان":"آنلاین",amount:done.filter(o=>o.payment===method).reduce((sum,o)=>sum+o.total,0)}));
+  const expenseByCategory=[...visibleExpenses.reduce((map,e)=>map.set(e.category,(map.get(e.category)??0)+e.amount),new Map<string,number>()).entries()];
+  const monthlyRows = Array.isArray(serverSummary?.monthly) ? serverSummary.monthly as {month:string;sales:number}[] : [];
+  const productCategoryRows = Array.isArray(serverSummary?.product_categories) ? serverSummary.product_categories as {name:string;quantity:number;revenue:number}[] : [];
+  const lowStockRows = Array.isArray(serverSummary?.low_stock) ? serverSummary.low_stock as {name:string;stock:number;minStock:number;unit:string}[] : [];
+  const topCustomerRows = Array.isArray(serverSummary?.top_customers) ? serverSummary.top_customers as {name:string;phone:string;totalSpent:number;visits:number;points:number}[] : [];
+  function downloadCsv(){
+    const rows=[["نوع","عنوان","تعداد","مبلغ"],["فروش","جمع فروش","",String(reportSales)],...top.map(([name,v])=>["محصول",name,String(v.qty),String(v.revenue)]),...payments.map(p=>["پرداخت",p.label,"",String(p.amount)]),...expenseByCategory.map(([name,value])=>["هزینه",name,"",String(value)])];
+    const csv="\uFEFF"+rows.map(row=>row.map(cell=>'"'+String(cell).replaceAll('"','""')+'"').join(",")).join("\r\n");
+    const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+    const a=document.createElement("a");a.href=url;a.download="3food-pos-report.csv";a.click();URL.revokeObjectURL(url);
+  }
+  async function createCategory(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();const name=newCategory.trim();if(!name||categoryBusy)return;setCategoryBusy(true);
+    const item={id:uid("expense_cat"),name,active:true};
+    const ok=await saveCentralRecord("expense_categories",item,()=>setCategories(old=>[...old,item]));
+    if(ok){setNewCategory("");setCat(name);}setCategoryBusy(false);
+  }
+  async function editCategory(category:{id:string;name:string;active?:boolean}){
+    const name=window.prompt("ویرایش نام دسته هزینه",category.name);if(name===null||!name.trim())return;
+    const updated={...category,name:name.trim()};
+    await saveCentralRecord("expense_categories",updated,()=>setCategories(old=>old.map(c=>c.id===category.id?updated:c)));
+  }
+  async function deleteCategory(category:{id:string;name:string;active?:boolean}){
+    if(expenses.some(e=>e.category===category.name)){window.alert("این دسته در سوابق هزینه استفاده شده است؛ ابتدا هزینه‌های مرتبط را به دسته دیگری منتقل کنید.");return;}
+    if(!window.confirm("دسته «"+category.name+"» حذف شود؟"))return;
+    await deleteCentralRecord("expense_categories",category.id,()=>setCategories(old=>old.filter(c=>c.id!==category.id)));
+  }
+  async function editExpense(expense:typeof expenses[number]){
+    const title=window.prompt("شرح هزینه",expense.title);if(title===null||!title.trim())return;
+    const raw=window.prompt("مبلغ هزینه (تومان)",String(expense.amount));if(raw===null)return;
+    const amount=Number(raw);if(!Number.isFinite(amount)||amount<=0){window.alert("مبلغ معتبر نیست.");return;}
+    const updated={...expense,title:title.trim(),amount};
+    await saveCentralRecord("expenses",updated,()=>saveExpense(updated));
+  }
+  async function deleteExpense(expense:typeof expenses[number]){
+    if(!window.confirm("هزینه «"+expense.title+"» حذف شود؟"))return;
+    await deleteCentralRecord("expenses",expense.id,()=>removeExpense(expense.id));
+  }
+  async function addCost(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();if(!title.trim()||amount<=0||!cat)return;
+    const item={id:uid("ex"),title:title.trim(),amount,category:cat,date:expenseDate,note:note.trim(),createdAt:new Date().toISOString()};
+    const ok=await saveCentralRecord("expenses",item,()=>addExpense(item));
+    if(ok){setTitle("");setAmount(0);setNote("");setExpenseDate(tehranDate());setExpenseDateText(isoToJalali(tehranDate()));}
+  }
   return (
     <div className="space-y-4">
-      <h2 className="font-bold">گزارش فروش و هزینه</h2>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card><p className="text-sm text-muted">فروش</p><p className="text-xl font-bold">{money(sales)}</p></Card>
-        <Card><p className="text-sm text-muted">بهای تمام‌شده</p><p className="text-xl font-bold">{money(costGuess)}</p></Card>
-        <Card><p className="text-sm text-muted">سود پس از هزینه</p><p className="text-xl font-bold">{money(sales - costGuess - spend)}</p></Card>
+      <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold">مرکز گزارش‌گیری و هزینه‌ها</h2><div className="flex gap-2"><Btn tone="ghost" onClick={downloadCsv}>خروجی Excel (CSV)</Btn><Btn onClick={()=>window.print()}>چاپ / ذخیره PDF</Btn></div></div>
+      <Card className="grid gap-2 sm:grid-cols-2"><Field label="از تاریخ شمسی"><input className={inputCls} inputMode="numeric" placeholder="۱۴۰۵/۰۱/۰۱" value={fromText} onChange={e=>{setFromText(e.target.value);const parsed=jalaliToIso(e.target.value);if(parsed)setFrom(parsed);}} onBlur={()=>{if(!jalaliToIso(fromText))setFromText(isoToJalali(from));}}/></Field><Field label="تا تاریخ شمسی"><input className={inputCls} inputMode="numeric" placeholder="۱۴۰۵/۰۱/۰۷" value={toText} onChange={e=>{setToText(e.target.value);const parsed=jalaliToIso(e.target.value);if(parsed)setTo(parsed);}} onBlur={()=>{if(!jalaliToIso(toText))setToText(isoToJalali(to));}}/></Field></Card>
+      {reportError?<p className="text-xs text-warn">گزارش زنده سرور در دسترس نیست: {reportError}</p>:null}
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Card><p className="text-xs text-muted">فروش خالص سفارش‌ها</p><p className="text-lg font-bold">{money(reportSales)}</p></Card>
+        <Card><p className="text-xs text-muted">بهای تمام‌شده</p><p className="text-lg font-bold">{money(reportCost)}</p></Card>
+        <Card><p className="text-xs text-muted">هزینه‌های ثبت‌شده</p><p className="text-lg font-bold">{money(reportExpenses)}</p></Card>
+        <Card><p className="text-xs text-muted">سود پس از هزینه‌ها</p><p className="text-lg font-bold">{money(reportNet)}</p></Card>
       </div>
-      <Card className="h-64">
-        <p className="mb-2 text-sm text-muted">هفت روز اخیر</p>
-        <ResponsiveContainer width="100%" height="85%">
-          <BarChart data={days}><XAxis dataKey="day" /><YAxis hide /><Tooltip formatter={(v) => money(Number(v ?? 0))} /><Bar dataKey="total" fill="#c2410c" radius={6} /></BarChart>
-        </ResponsiveContainer>
-      </Card>
-      <Card>
-        <p className="mb-2 font-semibold">پرفروش‌ها</p>
-        {top.length === 0 ? <Empty text="بعد از چند فروش اینجا پر می‌شود" /> : top.map(([n, qty]) => <p key={n} className="flex justify-between text-sm"><span>{n}</span><span>{qty.toLocaleString("fa-IR")}</span></p>)}
-      </Card>
-      <Card>
-        <h3 className="mb-2 font-semibold">ثبت هزینه</h3>
-        <form className="grid gap-2 sm:grid-cols-4" onSubmit={(e) => { e.preventDefault(); if (!title || amount <= 0) return; const item = { id: uid("ex"), title, amount, category: cat, date: new Date().toISOString().slice(0, 10) }; void saveCentralRecord("expenses", item, () => addExpense(item)).then((ok) => { if (ok) { setTitle(""); setAmount(0); } }); }}>
-          <input className={inputCls} placeholder="شرح" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <input className={inputCls} type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
-          <input className={inputCls} value={cat} onChange={(e) => setCat(e.target.value)} />
-          <Btn type="submit">ثبت</Btn>
-        </form>
-        <ul className="mt-3 space-y-1 text-sm">{expenses.map((e) => <li key={e.id} className="flex justify-between"><span>{e.title}</span><span>{money(e.amount)}</span></li>)}</ul>
-      </Card>
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Card><p className="text-xs text-muted">تعداد سفارش‌های معتبر</p><p className="text-lg font-bold">{reportOrders.toLocaleString("fa-IR")}</p></Card>
+        <Card><p className="text-xs text-muted">سفارش‌های لغوشده</p><p className="text-lg font-bold">{reportCancelled.toLocaleString("fa-IR")}</p></Card>
+        <Card><p className="text-xs text-muted">تخفیف‌ها</p><p className="text-lg font-bold">{money(reportDiscounts)}</p></Card>
+        <Card><p className="text-xs text-muted">مالیات وصول‌شده</p><p className="text-lg font-bold">{money(reportTax)}</p></Card>
+      </div>
+      <Card><h3 className="mb-2 font-semibold">فروش روزانه</h3>{dailyRows.length?dailyRows.map(([day,total])=><p key={day} className="flex justify-between border-b border-line py-1 text-sm"><span>{new Date(day+"T12:00:00").toLocaleDateString("fa-IR")}</span><b>{money(total)}</b></p>):<Empty text="در این بازه سفارشی وجود ندارد"/>}</Card>
+      <Card><h3 className="mb-2 font-semibold">گزارش ماهانه</h3>{monthlyRows.length?monthlyRows.map(row=><p key={row.month} className="flex justify-between border-b border-line py-1 text-sm"><span>{row.month}</span><b>{money(row.sales)}</b></p>):<Empty text="داده ماهانه‌ای در این بازه وجود ندارد"/>}</Card>
+      <Card><h3 className="mb-2 font-semibold">وضعیت انبار</h3><p className="text-sm">ارزش تقریبی موجودی: {money(Number((serverSummary?.inventory as {value?:number}|undefined)?.value??0))}</p><p className="text-sm">مواد اولیه زیر حد هشدار: {lowStockRows.length.toLocaleString("fa-IR")}</p>{lowStockRows.map(row=><p key={row.name} className="flex justify-between text-sm"><span>{row.name}</span><span>{row.stock} / حداقل {row.minStock} {row.unit}</span></p>)}</Card>
+      <Card><h3 className="mb-2 font-semibold">مشتریان برتر بر اساس مجموع خرید</h3>{topCustomerRows.map(row=><p key={row.phone} className="flex flex-wrap justify-between gap-2 border-b border-line py-1 text-sm"><span>{row.name} · {row.phone}</span><b>{money(row.totalSpent)}</b></p>)}</Card>
+      <Card><h3 className="mb-2 font-semibold">فروش بر اساس دسته‌بندی محصول</h3>{productCategoryRows.length?productCategoryRows.map(row=><p key={row.name} className="flex justify-between border-b border-line py-1 text-sm"><span>{row.name} · {row.quantity.toLocaleString("fa-IR")} عدد</span><b>{money(row.revenue)}</b></p>):<Empty text="فروشی در دسته‌ها ثبت نشده است"/>}</Card>
+      <Card><h3 className="mb-2 font-semibold">محصولات پرفروش</h3>{top.length?top.map(([name,v])=><p key={name} className="flex justify-between border-b border-line py-1 text-sm"><span>{name} · {v.qty.toLocaleString("fa-IR")} عدد</span><b>{money(v.revenue)}</b></p>):<Empty text="فروشی ثبت نشده است"/>}</Card>
+      <Card><h3 className="mb-2 font-semibold">گزارش روش‌های پرداخت</h3>{payments.map(p=><p key={p.method} className="flex justify-between py-1 text-sm"><span>{p.label}</span><b>{money(p.amount)}</b></p>)}</Card>
+      <Card><h3 className="mb-2 font-semibold">هزینه‌ها بر اساس دسته</h3>{expenseByCategory.map(([name,value])=><p key={name} className="flex justify-between py-1 text-sm"><span>{name}</span><b>{money(value)}</b></p>)}<p className="mt-2 border-t border-line pt-2 text-xs text-muted">خرید مواد اولیه (سرمایه‌گذاری موجودی، خارج از هزینه عملیاتی سود و زیان): {money(inventoryPurchases)}</p></Card>
+      <Card><h3 className="mb-3 font-semibold">ثبت هزینه جدید</h3><p className="mb-2 text-xs text-muted">برای خرید مواد اولیه که باید موجودی انبار را افزایش دهد، از بخش تأمین‌کنندگان استفاده کن؛ ثبت هزینه به‌تنهایی موجودی را تغییر نمی‌دهد.</p><form className="grid gap-2 sm:grid-cols-2" onSubmit={e=>void addCost(e)}>
+        <Field label="شرح هزینه"><input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} required/></Field>
+        <Field label="مبلغ (تومان)"><input className={inputCls} type="number" min="1" value={amount||""} onChange={e=>setAmount(Number(e.target.value))} required/></Field>
+        <Field label="تاریخ هزینه شمسی"><input className={inputCls} inputMode="numeric" placeholder="۱۴۰۵/۰۱/۰۱" value={expenseDateText} onChange={e=>{setExpenseDateText(e.target.value);const parsed=jalaliToIso(e.target.value);if(parsed)setExpenseDate(parsed);}} onBlur={()=>{if(!jalaliToIso(expenseDateText))setExpenseDateText(isoToJalali(expenseDate));}} required/></Field>
+        <Field label="دسته‌بندی"><select className={inputCls} value={cat} onChange={e=>setCat(e.target.value)} required>{categories.filter(c=>c.active!==false).map(c=><option key={c.id} value={c.name}>{c.name}</option>)}</select></Field>
+        <Field label="توضیحات"><input className={inputCls} value={note} onChange={e=>setNote(e.target.value)}/></Field>
+        <div><Btn type="submit">ثبت هزینه</Btn></div>
+      </form></Card>
+      <Card><h3 className="mb-2 font-semibold">افزودن دسته هزینه</h3><form className="flex gap-2" onSubmit={e=>void createCategory(e)}><input className={inputCls} value={newCategory} onChange={e=>setNewCategory(e.target.value)} placeholder="نام دسته جدید" required/><Btn type="submit" disabled={categoryBusy}>افزودن</Btn></form><div className="mt-3 space-y-2">{categories.map(c=><div key={c.id} className="flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2 text-sm"><span>{c.name}</span><span className="flex gap-1"><Btn tone="ghost" onClick={()=>void editCategory(c)}>ویرایش</Btn><Btn tone="ghost" onClick={()=>void deleteCategory(c)}>حذف</Btn></span></div>)}</div></Card>
+      <Card><h3 className="mb-2 font-semibold">سوابق هزینه‌ها</h3>{visibleExpenses.map(e=><div key={e.id} className="flex flex-wrap justify-between gap-2 border-b border-line py-2 text-sm"><span>{e.title} · {e.category} · {new Date(e.date+"T12:00:00").toLocaleDateString("fa-IR")}</span><span className="flex items-center gap-2"><b>{money(e.amount)}</b><Btn tone="ghost" onClick={()=>void editExpense(e)}>ویرایش</Btn><Btn tone="ghost" onClick={()=>void deleteExpense(e)}>حذف</Btn></span></div>)}</Card>
     </div>
   );
+}
+
+function SuppliersScreen(){
+  type Supplier={id:string;name:string;phone:string;contact:string;notes:string;balance:number;active:boolean};
+  type Purchase={id:string;supplierId:string;title:string;amount:number;date:string;paid:number;note:string;kind?:string;ingredientId?:string;quantity?:number;unitCost?:number};
+  const ingredients=usePos((s)=>s.ingredients);
+  const [suppliers,setSuppliers]=useState<Supplier[]>([]);
+  const [purchases,setPurchases]=useState<Purchase[]>([]);
+  const [draft,setDraft]=useState({name:"",phone:"",contact:"",notes:""});
+  const [purchase,setPurchase]=useState({supplierId:"",title:"",amount:0,paid:0,note:"",ingredientId:"",quantity:0,unitCost:0});
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState("");
+  async function refresh(){
+    setBusy(true);setError("");
+    try{const [a,b]=await Promise.all([phpApi.listRecords<Supplier>("suppliers"),phpApi.listRecords<Purchase>("supplier_purchases")]);setSuppliers(a.items);setPurchases(b.items);}
+    catch(e){setError(e instanceof Error?e.message:"دریافت اطلاعات تأمین‌کنندگان انجام نشد");}
+    finally{setBusy(false);}
+  }
+  useEffect(()=>{void refresh();},[]);
+  async function addSupplier(e:FormEvent<HTMLFormElement>){
+    e.preventDefault();if(!draft.name.trim())return;
+    const item:Supplier={id:uid("sup"),...draft,name:draft.name.trim(),balance:0,active:true};
+    if(await saveCentralRecord("suppliers",item,()=>setSuppliers(old=>[item,...old])))setDraft({name:"",phone:"",contact:"",notes:""});
+  }
+  async function addPurchase(e:FormEvent<HTMLFormElement>){
+    e.preventDefault();const total=purchase.ingredientId?Math.round(purchase.quantity*purchase.unitCost):purchase.amount;
+    if(!purchase.supplierId||!purchase.title.trim()||total<=0||purchase.paid<0||purchase.paid>total||(purchase.ingredientId&&(purchase.quantity<=0||purchase.unitCost<=0)))return;
+    const supplier=suppliers.find(s=>s.id===purchase.supplierId);if(!supplier)return;
+    const item:Purchase={id:uid("pur"),...purchase,amount:total,title:purchase.title.trim(),date:tehranDate(),note:purchase.note.trim()};
+    setBusy(true);
+    try{
+      const result=await phpApi.createSupplierTransaction<Purchase & {kind:string},Supplier>(supplier.id,{...item,kind:"purchase"});
+      setPurchases(old=>[result.item,...old]);setSuppliers(old=>old.map(s=>s.id===supplier.id?result.supplier:s));const snapshot=await phpApi.bootstrap<ServerBootstrap>();hydratePosFromServer(snapshot.data,snapshot.next_order,"manager");setPurchase({supplierId:"",title:"",amount:0,paid:0,note:"",ingredientId:"",quantity:0,unitCost:0});
+    }catch(e){setError(e instanceof Error?e.message:"ثبت خرید انجام نشد");}
+    finally{setBusy(false);}
+  }
+  async function editSupplier(supplier:Supplier){
+    const name=window.prompt("نام تأمین‌کننده",supplier.name);if(name===null||!name.trim())return;
+    const phone=window.prompt("شماره تماس",supplier.phone);if(phone===null)return;
+    const contact=window.prompt("نام رابط",supplier.contact);if(contact===null)return;
+    const updated={...supplier,name:name.trim(),phone:phone.trim(),contact:contact.trim()};
+    await saveCentralRecord("suppliers",updated,()=>setSuppliers(old=>old.map(s=>s.id===supplier.id?updated:s)));
+  }
+  async function toggleSupplier(supplier:Supplier){
+    const updated={...supplier,active:!supplier.active};
+    await saveCentralRecord("suppliers",updated,()=>setSuppliers(old=>old.map(s=>s.id===supplier.id?updated:s)));
+  }
+  async function settle(supplier:Supplier){
+    if(busy)return;
+    const raw=window.prompt("مبلغ پرداختی برای تسویه (تومان):");if(raw===null)return;
+    const amount=Number(raw);if(!Number.isFinite(amount)||amount<=0||amount>supplier.balance){setError("مبلغ تسویه معتبر نیست.");return;}
+    const item={id:uid("pay"),supplierId:supplier.id,title:"پرداخت/تسویه",amount:0,paid:amount,date:tehranDate(),note:"تسویه حساب",kind:"payment"};
+    setBusy(true);
+    try{const result=await phpApi.createSupplierTransaction<typeof item,Supplier>(supplier.id,item);setSuppliers(old=>old.map(s=>s.id===supplier.id?result.supplier:s));setPurchases(old=>[result.item as Purchase,...old]);}
+    catch(e){setError(e instanceof Error?e.message:"ثبت تسویه انجام نشد");}
+    finally{setBusy(false);}
+  }
+  return <div className="space-y-4"><h2 className="font-bold">مدیریت تأمین‌کنندگان</h2>{error?<p className="text-sm text-warn">{error}</p>:null}
+    <Card><h3 className="mb-2 font-semibold">ثبت تأمین‌کننده</h3><form className="grid gap-2 sm:grid-cols-2" onSubmit={e=>void addSupplier(e)}>
+      <Field label="نام تأمین‌کننده"><input className={inputCls} value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})} required/></Field>
+      <Field label="شماره تماس"><input className={inputCls} value={draft.phone} onChange={e=>setDraft({...draft,phone:e.target.value})}/></Field>
+      <Field label="نام رابط"><input className={inputCls} value={draft.contact} onChange={e=>setDraft({...draft,contact:e.target.value})}/></Field>
+      <Field label="یادداشت"><input className={inputCls} value={draft.notes} onChange={e=>setDraft({...draft,notes:e.target.value})}/></Field><div><Btn type="submit">ثبت تأمین‌کننده</Btn></div>
+    </form></Card>
+    <Card><h3 className="mb-2 font-semibold">ثبت فاکتور خرید / بدهی</h3><form className="grid gap-2 sm:grid-cols-2" onSubmit={e=>void addPurchase(e)}>
+      <Field label="تأمین‌کننده"><select className={inputCls} value={purchase.supplierId} onChange={e=>setPurchase({...purchase,supplierId:e.target.value})} required><option value="">انتخاب کنید</option>{suppliers.filter(s=>s.active).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
+      <Field label="شرح خرید"><input className={inputCls} value={purchase.title} onChange={e=>setPurchase({...purchase,title:e.target.value})} required/></Field>
+      <Field label="ماده اولیه (اختیاری؛ برای ورود به انبار)"><select className={inputCls} value={purchase.ingredientId} onChange={e=>{const ingredient=ingredients.find(x=>x.id===e.target.value);setPurchase({...purchase,ingredientId:e.target.value,title:ingredient?purchase.title||ingredient.name:purchase.title,unitCost:ingredient?.costPerUnit??purchase.unitCost});}}><option value="">خرید غیرانبار / سایر</option>{ingredients.map(x=><option key={x.id} value={x.id}>{x.name} — موجودی {x.stock} {x.unit}</option>)}</select></Field>
+      {purchase.ingredientId?<><Field label="مقدار ورودی"><input className={inputCls} type="number" min="0.001" step="0.001" value={purchase.quantity||""} onChange={e=>{const quantity=Number(e.target.value);setPurchase({...purchase,quantity,amount:Math.round(quantity*purchase.unitCost)});}} required/></Field><Field label="قیمت خرید هر واحد"><input className={inputCls} type="number" min="1" value={purchase.unitCost||""} onChange={e=>{const unitCost=Number(e.target.value);setPurchase({...purchase,unitCost,amount:Math.round(purchase.quantity*unitCost)});}} required/></Field></>:null}
+      <Field label="مبلغ کل (تومان)"><input className={inputCls} type="number" min="1" value={(purchase.ingredientId?Math.round(purchase.quantity*purchase.unitCost):purchase.amount)||""} onChange={e=>setPurchase({...purchase,amount:Number(e.target.value)})} disabled={!!purchase.ingredientId} required/></Field>
+      <Field label="پرداخت‌شده"><input className={inputCls} type="number" min="0" value={purchase.paid||""} onChange={e=>setPurchase({...purchase,paid:Number(e.target.value)})}/></Field>
+      <Field label="یادداشت"><input className={inputCls} value={purchase.note} onChange={e=>setPurchase({...purchase,note:e.target.value})}/></Field><div><Btn type="submit" disabled={busy}>ثبت خرید</Btn></div>
+    </form></Card>
+    {suppliers.map(s=><Card key={s.id}><div className="flex flex-wrap items-center justify-between gap-2"><div><b>{s.name}</b><p className="text-xs text-muted">{s.phone} · رابط: {s.contact||"—"}</p></div><div className="text-left"><b>{money(s.balance)} بدهی</b><div className="flex gap-1"><Btn tone="ghost" onClick={()=>void editSupplier(s)}>ویرایش</Btn><Btn tone="ghost" onClick={()=>void toggleSupplier(s)}>{s.active?"غیرفعال‌کردن":"فعال‌کردن"}</Btn><Btn tone="ghost" onClick={()=>void settle(s)} disabled={s.balance<=0}>ثبت تسویه</Btn></div></div></div>
+      <div className="mt-2 border-t border-line pt-2 text-sm">{purchases.filter(p=>p.supplierId===s.id).map(p=><p key={p.id} className="flex justify-between"><span>{p.title} · {new Date(p.date+"T12:00:00").toLocaleDateString("fa-IR",{timeZone:"Asia/Tehran"})}{p.quantity&&p.unitCost?` · ${p.quantity} × ${money(p.unitCost)}`:""}</span><span>{money(p.amount)} / پرداخت {money(p.paid)}</span></p>)}</div></Card>)}
+    {busy?<p className="text-xs text-muted">در حال بارگذاری...</p>:null}
+  </div>;
 }
 
 function SmsScreen() {
@@ -1065,7 +1372,31 @@ function SmsScreen() {
   const logs = usePos((s) => s.smsLogs);
   const saveTemplate = usePos((s) => s.saveTemplate);
   const customers = usePos((s) => s.customers);
+  const orders = usePos((s) => s.orders);
+  const settings = usePos((s) => s.settings);
   const [manual, setManual] = useState({ to: "", text: "" });
+  const [campaignSegment,setCampaignSegment]=useState("all");
+  const [campaignText,setCampaignText]=useState("");
+  const [campaignBusy,setCampaignBusy]=useState(false);
+  const [campaignProgress,setCampaignProgress]=useState("");
+  const campaignRecipients=customers.filter(customer=>{
+    if(campaignSegment==="all")return true;
+    if(["bronze","silver","gold","platinum"].includes(campaignSegment))return tierOf(customer.points,settings)===campaignSegment;
+    if(campaignSegment==="birthday"){return !!customer.birthday&&customer.birthday.slice(5,7)===tehranDate().slice(5,7);}
+    if(campaignSegment==="inactive60"){
+      const latest=orders.filter(order=>order.customerId===customer.id||normalizeIranPhone(order.customerPhone)===normalizeIranPhone(customer.phone)).reduce((max,order)=>Math.max(max,new Date(order.createdAt).getTime()),0);
+      const baseline=latest||new Date(customer.createdAt||0).getTime();return !baseline||Date.now()-baseline>=60*86400000;
+    }
+    return false;
+  });
+  async function runCampaign(){
+    if(campaignBusy||!campaignText.trim()||!campaignRecipients.length)return;
+    if(campaignText.length>950){window.alert("متن پیامک باید حداکثر ۹۵۰ نویسه باشد.");return;}
+    if(!window.confirm(`پیامک برای ${campaignRecipients.length.toLocaleString("fa-IR")} مشتری ارسال شود؟`))return;
+    setCampaignBusy(true);let sent=0,failed=0;
+    for(const customer of campaignRecipients){const ok=await sendRaw(customer.phone,campaignText);if(ok)sent++;else failed++;setCampaignProgress(`${(sent+failed).toLocaleString("fa-IR")} از ${campaignRecipients.length.toLocaleString("fa-IR")} · موفق ${sent.toLocaleString("fa-IR")} · ناموفق ${failed.toLocaleString("fa-IR")}`);}
+    setCampaignBusy(false);setCampaignProgress(`پایان کمپین — موفق ${sent.toLocaleString("fa-IR")}، ناموفق ${failed.toLocaleString("fa-IR")}`);
+  }
   return (
     <div className="space-y-4">
       <h2 className="font-bold">ملی‌پیامک</h2>
@@ -1090,9 +1421,17 @@ function SmsScreen() {
           <textarea className={inputCls} rows={2} value={manual.text} onChange={(e) => setManual({ ...manual, text: e.target.value })} />
           <div className="flex flex-wrap gap-2">
             <Btn onClick={() => void sendRaw(manual.to, manual.text)}>ارسال به یک شماره</Btn>
-            <Btn tone="ghost" onClick={() => { for (const c of customers) void sendRaw(c.phone, manual.text); }}>ارسال به اعضای باشگاه</Btn>
+            
           </div>
         </div>
+      </Card>
+      <Card>
+        <h3 className="mb-2 font-semibold">کمپین باشگاه مشتریان</h3>
+        <p className="mb-2 text-xs text-muted">ارسال هدفمند بر اساس سطح عضویت، تولد یا مشتریان غیرفعال. ارسال‌ها به‌ترتیب انجام و نتیجه هر شماره ثبت می‌شود.</p>
+        <Field label="گروه مشتریان"><select className={inputCls} value={campaignSegment} onChange={e=>setCampaignSegment(e.target.value)}><option value="all">همه اعضا</option><option value="inactive60">بدون خرید در ۶۰ روز اخیر</option><option value="birthday">متولدین ماه جاری</option><option value="bronze">سطح برنز</option><option value="silver">سطح نقره</option><option value="gold">سطح طلا</option><option value="platinum">سطح پلاتین</option></select></Field>
+        <p className="my-2 text-sm">تعداد گیرندگان: <b>{campaignRecipients.length.toLocaleString("fa-IR")}</b></p>
+        <textarea className={inputCls} rows={3} maxLength={950} value={campaignText} onChange={e=>setCampaignText(e.target.value)} placeholder="متن پیامک کمپین..."/>
+        <div className="mt-2 flex flex-wrap items-center gap-2"><Btn onClick={()=>void runCampaign()} disabled={campaignBusy||!campaignText.trim()||campaignRecipients.length===0}>{campaignBusy?"در حال ارسال...":"ارسال کمپین"}</Btn><span className="text-xs text-muted">{campaignProgress}</span></div>
       </Card>
       <Card>
         <h3 className="mb-2 font-semibold">لاگ ارسال</h3>
@@ -1111,6 +1450,7 @@ type ServerOrder = {
   items: CartLine[];
   totals: Partial<Pick<Order, "subtotal" | "tierDiscount" | "codeDiscount" | "pointsDiscount" | "tax" | "total">>;
   created_at?: string;
+  createdAt?: string;
   customerId?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
@@ -1155,7 +1495,7 @@ function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, role: Ro
   const orders: Order[] = (data.orders ?? []).map((order) => ({
     id: String(order.id),
     number: Number(order.orderNumber),
-    createdAt: order.created_at ?? new Date().toISOString(),
+    createdAt: order.createdAt ?? order.created_at ?? new Date().toISOString(),
     status: order.status,
     lines: Array.isArray(order.items) ? order.items : [],
     subtotal: Number(order.totals?.subtotal ?? 0),
@@ -1212,7 +1552,7 @@ function AppearanceSettingsPanel(){
  <Field label="رنگ اصلی"><div className="flex items-center gap-3"><input aria-label="رنگ اصلی" type="color" value={settings.primary} onChange={e=>update({primary:e.target.value})} className="h-11 w-16 cursor-pointer rounded-lg border border-line bg-surface p-1"/><span className="text-xs text-muted">{settings.primary}</span></div></Field>
  <Field label="رنگ مکمل"><div className="flex items-center gap-3"><input aria-label="رنگ مکمل" type="color" value={settings.secondary} onChange={e=>update({secondary:e.target.value})} className="h-11 w-16 cursor-pointer rounded-lg border border-line bg-surface p-1"/><span className="text-xs text-muted">{settings.secondary}</span></div></Field>
  <Field label="حالت نمایش"><select className={inputCls} value={settings.mode} onChange={e=>update({mode:e.target.value as AppearanceSettings["mode"]})}><option value="light">روشن</option><option value="dark">تیره</option></select></Field>
- <Field label="فونت"><select className={inputCls} value={settings.fontFamily} onChange={e=>update({fontFamily:e.target.value as AppearanceSettings["fontFamily"]})}><option value="vazirmatn">وزیرمتن</option><option value="tahoma">Tahoma</option><option value="system">فونت پیش‌فرض دستگاه</option></select></Field>
+ <Field label="فونت سراسری"><div className={inputCls}>BYekan (بی‌یکان) — ثابت برای تمام کاربران</div></Field>
  <Field label={`اندازه متن: ${settings.fontSize} پیکسل`}><input className="w-full accent-chili" type="range" min="13" max="20" value={settings.fontSize} onChange={e=>update({fontSize:Number(e.target.value)})}/></Field>
  <Field label={`گردی کارت‌ها: ${settings.cardRadius} پیکسل`}><input className="w-full accent-chili" type="range" min="8" max="28" value={settings.cardRadius} onChange={e=>update({cardRadius:Number(e.target.value)})}/></Field>
  <Field label={`گردی دکمه‌ها: ${settings.buttonRadius} پیکسل`}><input className="w-full accent-chili" type="range" min="6" max="24" value={settings.buttonRadius} onChange={e=>update({buttonRadius:Number(e.target.value)})}/></Field>
@@ -1325,6 +1665,12 @@ function SettingsScreen() {
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.taxEnabled !== false} onChange={(e) => { const value = e.target.checked; patchSettings({ taxEnabled: value }); const current = usePos.getState().settings; void saveCentralRecord("settings", { id: "main", ...current, taxEnabled: value, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} />محاسبه مالیات فعال باشد</label>
         <Field label="هر چند تومان یک امتیاز"><input className={inputCls} type="number" value={settings.pointsPerToman} onChange={(e) => patchSettings({ pointsPerToman: Number(e.target.value) })} onBlur={persistSettings} /></Field>
         <Field label="ارزش هر امتیاز"><input className={inputCls} type="number" value={settings.tomanPerPoint} onChange={(e) => patchSettings({ tomanPerPoint: Number(e.target.value) })} onBlur={persistSettings} /></Field>
+        <Field label="آستانه عضویت نقره (امتیاز)"><input className={inputCls} type="number" min="1" value={settings.loyaltySilverPoints??500} onChange={e=>patchSettings({loyaltySilverPoints:Math.max(1,Number(e.target.value))})} onBlur={persistSettings}/></Field>
+        <Field label="تخفیف نقره (%)"><input className={inputCls} type="number" min="0" max="100" value={settings.loyaltySilverDiscount??3} onChange={e=>patchSettings({loyaltySilverDiscount:Math.min(100,Math.max(0,Number(e.target.value)))})} onBlur={persistSettings}/></Field>
+        <Field label="آستانه عضویت طلا (امتیاز)"><input className={inputCls} type="number" min={(settings.loyaltySilverPoints??500)+1} value={settings.loyaltyGoldPoints??1500} onChange={e=>patchSettings({loyaltyGoldPoints:Math.max((settings.loyaltySilverPoints??500)+1,Number(e.target.value))})} onBlur={persistSettings}/></Field>
+        <Field label="تخفیف طلا (%)"><input className={inputCls} type="number" min="0" max="100" value={settings.loyaltyGoldDiscount??5} onChange={e=>patchSettings({loyaltyGoldDiscount:Math.min(100,Math.max(0,Number(e.target.value)))})} onBlur={persistSettings}/></Field>
+        <Field label="آستانه عضویت پلاتین (امتیاز)"><input className={inputCls} type="number" min={(settings.loyaltyGoldPoints??1500)+1} value={settings.loyaltyPlatinumPoints??4000} onChange={e=>patchSettings({loyaltyPlatinumPoints:Math.max((settings.loyaltyGoldPoints??1500)+1,Number(e.target.value))})} onBlur={persistSettings}/></Field>
+        <Field label="تخفیف پلاتین (%)"><input className={inputCls} type="number" min="0" max="100" value={settings.loyaltyPlatinumDiscount??8} onChange={e=>patchSettings({loyaltyPlatinumDiscount:Math.min(100,Math.max(0,Number(e.target.value)))})} onBlur={persistSettings}/></Field>
         <Field label="عرض کاغذ">
           <select className={inputCls} value={settings.paperWidth} onChange={(e) => patchSettings({ paperWidth: Number(e.target.value) as 58 | 80 })} onBlur={persistSettings}>
             <option value={58}>۵۸ میلی‌متر</option><option value={80}>۸۰ میلی‌متر</option>
@@ -1335,6 +1681,7 @@ function SettingsScreen() {
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.autoPrint} onChange={(e) => { const value = e.target.checked; patchSettings({ autoPrint: value }); const current = usePos.getState().settings; void saveCentralRecord("settings", { id: "main", ...current, autoPrint: value, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} />چاپ خودکار</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.printCustomer} onChange={(e) => { const value = e.target.checked; patchSettings({ printCustomer: value }); const current = usePos.getState().settings; void saveCentralRecord("settings", { id: "main", ...current, printCustomer: value, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} />فیش مشتری</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.printKitchen} onChange={(e) => { const value = e.target.checked; patchSettings({ printKitchen: value }); const current = usePos.getState().settings; void saveCentralRecord("settings", { id: "main", ...current, printKitchen: value, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} />فیش آشپزخانه</label>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.invoiceSmsEnabledDefault ?? false} onChange={(e) => { const value=e.target.checked; patchSettings({invoiceSmsEnabledDefault:value}); const current=usePos.getState().settings; void saveCentralRecord("settings",{id:"main",...current,invoiceSmsEnabledDefault:value,smsUser:"",smsKey:"",smsFrom:""},()=>{}); }}/>ارسال پیامک ریز فاکتور به‌صورت پیش‌فرض فعال باشد</label>
       </Card>
       <Card>
         <p className="mb-2 text-sm text-muted">نسخه پشتیبان از داده‌های مرکزی MySQL ساخته می‌شود و شامل تاریخچه سفارش‌ها و دفترهای تراکنشی است؛ کلید پیامک داخل فایل قرار نمی‌گیرد.</p>
