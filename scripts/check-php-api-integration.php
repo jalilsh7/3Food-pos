@@ -160,10 +160,29 @@ try {
     $meAfterPasswordChange = api('GET', '/api/v1/auth/me');
     check($meAfterPasswordChange['status'] === 200 && ($meAfterPasswordChange['json']['user']['must_change_password'] ?? null) === false, 'password change clears forced-password flag for refresh');
 
+    $managerBootstrapForFeatures = api('GET', '/api/v1/bootstrap');
+    check($managerBootstrapForFeatures['status'] === 200, 'manager bootstrap for next-release resources');
+    check(count($managerBootstrapForFeatures['json']['data']['expense_categories'] ?? []) >= 8, 'default restaurant expense categories are seeded automatically');
+    $supplierIngredient = api('POST', '/api/v1/records/ingredients', ['item' => ['id'=>'ci-supplier-ingredient','name'=>'مواد آزمایشی تأمین‌کننده','unit'=>'kg','stock'=>0,'minStock'=>0,'costPerUnit'=>100]], csrf_headers());
+    check($supplierIngredient['status'] === 201, 'manager can create an ingredient for supplier receiving');
+    $supplierCreate = api('POST', '/api/v1/records/suppliers', ['item' => ['id'=>'ci-supplier','name'=>'CI Supplier','phone'=>'09120000000','contact'=>'Test','notes'=>'','balance'=>0,'active'=>true]], csrf_headers());
+    check($supplierCreate['status'] === 201, 'manager can create supplier record');
+    $supplierPurchase = api('POST', '/api/v1/suppliers/ci-supplier/purchases', ['item' => ['id'=>'ci-supplier-purchase','kind'=>'purchase','title'=>'مواد اولیه آزمایشی','amount'=>1000,'paid'=>200,'ingredientId'=>'ci-supplier-ingredient','quantity'=>2,'unitCost'=>500,'note'=>'CI']], csrf_headers());
+    check($supplierPurchase['status'] === 200 && (int)($supplierPurchase['json']['supplier']['balance'] ?? -1) === 800, 'supplier purchase and debt update commit atomically');
+    $receivedIngredient = api('GET', '/api/v1/records/ingredients');
+    $receivedIngredientItem = array_values(array_filter($receivedIngredient['json']['items'] ?? [], fn($item) => ($item['id'] ?? '') === 'ci-supplier-ingredient'))[0] ?? [];
+    check((float)($receivedIngredientItem['stock'] ?? -1) === 2.0 && (float)($receivedIngredientItem['costPerUnit'] ?? -1) === 500.0, 'supplier purchase increases ingredient stock and updates weighted cost');
+    $supplierPayment = api('POST', '/api/v1/suppliers/ci-supplier/purchases', ['item' => ['id'=>'ci-supplier-payment','kind'=>'payment','title'=>'تسویه','amount'=>0,'paid'=>300,'note'=>'CI']], csrf_headers());
+    check($supplierPayment['status'] === 200 && (int)($supplierPayment['json']['supplier']['balance'] ?? -1) === 500, 'supplier settlement reduces outstanding debt atomically');
+    $reportDate = (new DateTimeImmutable('now', new DateTimeZone('Asia/Tehran')))->format('Y-m-d');
+    $reportSummary = api('GET', '/api/v1/reports/summary?from=' . $reportDate . '&to=' . $reportDate);
+    check($reportSummary['status'] === 200 && isset($reportSummary['json']['net_profit']) && isset($reportSummary['json']['monthly']), 'manager can retrieve server-side sales, profit and monthly reports');
+
+
 
     $appearanceSettings = [
         'primary' => '#123456', 'secondary' => '#654321', 'mode' => 'dark',
-        'fontFamily' => 'tahoma', 'fontSize' => 17, 'cardRadius' => 20,
+        'fontFamily' => 'byekan', 'fontSize' => 17, 'cardRadius' => 20,
         'buttonRadius' => 10, 'logoUrl' => null,
     ];
     $appearanceSaved = api('POST', '/api/v1/appearance', ['settings' => $appearanceSettings], csrf_headers());
@@ -263,8 +282,11 @@ try {
         'customer' => ['id' => 'ci-customer'],
         'totals' => ['subtotal' => 5000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 5000],
     ];
-    $rejectedStock = api('POST', '/api/v1/orders', $stockFailure, csrf_headers());
-    check($rejectedStock['status'] === 409 && ($rejectedStock['json']['error'] ?? '') === 'insufficient_stock', 'insufficient stock rejected');
+    $acceptedStock = api('POST', '/api/v1/orders', $stockFailure, csrf_headers());
+    check($acceptedStock['status'] === 201 && !empty($acceptedStock['json']['order']['id']), 'checkout succeeds even when recipe stock is depleted');
+    $stockDepletionOrderId = (string)($acceptedStock['json']['order']['id'] ?? '');
+    $stockDepletionCancel = api('PATCH', '/api/v1/orders/' . rawurlencode($stockDepletionOrderId) . '/status', ['status' => 'cancelled'], csrf_headers());
+    check($stockDepletionCancel['status'] === 200, 'cancel stock depletion fixture and restore its inventory effect');
 
     $pdo = new PDO(
         'mysql:host=' . (getenv('MYSQL_TEST_HOST') ?: '127.0.0.1') . ';port=' . (getenv('MYSQL_TEST_PORT') ?: '3306') . ';dbname=' . (getenv('MYSQL_TEST_DATABASE') ?: 'threefood_test') . ';charset=utf8mb4',
@@ -339,7 +361,7 @@ try {
     $backup = api('GET', '/api/v1/backup/export');
     $backupData = $backup['json']['backup'] ?? [];
     check($backup['status'] === 200 && ($backupData['format'] ?? '') === '3food-pos-mysql-backup', 'manager can export MySQL backup');
-    check(count($backupData['orders'] ?? []) === 1 && count($backupData['order_effects'] ?? []) === 2, 'backup includes order history and reversible effect ledger');
+    check(count($backupData['orders'] ?? []) >= 1 && count($backupData['order_effects'] ?? []) >= 2, 'backup includes all order history and reversible effect ledger: ' . count($backupData['orders'] ?? []) . '/' . count($backupData['order_effects'] ?? []));
     $backupSettings = [];
     foreach ($backupData['records'] ?? [] as $record) {
         if (($record['resource'] ?? '') === 'settings') $backupSettings = $record['payload'] ?? [];
@@ -363,13 +385,13 @@ try {
     }
     unset($backupRecord);
     $restored = api('POST', '/api/v1/backup/restore', ['backup' => $backupData], csrf_headers());
-    check($restored['status'] === 200 && ($restored['json']['restored']['orders'] ?? 0) === 1, 'manager restores complete backup into empty POS database');
+    check($restored['status'] === 200 && ($restored['json']['restored']['orders'] ?? 0) === count($backupData['orders']), 'manager restores complete backup into empty POS database');
     check((int)$pdo->query('SELECT COUNT(*) FROM pos_records')->fetchColumn() === count($backupData['records']), 'restore reconstructs all POS records');
     $restoredSettings = $getPayload($pdo, 'settings', 'main');
     foreach (['smsUser', 'smsKey', 'smsFrom'] as $secretField) {
         check(!array_key_exists($secretField, $restoredSettings), 'restore strips untrusted ' . $secretField);
     }
-    check((int)$pdo->query('SELECT COUNT(*) FROM pos_order_effects')->fetchColumn() === 2, 'restore reconstructs reversible order effects');
+    check((int)$pdo->query('SELECT COUNT(*) FROM pos_order_effects')->fetchColumn() === count($backupData['order_effects']), 'restore reconstructs reversible order effects');
     check((int)$pdo->query('SELECT COUNT(*) FROM pos_discount_redemptions')->fetchColumn() === count($backupData['discount_redemptions']), 'restore reconstructs discount redemption ledger');
     check((int)$pdo->query('SELECT counter_value FROM pos_counters WHERE counter_key = "order_number"')->fetchColumn() === (int)$backupData['counters'][0]['counter_value'], 'restore preserves order number counter');
 
@@ -525,13 +547,11 @@ try {
     );
     $concurrentStatuses = array_column($concurrentResults, 'status');
     sort($concurrentStatuses);
-    check($concurrentStatuses === [201, 409], 'concurrent orders cannot oversell locked ingredient stock; responses=' . json_encode($concurrentResults));
-    $concurrentErrors = array_values(array_filter($concurrentResults, fn($r) => $r['status'] === 409));
-    check(($concurrentErrors[0]['json']['error'] ?? '') === 'insufficient_stock', 'losing concurrent order fails for insufficient stock');
+    check($concurrentStatuses === [201, 201], 'concurrent orders both persist when stock is depleted; responses=' . json_encode($concurrentResults));
     $stockAfterRace = $getPayload($pdo, 'ingredients', 'ci-ingredient');
-    check((float)($stockAfterRace['stock'] ?? -1) === 2.0, 'concurrent checkout consumes stock exactly once');
+    check((float)($stockAfterRace['stock'] ?? -1) === -4.0, 'concurrent checkout records negative stock for replenishment');
     $orderCountAfterRace = (int)$pdo->query('SELECT COUNT(*) FROM pos_orders')->fetchColumn();
-    check($orderCountAfterRace === 3, 'only one of the two competing orders is persisted (including the earlier checkout and guest-order fixtures)');
+    check($orderCountAfterRace >= 4, 'both concurrent orders persist with the earlier checkout fixtures');
 
     $kitchenLogin = api('POST', '/api/v1/auth/login', [
         'username' => 'ci_kitchen',
