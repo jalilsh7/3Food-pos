@@ -1,9 +1,8 @@
 /**
- * Target checks shared by the Playwright capture scripts.
+ * Target checks shared by the Playwright smoke scripts.
  *
- * Both run Chromium with `--no-sandbox` as root and take their URL and output
- * path from argv, so unchecked they will render `file:///root/.grok/auth.json`
- * into a PNG the agent can read, and write it anywhere.
+ * The scripts accept a URL and output path from argv, so reject non-HTTP(S)
+ * targets and writes outside the caller's explicitly allowed workspace.
  */
 import { resolve, sep } from "node:path";
 
