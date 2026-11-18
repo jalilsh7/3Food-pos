@@ -1,3 +1,4 @@
+/* eslint-disable -- vendored MIT QR code generator; preserve upstream implementation unchanged. */
 // @ts-nocheck
 //---------------------------------------------------------------------
 //
