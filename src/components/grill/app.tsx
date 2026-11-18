@@ -1163,6 +1163,9 @@ function ReportsScreen() {
   const top=[...productRows.entries()].sort((a,b)=>b[1].qty-a[1].qty).slice(0,10);
   const payments=["cash","card","online"].map(method=>({method,label:method==="cash"?"نقدی":method==="card"?"کارت‌خوان":"آنلاین",amount:done.filter(o=>o.payment===method).reduce((sum,o)=>sum+o.total,0)}));
   const expenseByCategory=[...visibleExpenses.reduce((map,e)=>map.set(e.category,(map.get(e.category)??0)+e.amount),new Map<string,number>()).entries()];
+  const monthlyRows = Array.isArray(serverSummary?.monthly) ? serverSummary.monthly as {month:string;sales:number}[] : [];
+  const lowStockRows = Array.isArray(serverSummary?.low_stock) ? serverSummary.low_stock as {name:string;stock:number;minStock:number;unit:string}[] : [];
+  const topCustomerRows = Array.isArray(serverSummary?.top_customers) ? serverSummary.top_customers as {name:string;phone:string;totalSpent:number;visits:number;points:number}[] : [];
   function downloadCsv(){
     const rows=[["نوع","عنوان","تعداد","مبلغ"],["فروش","جمع فروش","",String(reportSales)],...top.map(([name,v])=>["محصول",name,String(v.qty),String(v.revenue)]),...payments.map(p=>["پرداخت",p.label,"",String(p.amount)]),...expenseByCategory.map(([name,value])=>["هزینه",name,"",String(value)])];
     const csv="\uFEFF"+rows.map(row=>row.map(cell=>'"'+String(cell).replaceAll('"','""')+'"').join(",")).join("\r\n");
@@ -1214,6 +1217,9 @@ function ReportsScreen() {
         <Card><p className="text-xs text-muted">سود پس از هزینه‌ها</p><p className="text-lg font-bold">{money(reportNet)}</p></Card>
       </div>
       <Card><h3 className="mb-2 font-semibold">فروش روزانه</h3>{dailyRows.length?dailyRows.map(([day,total])=><p key={day} className="flex justify-between border-b border-line py-1 text-sm"><span>{new Date(day+"T12:00:00").toLocaleDateString("fa-IR")}</span><b>{money(total)}</b></p>):<Empty text="در این بازه سفارشی وجود ندارد"/>}</Card>
+      <Card><h3 className="mb-2 font-semibold">گزارش ماهانه</h3>{monthlyRows.length?monthlyRows.map(row=><p key={row.month} className="flex justify-between border-b border-line py-1 text-sm"><span>{row.month}</span><b>{money(row.sales)}</b></p>):<Empty text="داده ماهانه‌ای در این بازه وجود ندارد"/>}</Card>
+      <Card><h3 className="mb-2 font-semibold">وضعیت انبار</h3><p className="text-sm">ارزش تقریبی موجودی: {money(Number((serverSummary?.inventory as {value?:number}|undefined)?.value??0))}</p><p className="text-sm">مواد اولیه زیر حد هشدار: {lowStockRows.length.toLocaleString("fa-IR")}</p>{lowStockRows.map(row=><p key={row.name} className="flex justify-between text-sm"><span>{row.name}</span><span>{row.stock} / حداقل {row.minStock} {row.unit}</span></p>)}</Card>
+      <Card><h3 className="mb-2 font-semibold">مشتریان برتر بر اساس مجموع خرید</h3>{topCustomerRows.map(row=><p key={row.phone} className="flex flex-wrap justify-between gap-2 border-b border-line py-1 text-sm"><span>{row.name} · {row.phone}</span><b>{money(row.totalSpent)}</b></p>)}</Card>
       <Card><h3 className="mb-2 font-semibold">محصولات پرفروش</h3>{top.length?top.map(([name,v])=><p key={name} className="flex justify-between border-b border-line py-1 text-sm"><span>{name} · {v.qty.toLocaleString("fa-IR")} عدد</span><b>{money(v.revenue)}</b></p>):<Empty text="فروشی ثبت نشده است"/>}</Card>
       <Card><h3 className="mb-2 font-semibold">گزارش روش‌های پرداخت</h3>{payments.map(p=><p key={p.method} className="flex justify-between py-1 text-sm"><span>{p.label}</span><b>{money(p.amount)}</b></p>)}</Card>
       <Card><h3 className="mb-2 font-semibold">هزینه‌ها بر اساس دسته</h3>{expenseByCategory.map(([name,value])=><p key={name} className="flex justify-between py-1 text-sm"><span>{name}</span><b>{money(value)}</b></p>)}</Card>
