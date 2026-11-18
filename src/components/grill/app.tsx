@@ -1257,7 +1257,7 @@ function ReportsScreen() {
   const lowStockRows = Array.isArray(serverSummary?.low_stock) ? serverSummary.low_stock as {name:string;stock:number;minStock:number;unit:string}[] : [];
   const topCustomerRows = Array.isArray(serverSummary?.top_customers) ? serverSummary.top_customers as {name:string;phone:string;totalSpent:number;visits:number;points:number}[] : [];
   const allProductRows = Array.isArray(serverSummary?.all_products) ? serverSummary.all_products as {name:string;quantity:number;revenue:number}[] : top.map(([name,value])=>({name,quantity:value.qty,revenue:value.revenue}));
-  const inventoryRows = Array.isArray(serverSummary?.inventory_items) ? serverSummary.inventory_items as {name:string;stock:number;minStock:number;unit:string;costPerUnit:number;value:number}[] : lowStockRows;
+  const inventoryRows = Array.isArray(serverSummary?.inventory_items) ? serverSummary.inventory_items as {name:string;stock:number;minStock:number;unit:string;costPerUnit:number;value:number}[] : lowStockRows.map(row=>({...row,costPerUnit:0,value:0}));
   const allCustomerRows = Array.isArray(serverSummary?.all_customers) ? serverSummary.all_customers as {name:string;phone:string;totalSpent:number;visits:number;points:number}[] : topCustomerRows;
   const expenseItemRows = Array.isArray(serverSummary?.expense_items) ? serverSummary.expense_items as {title:string;category:string;date:string;amount:number}[] : [];
   const visibleExpenseItemRows = expenseItemRows.filter(row => expenseFilterCategory === "all" || row.category === expenseFilterCategory);
