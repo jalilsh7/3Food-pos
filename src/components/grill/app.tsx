@@ -180,7 +180,7 @@ function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; ini
         {current === "orders" ? <OrdersScreen role={role} /> : null}
         {current === "menu" ? <MenuScreen /> : null}
         {current === "stock" ? <StockScreen /> : null}
-        {current === "customers" ? <CustomersScreen /> : null}
+        {current === "customers" ? <CustomersScreen role={role} /> : null}
         {current === "codes" ? <CodesScreen /> : null}
         {current === "reports" ? <ReportsScreen /> : null}
         {current === "sms" ? <SmsScreen /> : null}
@@ -964,8 +964,10 @@ function StockScreen() {
   );
 }
 
-function CustomersScreen() {
+function CustomersScreen({ role }: { role: Role }) {
   const customers = usePos((s) => s.customers);
+  const settings = usePos((s) => s.settings);
+  const patchSettings = usePos((s) => s.patchSettings);
   const orders = usePos((s) => s.orders);
   const saveCustomer = usePos((s) => s.saveCustomer);
   const [q, setQ] = useState("");
@@ -980,7 +982,27 @@ function CustomersScreen() {
   return (
     <div className="space-y-3">
       <h2 className="font-bold">باشگاه مشتریان</h2>
-      <p className="text-sm text-muted">نقره از ۵۰۰ امتیاز (۳٪)، طلا از ۱۵۰۰ (۵٪)، پلاتین از ۴۰۰۰ (۸٪). نرخ امتیازدهی از تنظیمات فروشگاه قابل تغییر است.</p>
+      <p className="text-sm text-muted">نقره از ۵۰۰ امتیاز (۳٪)، طلا از ۱۵۰۰ (۵٪)، پلاتین از ۴۰۰۰ (۸٪).</p>
+      {role === "manager" ? (
+        <Card>
+          <h3 className="mb-2 font-semibold">تنظیمات امتیازدهی باشگاه</h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Field label="به‌ازای هر چند تومان خرید، یک امتیاز؟">
+              <input className={inputCls} type="number" min="1" value={settings.pointsPerToman} onChange={(e) => patchSettings({ pointsPerToman: Math.max(1, Number(e.target.value)) })} onBlur={() => {
+                const current = usePos.getState().settings;
+                void saveCentralRecord("settings", { id: "main", ...current, smsUser: "", smsKey: "", smsFrom: "" }, () => {});
+              }} />
+            </Field>
+            <Field label="ارزش هر امتیاز به تومان">
+              <input className={inputCls} type="number" min="1" value={settings.tomanPerPoint} onChange={(e) => patchSettings({ tomanPerPoint: Math.max(1, Number(e.target.value)) })} onBlur={() => {
+                const current = usePos.getState().settings;
+                void saveCentralRecord("settings", { id: "main", ...current, smsUser: "", smsKey: "", smsFrom: "" }, () => {});
+              }} />
+            </Field>
+          </div>
+          <p className="mt-2 text-xs text-muted">این نرخ‌ها برای تمام صندوق‌ها و کاربران یکسان اعمال می‌شود.</p>
+        </Card>
+      ) : null}
       <Card>
         <form className="grid gap-2 sm:grid-cols-4" onSubmit={(e) => {
           e.preventDefault();
