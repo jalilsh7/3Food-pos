@@ -1112,6 +1112,8 @@ function ReportsScreen() {
   const [to, setTo] = useState(new Date().toISOString().slice(0,10));
   const [newCategory, setNewCategory] = useState("");
   const [categoryBusy, setCategoryBusy] = useState(false);
+  const [serverSummary, setServerSummary] = useState<Record<string, unknown> | null>(null);
+  const [reportError, setReportError] = useState("");
   useEffect(() => {
     let active = true;
     void phpApi.listRecords<{id:string;name:string;active?:boolean}>("expense_categories")
@@ -1120,10 +1122,15 @@ function ReportsScreen() {
     return () => { active=false; };
   }, []);
   const done = useMemo(() => orders.filter((o) => o.status !== "cancelled" && o.createdAt.slice(0,10) >= from && o.createdAt.slice(0,10) <= to), [orders,from,to]);
+  useEffect(() => { let active=true; setReportError(""); void phpApi.getReportSummary(from,to).then(r=>{if(active)setServerSummary(r);}).catch(e=>{if(active){setServerSummary(null);setReportError(e instanceof Error?e.message:"گزارش سرور دریافت نشد");}}); return ()=>{active=false;}; },[from,to]);
   const visibleExpenses = expenses.filter(e => e.date >= from && e.date <= to);
   const sales = done.reduce((sum, o) => sum + o.total, 0);
   const costGuess = done.reduce((sum, o) => sum + o.lines.reduce((lineSum, line) => lineSum + (products.find((x) => x.id === line.productId)?.cost ?? 0) * line.qty, 0), 0);
   const spend = visibleExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const reportSales = typeof serverSummary?.sales === "number" ? serverSummary.sales : sales;
+  const reportCost = typeof serverSummary?.cost_of_goods === "number" ? serverSummary.cost_of_goods : costGuess;
+  const reportExpenses = typeof serverSummary?.expenses === "number" ? serverSummary.expenses : spend;
+  const reportNet = typeof serverSummary?.net_profit === "number" ? serverSummary.net_profit : sales-costGuess-spend;
   const daily = new Map<string,number>();
   for(const o of done) daily.set(o.createdAt.slice(0,10),(daily.get(o.createdAt.slice(0,10))??0)+o.total);
   const dailyRows=[...daily.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
