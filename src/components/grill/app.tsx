@@ -1140,7 +1140,10 @@ function jalaliToIso(value:string):string|null{
   const monthDays=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31];let gm=0;
   while(gm<12&&gd>monthDays[gm]){gd-=monthDays[gm];gm++;}
   if(gm>=12)return null;
-  return `${gy}-${String(gm+1).padStart(2,"0")}-${String(gd).padStart(2,"0")}`;
+  const iso=`${gy}-${String(gm+1).padStart(2,"0")}-${String(gd).padStart(2,"0")}`;
+  const expected=`${jy-1595}/${String(jm).padStart(2,"0")}/${String(jd).padStart(2,"0")}`;
+  if(asciiDigits(isoToJalali(iso)).replace(/\u200e/g,"")!==expected)return null;
+  return iso;
 }
 function isoToJalali(value:string){
   const parts=new Intl.DateTimeFormat("fa-IR-u-ca-persian",{timeZone:"Asia/Tehran",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date(value+"T12:00:00Z"));
