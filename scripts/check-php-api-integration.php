@@ -130,6 +130,11 @@ try {
     check(is_bool($preflightChecks['https'] ?? null), 'preflight reports HTTPS state');
     check(is_bool($preflight['json']['production_ready'] ?? null), 'preflight reports production readiness separately');
 
+    $appearancePublic = api('GET', '/api/v1/appearance');
+    check($appearancePublic['status'] === 200 && ($appearancePublic['json']['settings']['mode'] ?? '') === 'light', 'global appearance is readable before login');
+    $appearanceUnauth = api('POST', '/api/v1/appearance', ['settings' => []]);
+    check($appearanceUnauth['status'] === 401, 'appearance writes require an authenticated manager');
+
     $setup = api('POST', '/api/v1/setup/manager', [
         'username' => 'ci_manager',
         'password' => 'CI-Only-Strong-Password-2026!',
@@ -138,6 +143,38 @@ try {
     check($setup['status'] === 201, 'first manager setup: ' . json_encode($setup['json']));
     $csrf = (string)($setup['json']['csrf_token'] ?? '');
     check(strlen($csrf) >= 32 && $cookie !== '', 'setup session and CSRF token');
+
+    $meAfterSetup = api('GET', '/api/v1/auth/me');
+    check($meAfterSetup['status'] === 200 && ($meAfterSetup['json']['user']['must_change_password'] ?? null) === false, 'auth/me returns a real boolean for the password-change flag');
+    $wrongCurrentPassword = api('POST', '/api/v1/auth/change-password', [
+        'current_password' => 'definitely-not-the-current-password',
+        'new_password' => 'CI-Only-New-Password-2026!',
+    ], csrf_headers());
+    check($wrongCurrentPassword['status'] === 401 && ($wrongCurrentPassword['json']['error'] ?? '') === 'current_password_invalid', 'wrong current password is a field error, not a session expiry');
+    $passwordChanged = api('POST', '/api/v1/auth/change-password', [
+        'current_password' => 'CI-Only-Strong-Password-2026!',
+        'new_password' => 'CI-Only-New-Password-2026!',
+    ], csrf_headers());
+    check($passwordChanged['status'] === 200 && strlen((string)($passwordChanged['json']['csrf_token'] ?? '')) >= 32, 'valid password change rotates the session CSRF token');
+    $csrf = (string)$passwordChanged['json']['csrf_token'];
+    $meAfterPasswordChange = api('GET', '/api/v1/auth/me');
+    check($meAfterPasswordChange['status'] === 200 && ($meAfterPasswordChange['json']['user']['must_change_password'] ?? null) === false, 'password change clears forced-password flag for refresh');
+
+
+    $appearanceSettings = [
+        'primary' => '#123456', 'secondary' => '#654321', 'mode' => 'dark',
+        'fontFamily' => 'tahoma', 'fontSize' => 17, 'cardRadius' => 20,
+        'buttonRadius' => 10, 'logoUrl' => null,
+    ];
+    $appearanceSaved = api('POST', '/api/v1/appearance', ['settings' => $appearanceSettings], csrf_headers());
+    check($appearanceSaved['status'] === 200 && ($appearanceSaved['json']['settings']['primary'] ?? '') === '#123456', 'manager can save global appearance');
+    $appearanceFetched = api('GET', '/api/v1/appearance');
+    check(($appearanceFetched['json']['settings']['mode'] ?? '') === 'dark' && ($appearanceFetched['json']['settings']['fontSize'] ?? 0) === 17, 'global appearance persists for public reads');
+    $invalidLogo = api('POST', '/api/v1/appearance/logo', ['image' => base64_encode('not-an-image')], csrf_headers());
+    check($invalidLogo['status'] === 422, 'logo upload rejects non-image content');
+    $appearanceReset = api('POST', '/api/v1/appearance/reset', [], csrf_headers());
+    check($appearanceReset['status'] === 200 && ($appearanceReset['json']['settings']['mode'] ?? '') === 'light', 'manager can reset global appearance');
+
 
     $setupAgain = api('POST', '/api/v1/setup/manager', [
         'username' => 'ci_manager2',
@@ -167,6 +204,14 @@ try {
         $saved = api('POST', '/api/v1/records/' . $resource, ['item' => $item], csrf_headers());
         check($saved['status'] === 201, 'seed ' . $resource . ': ' . json_encode($saved['json']));
     }
+    $editedProduct = $product;
+    $editedProduct['name'] = 'CI Edited Product';
+    $productUpdated = api('POST', '/api/v1/records/products', ['item' => $editedProduct], csrf_headers());
+    check($productUpdated['status'] === 201 && ($productUpdated['json']['item']['name'] ?? '') === 'CI Edited Product', 'product edit saves updated product data after a validation 401');
+    $productRead = api('GET', '/api/v1/records/products');
+    check(($productRead['json']['items'][0]['name'] ?? '') === 'CI Edited Product', 'edited product persists in MySQL');
+    $restoreProduct = api('POST', '/api/v1/records/products', ['item' => $product], csrf_headers());
+    check($restoreProduct['status'] === 201, 'restore product fixture after edit persistence assertion');
 
     $key = '11111111-1111-4111-8111-111111111111';
     $orderBody = [
@@ -409,7 +454,7 @@ try {
     $csrf = '';
     $managerRelogin = api('POST', '/api/v1/auth/login', [
         'username' => 'ci_manager',
-        'password' => 'CI-Only-Strong-Password-2026!',
+        'password' => 'CI-Only-New-Password-2026!',
     ]);
     check($managerRelogin['status'] === 200 && ($managerRelogin['json']['user']['role'] ?? '') === 'manager', 'manager relogin for account revocation');
     $csrf = (string)($managerRelogin['json']['csrf_token'] ?? '');
@@ -445,7 +490,7 @@ try {
     $cookie = '';
     $secondManagerLogin = api('POST', '/api/v1/auth/login', [
         'username' => 'ci_manager',
-        'password' => 'CI-Only-Strong-Password-2026!',
+        'password' => 'CI-Only-New-Password-2026!',
     ]);
     check($secondManagerLogin['status'] === 200, 'second independent manager session for concurrency test');
     $managerSecondCookie = $cookie;

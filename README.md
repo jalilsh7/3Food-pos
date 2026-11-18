@@ -2,20 +2,37 @@
 
 Private repository for the 3Food POS application.
 
-## Current migration status
+## Current architecture
 
-The working branch `migration/php-mysql` now contains the React/Vite source, PHP API, MySQL schema and migrations. The PHP backend covers session authentication and roles, central bootstrap/records, order creation and status transitions, server-side order-line pricing, idempotency, transactional stock and loyalty effects, coupon validation/redemption, cancellation reversals, and SMS dispatch through private server configuration.
+- Frontend: React 19 + TypeScript + Vite + TanStack Router, built as a static SPA.
+- Backend: same-origin PHP API under `php-backend/public/api`.
+- Database: MySQL/InnoDB; no Node server is required on the cPanel host.
+- Authentication: PHP server-side sessions, username/password and server-enforced role permissions.
+- Deployment target: cPanel/LiteSpeed with PHP 8.2 and MySQL.
 
-Recent GitHub Actions checks have passed for PHP syntax, TypeScript, unit tests and ESLint. The latest verified order-pricing commit is `f7782071dee382236d2592000173801d92a1e8f3`; the cPanel rewrite/test changes are tracked separately on this branch.
+The active cPanel runtime must remain independent of Grok/App Builder, Better Auth, TanStack Start/Nitro, PostgreSQL/PGLite, preview-host identity and injected platform scripts. Optional SMS delivery remains an explicitly configured server-side integration.
+
+## Cleanup branch
+
+The ongoing platform-removal and dependency cleanup is isolated on [`cleanup/remove-grok-dependencies`](https://github.com/jalilsh7/3Food-pos/tree/cleanup/remove-grok-dependencies), with review in [PR #1](https://github.com/jalilsh7/3Food-pos/pull/1). It has not been merged into `migration/php-mysql` and has not been deployed.
+
+Completed on the cleanup branch:
+- Removed the orphaned Better Auth/OAuth, PGLite/PostgreSQL, TanStack Start server and App Builder connector source trees.
+- Removed obsolete preview-host helpers, old platform-specific brand/preview scripts and superseded auth analysis documents.
+- Removed direct package dependencies that belonged only to the retired runtime.
+- Added source-graph and built-output audits to `build:cpanel`.
+- Updated the browser smoke runner to test the standalone SPA without platform auth/brand gates.
+- Kept the PHP API, MySQL schema/migrations, POS screens, role model, stock/order logic and optional server-side SMS integration.
+
+Full CI succeeded in [run 44280981233](https://github.com/jalilsh7/3Food-pos/actions/runs/44280981233): PHP syntax, fresh MySQL schema, PHP API integration, TypeScript, unit tests, lint, cPanel build, Playwright smoke against the packaged app and artifact upload. The dependency manifest and lockfile are synchronized; the direct dependency set has been reduced to the libraries used by the SPA and its build/test tools.
 
 ## Not yet a production release
 
-- A separate cPanel frontend path now uses plain Vite + TanStack Router + React (no TanStack Start/Nitro runtime in that build). The combined PHP/MySQL cPanel package was built, validated and uploaded as a GitHub Actions artifact on commit `d3632e38036d6002a6c38f713018ca367d69d8db`.
-- Some POS state still uses Zustand persistence and not every UI operation has complete server-side synchronization.
-- Real MySQL concurrency/integration tests, multi-device end-to-end tests, backup/restore verification and live SMS tests remain outstanding.
-- The cPanel `.htaccess` places the PHP API rewrite before a guarded SPA fallback. The package layout keeps `private/` outside the `public/` document root; real Apache/PHP/MySQL staging tests remain required.
-
-The cPanel package artifact is available from [GitHub Actions run 44098838943](https://github.com/jalilsh7/3Food-pos/actions/runs/44098838943) for 14 days from 2026-11-17. Download it from the run's Artifacts section. Do not deploy to the production host until API integration, staging MySQL and browser end-to-end checks pass. Keep secrets outside Git and outside the public document root.
+- The cleanup PR is still separate from the migration branch.
+- The generated `3food-pos-cpanel` artifact from run 44280981233 is available until 2026-12-02; validate it on a staging cPanel host with PHP/MySQL before any production deployment.
+- The packaged app passed Playwright smoke in desktop and mobile viewports. Typing 46 test characters took 42 ms for username and 32 ms for password in the CI runner, without submitting the form. Real staging/device end-to-end testing is still required for sign-in/out, role restrictions, orders, stock and multi-device consistency.
+- Backup/restore and live SMS integration tests remain separate release gates.
+- No cleanup operation has modified the live cPanel files or production database.
 
 ## Project guidance
 
@@ -23,5 +40,6 @@ The cPanel package artifact is available from [GitHub Actions run 44098838943](h
 - Agent rules: [AGENTS.md](AGENTS.md)
 - Implementation status: [IMPLEMENTATION-STATUS-FA.md](IMPLEMENTATION-STATUS-FA.md)
 - Static build analysis: [docs/static-build-readiness.md](docs/static-build-readiness.md)
+- Historical migration audit: [SOURCE-AUDIT-PHP-MYSQL-FA.md](SOURCE-AUDIT-PHP-MYSQL-FA.md) (describes the pre-migration source snapshot, not the current architecture)
 
-All migration work must remain on `migration/php-mysql`; do not modify `main` without explicit owner approval.
+All production changes require explicit owner approval, a backup and a rollback plan.

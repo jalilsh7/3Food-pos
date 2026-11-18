@@ -19,6 +19,7 @@ export type ApiUser = {
   must_change_password?: boolean;
 };
 
+export type AppearanceSettings={primary:string;secondary:string;mode:"light"|"dark";fontFamily:"vazirmatn"|"tahoma"|"system";fontSize:number;cardRadius:number;buttonRadius:number;logoUrl:string|null};
 export type ManagedUser = ApiUser & {
   is_active: number | boolean;
   last_login_at?: string | null;
@@ -81,8 +82,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 
   if (!response.ok || payload.ok !== true) {
-    if (response.status === 401) csrfToken = null;
     const code = typeof payload.error === "string" ? payload.error : "request_failed";
+    // A bad current password is a field-level 401, not an expired session.
+    // Keep CSRF state unless the server explicitly says the session is unauthorized.
+    if (response.status === 401 && code === "unauthorized") csrfToken = null;
     const message = typeof payload.message === "string" ? payload.message : "درخواست انجام نشد.";
     throw new PhpApiError(response.status, code, message);
   }
@@ -92,6 +95,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
 export const phpApi = {
   health: () => request<ApiEnvelope<{ service?: string; database?: string }>>("/health"),
+  getAppearance:()=>request<ApiEnvelope<{settings:AppearanceSettings}>>("/appearance"),
+  saveAppearance:(settings:AppearanceSettings)=>request<ApiEnvelope<{settings:AppearanceSettings}>>("/appearance",{method:"POST",csrf:true,body:{settings}}),
+  resetAppearance:()=>request<ApiEnvelope<{settings:AppearanceSettings}>>("/appearance/reset",{method:"POST",csrf:true,body:{}}),
+  uploadAppearanceLogo:(image:string)=>request<ApiEnvelope<{logo_url:string}>>("/appearance/logo",{method:"POST",csrf:true,body:{image}}),
 
   setupStatus: () =>
     request<ApiEnvelope<{ setup_required: boolean }>>("/setup/status"),
@@ -133,6 +140,10 @@ export const phpApi = {
       }>
     >("/auth/me").then((result) => {
       csrfToken = result.authenticated ? (result.csrf_token ?? null) : null;
+      if (result.authenticated && result.user) {
+        const flag = result.user.must_change_password as unknown;
+        result.user.must_change_password = flag === true || flag === 1 || flag === "1";
+      }
       return result;
     }),
 

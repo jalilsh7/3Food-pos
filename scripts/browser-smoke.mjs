@@ -3,13 +3,6 @@ import { mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "
 import { dirname } from "node:path";
 import { chromium } from "playwright";
 import { checkedOutputPath, checkedUrl } from "./browser-guard.mjs";
-import { computeBrandWarnings } from "./brand-check.mjs";
-import {
-  authInvariantWarnings,
-  buildAuthEnabled,
-  compareAuthInvariant,
-  probeDevAuthEnabled,
-} from "./check-auth-invariant.mjs";
 import {
   baselineComparison,
   bodyTextPrefix,
@@ -27,10 +20,10 @@ if (args.error) {
 }
 
 const url = checkedUrl(args.url);
-const outPng = checkedOutputPath(args.outPng, ["/workspace"]);
+const outPng = checkedOutputPath(args.outPng, [process.cwd()]);
 const derived = derivedPaths(outPng);
-const mobilePng = checkedOutputPath(derived.mobilePng, ["/workspace"]);
-const outJson = checkedOutputPath(derived.verdictJson, ["/workspace"], "verdict JSON");
+const mobilePng = checkedOutputPath(derived.mobilePng, [process.cwd()]);
+const outJson = checkedOutputPath(derived.verdictJson, [process.cwd()], "verdict JSON");
 
 const MAX_BASELINE_BYTES = 1024 * 1024;
 const baselineRequested = Boolean(args.baseline);
@@ -38,7 +31,7 @@ let baselinePath = null;
 let baselineResolveError = null;
 if (baselineRequested) {
   try {
-    baselinePath = checkedOutputPath(realpathSync(args.baseline), ["/workspace"], "baseline");
+    baselinePath = checkedOutputPath(realpathSync(args.baseline), [process.cwd()], "baseline");
   } catch (err) {
     baselineResolveError = err?.code ?? "unresolvable path";
   }
@@ -49,7 +42,7 @@ if (baselineRequested) {
           ok: false,
           error:
             `--baseline ${args.baseline} is this run's own verdict output; ` +
-            "pass a distinct output PNG (e.g. app-builder-built.png) so the baseline is not overwritten",
+            "pass a distinct output PNG (e.g. 3food-pos-built.png) so the baseline is not overwritten",
         },
         null,
         2,
@@ -113,6 +106,34 @@ try {
 
     const title = await page.title();
     const hasCanvas = (await page.locator("canvas").count()) > 0;
+    // Exercise the actual controlled login inputs one character at a time.
+    // This intentionally never submits the form or sends credentials to the API.
+    const usernameInput = page.locator('input[autocomplete="username"]').first();
+    const passwordInput = page
+      .locator('input[autocomplete="current-password"], input[autocomplete="new-password"]')
+      .first();
+    let loginTyping = { tested: false };
+    if ((await usernameInput.count()) > 0 && (await passwordInput.count()) > 0) {
+      const usernameSample = "smoke-user-0123456789";
+      const passwordSample = "smoke-password-0123456789";
+      await usernameInput.fill("");
+      let started = Date.now();
+      await usernameInput.pressSequentially(usernameSample, { delay: 0 });
+      const usernameMs = Date.now() - started;
+      await passwordInput.fill("");
+      started = Date.now();
+      await passwordInput.pressSequentially(passwordSample, { delay: 0 });
+      const passwordMs = Date.now() - started;
+      await usernameInput.fill("");
+      await passwordInput.fill("");
+      loginTyping = {
+        tested: true,
+        usernameMs,
+        passwordMs,
+        characters: usernameSample.length + passwordSample.length,
+        slow: usernameMs > 1000 || passwordMs > 1000,
+      };
+    }
     const bodyText = await page
       .locator("body")
       .innerText()
@@ -130,6 +151,7 @@ try {
       status,
       title,
       hasCanvas,
+      loginTyping,
       bodyTextLen: normalizeBodyText(bodyText).length,
       bodyTextHash: normalizedBodyTextHash(bodyText),
       bodyTextPrefix: bodyTextPrefix(bodyText),
@@ -140,16 +162,7 @@ try {
     };
   }
 
-  const brandWarnings = computeBrandWarnings({ hasCanvas: viewports.desktop.hasCanvas });
-  // Only a dev server answers /__app-env, so smoking the built output reads as
-  // indeterminate — report a divergence, never the absence of an observation.
-  const authWarnings = authInvariantWarnings(
-    compareAuthInvariant({
-      devAuthEnabled: await probeDevAuthEnabled(url),
-      buildAuthEnabled: buildAuthEnabled(),
-    }),
-  );
-  const verdict = { url, viewports, brandWarnings, authWarnings, verdictFile: outJson };
+  const verdict = { url, viewports, verdictFile: outJson };
   if (baselineRequested) {
     const { divergesFromBaseline, reasons } = compareAgainstBaseline(verdict);
     verdict.divergesFromBaseline = divergesFromBaseline;
@@ -158,7 +171,6 @@ try {
 
   writeFileSync(outJson, JSON.stringify(verdict, null, 2));
   console.log(JSON.stringify(verdict, null, 2));
-  for (const w of [...brandWarnings, ...authWarnings]) console.error(w);
   // Set the code rather than aborting the process so the `finally` browser
   // teardown always runs (agents typically smoke twice per turn; leaking
   // Chromium accumulates across retries).

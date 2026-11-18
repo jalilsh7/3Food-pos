@@ -1,141 +1,96 @@
-# راهنمای تحویل و ادامه توسعه 3Food POS برای هر دستیار هوش مصنوعی
+# راهنمای تحویل و ادامه توسعه 3Food POS
 
-آخرین بازبینی: 2026-11-17  
-مخزن: https://github.com/jalilsh7/3Food-pos  
-شاخه کاری مهاجرت: `migration/php-mysql`  
-شاخه اصلی: `main` (باید دست‌نخورده بماند مگر با اجازه صریح مالک)
+آخرین بازبینی: 2026-11-18  
+مخزن: `jalilsh7/3Food-pos`  
+شاخه پایه: `migration/php-mysql`  
+شاخه پاک‌سازی مستقل: `cleanup/remove-grok-dependencies`  
+PR پاک‌سازی: https://github.com/jalilsh7/3Food-pos/pull/1
 
-> این سند برای انتقال زمینه پروژه به هر دستیار هوش مصنوعی نوشته شده است. ابتدا وضعیت واقعی مخزن را بررسی کنید؛ این راهنما به معنی تکمیل یا استقرار برنامه نیست.
+> این سند وضعیت فعلی را خلاصه می‌کند؛ قبل از هر تغییر، شاخه و آخرین commit را از GitHub بررسی کنید. وجود کد یا build در GitHub به معنی استقرار روی هاست نیست.
 
-## 1) هدف محصول
+## 1) هدف و الزامات مالک
 
-ساخت یک سیستم POS مستقل برای 3Food روی `pos.3food.ir` با رابط React و بک‌اند PHP/MySQL؛ قابل استفاده هم‌زمان از چند دستگاه و بدون وابستگی runtime به Vercel، Grok، Nitro، PostgreSQL یا PGlite.
+ساخت POS مستقل 3Food روی `pos.3food.ir` با رابط React و بک‌اند PHP/MySQL برای استفاده چنددستگاهی.
 
-هاست مقصد cPanel با Apache و PHP است. Node.js روی هاست مقصد در دسترس فرض نشود. Node فقط برای build در محیط توسعه یا CI استفاده شود و خروجی React به‌صورت فایل استاتیک deploy شود؛ API با PHP اجرا شود.
+الزامات قطعی:
+- ورود همه کاربران با username/password و احراز هویت واقعی سمت سرور.
+- نقش‌ها: `manager`، `cashier`، `kitchen` و کنترل مجوزها در PHP.
+- مدیر اولیه فقط با setup token امن و یک‌بارمصرف ساخته شود؛ ثبت‌نام عمومی وجود نداشته باشد.
+- MySQL منبع حقیقت داده‌های عملیاتی باشد؛ localStorage/sessionStorage محل نگهداری رمز، session ID، setup token، CSRF یا API secret نیست.
+- ثبت سفارش، قیمت‌گذاری، تخفیف، مالیات، موجودی، امتیاز و idempotency در سمت سرور و در تراکنش امن انجام شوند.
+- پیامک فقط با تنظیم خصوصی سرور و به‌صورت opt-in فعال شود.
+- بکاپ/بازیابی، گزارش‌ها، سفارش‌ها، انبار، مشتریان و گردش آشپزخانه حفظ شوند.
+- پیش از انتشار اصلی، staging و تست end-to-end واقعی الزامی است.
 
-## 2) نیازمندی‌های قطعی مالک
+## 2) معماری فعال cPanel
 
-- ورود همه کاربران، از جمله مدیر، فقط با username/password واقعی و احراز هویت سمت سرور.
-- نقش‌ها: `manager`، `cashier`، `kitchen`.
-- مدیریت کاربران و نقش‌ها توسط مدیر.
-- فقط مدیر اجازه ویرایش محتوای سفارش را دارد.
-- چند دستگاه باید از یک دیتابیس مرکزی MySQL استفاده کنند؛ localStorage منبع حقیقت نباشد.
-- پیامک فقط برای مشتری ارسال شود؛ کلیدها فقط سمت سرور باشند. شکست سرویس پیامک نباید ثبت سفارش را متوقف کند.
-- ثبت‌نام عمومی ممنوع؛ ایجاد مدیر اولیه فقط با setup token امن و یک‌بارمصرف.
-- شماره سفارش اتمیک، تراکنش‌های امن و idempotency برای درخواست‌های تکراری.
-- امکانات موردنیاز: سفارش، وضعیت آشپزخانه، انبار، مشتریان/باشگاه مشتریان، تاریخچه امتیاز و تراکنش، گزارش‌ها، backup/restore.
-- قبل از انتشار اصلی، staging و تست کامل الزامی است.
-- ZIP نهایی فقط پس از تکمیل، build و تست واقعی تحویل شود.
+- فرانت‌اند: React 19 + TypeScript + Vite + TanStack Router؛ ورودی مرورگر `src/main.tsx` و پوسته استاتیک `index.html`.
+- بک‌اند: PHP API در `php-backend/public/api/index.php` با مسیر same-origin زیر `/api/v1`.
+- دیتابیس عملیاتی: MySQL.
+- احراز هویت: session سمت PHP با cookie امن HttpOnly؛ CSRF در حافظه کلاینت نگهداری می‌شود.
+- build قابل استقرار: `npm run build:cpanel`؛ بسته ترکیبی در `dist-cpanel/` تولید می‌شود.
+- هاست مقصد cPanel/LiteSpeed با PHP 8.2 و MySQL است؛ Node فقط در محیط build/CI لازم است.
 
-## 3) وضعیت واقعی مخزن در آخرین بررسی
+در build فعال cPanel نباید runtime یا اتصال به Grok، App Builder، PreviewHostBridge، OAuth broker، TanStack Start/Nitro server، PostgreSQL یا PGLite وارد bundle مرورگر شود. هیچ script، stylesheet یا فونت از CDN خارجی بارگیری نشود.
 
-شاخه `migration/php-mysql` اکنون شامل سورس React/Vite، پوشه `php-backend`، schema و migrationهای MySQL، کلاینت PHP، مستندات و workflowهای CI است؛ راهنمای قدیمیِ فهرست‌کردن فقط چند فایل و ادعای نبودن backend دیگر معتبر نیست. فایل ZIP مرجع نیز در مخزن نگهداری شده است.
+## 3) وضعیت شاخه پاک‌سازی
 
-آخرین قابلیت‌های ثبت‌شده شامل محاسبه canonical اقلام سفارش در PHP، قفل قیمت محصولات هنگام checkout، ledger مصرف کد تخفیف، بازگشت اثرها در لغو سفارش، مالیات server-authoritative، موجودی و امتیاز تراکنشی و polling چنددستگاهی است. commit قیمت‌گذاری `f7782071dee382236d2592000173801d92a1e8f3` و commit مستندات آن در CI موفق بوده‌اند.
+شاخه `cleanup/remove-grok-dependencies` بر پایه `migration/php-mysql` ساخته شده و PR شماره 1 باز است؛ این شاخه هنوز merge نشده است.
 
-تغییر `.htaccess` برای اولویت API و fallback محافظت‌شده SPA و تست رگرسیون آن نیز اضافه شده‌اند. این تغییر به‌معنی ساخته‌شدن خروجی استاتیک نیست؛ مسیر build هنوز وابسته به TanStack Start/Nitro است.
+تغییرات پاک‌سازی موجود:
+- کدهای متروک Better Auth، OAuth broker/Grok، PGLite/PostgreSQL، TanStack Start server functions و App Builder connector از سورس حذف شده‌اند؛ این مسیرها متعلق به معماری قدیمی بودند و از entrypoint فعال React/PHP استفاده نمی‌شدند.
+- migration قدیمی Better Auth و تست‌های مرتبط با app-data/auth حذف شده‌اند؛ قرارداد احراز هویت فعلی PHP session و MySQL است.
+- وابستگی‌های مستقیم `@electric-sql/pglite`, `@tanstack/react-start`, `better-auth`, `jose`, `kysely`, `nitro`, `pg` و `@types/pg` از manifest حذف شده‌اند.
+- اعتبارنامه‌ی preview OAuth که در نسخه‌های قدیمی Git وجود داشته، با حذف فایل از HEAD از تاریخچه commitها پاک نمی‌شود؛ اگر در سرویس خارجی هنوز فعال است باید در همان سرویس revoke/rotate شود. تاریخچه Git در این پاک‌سازی بازنویسی نشده است.
+- lockfile با npm بررسی و تأیید شد؛ manifest و `package-lock.json` همگام هستند.
+- تست TypeScriptهای حذف‌شده‌ی ماژول‌های قدیمی از script تست خارج شده‌اند؛ تست‌های مستقل PHP/API و اسکریپت‌های فعال حفظ شده‌اند.
+- حذف فایل‌ها و افزونه‌های PWA/Preview وابسته به Grok و نشانگرهای مربوط به آن‌ها.
+- حذف shell مخصوص TanStack Start از route ریشه‌ی SPA.
+- حذف ارجاع routeTree به مسیر ناموجود `/api/sms` و حذف type registration قدیمی TanStack Start از routeTree.
+- افزودن ممیزی زنجیره import واقعی مرورگر پیش از build.
+- افزودن ممیزی خروجی تولیدشده برای نشانگرهای Grok/App Builder و assetهای HTML/CSS از راه دور.
+- بازنویسی `AGENTS.md`؛ دستورالعمل قدیمی App Builder/Grok با معماری واقعی cPanel جایگزین شده است.
+- دستور `build:cpanel` اکنون ممیزی source graph، build، ممیزی خروجی و بسته‌بندی را پشت سر هم اجرا می‌کند.
 
-## 4) معماری فعلی و کارهای مهاجرت
+**وضعیت حذف legacy و CI:** فایل‌های runtime مربوط به Better Auth، OAuth، TanStack Start server helpers، app-data connector، PGLite/PostgreSQL و helperهای preview قدیمی از شاخه پاک‌سازی حذف شده‌اند. وابستگی‌های مستقیم قدیمی و کتابخانه‌های UI بلااستفاده نیز از manifest و lockfile خارج شده‌اند. اجرای کامل GitHub Actions در run `44279040124` موفق شده است: PHP syntax، MySQL schema، PHP API integration، TypeScript، تست‌ها، lint، build مستقل cPanel و بارگذاری artifact.
 
-سورس اصلی React 19 / TypeScript / Vite / TanStack Start است. پیکربندی فعلی از `tanstackStart()` و Nitro با preset Vercel استفاده می‌کند. مهاجرت باید runtime سرور TanStack/Nitro را از خروجی deploy حذف کند، اما نباید routeها یا قابلیت‌های برنامه بی‌برنامه حذف شوند.
+## 4) وضعیت فنی و موارد باقی‌مانده
 
-موارد شناخته‌شده:
-- `src/lib/pos/store.ts` از Zustand `persist` استفاده می‌کند؛ باید به API PHP متصل شود و localStorage فقط در صورت نیاز برای cache/صف موقت باشد.
-- `src/lib/auth/client.ts`، `server.ts`، `middleware.ts` و `use-current-user.ts` به Better Auth / TanStack Start / OAuth و زیرساخت قبلی متکی‌اند؛ باید به session PHP تبدیل شوند.
-- `src/routes/__root.tsx` از AuthProvider استفاده می‌کند؛ `src/lib/auth/provider.tsx` فعلاً wrapper خالی است.
-- `src/lib/app-data/readiness.ts` و `createServerFn`های مشابه به runtime قبلی وابسته‌اند و باید بازطراحی شوند.
-- route مستقل login در بررسی قبلی پیدا نشده، در حالی که gateها مسیر `/login` را انتظار دارند.
-- `src/lib/api/php-client.ts` در شاخه هست و پایه ارتباط same-origin با `/api/v1`، session cookie و CSRF را فراهم می‌کند؛ هنوز به auth UI و store وصل نشده است.
+- فرم ورود PHP در `src/components/grill/app.tsx` هنگام تایپ فقط state محلی React را تغییر می‌دهد؛ درخواست شبکه فقط هنگام submit اجرا می‌شود. بنابراین هنگ‌کردن مرورگر با تایپ هنوز ریشه‌یابی قطعی نشده و نباید با حدس به فرم نسبت داده شود.
+- API health و auth/me در هاست قبلاً پاسخ داده‌اند؛ نشست کاربر در وضعیت unauthenticated و setup در وضعیت setup_required بوده است.
+- Playwright روی بسته نهایی cPanel در CI اجرا شد؛ صفحه با HTTP 200 بالا آمد و تایپ حرف‌به‌حرف ۴۶ نویسه در هر دو viewport دسکتاپ و موبایل اندازه‌گیری شد: نام کاربری ۴۲ms و رمز عبور ۳۲ms، بدون کندی یا خطای کنسول. این نتیجه مربوط به runner CI است و جایگزین تست روی مرورگر و هاست واقعی کاربر نیست.
+- وضعیت داده‌ها و عملیات چنددستگاهی باید با بررسی کد فعلی و تست MySQL واقعی تأیید شود؛ polling دوره‌ای به‌تنهایی اثبات همگام‌سازی کامل نیست.
+- CI کامل شامل PHP syntax، API/MySQL integration، typecheck، unit tests، lint، build و artifact upload موفق شده است. تست مرورگر واقعی و staging cPanel همچنان باقی است.
+- باید روی staging واقعی، ورود، ساخت مدیر، نقش‌ها، ثبت سفارش، هم‌زمانی، موجودی، تخفیف، بکاپ/بازیابی و SMS تست شوند.
+- نسخه production هاست نباید بدون تأیید مالک و backup دستکاری شود.
 
-## 5) یافته‌های بک‌اند PHP/MySQL محلی
+## 5) قواعد امنیت و استقرار
 
-آرشیو مهاجرت محلی شامل API و schema اولیه بوده است. مسیرهای مورد بررسی:
-- `/health`
-- `/setup/manager`
-- `/auth/login`
-- `/auth/me`
-- `/auth/logout`
-- `/auth/change-password`
-- `/users`
-- `/bootstrap`
-- `/records/{resource}`
-- `/orders`
-- `/orders/{id}/status`
+- هرگز از مالک `private/config.php`، setup token، app_key، رمز دیتابیس یا session cookie نخواهید.
+- `private/config.php` باید خارج از Document Root و خارج از Git بماند.
+- secrets را در source، ZIP عمومی، logs یا مستندات قرار ندهید.
+- هیچ تغییری در دیتابیس یا فایل‌های زنده cPanel بدون مجوز صریح و برنامه rollback انجام نشود.
+- build موفق معادل تست واقعی Apache/PHP/MySQL یا تأیید آمادگی production نیست.
+- هر گزارش باید بین «تغییر در GitHub»، «تست موفق»، «ساخت artifact» و «استقرار روی هاست» تفکیک قائل شود.
 
-موارد مهمی که باید پیش از production اصلاح/تست شوند:
-- endpoint سفارش قبلاً totals ارسالی client را ذخیره می‌کرد؛ فقط subtotal به‌صورت محدود با قیمت محصول/گزینه‌ها مقایسه می‌شد. تمام قیمت‌ها، تخفیف، مالیات، امتیاز و مبلغ نهایی باید از داده معتبر DB سمت سرور محاسبه شوند.
-- idempotency برای ثبت سفارش لازم است.
-- bootstrap قبلاً به 500 سفارش محدود بود؛ pagination/cursor و فیلترها لازم‌اند.
-- endpoint ویرایش محتوای سفارش manager-only در نسخه محلی به‌صورت آزمایشی اضافه شده بود، اما به GitHub منتقل یا با MySQL واقعی تست نشده است.
-- تراکنش سفارش، موجودی، مشتری، امتیاز و audit باید اتمیک باشند.
-- session invalidation پس از تغییر رمز/نقش و غیرفعال‌سازی کاربر باید تست شود.
-- setup token باید یک‌بارمصرف، محدود و پس از نصب غیرقابل استفاده باشد.
-- backup/restore امن و آزمون بازیابی لازم است.
+## 6) روال ادامه کار
 
-## 6) تست‌های انجام‌شده و محدودیت‌ها
+1. وضعیت PR و آخرین commit شاخه پاک‌سازی را بررسی کنید.
+2. CI را تا پایان دنبال کنید و هر خطا را در کد اصلاح کنید؛ تا وقتی سبز نشده، ادعای موفقیت نکنید.
+3. ممیزی import graph را کامل کنید و فقط فایل‌های legacy اثبات‌شده‌ی بدون مصرف را حذف کنید.
+4. وابستگی‌های بلااستفاده را با lockfile به‌روز حذف کنید؛ هیچ dependency صرفاً با حدس حذف نشود.
+5. پس از هر تغییر، typecheck، تست، lint و `npm run build:cpanel` را اجرا کنید.
+6. تست مرورگر واقعی را روی artifact نهایی اجرا کنید؛ `scripts/browser-smoke.mjs` اکنون تایپ حرف‌به‌حرف در فیلدهای ورود را اندازه می‌گیرد.
+7. artifact را فقط پس از موفقیت کامل CI به‌عنوان خروجی آماده staging معرفی کنید.
+8. استقرار cPanel و تست عملیاتی را جداگانه و فقط با اجازه مالک انجام دهید.
 
-گزارش محلی آخرین اجرا:
-- 197 تست اسکریپتی Node با بازیابی فایل‌های لازم `.grok/skills/og` و `.grok/app-env.json` (بدون secrets): 197 موفق، 0 ناموفق.
-- `php -l php-backend/public/api/index.php`: موفق.
-- `php -l php-backend/private/config.example.php`: موفق.
-- تست‌های TypeScript در `npm test` به‌علت نصب نبودن وابستگی‌هایی مانند `@tanstack/react-start` و `jose` اجرا نشدند.
-- `npm ci --ignore-scripts --no-audit --no-fund` در محیط قبلی timeout شد؛ build و typecheck واقعی انجام نشده‌اند.
-- محیط بررسی فاقد `pdo_mysql` بود؛ MySQL واقعی و integration test انجام نشده‌اند.
+## 7) فایل‌های مرجع
 
-این نتایج را فقط به‌عنوان تست‌های محلی گزارش کنید؛ آن‌ها اثبات deploy readiness نیستند.
-
-## 7) محیط staging موجود
-
-مالک قبلاً این موارد را در cPanel آماده کرده است:
-- دیتابیس staging: `smotckkb_3food_staging`
-- DB user: `smotckkb_3food-pos`
-- DB host: `localhost`
-- پوشه: `public_html/pos-staging`
-- Directory Privacy فعال.
-- مالک گفته افزونه‌های PDO، PDO_MySQL، cURL، OpenSSL و Mbstring در cPanel فعال‌اند.
-
-رمز دیتابیس قبلاً در مکالمه افشا شده؛ آن را secret افشاشده فرض کنید و به مالک توصیه کنید rotate کند. هرگز رمز را در Git، log، issue، مستندات یا chat تکرار نکنید. تنظیمات واقعی باید خارج از web root و خارج از Git نگهداری شوند. فایل config نمونه فقط placeholder داشته باشد.
-
-هیچ فایل ناقص یا ناتست‌شده‌ای را در staging یا دامنه اصلی deploy نکنید.
-
-## 8) ترتیب کار پیشنهادی برای دستیار بعدی
-
-1. ابتدا کل درخت مخزن و شاخه‌ها را بررسی کنید؛ این سند را به‌عنوان وضعیت زنده فرض نکنید.
-2. از مالک بخواهید فایل اصلی `grok-workspace.zip` و آرشیو `3food-pos-php-migration.zip` را در محیط کاری در دسترس قرار دهد، اگر فایل‌ها در workspace موجود نیستند.
-3. آرشیوها را استخراج و manifest شامل مسیر، اندازه، SHA-256 تولید کنید. فایل‌های `.env`، credentials، private keys، cache، build output و هرگونه secret را قبل از commit حذف کنید.
-4. سورس اصلی را در شاخه `migration/php-mysql` قرار دهید؛ `main` را دست نزنید. فایل‌های مشترک را با hash مقایسه کنید و هیچ نسخه‌ای را کورکورانه overwrite نکنید.
-5. بک‌اند PHP و schema را اضافه کنید؛ secrets فقط در config خارج از web root.
-6. CI اضافه کنید: npm ci، lint، typecheck، تست‌های unit، build استاتیک و PHP lint. CI نباید خودکار deploy کند.
-7. auth React را به PHP session متصل کنید؛ login/logout/me/change-password، CSRF و RBAC را با تست پوشش دهید.
-8. Zustand store را به API و MySQL منتقل کنید؛ multi-device، pagination، retry، offline queue و idempotency را طراحی و تست کنید.
-9. محاسبات مالی سفارش را کاملاً server-side کنید؛ سفارش، موجودی، امتیاز و audit باید transactional باشند.
-10. امکانات مشتری/باشگاه، انبار، آشپزخانه، پیامک مشتری و backup/restore را تکمیل کنید.
-11. روی staging واقعی با MySQL تست کنید؛ سپس فقط با تأیید مالک انتشار اصلی انجام شود.
-12. در پایان ZIP کامل شامل source، build، schema، install guide و changelog بسازید و با unzip/test/hash آن را verify کنید.
-
-## 9) قواعد همکاری با مالک
-
-- مالک مبتدی است؛ دستورالعمل‌ها باید مرحله‌به‌مرحله، کوتاه و دقیق باشند.
-- از مالک نخواهید کارهای تکراری انجام دهد یا هر مرحله را با «مرحله بعدی» تأیید کند.
-- فقط وقتی اطلاعات/دسترسی واقعاً مسدودکننده است یک سؤال روشن بپرسید.
-- گزارش پیشرفت باید تفکیک کند: انجام‌شده، تست‌شده، منتقل‌شده به GitHub، deployشده. این‌ها یکسان نیستند.
-- هیچ‌وقت ادعای اجرای تست، commit، upload یا deploy بدون نتیجه واقعی نکنید.
-- هر تغییر را روی شاخه `migration/php-mysql` انجام دهید و commit مشخص ارائه کنید.
-- فایل ZIP ناقص قبلی را نسخه نهایی معرفی نکنید.
-- پیش از destructive changes، backup و تأیید مالک لازم است.
-
-## 10) منابع داخل مخزن
-
-- `docs/source-audit.md`: یافته‌های سورس اصلی.
-- `docs/static-build-readiness.md`: وضعیت آماده‌سازی build استاتیک.
-- `docs/auth-source-analysis.md`: وابستگی‌های احراز هویت قبلی.
-- `docs/auth-integration-readiness.md`: آمادگی اتصال auth.
-- `docs/php-api-client-contract.md`: قرارداد کلاینت API.
-- `docs/phase-2-backlog.md`: backlog و نتایج تست‌های ثبت‌شده.
-- `src/lib/api/php-client.ts`: کلاینت اولیه PHP API.
-
-## 11) شروع سریع برای هر هوش مصنوعی
-
-پیام پیشنهادی برای شروع کار:
-
-«مخزن خصوصی jalilsh7/3Food-pos را بررسی کن. ابتدا AGENTS.md و AI_HANDOFF_FA.md و تمام docs را بخوان. فقط روی شاخه migration/php-mysql کار کن و main را تغییر نده. وضعیت واقعی فایل‌ها را با GitHub tree بررسی کن؛ هنوز انتقال کامل سورس انجام نشده است. نیازمندی‌های مالک و محدودیت‌های امنیتی را رعایت کن. به‌جای گزارش صرف، کار را در commitهای کوچک و قابل بررسی پیش ببر. هر تست را واقعاً اجرا و نتیجه دقیق را ثبت کن. هرگز secrets را commit نکن یا بدون تست deploy نکن.»
+- `AGENTS.md`: دستورالعمل معماری cPanel و امنیت.
+- `README.md`: خلاصه پروژه و وضعیت انتشار.
+- `IMPLEMENTATION-STATUS-FA.md`: قابلیت‌ها و backlog.
+- `SOURCE-AUDIT-PHP-MYSQL-FA.md` و `docs/*`: گزارش‌های تاریخی؛ تاریخ و زمینه هر گزارش را در نظر بگیرید.
+- `src/lib/api/php-client.ts`: قرارداد کلاینت PHP API.
+- `php-backend/README-FA.md`: راهنمای backend و نصب.
+- `scripts/audit-cpanel-source.mjs`: ممیزی import graph مرورگر.
+- `scripts/audit-cpanel.mjs`: ممیزی bundle تولیدشده.

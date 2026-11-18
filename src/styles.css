@@ -30,6 +30,7 @@
     color: var(--color-ink);
     font-family: var(--font-sans);
     min-height: 100vh;
+    font-size: var(--app-font-size, 15px);
     overflow-x: clip;
   }
   input,

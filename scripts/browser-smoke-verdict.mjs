@@ -35,7 +35,7 @@ export function parseSmokeArgs(argv, env = {}) {
   }
   return {
     url: positional[0] || "http://127.0.0.1:8080/",
-    outPng: positional[1] || "/workspace/screenshots/app-builder-preview.png",
+    outPng: positional[1] || "screenshots/3food-pos-smoke.png",
     baseline,
   };
 }
@@ -121,6 +121,7 @@ export function exitCodeFor(viewports) {
   const list = Object.values(viewports ?? {});
   if (list.length === 0) return 1;
   if (list.some((v) => (v.status ?? 0) >= 400 || (v.status ?? 0) === 0)) return 1;
+  if (list.some((v) => v.loginTyping?.slow)) return 2;
   if (list.some((v) => (v.consoleErrors?.length ?? 0) > 0 || (v.pageErrors?.length ?? 0) > 0)) {
     return 2;
   }

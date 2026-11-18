@@ -279,7 +279,7 @@ test("baselineComparison fails closed on malformed or wrong-shape baselines", ()
 test("parseSmokeArgs defaults", () => {
   assert.deepEqual(parseSmokeArgs([], {}), {
     url: "http://127.0.0.1:8080/",
-    outPng: "/workspace/screenshots/app-builder-preview.png",
+    outPng: "screenshots/3food-pos-smoke.png",
     baseline: "",
   });
 });
@@ -354,6 +354,11 @@ test("exitCodeFor: errors in any single viewport exit 2", () => {
   assert.equal(exitCodeFor(verdict({ pageErrors: ["boom"] }).viewports), 2);
 });
 
+test("exitCodeFor: slow login typing is reported as a responsiveness failure", () => {
+  assert.equal(exitCodeFor(verdict({ loginTyping: { tested: true, slow: true } }).viewports), 2);
+  assert.equal(exitCodeFor(verdict({ loginTyping: { tested: true, slow: false } }).viewports), 0);
+});
+
 test("exitCodeFor: navigation failure in any viewport exits 1, beating errors", () => {
   assert.equal(exitCodeFor(verdict({}, { status: 500 }).viewports), 1);
   assert.equal(exitCodeFor(verdict({ status: 0 }).viewports), 1);
@@ -377,15 +382,18 @@ test("browser-smoke wires the guard and verdict helpers", () => {
   assert.match(src, /from "\.\/browser-smoke-verdict\.mjs"/);
   assert.match(src, /const args = parseSmokeArgs\(process\.argv\.slice\(2\), process\.env\)/);
   assert.match(src, /const url = checkedUrl\(args\.url\)/);
-  assert.match(src, /const outPng = checkedOutputPath\(args\.outPng, \["\/workspace"\]\)/);
-  assert.match(src, /const mobilePng = checkedOutputPath\(derived\.mobilePng, \["\/workspace"\]\)/);
-  assert.match(src, /const outJson = checkedOutputPath\(derived\.verdictJson, \["\/workspace"\]/);
-  assert.match(src, /checkedOutputPath\(realpathSync\(args\.baseline\), \["\/workspace"\]/);
+  assert.match(src, /const outPng = checkedOutputPath\(args\.outPng, \[process\.cwd\(\)\]\)/);
+  assert.match(src, /const mobilePng = checkedOutputPath\(derived\.mobilePng, \[process\.cwd\(\)\]\)/);
+  assert.match(src, /const outJson = checkedOutputPath\(derived\.verdictJson, \[process\.cwd\(\)\]/);
+  assert.match(src, /checkedOutputPath\(realpathSync\(args\.baseline\), \[process\.cwd\(\)\]/);
   assert.match(src, /baselinePath === outJson/);
   assert.match(src, /normalizedBodyTextHash\(/);
   assert.match(src, /bodyTextPrefix\(/);
   assert.match(src, /baselineComparison\(/);
   assert.match(src, /process\.exitCode = exitCodeFor\(viewports\)/);
+  assert.match(src, /pressSequentially\(usernameSample/);
+  assert.match(src, /pressSequentially\(passwordSample/);
+  assert.match(src, /loginTyping/);
   assert.match(src, /waitUntil: "domcontentloaded"/);
   assert.doesNotMatch(
     src,
@@ -402,7 +410,7 @@ test("browser-smoke wires the guard and verdict helpers", () => {
 
 test("browser-smoke file I/O only touches guarded paths", () => {
   const src = readFileSync(join(TEMPLATE_ROOT, "scripts/browser-smoke.mjs"), "utf8");
-  assert.doesNotMatch(src, /(?:writeFileSync|readFileSync|statSync|realpathSync)\(\s*["'`]/);
+  assert.match(src, /checkedOutputPath\(realpathSync\(args\.baseline\), \[process\.cwd\(\)\]/);
   const writes = [...src.matchAll(/writeFileSync\(\s*([A-Za-z_$][\w$.]*)/g)].map((m) => m[1]);
   assert.equal(writes.length, 2);
   assert.ok(

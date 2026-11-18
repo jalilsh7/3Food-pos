@@ -140,3 +140,14 @@ CREATE TABLE IF NOT EXISTS pos_discount_redemptions (
   KEY idx_pos_discount_redemption_customer (discount_id, customer_id),
   CONSTRAINT fk_pos_discount_redemption_order FOREIGN KEY (order_id) REFERENCES pos_orders(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Add global appearance settings for all POS users.
+CREATE TABLE IF NOT EXISTS app_appearance_settings (
+  id TINYINT UNSIGNED NOT NULL,
+  settings JSON NOT NULL,
+  updated_by BIGINT UNSIGNED NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT chk_appearance_settings_singleton CHECK (id = 1),
+  CONSTRAINT fk_appearance_settings_actor FOREIGN KEY (updated_by) REFERENCES app_users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
