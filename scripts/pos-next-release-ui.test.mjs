@@ -73,3 +73,8 @@ test("expense history can be filtered by selected date range and category", () =
 test("checkout validates normalized Iranian mobile numbers before enrollment", () => {
   assert.ok(app.includes("if (!/^09[0-9]{9}$/.test(normalizedPhone))"));
 });
+
+test("expense defaults seed only once and backup restore accepts the seed marker", () => {
+  assert.match(phpApi, /resource = 'system_meta' AND id = 'expense_categories_seeded'/);
+  assert.match(phpApi, /'sms_logs','system_meta'/);
+});
