@@ -1392,6 +1392,7 @@ type ServerOrder = {
   items: CartLine[];
   totals: Partial<Pick<Order, "subtotal" | "tierDiscount" | "codeDiscount" | "pointsDiscount" | "tax" | "total">>;
   created_at?: string;
+  createdAt?: string;
   customerId?: string | null;
   customerName?: string | null;
   customerPhone?: string | null;
