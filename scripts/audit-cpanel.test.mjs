@@ -42,7 +42,7 @@ test("cPanel audit rejects remotely hosted HTML assets", () => {
     writeFileSync(join(root, "index.html"), '<script src="https://example.com/app.js"></script>');
   });
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /remote script\\/stylesheet asset reference/i);
+  assert.match(result.stderr, /remote script\/stylesheet asset reference/i);
 });
 
 test("cPanel audit rejects remote CSS resources", () => {
