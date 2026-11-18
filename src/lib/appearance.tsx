@@ -23,7 +23,7 @@ export function AppearanceProvider({children}:{children:ReactNode}){
  return()=>{active=false;window.clearInterval(timer);window.removeEventListener("focus",visible);document.removeEventListener("visibilitychange",visible);};},[]);
  const update=(patch:Partial<AppearanceSettings>)=>{dirty.current=true;setSettings(s=>({...s,...patch}));};
  const save=async()=>{const r=await phpApi.saveAppearance(settings);dirty.current=false;setSettings({...DEFAULT_APPEARANCE,...r.settings});};
- const reset=async()=>{const r=await phpApi.resetAppearance();dirty.current=false;setSettings({...DEFAULT_APPEARANCE,...r.settings});};
+ const reset=async()=>{const r=await phpApi.resetAppearance();dirty.current=false;const next={...DEFAULT_APPEARANCE,...r.settings};if(next.primary.toLowerCase()==="#c2410c")next.primary=DEFAULT_APPEARANCE.primary;if(next.secondary.toLowerCase()==="#1f6b4a")next.secondary=DEFAULT_APPEARANCE.secondary;setSettings(next);};
  const uploadLogo=async(file:File)=>{if(!["image/png","image/jpeg","image/webp"].includes(file.type))throw Error("لوگو باید PNG، JPG یا WebP باشد.");if(file.size<1||file.size>512*1024)throw Error("حجم لوگو باید حداکثر ۵۱۲ کیلوبایت باشد.");
  const data=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(Error("خواندن فایل لوگو انجام نشد."));reader.onload=()=>typeof reader.result==="string"?resolve(reader.result):reject(Error("فایل لوگو معتبر نیست."));reader.readAsDataURL(file);});
  const r=await phpApi.uploadAppearanceLogo(data.slice(data.indexOf(",")+1));update({logoUrl:r.logo_url});};
