@@ -1122,6 +1122,32 @@ function CodesScreen() {
   );
 }
 
+function asciiDigits(value:string){
+  return value.replace(/[۰-۹]/g,d=>String(d.charCodeAt(0)-1776)).replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-1632));
+}
+function jalaliToIso(value:string):string|null{
+  const match=asciiDigits(value).trim().match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+  if(!match)return null;
+  let jy=Number(match[1]),jm=Number(match[2]),jd=Number(match[3]);
+  if(jm<1||jm>12||jd<1||jd>31)return null;
+  jy+=1595;
+  let days=-355668+365*jy+Math.floor(jy/33)*8+Math.floor(((jy%33)+3)/4)+jd+(jm<7?(jm-1)*31:(jm-7)*30+186);
+  let gy=400*Math.floor(days/146097);days%=146097;
+  if(days>36524){gy+=100*Math.floor(--days/36524);days%=36524;if(days>=365)days++;}
+  gy+=4*Math.floor(days/1461);days%=1461;
+  if(days>365){gy+=Math.floor((days-1)/365);days=(days-1)%365;}
+  let gd=days+1;const leap=gy%4===0&&(gy%100!==0||gy%400===0);
+  const monthDays=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31];let gm=0;
+  while(gm<12&&gd>monthDays[gm]){gd-=monthDays[gm];gm++;}
+  if(gm>=12)return null;
+  return `${gy}-${String(gm+1).padStart(2,"0")}-${String(gd).padStart(2,"0")}`;
+}
+function isoToJalali(value:string){
+  const parts=new Intl.DateTimeFormat("fa-IR-u-ca-persian",{timeZone:"Asia/Tehran",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date(value+"T12:00:00Z"));
+  const part=(type:string)=>parts.find(item=>item.type===type)?.value??"";
+  return `${part("year")}/${part("month")}/${part("day")}`;
+}
+
 function ReportsScreen() {
   const orders = usePos((s) => s.orders);
   const expenses = usePos((s) => s.expenses);
@@ -1134,8 +1160,12 @@ function ReportsScreen() {
   const [amount, setAmount] = useState(0);
   const [cat, setCat] = useState("");
   const [note, setNote] = useState("");
-  const [from, setFrom] = useState(tehranDate(Date.now()-6*86400000));
-  const [to, setTo] = useState(new Date().toISOString().slice(0,10));
+  const initialFrom=tehranDate(Date.now()-6*86400000);
+  const initialTo=tehranDate();
+  const [from, setFrom] = useState(initialFrom);
+  const [to, setTo] = useState(initialTo);
+  const [fromText,setFromText]=useState(()=>isoToJalali(initialFrom));
+  const [toText,setToText]=useState(()=>isoToJalali(initialTo));
   const [newCategory, setNewCategory] = useState("");
   const [categoryBusy, setCategoryBusy] = useState(false);
   const [serverSummary, setServerSummary] = useState<Record<string, unknown> | null>(null);
@@ -1211,7 +1241,7 @@ function ReportsScreen() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold">مرکز گزارش‌گیری و هزینه‌ها</h2><div className="flex gap-2"><Btn tone="ghost" onClick={downloadCsv}>خروجی Excel (CSV)</Btn><Btn onClick={()=>window.print()}>چاپ / ذخیره PDF</Btn></div></div>
-      <Card className="grid gap-2 sm:grid-cols-2"><Field label="از تاریخ"><input className={inputCls} type="date" value={from} onChange={e=>setFrom(e.target.value)}/></Field><Field label="تا تاریخ"><input className={inputCls} type="date" value={to} onChange={e=>setTo(e.target.value)}/></Field></Card>
+      <Card className="grid gap-2 sm:grid-cols-2"><Field label="از تاریخ شمسی"><input className={inputCls} inputMode="numeric" placeholder="۱۴۰۵/۰۱/۰۱" value={fromText} onChange={e=>{setFromText(e.target.value);const parsed=jalaliToIso(e.target.value);if(parsed)setFrom(parsed);}} onBlur={()=>{if(!jalaliToIso(fromText))setFromText(isoToJalali(from));}}/></Field><Field label="تا تاریخ شمسی"><input className={inputCls} inputMode="numeric" placeholder="۱۴۰۵/۰۱/۰۷" value={toText} onChange={e=>{setToText(e.target.value);const parsed=jalaliToIso(e.target.value);if(parsed)setTo(parsed);}} onBlur={()=>{if(!jalaliToIso(toText))setToText(isoToJalali(to));}}/></Field></Card>
       {reportError?<p className="text-xs text-warn">گزارش زنده سرور در دسترس نیست: {reportError}</p>:null}
       <div className="grid gap-3 sm:grid-cols-4">
         <Card><p className="text-xs text-muted">فروش خالص سفارش‌ها</p><p className="text-lg font-bold">{money(reportSales)}</p></Card>
