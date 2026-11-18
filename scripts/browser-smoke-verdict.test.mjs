@@ -354,6 +354,11 @@ test("exitCodeFor: errors in any single viewport exit 2", () => {
   assert.equal(exitCodeFor(verdict({ pageErrors: ["boom"] }).viewports), 2);
 });
 
+test("exitCodeFor: slow login typing is reported as a responsiveness failure", () => {
+  assert.equal(exitCodeFor(verdict({ loginTyping: { tested: true, slow: true } }).viewports), 2);
+  assert.equal(exitCodeFor(verdict({ loginTyping: { tested: true, slow: false } }).viewports), 0);
+});
+
 test("exitCodeFor: navigation failure in any viewport exits 1, beating errors", () => {
   assert.equal(exitCodeFor(verdict({}, { status: 500 }).viewports), 1);
   assert.equal(exitCodeFor(verdict({ status: 0 }).viewports), 1);
@@ -386,6 +391,9 @@ test("browser-smoke wires the guard and verdict helpers", () => {
   assert.match(src, /bodyTextPrefix\(/);
   assert.match(src, /baselineComparison\(/);
   assert.match(src, /process\.exitCode = exitCodeFor\(viewports\)/);
+  assert.match(src, /pressSequentially\(usernameSample/);
+  assert.match(src, /pressSequentially\(passwordSample/);
+  assert.match(src, /loginTyping/);
   assert.match(src, /waitUntil: "domcontentloaded"/);
   assert.doesNotMatch(
     src,
