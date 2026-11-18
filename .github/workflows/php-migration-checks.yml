@@ -100,5 +100,6 @@ jobs:
         with:
           name: 3food-pos-cpanel
           path: dist-cpanel/
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
