@@ -22,3 +22,11 @@ test("order list shows the server-created timestamp and elapsed duration", () =>
   assert.match(app, /new Date\(o\.createdAt\)\.toLocaleString\("fa-IR",\{timeZone:"Asia\/Tehran"\}\)/);
   assert.match(app, /formatElapsed\(clockNow-new Date\(o\.createdAt\)\.getTime\(\)\)/);
 });
+
+test("stock shortage warning never disables checkout and can be muted for one hour", () => {
+  assert.match(app, /const showStockWarning = stockShortages\.length > 0/);
+  assert.match(app, /60 \* 60 \* 1000/);
+  assert.match(app, /خاموش‌کردن هشدار برای یک ساعت/);
+  assert.match(app, /<Btn onClick=\{checkout\} disabled=\{!cart\.length \|\| submitting\}/);
+  assert.match(app, /ثبت سفارش متوقف نمی‌شود/);
+});
