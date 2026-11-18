@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   ChefHat, ClipboardList, LayoutDashboard, MessageSquare, Percent,
   Settings as SettingsIcon, ShoppingBag, Users, UtensilsCrossed, Warehouse, Truck, LogOut,
@@ -1489,13 +1489,23 @@ function SuppliersScreen(){
   const [purchase,setPurchase]=useState({supplierId:"",title:"",amount:0,paid:0,note:"",ingredientId:"",quantity:0,unitCost:0});
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
-  async function refresh(){
-    setBusy(true);setError("");
-    try{const [a,b]=await Promise.all([phpApi.listRecords<Supplier>("suppliers"),phpApi.listRecords<Purchase>("supplier_purchases")]);setSuppliers(a.items);setPurchases(b.items);}
-    catch(e){setError(e instanceof Error?e.message:"دریافت اطلاعات تأمین‌کنندگان انجام نشد");}
-    finally{setBusy(false);}
-  }
-  useEffect(()=>{void refresh();},[]);
+  const refresh = useCallback(async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const [supplierResult, purchaseResult] = await Promise.all([
+        phpApi.listRecords<Supplier>("suppliers"),
+        phpApi.listRecords<Purchase>("supplier_purchases"),
+      ]);
+      setSuppliers(supplierResult.items);
+      setPurchases(purchaseResult.items);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "دریافت اطلاعات تأمین‌کنندگان انجام نشد");
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+  useEffect(() => { void refresh(); }, [refresh]);
   async function addSupplier(e:FormEvent<HTMLFormElement>){
     e.preventDefault();if(!draft.name.trim())return;
     const item:Supplier={id:uid("sup"),...draft,name:draft.name.trim(),balance:0,active:true};
