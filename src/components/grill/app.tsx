@@ -631,6 +631,9 @@ function statusFa(s: Order["status"]) {
   return { new: "جدید", preparing: "در حال آماده‌سازی", ready: "آماده", delivered: "تحویل شد", cancelled: "لغو" }[s];
 }
 
+function tehranDate(value:Date|string|number = new Date()){
+  return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Tehran",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(value));
+}
 function formatElapsed(ms:number){
   const total=Math.max(0,Math.floor(ms/60000));const days=Math.floor(total/1440);const hours=Math.floor((total%1440)/60);const minutes=total%60;
   return days>0?`${days.toLocaleString("fa-IR")} روز و ${hours.toLocaleString("fa-IR")} ساعت`:hours>0?`${hours.toLocaleString("fa-IR")} ساعت و ${minutes.toLocaleString("fa-IR")} دقیقه`:`${minutes.toLocaleString("fa-IR")} دقیقه`;
@@ -1122,7 +1125,7 @@ function ReportsScreen() {
   const [amount, setAmount] = useState(0);
   const [cat, setCat] = useState("");
   const [note, setNote] = useState("");
-  const [from, setFrom] = useState(new Date(Date.now()-6*86400000).toISOString().slice(0,10));
+  const [from, setFrom] = useState(tehranDate(Date.now()-6*86400000));
   const [to, setTo] = useState(new Date().toISOString().slice(0,10));
   const [newCategory, setNewCategory] = useState("");
   const [categoryBusy, setCategoryBusy] = useState(false);
@@ -1135,7 +1138,7 @@ function ReportsScreen() {
       .catch(() => { if(active) setCategories([]); });
     return () => { active=false; };
   }, []);
-  const done = useMemo(() => orders.filter((o) => o.status !== "cancelled" && o.createdAt.slice(0,10) >= from && o.createdAt.slice(0,10) <= to), [orders,from,to]);
+  const done = useMemo(() => orders.filter((o) => o.status !== "cancelled" && tehranDate(o.createdAt) >= from && tehranDate(o.createdAt) <= to), [orders,from,to]);
   useEffect(() => { let active=true; setReportError(""); void phpApi.getReportSummary(from,to).then(r=>{if(active)setServerSummary(r);}).catch(e=>{if(active){setServerSummary(null);setReportError(e instanceof Error?e.message:"گزارش سرور دریافت نشد");}}); return ()=>{active=false;}; },[from,to]);
   const visibleExpenses = expenses.filter(e => e.date >= from && e.date <= to);
   const sales = done.reduce((sum, o) => sum + o.total, 0);
@@ -1146,7 +1149,7 @@ function ReportsScreen() {
   const reportExpenses = typeof serverSummary?.expenses === "number" ? serverSummary.expenses : spend;
   const reportNet = typeof serverSummary?.net_profit === "number" ? serverSummary.net_profit : sales-costGuess-spend;
   const daily = new Map<string,number>();
-  for(const o of done) daily.set(o.createdAt.slice(0,10),(daily.get(o.createdAt.slice(0,10))??0)+o.total);
+  for(const o of done) daily.set(tehranDate(o.createdAt),(daily.get(tehranDate(o.createdAt))??0)+o.total);
   const dailyRows=[...daily.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
   const productRows=new Map<string,{qty:number;revenue:number}>();
   for(const o of done) for(const l of o.lines){const p=productRows.get(l.name)??{qty:0,revenue:0};p.qty+=l.qty;p.revenue+=l.unitPrice*l.qty;productRows.set(l.name,p);}
@@ -1188,7 +1191,7 @@ function ReportsScreen() {
   }
   async function addCost(event:FormEvent<HTMLFormElement>){
     event.preventDefault();if(!title.trim()||amount<=0||!cat)return;
-    const item={id:uid("ex"),title:title.trim(),amount,category:cat,date:new Date().toISOString().slice(0,10),note:note.trim(),createdAt:new Date().toISOString()};
+    const item={id:uid("ex"),title:title.trim(),amount,category:cat,date:tehranDate(),note:note.trim(),createdAt:new Date().toISOString()};
     const ok=await saveCentralRecord("expenses",item,()=>addExpense(item));
     if(ok){setTitle("");setAmount(0);setNote("");}
   }
@@ -1244,7 +1247,7 @@ function SuppliersScreen(){
   async function addPurchase(e:FormEvent<HTMLFormElement>){
     e.preventDefault();if(!purchase.supplierId||!purchase.title.trim()||purchase.amount<=0||purchase.paid<0||purchase.paid>purchase.amount)return;
     const supplier=suppliers.find(s=>s.id===purchase.supplierId);if(!supplier)return;
-    const item:Purchase={id:uid("pur"),...purchase,title:purchase.title.trim(),date:new Date().toISOString().slice(0,10),note:purchase.note.trim()};
+    const item:Purchase={id:uid("pur"),...purchase,title:purchase.title.trim(),date:tehranDate(),note:purchase.note.trim()};
     setBusy(true);
     try{
       const result=await phpApi.createSupplierTransaction<Purchase & {kind:string},Supplier>(supplier.id,{...item,kind:"purchase"});
