@@ -2177,7 +2177,7 @@ if ($method === 'GET' && $path === '/reports/summary') {
     foreach($daily as $day=>$value){$month=substr((string)$day,0,7);$monthly[$month]=($monthly[$month]??0)+$value;}
     ksort($monthly);
     $inventoryPurchases=0;
-    foreach($pdo->query("SELECT payload FROM pos_records WHERE resource='supplier_purchases'")->fetchAll(PDO::FETCH_COLUMN) as $rawPurchase){$purchase=json_decode((string)$rawPurchase,true);if(is_array($purchase)&&($purchase['kind']??'')==='purchase'&&!empty($purchase['ingredientId']))$inventoryPurchases+=(int)($purchase['amount']??0);}
+    foreach($pdo->query("SELECT payload FROM pos_records WHERE resource='supplier_purchases'")->fetchAll(PDO::FETCH_COLUMN) as $rawPurchase){$purchase=json_decode((string)$rawPurchase,true);$purchaseDate=(string)($purchase['date']??'');if(is_array($purchase)&&$purchaseDate>=$from&&$purchaseDate<=$to&&($purchase['kind']??'')==='purchase'&&!empty($purchase['ingredientId']))$inventoryPurchases+=(int)($purchase['amount']??0);}
     $inventoryPurchases+=array_sum(array_map(static fn($e)=>($e['category']??'')==='مواد اولیه'?(int)($e['amount']??0):0,$expenses));
     $lowStock=[]; $inventoryValue=0;
     foreach($pdo->query("SELECT payload FROM pos_records WHERE resource='ingredients'")->fetchAll(PDO::FETCH_COLUMN) as $raw){
