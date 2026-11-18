@@ -1001,10 +1001,10 @@ function CustomersScreen({ role }: { role: Role }) {
   const [q, setQ] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", phone: "", birthday: "" });
-  const list = customers.filter((c) => c.name.includes(q) || c.phone.includes(q));
+  const normalizedQuery=normalizeIranPhone(q);\n  const list = customers.filter((c) => c.name.includes(q) || (normalizedQuery.length>0 && normalizeIranPhone(c.phone).includes(normalizedQuery)));
   const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId) ?? null;
   const selectedOrders = selectedCustomer
-    ? orders.filter((order) => order.customerId === selectedCustomer.id || order.customerPhone === selectedCustomer.phone)
+    ? orders.filter((order) => order.customerId === selectedCustomer.id || normalizeIranPhone(order.customerPhone) === normalizeIranPhone(selectedCustomer.phone))
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
     : [];
   return (
@@ -1052,7 +1052,7 @@ function CustomersScreen({ role }: { role: Role }) {
             <p className="text-sm">{TIER_LABEL[tierOf(c.points,settings)]} — {c.points.toLocaleString("fa-IR")} امتیاز — {money(c.totalSpent)}</p>
           </div>
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-muted">{orders.filter((o) => o.customerId === c.id || o.customerPhone === c.phone).length.toLocaleString("fa-IR")} سفارش ثبت‌شده</p>
+            <p className="text-xs text-muted">{orders.filter((o) => o.customerId === c.id || normalizeIranPhone(o.customerPhone) === normalizeIranPhone(c.phone)).length.toLocaleString("fa-IR")} سفارش ثبت‌شده</p>
             <Btn tone="ghost" onClick={() => setSelectedCustomerId(selectedCustomerId === c.id ? null : c.id)}>{selectedCustomerId === c.id ? "بستن سوابق" : "گزارش خریدها"}</Btn>
           </div>
         </Card>
