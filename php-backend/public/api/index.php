@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+date_default_timezone_set('UTC');
+
 /**
  * 3Food POS - PHP API foundation
  * Phase 1: database connectivity, first-manager setup, sessions and RBAC.
@@ -71,6 +73,8 @@ function db(array $config): PDO {
             PDO::ATTR_EMULATE_PREPARES => false,
             PDO::ATTR_STRINGIFY_FETCHES => false,
         ]);
+        // Store database timestamps in UTC; API presentation converts them to Tehran time.
+        $pdo->exec("SET time_zone = '+00:00'");
         return $pdo;
     } catch (Throwable $e) {
         error_log('[3Food POS] Database connection failed: ' . $e->getMessage());
@@ -878,6 +882,7 @@ if ($method === 'GET' && $path === '/bootstrap') {
     foreach ($orders as &$order) {
         $order['id'] = (string)$order['id'];
         $order['orderNumber'] = (int)$order['order_number'];
+        $order['createdAt'] = (new DateTimeImmutable((string)$order['created_at'], new DateTimeZone('UTC')))->format('Y-m-d\\TH:i:s\\Z');
         $order['customerId'] = $order['customer_id'];
         $order['customerName'] = $order['customer_name'];
         $order['customerPhone'] = $order['customer_phone'] ?? $order['guest_phone'] ?? '';
@@ -2065,7 +2070,11 @@ if ($method === 'GET' && $path === '/reports/summary') {
         json_response(['ok'=>false,'error'=>'invalid_report_range','message'=>'بازه گزارش حداکثر ۳۶۶ روز و باید معتبر باشد'],422);
     }
     $ordersStmt = $pdo->prepare("SELECT id, order_number, status, payment_method, items, totals, created_at FROM pos_orders WHERE created_at >= ? AND created_at < DATE_ADD(?, INTERVAL 1 DAY) ORDER BY created_at ASC");
-    $ordersStmt->execute([$from . ' 00:00:00', $to . ' 00:00:00']);
+    $tehran = new DateTimeZone('Asia/Tehran'); $utc = new DateTimeZone('UTC');
+    $fromUtc = (new DateTimeImmutable($from . ' 00:00:00', $tehran))->setTimezone($utc)->format('Y-m-d H:i:s');
+    $toUtc = (new DateTimeImmutable($to . ' 00:00:00', $tehran))->modify('+1 day')->setTimezone($utc)->format('Y-m-d H:i:s');
+    $ordersStmt = $pdo->prepare('SELECT id, order_number, status, payment_method, items, totals, created_at FROM pos_orders WHERE created_at >= ? AND created_at < ? ORDER BY created_at ASC');
+    $ordersStmt->execute([$fromUtc, $toUtc]);
     $orders = $ordersStmt->fetchAll();
     $products = [];
     foreach ($pdo->query("SELECT id,payload FROM pos_records WHERE resource='products'")->fetchAll() as $row) {
