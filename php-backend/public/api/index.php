@@ -2004,6 +2004,56 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
     }
 }
 
+
+if ($method === 'GET' && $path === '/reports/summary') {
+    $actor = require_role($pdo, ['manager']);
+    $from = (string)($_GET['from'] ?? date('Y-m-01'));
+    $to = (string)($_GET['to'] ?? date('Y-m-d'));
+    if (!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/D', $from) || !preg_match('/^\\d{4}-\\d{2}-\\d{2}$/D', $to)) {
+        json_response(['ok'=>false,'error'=>'invalid_report_range','message'=>'بازه تاریخ گزارش معتبر نیست'],422);
+    }
+    $fromDate = DateTimeImmutable::createFromFormat('!Y-m-d', $from);
+    $toDate = DateTimeImmutable::createFromFormat('!Y-m-d', $to);
+    if (!$fromDate || !$toDate || $toDate < $fromDate || $toDate->diff($fromDate)->days > 366) {
+        json_response(['ok'=>false,'error'=>'invalid_report_range','message'=>'بازه گزارش حداکثر ۳۶۶ روز و باید معتبر باشد'],422);
+    }
+    $ordersStmt = $pdo->prepare("SELECT id, order_number, status, payment_method, items, totals, created_at FROM pos_orders WHERE created_at >= ? AND created_at < DATE_ADD(?, INTERVAL 1 DAY) ORDER BY created_at ASC");
+    $ordersStmt->execute([$from . ' 00:00:00', $to . ' 00:00:00']);
+    $orders = $ordersStmt->fetchAll();
+    $products = [];
+    foreach ($pdo->query("SELECT id,payload FROM pos_records WHERE resource='products'")->fetchAll() as $row) {
+        $p = json_decode((string)$row['payload'], true);
+        if (is_array($p)) $products[(string)$row['id']] = $p;
+    }
+    $sales=0; $count=0; $cancelled=0; $cost=0; $daily=[]; $byPayment=['cash'=>0,'card'=>0,'online'=>0]; $byProduct=[];
+    foreach ($orders as $order) {
+        if ($order['status'] === 'cancelled') { $cancelled++; continue; }
+        $totals=json_decode((string)$order['totals'],true) ?: [];
+        $total=(int)($totals['total']??0); $sales+=$total; $count++;
+        $payment=(string)($order['payment_method']??'cash'); if(isset($byPayment[$payment])) $byPayment[$payment]+=$total;
+        $day=substr((string)$order['created_at'],0,10); $daily[$day]=($daily[$day]??0)+$total;
+        $items=json_decode((string)$order['items'],true) ?: [];
+        foreach($items as $line){
+            if(!is_array($line)) continue;
+            $productId=(string)($line['productId']??''); $qty=max(0,(int)($line['qty']??0));
+            $name=(string)($line['name']??'محصول'); $unit=(int)($line['unitPrice']??0);
+            $byProduct[$name]??=['quantity'=>0,'revenue'=>0]; $byProduct[$name]['quantity']+=$qty; $byProduct[$name]['revenue']+=$unit*$qty;
+            $cost += max(0,(int)($products[$productId]['cost']??0))*$qty;
+        }
+    }
+    $expenseStmt=$pdo->prepare("SELECT payload FROM pos_records WHERE resource='expenses'");
+    $expenseStmt->execute(); $expenses=[]; $expenseTotal=0; $expenseGroups=[];
+    foreach($expenseStmt->fetchAll(PDO::FETCH_COLUMN) as $raw){
+        $e=json_decode((string)$raw,true); if(!is_array($e)) continue;
+        $date=(string)($e['date']??''); if($date<$from||$date>$to) continue;
+        $amount=max(0,(int)($e['amount']??0)); $expenseTotal+=$amount;
+        $category=(string)($e['category']??'سایر هزینه‌ها'); $expenseGroups[$category]=($expenseGroups[$category]??0)+$amount;
+        $expenses[]=['id'=>(string)($e['id']??''),'title'=>(string)($e['title']??''),'amount'=>$amount,'category'=>$category,'date'=>$date];
+    }
+    arsort($daily); ksort($expenseGroups); uasort($byProduct,static fn($a,$b)=>$b['quantity']<=>$a['quantity']);
+    json_response(['ok'=>true,'range'=>['from'=>$from,'to'=>$to],'sales'=>$sales,'orders'=>$count,'cancelled'=>$cancelled,'average_order'=>$count?intdiv($sales,$count):0,'cost_of_goods'=>$cost,'expenses'=>$expenseTotal,'gross_profit'=>$sales-$cost,'net_profit'=>$sales-$cost-$expenseTotal,'daily'=>array_map(static fn($d,$v)=>['date'=>$d,'sales'=>$v],array_keys($daily),array_values($daily)),'payments'=>$byPayment,'products'=>array_slice(array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),0,100),'expense_categories'=>$expenseGroups,'expense_items'=>$expenses]);
+}
+
 if ($method === 'POST' && $path === '/sms/send') {
     $actor = require_role($pdo, ['manager', 'cashier']);
     require_csrf();
