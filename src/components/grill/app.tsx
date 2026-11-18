@@ -1203,7 +1203,7 @@ function ReportsScreen() {
   const inventoryPurchases = typeof serverSummary?.inventory_purchases === "number" ? serverSummary.inventory_purchases : 0;
   const daily = new Map<string,number>();
   for(const o of done) daily.set(tehranDate(o.createdAt),(daily.get(tehranDate(o.createdAt))??0)+o.total);
-  const dailyRows: [string,number][] = Array.isArray(serverSummary?.daily) ? (serverSummary.daily as {date:string;sales:number}[]).map(row=>[row.date,row.sales]) : [...daily.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+  const dailyRows: [string,number][] = Array.isArray(serverSummary?.daily) ? (serverSummary.daily as {date:string;sales:number}[]).map(row=>[row.date,row.sales] as [string,number]) : [...daily.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
   const productRows=new Map<string,{qty:number;revenue:number}>();
   for(const o of done) for(const l of o.lines){const p=productRows.get(l.name)??{qty:0,revenue:0};p.qty+=l.qty;p.revenue+=l.unitPrice*l.qty;productRows.set(l.name,p);}
   const top=[...productRows.entries()].sort((a,b)=>b[1].qty-a[1].qty).slice(0,10);
