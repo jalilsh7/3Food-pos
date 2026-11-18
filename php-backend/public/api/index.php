@@ -904,6 +904,53 @@ if ($method === 'GET' && $path === '/bootstrap') {
     json_response(['ok' => true, 'data' => $result, 'next_order' => $counter + 1, 'user' => ['id' => (int)$user['id'], 'username' => $user['username'], 'display_name' => $user['display_name'], 'role' => $user['role']]]);
 }
 
+
+if (preg_match('#^/suppliers/([A-Za-z0-9_-]+)/purchases$#D', $path, $supplierMatch) && $method === 'POST') {
+    $actor = require_role($pdo, ['manager']);
+    require_csrf();
+    $supplierId = $supplierMatch[1];
+    $body = request_json();
+    $item = $body['item'] ?? null;
+    if (!is_array($item) || !preg_match('/^[A-Za-z0-9_-]{1,100}$/D', (string)($item['id'] ?? '')) ||
+        !in_array($item['kind'] ?? '', ['purchase','payment'], true) ||
+        trim((string)($item['title'] ?? '')) === '' ||
+        !is_numeric($item['amount'] ?? null) || !is_numeric($item['paid'] ?? null)) {
+        json_response(['ok'=>false,'error'=>'invalid_supplier_transaction','message'=>'اطلاعات خرید یا پرداخت معتبر نیست'],422);
+    }
+    $amount=(int)$item['amount']; $paid=(int)$item['paid'];
+    if ($amount<0 || $paid<0 || $amount>100000000000 || $paid>100000000000 ||
+        ($item['kind']==='purchase' && $paid>$amount) ||
+        ($item['kind']==='payment' && ($amount!==0 || $paid===0))) {
+        json_response(['ok'=>false,'error'=>'invalid_supplier_amount','message'=>'مبلغ خرید یا تسویه معتبر نیست'],422);
+    }
+    try {
+        $pdo->beginTransaction();
+        $supplierStmt=$pdo->prepare("SELECT payload FROM pos_records WHERE resource='suppliers' AND id=? FOR UPDATE");
+        $supplierStmt->execute([$supplierId]); $raw=$supplierStmt->fetchColumn();
+        $supplier=is_string($raw)?json_decode($raw,true):null;
+        if(!is_array($supplier) || empty($supplier['active'])) {
+            $pdo->rollBack(); json_response(['ok'=>false,'error'=>'supplier_not_found','message'=>'تأمین‌کننده فعال پیدا نشد'],404);
+        }
+        $item['supplierId']=$supplierId;
+        $item['date']=date('Y-m-d');
+        $item['createdAt']=date('c');
+        $balance=max(0,(int)($supplier['balance']??0)+($item['kind']==='purchase'?$amount-$paid:-$paid));
+        $supplier['balance']=$balance;
+        $payload=json_encode($item,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+        $insert=$pdo->prepare("INSERT INTO pos_records (id,resource,payload,updated_by) VALUES (?,'supplier_purchases',?,?)");
+        $insert->execute([(string)$item['id'],$payload,(int)$actor['id']]);
+        $update=$pdo->prepare("UPDATE pos_records SET payload=?,updated_by=? WHERE resource='suppliers' AND id=?");
+        $update->execute([json_encode($supplier,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR),(int)$actor['id'],$supplierId]);
+        audit($pdo,(int)$actor['id'],$item['kind']==='purchase'?'supplier_purchase_recorded':'supplier_payment_recorded','supplier',$supplierId,['amount'=>$amount,'paid'=>$paid,'balance'=>$balance]);
+        $pdo->commit();
+        json_response(['ok'=>true,'item'=>$item,'supplier'=>$supplier]);
+    } catch(Throwable $e) {
+        if($pdo->inTransaction())$pdo->rollBack();
+        error_log('[3Food POS] Supplier transaction failed: '.$e->getMessage());
+        json_response(['ok'=>false,'error'=>'supplier_transaction_failed','message'=>'ثبت خرید یا تسویه انجام نشد'],500);
+    }
+}
+
 if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
     $resource = $m[1];
     if (!isset($resourceRoles[$resource])) json_response(['ok' => false, 'error' => 'resource_not_found'], 404);
