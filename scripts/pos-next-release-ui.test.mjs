@@ -43,3 +43,11 @@ test("Excel-compatible export includes profit and individual expense rows", () =
   assert.match(app, /expenseItemRows\.map\(row=>\["ریز هزینه"/);
   assert.match(app, /["]مالیات وصول‌شده["]/);
 });
+
+test("reports print action targets a visible print root for PDF and paper output", () => {
+  const start = app.indexOf("function ReportsScreen()");
+  const end = app.indexOf("\\nfunction SuppliersScreen", start);
+  const reports = app.slice(start, end);
+  assert.match(reports, /<div id="print-root"/);
+  assert.match(reports, /onClick=\{\(\)=>window\.print\(\)\}/);
+});
