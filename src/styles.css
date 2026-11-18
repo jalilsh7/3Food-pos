@@ -1,8 +1,60 @@
 @import "tailwindcss";
 
-/* BYekan is loaded locally when installed on the device. Bundle a licensed WOFF2 before release to guarantee cross-device typography. */
+/*
+ * IRANYekanWeb FarsiNum
+ * Font files are hosted in cPanel at public_html/fonts/.
+ * Public URL path: /fonts/
+ */
+@font-face {
+  font-family: "IRANYekanWeb FarsiNum";
+  src: url("/fonts/iranyekanweblightfanum.woff") format("woff");
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IRANYekanWeb FarsiNum";
+  src: url("/fonts/iranyekanwebmediumfanum.woff") format("woff");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IRANYekanWeb FarsiNum";
+  src: url("/fonts/iranyekanwebboldfanum.woff") format("woff");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IRANYekanWeb FarsiNum";
+  src: url("/fonts/iranyekanwebextraboldfanum.woff") format("woff");
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IRANYekanWeb FarsiNum";
+  src: url("/fonts/iranyekanwebblackfanum.woff") format("woff");
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IRANYekanWeb FarsiNum";
+  src: url("/fonts/iranyekanwebextrablackfanum.woff") format("woff");
+  font-style: normal;
+  font-weight: 950;
+  font-display: swap;
+}
+
 :root {
-  font-family: "BYekan", "B Yekan", Tahoma, sans-serif;
+  font-family: "IRANYekanWeb FarsiNum", Tahoma, sans-serif;
 }
 
 @theme {
@@ -17,7 +69,7 @@
   --color-leaf-ink: #f3faf6;
   --color-warn: #9a3412;
   --color-warn-bg: #fff1e6;
-  --font-sans: "BYekan", "B Yekan", Tahoma, sans-serif;
+  --font-sans: "IRANYekanWeb FarsiNum", Tahoma, sans-serif;
   --radius-card: 1rem;
   --shadow-card: 0 10px 30px rgb(28 23 18 / 0.06);
 }
@@ -40,7 +92,8 @@
   }
   input,
   select,
-  textarea {
+  textarea,
+  button {
     font-family: inherit;
   }
 }
@@ -59,6 +112,7 @@
     width: 100%;
     background: white;
     color: black;
+    font-family: var(--font-sans);
   }
   @page {
     margin: 4mm;
