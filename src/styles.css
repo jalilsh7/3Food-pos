@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import "tailwindcss";\n\n@font-face {\n  font-family: "BYekan";\n  src: local("BYekan"), local("B Yekan");\n  font-style: normal;\n  font-weight: 100 900;\n  font-display: swap;\n}
 
 @theme {
   --color-bg: #f4efe6;
@@ -12,7 +12,7 @@
   --color-leaf-ink: #f3faf6;
   --color-warn: #9a3412;
   --color-warn-bg: #fff1e6;
-  --font-sans: "Vazirmatn", "Segoe UI", sans-serif;
+  --font-sans: "BYekan", "B Yekan", Tahoma, sans-serif;
   --radius-card: 1rem;
   --shadow-card: 0 10px 30px rgb(28 23 18 / 0.06);
 }
