@@ -1346,7 +1346,7 @@ function SuppliersScreen(){
       <Field label="یادداشت"><input className={inputCls} value={purchase.note} onChange={e=>setPurchase({...purchase,note:e.target.value})}/></Field><div><Btn type="submit" disabled={busy}>ثبت خرید</Btn></div>
     </form></Card>
     {suppliers.map(s=><Card key={s.id}><div className="flex flex-wrap items-center justify-between gap-2"><div><b>{s.name}</b><p className="text-xs text-muted">{s.phone} · رابط: {s.contact||"—"}</p></div><div className="text-left"><b>{money(s.balance)} بدهی</b><div className="flex gap-1"><Btn tone="ghost" onClick={()=>void editSupplier(s)}>ویرایش</Btn><Btn tone="ghost" onClick={()=>void toggleSupplier(s)}>{s.active?"غیرفعال‌کردن":"فعال‌کردن"}</Btn><Btn tone="ghost" onClick={()=>void settle(s)} disabled={s.balance<=0}>ثبت تسویه</Btn></div></div></div>
-      <div className="mt-2 border-t border-line pt-2 text-sm">{purchases.filter(p=>p.supplierId===s.id).map(p=><p key={p.id} className="flex justify-between"><span>{p.title} · {new Date(p.date+"T12:00:00").toLocaleDateString("fa-IR")}</span><span>{money(p.amount)} / پرداخت {money(p.paid)}</span></p>)}</div></Card>)}
+      <div className="mt-2 border-t border-line pt-2 text-sm">{purchases.filter(p=>p.supplierId===s.id).map(p=><p key={p.id} className="flex justify-between"><span>{p.title} · {new Date(p.date+"T12:00:00").toLocaleDateString("fa-IR",{timeZone:"Asia/Tehran"})}{p.quantity&&p.unitCost?` · ${p.quantity} × ${money(p.unitCost)}`:""}</span><span>{money(p.amount)} / پرداخت {money(p.paid)}</span></p>)}</div></Card>)}
     {busy?<p className="text-xs text-muted">در حال بارگذاری...</p>:null}
   </div>;
 }
