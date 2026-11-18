@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } 
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
   ChefHat, ClipboardList, LayoutDashboard, MessageSquare, Percent,
-  Settings as SettingsIcon, ShoppingBag, Users, UtensilsCrossed, Warehouse,
+  Settings as SettingsIcon, ShoppingBag, Users, UtensilsCrossed, Warehouse, Truck,
 } from "lucide-react";
 import { Btn, Card, Empty, Field, inputCls } from "./bits";
 import { ReceiptView } from "./receipt";
@@ -46,7 +46,7 @@ async function deleteCentralRecord(resource: string, id: string, commit: () => v
   }
 }
 
-type View = "pos" | "orders" | "menu" | "stock" | "customers" | "codes" | "reports" | "sms" | "users" | "settings";
+type View = "pos" | "orders" | "menu" | "stock" | "customers" | "codes" | "reports" | "suppliers" | "sms" | "users" | "settings";
 
 const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[] = [
   { id: "pos", label: "فروش", icon: ShoppingBag, roles: ["manager", "cashier"] },
@@ -56,6 +56,7 @@ const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[
   { id: "customers", label: "باشگاه", icon: Users, roles: ["manager", "cashier"] },
   { id: "codes", label: "کد تخفیف", icon: Percent, roles: ["manager"] },
   { id: "reports", label: "گزارش", icon: LayoutDashboard, roles: ["manager"] },
+  { id: "suppliers", label: "تأمین‌کنندگان", icon: Truck, roles: ["manager"] },
   { id: "sms", label: "پیامک", icon: MessageSquare, roles: ["manager"] },
   { id: "users", label: "کاربران", icon: Users, roles: ["manager"] },
   { id: "settings", label: "تنظیمات", icon: SettingsIcon, roles: ["manager"] },
@@ -183,6 +184,7 @@ function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; ini
         {current === "customers" ? <CustomersScreen role={role} /> : null}
         {current === "codes" ? <CodesScreen /> : null}
         {current === "reports" ? <ReportsScreen /> : null}
+        {current === "suppliers" ? <SuppliersScreen /> : null}
         {current === "sms" ? <SmsScreen /> : null}
         {current === "users" ? <UsersScreen /> : null}
         {current === "settings" ? <SettingsScreen /> : null}
@@ -1101,52 +1103,141 @@ function ReportsScreen() {
   const expenses = usePos((s) => s.expenses);
   const products = usePos((s) => s.products);
   const addExpense = usePos((s) => s.addExpense);
+  const [categories, setCategories] = useState<{id:string;name:string;active?:boolean}[]>([]);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState(0);
-  const [cat, setCat] = useState("مواد اولیه");
-  const done = useMemo(() => orders.filter((o) => o.status !== "cancelled"), [orders]);
-  const sales = done.reduce((s, o) => s + o.total, 0);
-  const costGuess = done.reduce((s, o) => s + o.lines.reduce((ls, l) => ls + (products.find((x) => x.id === l.productId)?.cost ?? 0) * l.qty, 0), 0);
-  const spend = expenses.reduce((s, e) => s + e.amount, 0);
-  const days = useMemo(() => {
-    const map = new Map<string, number>();
-    for (let i = 6; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); map.set(d.toISOString().slice(0, 10), 0); }
-    for (const o of done) { const k = o.createdAt.slice(0, 10); if (map.has(k)) map.set(k, (map.get(k) ?? 0) + o.total); }
-    return [...map.entries()].map(([day, total]) => ({ day: new Date(day).toLocaleDateString("fa-IR", { weekday: "short" }), total }));
-  }, [done]);
-  const rank = new Map<string, number>();
-  for (const o of done) for (const l of o.lines) rank.set(l.name, (rank.get(l.name) ?? 0) + l.qty);
-  const top = [...rank.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const [cat, setCat] = useState("");
+  const [note, setNote] = useState("");
+  const [from, setFrom] = useState(new Date(Date.now()-6*86400000).toISOString().slice(0,10));
+  const [to, setTo] = useState(new Date().toISOString().slice(0,10));
+  const [newCategory, setNewCategory] = useState("");
+  const [categoryBusy, setCategoryBusy] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void phpApi.listRecords<{id:string;name:string;active?:boolean}>("expense_categories")
+      .then(r => { if(active){setCategories(r.items);setCat(r.items.find(x=>x.active!==false)?.name??"");} })
+      .catch(() => { if(active) setCategories([]); });
+    return () => { active=false; };
+  }, []);
+  const done = useMemo(() => orders.filter((o) => o.status !== "cancelled" && o.createdAt.slice(0,10) >= from && o.createdAt.slice(0,10) <= to), [orders,from,to]);
+  const visibleExpenses = expenses.filter(e => e.date >= from && e.date <= to);
+  const sales = done.reduce((sum, o) => sum + o.total, 0);
+  const costGuess = done.reduce((sum, o) => sum + o.lines.reduce((lineSum, line) => lineSum + (products.find((x) => x.id === line.productId)?.cost ?? 0) * line.qty, 0), 0);
+  const spend = visibleExpenses.reduce((sum, e) => sum + e.amount, 0);
+  const daily = new Map<string,number>();
+  for(const o of done) daily.set(o.createdAt.slice(0,10),(daily.get(o.createdAt.slice(0,10))??0)+o.total);
+  const dailyRows=[...daily.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+  const productRows=new Map<string,{qty:number;revenue:number}>();
+  for(const o of done) for(const l of o.lines){const p=productRows.get(l.name)??{qty:0,revenue:0};p.qty+=l.qty;p.revenue+=l.unitPrice*l.qty;productRows.set(l.name,p);}
+  const top=[...productRows.entries()].sort((a,b)=>b[1].qty-a[1].qty).slice(0,10);
+  const payments=["cash","card","online"].map(method=>({method,label:method==="cash"?"نقدی":method==="card"?"کارت‌خوان":"آنلاین",amount:done.filter(o=>o.payment===method).reduce((sum,o)=>sum+o.total,0)}));
+  const expenseByCategory=[...visibleExpenses.reduce((map,e)=>map.set(e.category,(map.get(e.category)??0)+e.amount),new Map<string,number>()).entries()];
+  function downloadCsv(){
+    const rows=[["نوع","عنوان","تعداد","مبلغ"],["فروش","جمع فروش","",String(sales)],...top.map(([name,v])=>["محصول",name,String(v.qty),String(v.revenue)]),...payments.map(p=>["پرداخت",p.label,"",String(p.amount)]),...expenseByCategory.map(([name,value])=>["هزینه",name,"",String(value)])];
+    const csv="\\uFEFF"+rows.map(row=>row.map(cell=>'"'+String(cell).replaceAll('"','""')+'"').join(",")).join("\\r\\n");
+    const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+    const a=document.createElement("a");a.href=url;a.download="3food-pos-report.csv";a.click();URL.revokeObjectURL(url);
+  }
+  async function createCategory(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();const name=newCategory.trim();if(!name||categoryBusy)return;setCategoryBusy(true);
+    const item={id:uid("expense_cat"),name,active:true};
+    const ok=await saveCentralRecord("expense_categories",item,()=>setCategories(old=>[...old,item]));
+    if(ok){setNewCategory("");setCat(name);}setCategoryBusy(false);
+  }
+  async function addCost(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();if(!title.trim()||amount<=0||!cat)return;
+    const item={id:uid("ex"),title:title.trim(),amount,category:cat,date:new Date().toISOString().slice(0,10),note:note.trim(),createdAt:new Date().toISOString()};
+    const ok=await saveCentralRecord("expenses",item,()=>addExpense(item));
+    if(ok){setTitle("");setAmount(0);setNote("");}
+  }
   return (
     <div className="space-y-4">
-      <h2 className="font-bold">گزارش فروش و هزینه</h2>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card><p className="text-sm text-muted">فروش</p><p className="text-xl font-bold">{money(sales)}</p></Card>
-        <Card><p className="text-sm text-muted">بهای تمام‌شده</p><p className="text-xl font-bold">{money(costGuess)}</p></Card>
-        <Card><p className="text-sm text-muted">سود پس از هزینه</p><p className="text-xl font-bold">{money(sales - costGuess - spend)}</p></Card>
+      <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold">مرکز گزارش‌گیری و هزینه‌ها</h2><div className="flex gap-2"><Btn tone="ghost" onClick={downloadCsv}>خروجی Excel (CSV)</Btn><Btn onClick={()=>window.print()}>چاپ / ذخیره PDF</Btn></div></div>
+      <Card className="grid gap-2 sm:grid-cols-2"><Field label="از تاریخ"><input className={inputCls} type="date" value={from} onChange={e=>setFrom(e.target.value)}/></Field><Field label="تا تاریخ"><input className={inputCls} type="date" value={to} onChange={e=>setTo(e.target.value)}/></Field></Card>
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Card><p className="text-xs text-muted">فروش خالص سفارش‌ها</p><p className="text-lg font-bold">{money(sales)}</p></Card>
+        <Card><p className="text-xs text-muted">بهای تمام‌شده تقریبی</p><p className="text-lg font-bold">{money(costGuess)}</p></Card>
+        <Card><p className="text-xs text-muted">هزینه‌های ثبت‌شده</p><p className="text-lg font-bold">{money(spend)}</p></Card>
+        <Card><p className="text-xs text-muted">سود پس از هزینه‌ها</p><p className="text-lg font-bold">{money(sales-costGuess-spend)}</p></Card>
       </div>
-      <Card className="h-64">
-        <p className="mb-2 text-sm text-muted">هفت روز اخیر</p>
-        <ResponsiveContainer width="100%" height="85%">
-          <BarChart data={days}><XAxis dataKey="day" /><YAxis hide /><Tooltip formatter={(v) => money(Number(v ?? 0))} /><Bar dataKey="total" fill="#c2410c" radius={6} /></BarChart>
-        </ResponsiveContainer>
-      </Card>
-      <Card>
-        <p className="mb-2 font-semibold">پرفروش‌ها</p>
-        {top.length === 0 ? <Empty text="بعد از چند فروش اینجا پر می‌شود" /> : top.map(([n, qty]) => <p key={n} className="flex justify-between text-sm"><span>{n}</span><span>{qty.toLocaleString("fa-IR")}</span></p>)}
-      </Card>
-      <Card>
-        <h3 className="mb-2 font-semibold">ثبت هزینه</h3>
-        <form className="grid gap-2 sm:grid-cols-4" onSubmit={(e) => { e.preventDefault(); if (!title || amount <= 0) return; const item = { id: uid("ex"), title, amount, category: cat, date: new Date().toISOString().slice(0, 10) }; void saveCentralRecord("expenses", item, () => addExpense(item)).then((ok) => { if (ok) { setTitle(""); setAmount(0); } }); }}>
-          <input className={inputCls} placeholder="شرح" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <input className={inputCls} type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
-          <input className={inputCls} value={cat} onChange={(e) => setCat(e.target.value)} />
-          <Btn type="submit">ثبت</Btn>
-        </form>
-        <ul className="mt-3 space-y-1 text-sm">{expenses.map((e) => <li key={e.id} className="flex justify-between"><span>{e.title}</span><span>{money(e.amount)}</span></li>)}</ul>
-      </Card>
+      <Card><h3 className="mb-2 font-semibold">فروش روزانه</h3>{dailyRows.length?dailyRows.map(([day,total])=><p key={day} className="flex justify-between border-b border-line py-1 text-sm"><span>{new Date(day+"T12:00:00").toLocaleDateString("fa-IR")}</span><b>{money(total)}</b></p>):<Empty text="در این بازه سفارشی وجود ندارد"/>}</Card>
+      <Card><h3 className="mb-2 font-semibold">محصولات پرفروش</h3>{top.length?top.map(([name,v])=><p key={name} className="flex justify-between border-b border-line py-1 text-sm"><span>{name} · {v.qty.toLocaleString("fa-IR")} عدد</span><b>{money(v.revenue)}</b></p>):<Empty text="فروشی ثبت نشده است"/>}</Card>
+      <Card><h3 className="mb-2 font-semibold">گزارش روش‌های پرداخت</h3>{payments.map(p=><p key={p.method} className="flex justify-between py-1 text-sm"><span>{p.label}</span><b>{money(p.amount)}</b></p>)}</Card>
+      <Card><h3 className="mb-2 font-semibold">هزینه‌ها بر اساس دسته</h3>{expenseByCategory.map(([name,value])=><p key={name} className="flex justify-between py-1 text-sm"><span>{name}</span><b>{money(value)}</b></p>)}</Card>
+      <Card><h3 className="mb-3 font-semibold">ثبت هزینه جدید</h3><form className="grid gap-2 sm:grid-cols-2" onSubmit={e=>void addCost(e)}>
+        <Field label="شرح هزینه"><input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} required/></Field>
+        <Field label="مبلغ (تومان)"><input className={inputCls} type="number" min="1" value={amount||""} onChange={e=>setAmount(Number(e.target.value))} required/></Field>
+        <Field label="دسته‌بندی"><select className={inputCls} value={cat} onChange={e=>setCat(e.target.value)} required>{categories.filter(c=>c.active!==false).map(c=><option key={c.id} value={c.name}>{c.name}</option>)}</select></Field>
+        <Field label="توضیحات"><input className={inputCls} value={note} onChange={e=>setNote(e.target.value)}/></Field>
+        <div><Btn type="submit">ثبت هزینه</Btn></div>
+      </form></Card>
+      <Card><h3 className="mb-2 font-semibold">افزودن دسته هزینه</h3><form className="flex gap-2" onSubmit={e=>void createCategory(e)}><input className={inputCls} value={newCategory} onChange={e=>setNewCategory(e.target.value)} placeholder="نام دسته جدید" required/><Btn type="submit" disabled={categoryBusy}>افزودن</Btn></form><div className="mt-3 flex flex-wrap gap-2">{categories.map(c=><span key={c.id} className="rounded-full border border-line px-3 py-1 text-xs">{c.name}</span>)}</div></Card>
+      <Card><h3 className="mb-2 font-semibold">سوابق هزینه‌ها</h3>{visibleExpenses.map(e=><div key={e.id} className="flex flex-wrap justify-between gap-2 border-b border-line py-2 text-sm"><span>{e.title} · {e.category} · {new Date(e.date+"T12:00:00").toLocaleDateString("fa-IR")}</span><b>{money(e.amount)}</b></div>)}</Card>
     </div>
   );
+}
+
+function SuppliersScreen(){
+  type Supplier={id:string;name:string;phone:string;contact:string;notes:string;balance:number;active:boolean};
+  type Purchase={id:string;supplierId:string;title:string;amount:number;date:string;paid:number;note:string};
+  const [suppliers,setSuppliers]=useState<Supplier[]>([]);
+  const [purchases,setPurchases]=useState<Purchase[]>([]);
+  const [draft,setDraft]=useState({name:"",phone:"",contact:"",notes:""});
+  const [purchase,setPurchase]=useState({supplierId:"",title:"",amount:0,paid:0,note:""});
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState("");
+  async function refresh(){
+    setBusy(true);setError("");
+    try{const [a,b]=await Promise.all([phpApi.listRecords<Supplier>("suppliers"),phpApi.listRecords<Purchase>("supplier_purchases")]);setSuppliers(a.items);setPurchases(b.items);}
+    catch(e){setError(e instanceof Error?e.message:"دریافت اطلاعات تأمین‌کنندگان انجام نشد");}
+    finally{setBusy(false);}
+  }
+  useEffect(()=>{void refresh();},[]);
+  async function addSupplier(e:FormEvent<HTMLFormElement>){
+    e.preventDefault();if(!draft.name.trim())return;
+    const item:Supplier={id:uid("sup"),...draft,name:draft.name.trim(),balance:0,active:true};
+    if(await saveCentralRecord("suppliers",item,()=>setSuppliers(old=>[item,...old])))setDraft({name:"",phone:"",contact:"",notes:""});
+  }
+  async function addPurchase(e:FormEvent<HTMLFormElement>){
+    e.preventDefault();if(!purchase.supplierId||!purchase.title.trim()||purchase.amount<=0||purchase.paid<0||purchase.paid>purchase.amount)return;
+    const supplier=suppliers.find(s=>s.id===purchase.supplierId);if(!supplier)return;
+    const item:Purchase={id:uid("pur"),...purchase,title:purchase.title.trim(),date:new Date().toISOString().slice(0,10),note:purchase.note.trim()};
+    setBusy(true);
+    try{
+      await phpApi.saveRecord("supplier_purchases",item);
+      const updated={...supplier,balance:Math.max(0,supplier.balance+item.amount-item.paid)};
+      await phpApi.saveRecord("suppliers",updated);
+      setPurchases(old=>[item,...old]);setSuppliers(old=>old.map(s=>s.id===updated.id?updated:s));setPurchase({supplierId:"",title:"",amount:0,paid:0,note:""});
+    }catch(e){setError(e instanceof Error?e.message:"ثبت خرید انجام نشد");}
+    finally{setBusy(false);}
+  }
+  async function settle(supplier:Supplier){
+    const raw=window.prompt("مبلغ پرداختی برای تسویه (تومان):");if(raw===null)return;
+    const amount=Number(raw);if(!Number.isFinite(amount)||amount<=0||amount>supplier.balance){setError("مبلغ تسویه معتبر نیست.");return;}
+    const updated={...supplier,balance:supplier.balance-amount};
+    if(await saveCentralRecord("suppliers",updated,()=>setSuppliers(old=>old.map(s=>s.id===supplier.id?updated:s)))){
+      const item={id:uid("pay"),supplierId:supplier.id,title:"پرداخت/تسویه",amount:0,paid:amount,date:new Date().toISOString().slice(0,10),note:"تسویه حساب"};
+      await saveCentralRecord("supplier_purchases",item,()=>setPurchases(old=>[item,...old]));
+    }
+  }
+  return <div className="space-y-4"><h2 className="font-bold">مدیریت تأمین‌کنندگان</h2>{error?<p className="text-sm text-warn">{error}</p>:null}
+    <Card><h3 className="mb-2 font-semibold">ثبت تأمین‌کننده</h3><form className="grid gap-2 sm:grid-cols-2" onSubmit={e=>void addSupplier(e)}>
+      <Field label="نام تأمین‌کننده"><input className={inputCls} value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})} required/></Field>
+      <Field label="شماره تماس"><input className={inputCls} value={draft.phone} onChange={e=>setDraft({...draft,phone:e.target.value})}/></Field>
+      <Field label="نام رابط"><input className={inputCls} value={draft.contact} onChange={e=>setDraft({...draft,contact:e.target.value})}/></Field>
+      <Field label="یادداشت"><input className={inputCls} value={draft.notes} onChange={e=>setDraft({...draft,notes:e.target.value})}/></Field><div><Btn type="submit">ثبت تأمین‌کننده</Btn></div>
+    </form></Card>
+    <Card><h3 className="mb-2 font-semibold">ثبت فاکتور خرید / بدهی</h3><form className="grid gap-2 sm:grid-cols-2" onSubmit={e=>void addPurchase(e)}>
+      <Field label="تأمین‌کننده"><select className={inputCls} value={purchase.supplierId} onChange={e=>setPurchase({...purchase,supplierId:e.target.value})} required><option value="">انتخاب کنید</option>{suppliers.filter(s=>s.active).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
+      <Field label="شرح خرید"><input className={inputCls} value={purchase.title} onChange={e=>setPurchase({...purchase,title:e.target.value})} required/></Field>
+      <Field label="مبلغ کل"><input className={inputCls} type="number" min="1" value={purchase.amount||""} onChange={e=>setPurchase({...purchase,amount:Number(e.target.value)})} required/></Field>
+      <Field label="پرداخت‌شده"><input className={inputCls} type="number" min="0" value={purchase.paid||""} onChange={e=>setPurchase({...purchase,paid:Number(e.target.value)})}/></Field>
+      <Field label="یادداشت"><input className={inputCls} value={purchase.note} onChange={e=>setPurchase({...purchase,note:e.target.value})}/></Field><div><Btn type="submit" disabled={busy}>ثبت خرید</Btn></div>
+    </form></Card>
+    {suppliers.map(s=><Card key={s.id}><div className="flex flex-wrap items-center justify-between gap-2"><div><b>{s.name}</b><p className="text-xs text-muted">{s.phone} · رابط: {s.contact||"—"}</p></div><div className="text-left"><b>{money(s.balance)} بدهی</b><div><Btn tone="ghost" onClick={()=>void settle(s)} disabled={s.balance<=0}>ثبت تسویه</Btn></div></div></div>
+      <div className="mt-2 border-t border-line pt-2 text-sm">{purchases.filter(p=>p.supplierId===s.id).map(p=><p key={p.id} className="flex justify-between"><span>{p.title} · {new Date(p.date+"T12:00:00").toLocaleDateString("fa-IR")}</span><span>{money(p.amount)} / پرداخت {money(p.paid)}</span></p>)}</div></Card>)}
+    {busy?<p className="text-xs text-muted">در حال بارگذاری...</p>:null}
+  </div>;
 }
 
 function SmsScreen() {
