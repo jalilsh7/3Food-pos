@@ -1291,7 +1291,13 @@ function createXlsxBlob(rows: unknown[][]): Blob {
   endView.setUint32(12, centralSize, true);
   endView.setUint32(16, offset, true);
   endView.setUint16(20, 0, true);
-  return new Blob([...localParts, ...centralParts, end], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const blobParts: BlobPart[] = [];
+  for (const part of [...localParts, ...centralParts, end]) {
+    const copy = new Uint8Array(part.byteLength);
+    copy.set(part);
+    blobParts.push(copy.buffer);
+  }
+  return new Blob(blobParts, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 }
 
 function ReportsScreen() {
