@@ -1,6 +1,6 @@
 # وضعیت مهاجرت 3Food POS به PHP/MySQL
 
-تاریخ: 2026-11-17
+تاریخ: 2026-11-18
 
 ## انجام‌شده در این مرحله
 - محاسبه محلی رسید پس از ثبت سفارش اکنون همان کلید فعال/غیرفعال مالیات مرکزی را دریافت می‌کند؛ حالت مالیات خاموش دیگر بین مبلغ سرور و رسید چاپی محلی اختلاف ایجاد نمی‌کند.
@@ -41,7 +41,7 @@
 - پوشش همه عملیات ویرایش/حذف UI با MySQL هنوز کامل نیست؛ مسیرهای اصلی CRUD منو، موجودی، مشتری، تخفیف، هزینه، قالب و تنظیمات وصل شده‌اند، اما مدیریت کامل همه فیلدها و عملیات‌های فرعی و همگام‌سازی بین دستگاه‌ها باقی است.
 - آزمون فشار هم‌زمانی و صحت تراکنش‌ها روی MySQL واقعی هنوز انجام نشده است؛ منطق تراکنشی در کد پیاده شده اما CI جایگزین MySQL staging نیست.
 - اعتبارسنجی کامل ارسال SMS روی هاست، گزارش‌ها، بکاپ/بازیابی و تست چند دستگاه.
-- مسیر build مخصوص cPanel از TanStack Start/Nitro جدا شده است: `vite.config.ts` در mode=cPanel از ورودی plain Vite + React + TanStack Router استفاده می‌کند؛ مسیر build عادی و dev قدیمی حفظ شده‌اند. `src/main.tsx` و `index.html` ورودی SPA هستند و `__root` برای document shell و route content تفکیک شده است.
+- مسیر فعال cPanel یک SPA مستقل با Vite + React + TanStack Router است؛ `src/main.tsx` و `index.html` ورودی آن هستند. shell مخصوص TanStack Start از `src/routes/__root.tsx` حذف شده و routeTree به مسیرهای واقعی `src/routes` محدود شده است.
 - `npm run build:cpanel` علاوه بر build استاتیک، `dist-cpanel/` را با frontend، PHP API، نمونه تنظیمات خصوصی، schema و migrationها و راهنمای نصب تولید و اعتبارسنجی می‌کند. CI کامل روی commit `d3632e38036d6002a6c38f713018ca367d69d8db` موفق شد و artifact با نام `3food-pos-cpanel` در run `44098838943` بارگذاری شد.
 - `.htaccess` اکنون API PHP را پیش از fallback محافظت‌شده SPA بررسی می‌کند؛ تست رگرسیون این ترتیب در `scripts/cpanel-htaccess.test.mjs` اضافه شده است. این تست جایگزین build مرورگر یا آزمون Apache واقعی نیست.
 - build استاتیک، package validation و artifact upload در CI روی commit `d3632e3` همگی موفق شده‌اند؛ تست واقعی روی cPanel هنوز انجام نشده است.
@@ -49,3 +49,12 @@
 
 ## نتیجه
 این شاخه یک نسخه توسعه‌ای با API PHP/MySQL و اتصال بخشی از عملیات POS است، نه محصول نهایی آماده نصب در صندوق. تا تولید build استاتیک، تکمیل همگام‌سازی UI، آزمون MySQL واقعی و end-to-end روی staging و بررسی backup/restore انجام نشده، منتشر نشود.
+
+
+## پاک‌سازی استقلال پلتفرم — 2026-11-18
+- شاخه مستقل `cleanup/remove-grok-dependencies` و PR شماره 1 بر پایه `migration/php-mysql` ایجاد شده‌اند؛ هنوز merge یا deploy نشده‌اند.
+- کدهای PWA/Preview وابسته به Grok و فایل‌های مرتبط حذف شده‌اند؛ `AGENTS.md` و `AI_HANDOFF_FA.md` با معماری cPanel به‌روز شده‌اند.
+- ممیزی جدید import graph مرورگر قبل از build اضافه شده است و ممیزی bundle خروجی نیز نشانگرهای Grok/App Builder و assetهای خارجی را رد می‌کند.
+- routeTree قدیمی به مسیر حذف‌شده `/api/sms` اشاره می‌کرد؛ ارجاع stale و type registration قدیمی TanStack Start حذف شدند.
+- فایل‌های legacy مربوط به Better Auth، OAuth، TanStack Start server helpers، connector app-data و PostgreSQL/PGLite هنوز در مخزن وجود دارند. حذف آن‌ها و حذف dependencyهای مربوطه هنوز تکمیل نشده؛ این کار نیازمند بررسی کامل callers/tests و اجرای CI است.
+- تست و build روی آخرین commit باید از نتیجه GitHub Actions گزارش شوند. هیچ تغییر زنده‌ای روی cPanel یا دیتابیس production در این پاک‌سازی انجام نشده است.
