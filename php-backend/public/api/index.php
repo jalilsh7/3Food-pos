@@ -2106,13 +2106,13 @@ if ($method === 'GET' && $path === '/reports/summary') {
         $p = json_decode((string)$row['payload'], true);
         if (is_array($p)) $products[(string)$row['id']] = $p;
     }
-    $sales=0; $count=0; $cancelled=0; $cost=0; $daily=[]; $byPayment=['cash'=>0,'card'=>0,'online'=>0]; $byProduct=[];
+    $sales=0; $count=0; $cancelled=0; $cost=0; $taxCollected=0; $discountsTotal=0; $daily=[]; $byPayment=['cash'=>0,'card'=>0,'online'=>0]; $byProduct=[];
     foreach ($orders as $order) {
         if ($order['status'] === 'cancelled') { $cancelled++; continue; }
         $totals=json_decode((string)$order['totals'],true) ?: [];
-        $total=(int)($totals['total']??0); $sales+=$total; $count++;
+        $total=(int)($totals['total']??0); $tax=(int)($totals['tax']??0); $discount=(int)($totals['tierDiscount']??0)+(int)($totals['codeDiscount']??0)+(int)($totals['pointsDiscount']??0); $revenue=max(0,(int)($totals['subtotal']??$total)-$discount); $sales+=$revenue; $taxCollected+=$tax; $discountsTotal+=$discount; $count++;
         $payment=(string)($order['payment_method']??'cash'); if(isset($byPayment[$payment])) $byPayment[$payment]+=$total;
-        $day=(new DateTimeImmutable((string)$order['created_at'],new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Asia/Tehran'))->format('Y-m-d'); $daily[$day]=($daily[$day]??0)+$total;
+        $day=(new DateTimeImmutable((string)$order['created_at'],new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Asia/Tehran'))->format('Y-m-d'); $daily[$day]=($daily[$day]??0)+$revenue;
         $items=json_decode((string)$order['items'],true) ?: [];
         foreach($items as $line){
             if(!is_array($line)) continue;
@@ -2151,7 +2151,7 @@ if ($method === 'GET' && $path === '/reports/summary') {
         $customerRows[]=['name'=>(string)($customer['name']??''),'phone'=>(string)($customer['phone']??''),'totalSpent'=>(int)($customer['totalSpent']??0),'visits'=>(int)($customer['visits']??0),'points'=>(int)($customer['points']??0)];
     }
     usort($customerRows,static fn($a,$b)=>$b['totalSpent']<=>$a['totalSpent']);
-    json_response(['ok'=>true,'range'=>['from'=>$from,'to'=>$to],'sales'=>$sales,'orders'=>$count,'cancelled'=>$cancelled,'average_order'=>$count?intdiv($sales,$count):0,'cost_of_goods'=>$cost,'expenses'=>$expenseTotal,'inventory_purchases'=>array_sum(array_map(static fn($e)=>($e['category']??'')==='مواد اولیه'?(int)($e['amount']??0):0,$expenses)),'gross_profit'=>$sales-$cost,'net_profit'=>$sales-$cost-$expenseTotal,'daily'=>array_map(static fn($d,$v)=>['date'=>$d,'sales'=>$v],array_keys($daily),array_values($daily)),'monthly'=>array_map(static fn($m,$v)=>['month'=>$m,'sales'=>$v],array_keys($monthly),array_values($monthly)),'payments'=>$byPayment,'products'=>array_slice(array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),0,100),'expense_categories'=>$expenseGroups,'expense_items'=>$expenses,'inventory'=>['value'=>round($inventoryValue),'low_stock_count'=>count($lowStock)],'low_stock'=>$lowStock,'top_customers'=>array_slice($customerRows,0,20)]);
+    json_response(['ok'=>true,'range'=>['from'=>$from,'to'=>$to],'sales'=>$sales,'orders'=>$count,'cancelled'=>$cancelled,'average_order'=>$count?intdiv($sales,$count):0,'tax_collected'=>$taxCollected,'discounts'=>$discountsTotal,'cost_of_goods'=>$cost,'expenses'=>$expenseTotal,'inventory_purchases'=>array_sum(array_map(static fn($e)=>($e['category']??'')==='مواد اولیه'?(int)($e['amount']??0):0,$expenses)),'gross_profit'=>$sales-$cost,'net_profit'=>$sales-$cost-$expenseTotal,'daily'=>array_map(static fn($d,$v)=>['date'=>$d,'sales'=>$v],array_keys($daily),array_values($daily)),'monthly'=>array_map(static fn($m,$v)=>['month'=>$m,'sales'=>$v],array_keys($monthly),array_values($monthly)),'payments'=>$byPayment,'products'=>array_slice(array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),0,100),'expense_categories'=>$expenseGroups,'expense_items'=>$expenses,'inventory'=>['value'=>round($inventoryValue),'low_stock_count'=>count($lowStock)],'low_stock'=>$lowStock,'top_customers'=>array_slice($customerRows,0,20)]);
 }
 
 if ($method === 'POST' && $path === '/sms/send') {
