@@ -30,3 +30,10 @@ test("stock shortage warning never disables checkout and can be muted for one ho
   assert.match(app, /<Btn onClick=\{checkout\} disabled=\{!cart\.length \|\| submitting\}/);
   assert.match(app, /ثبت سفارش متوقف نمی‌شود/);
 });
+
+test("new product form remains ready for consecutive product entry after save", () => {
+  assert.match(
+    app,
+    /if \(ok\) setDraft\(products\.some\(\(item\) => item\.id === draft\.id\) \? null : \{ id: uid\("p"\), name: "", categoryId: draft\.categoryId/,
+  );
+});
