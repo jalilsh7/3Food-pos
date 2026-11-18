@@ -1218,6 +1218,7 @@ function ReportsScreen() {
   const [fromText,setFromText]=useState(()=>isoToJalali(initialFrom));
   const [toText,setToText]=useState(()=>isoToJalali(initialTo));
   const [newCategory, setNewCategory] = useState("");
+  const [expenseFilterCategory, setExpenseFilterCategory] = useState("all");
   const [categoryBusy, setCategoryBusy] = useState(false);
   const [serverSummary, setServerSummary] = useState<Record<string, unknown> | null>(null);
   const [reportError, setReportError] = useState("");
@@ -1230,7 +1231,7 @@ function ReportsScreen() {
   }, []);
   const done = useMemo(() => orders.filter((o) => o.status !== "cancelled" && tehranDate(o.createdAt) >= from && tehranDate(o.createdAt) <= to), [orders,from,to]);
   useEffect(() => { let active=true; setReportError(""); void phpApi.getReportSummary(from,to).then(r=>{if(active)setServerSummary(r);}).catch(e=>{if(active){setServerSummary(null);setReportError(e instanceof Error?e.message:"گزارش سرور دریافت نشد");}}); return ()=>{active=false;}; },[from,to]);
-  const visibleExpenses = expenses.filter(e => e.date >= from && e.date <= to);
+  const visibleExpenses = expenses.filter(e => e.date >= from && e.date <= to && (expenseFilterCategory === "all" || e.category === expenseFilterCategory));
   const sales = done.reduce((sum, o) => sum + o.total, 0);
   const costGuess = done.reduce((sum, o) => sum + o.lines.reduce((lineSum, line) => lineSum + (products.find((x) => x.id === line.productId)?.cost ?? 0) * line.qty, 0), 0);
   const spend = visibleExpenses.reduce((sum, e) => sum + e.amount, 0);
@@ -1330,7 +1331,7 @@ function ReportsScreen() {
         <div><Btn type="submit">ثبت هزینه</Btn></div>
       </form></Card>
       <Card className="print:hidden"><h3 className="mb-2 font-semibold">افزودن دسته هزینه</h3><form className="flex gap-2" onSubmit={e=>void createCategory(e)}><input className={inputCls} value={newCategory} onChange={e=>setNewCategory(e.target.value)} placeholder="نام دسته جدید" required/><Btn type="submit" disabled={categoryBusy}>افزودن</Btn></form><div className="mt-3 space-y-2">{categories.map(c=><div key={c.id} className="flex items-center justify-between gap-2 rounded-lg border border-line px-3 py-2 text-sm"><span>{c.name}</span><span className="flex gap-1"><Btn tone="ghost" onClick={()=>void editCategory(c)}>ویرایش</Btn><Btn tone="ghost" onClick={()=>void deleteCategory(c)}>حذف</Btn></span></div>)}</div></Card>
-      <Card><h3 className="mb-2 font-semibold">سوابق هزینه‌ها</h3>{visibleExpenses.map(e=><div key={e.id} className="flex flex-wrap justify-between gap-2 border-b border-line py-2 text-sm"><span>{e.title} · {e.category} · {new Date(e.date+"T12:00:00").toLocaleDateString("fa-IR")}</span><span className="flex items-center gap-2"><b>{money(e.amount)}</b><Btn tone="ghost" onClick={()=>void editExpense(e)}>ویرایش</Btn><Btn tone="ghost" onClick={()=>void deleteExpense(e)}>حذف</Btn></span></div>)}</Card>
+      <Card><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">سوابق هزینه‌ها</h3><select className={`${inputCls} max-w-64 print:hidden`} value={expenseFilterCategory} onChange={e=>setExpenseFilterCategory(e.target.value)}><option value="all">همه دسته‌ها</option>{categories.map(category=><option key={category.id} value={category.name}>{category.name}</option>)}</select></div>{visibleExpenses.map(e=><div key={e.id} className="flex flex-wrap justify-between gap-2 border-b border-line py-2 text-sm"><span>{e.title} · {e.category} · {new Date(e.date+"T12:00:00").toLocaleDateString("fa-IR")}</span><span className="flex items-center gap-2"><b>{money(e.amount)}</b><Btn tone="ghost" onClick={()=>void editExpense(e)}>ویرایش</Btn><Btn tone="ghost" onClick={()=>void deleteExpense(e)}>حذف</Btn></span></div>)}</Card>
     </div>
   );
 }
