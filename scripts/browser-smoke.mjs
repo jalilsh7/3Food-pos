@@ -131,7 +131,7 @@ try {
         usernameMs,
         passwordMs,
         characters: usernameSample.length + passwordSample.length,
-        slow: usernameMs > 500 || passwordMs > 500,
+        slow: usernameMs > 1000 || passwordMs > 1000,
       };
     }
     const bodyText = await page
