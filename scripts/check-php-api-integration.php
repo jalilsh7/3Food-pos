@@ -163,10 +163,15 @@ try {
     $managerBootstrapForFeatures = api('GET', '/api/v1/bootstrap');
     check($managerBootstrapForFeatures['status'] === 200, 'manager bootstrap for next-release resources');
     check(count($managerBootstrapForFeatures['json']['data']['expense_categories'] ?? []) >= 8, 'default restaurant expense categories are seeded automatically');
+    $supplierIngredient = api('POST', '/api/v1/records/ingredients', ['item' => ['id'=>'ci-supplier-ingredient','name'=>'مواد آزمایشی تأمین‌کننده','unit'=>'kg','stock'=>0,'minStock'=>0,'costPerUnit'=>100]], csrf_headers());
+    check($supplierIngredient['status'] === 201, 'manager can create an ingredient for supplier receiving');
     $supplierCreate = api('POST', '/api/v1/records/suppliers', ['item' => ['id'=>'ci-supplier','name'=>'CI Supplier','phone'=>'09120000000','contact'=>'Test','notes'=>'','balance'=>0,'active'=>true]], csrf_headers());
     check($supplierCreate['status'] === 201, 'manager can create supplier record');
-    $supplierPurchase = api('POST', '/api/v1/suppliers/ci-supplier/purchases', ['item' => ['id'=>'ci-supplier-purchase','kind'=>'purchase','title'=>'مواد بسته‌بندی','amount'=>1000,'paid'=>200,'note'=>'CI']], csrf_headers());
+    $supplierPurchase = api('POST', '/api/v1/suppliers/ci-supplier/purchases', ['item' => ['id'=>'ci-supplier-purchase','kind'=>'purchase','title'=>'مواد اولیه آزمایشی','amount'=>1000,'paid'=>200,'ingredientId'=>'ci-supplier-ingredient','quantity'=>2,'unitCost'=>500,'note'=>'CI']], csrf_headers());
     check($supplierPurchase['status'] === 200 && (int)($supplierPurchase['json']['supplier']['balance'] ?? -1) === 800, 'supplier purchase and debt update commit atomically');
+    $receivedIngredient = api('GET', '/api/v1/records/ingredients');
+    $receivedIngredientItem = array_values(array_filter($receivedIngredient['json']['items'] ?? [], fn($item) => ($item['id'] ?? '') === 'ci-supplier-ingredient'))[0] ?? [];
+    check((float)($receivedIngredientItem['stock'] ?? -1) === 2.0 && (float)($receivedIngredientItem['costPerUnit'] ?? -1) === 500.0, 'supplier purchase increases ingredient stock and updates weighted cost');
     $supplierPayment = api('POST', '/api/v1/suppliers/ci-supplier/purchases', ['item' => ['id'=>'ci-supplier-payment','kind'=>'payment','title'=>'تسویه','amount'=>0,'paid'=>300,'note'=>'CI']], csrf_headers());
     check($supplierPayment['status'] === 200 && (int)($supplierPayment['json']['supplier']['balance'] ?? -1) === 500, 'supplier settlement reduces outstanding debt atomically');
     $reportDate = (new DateTimeImmutable('now', new DateTimeZone('Asia/Tehran')))->format('Y-m-d');
