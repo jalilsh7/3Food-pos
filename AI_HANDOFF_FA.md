@@ -41,7 +41,7 @@ PR پاک‌سازی: https://github.com/jalilsh7/3Food-pos/pull/1
 - کدهای متروک Better Auth، OAuth broker/Grok، PGLite/PostgreSQL، TanStack Start server functions و App Builder connector از سورس حذف شده‌اند؛ این مسیرها متعلق به معماری قدیمی بودند و از entrypoint فعال React/PHP استفاده نمی‌شدند.
 - migration قدیمی Better Auth و تست‌های مرتبط با app-data/auth حذف شده‌اند؛ قرارداد احراز هویت فعلی PHP session و MySQL است.
 - وابستگی‌های مستقیم `@electric-sql/pglite`, `@tanstack/react-start`, `better-auth`, `jose`, `kysely`, `nitro`, `pg` و `@types/pg` از manifest حذف شده‌اند.
-- lockfile باید توسط workflow مخصوص PR با npm بازتولید شود؛ تا پایان اجرای آن، `package-lock.json` را synchronized فرض نکنید.
+- lockfile با npm بررسی و تأیید شد؛ manifest و `package-lock.json` همگام هستند.
 - تست TypeScriptهای حذف‌شده‌ی ماژول‌های قدیمی از script تست خارج شده‌اند؛ تست‌های مستقل PHP/API و اسکریپت‌های فعال حفظ شده‌اند.
 - حذف فایل‌ها و افزونه‌های PWA/Preview وابسته به Grok و نشانگرهای مربوط به آن‌ها.
 - حذف shell مخصوص TanStack Start از route ریشه‌ی SPA.
@@ -51,7 +51,7 @@ PR پاک‌سازی: https://github.com/jalilsh7/3Food-pos/pull/1
 - بازنویسی `AGENTS.md`؛ دستورالعمل قدیمی App Builder/Grok با معماری واقعی cPanel جایگزین شده است.
 - دستور `build:cpanel` اکنون ممیزی source graph، build، ممیزی خروجی و بسته‌بندی را پشت سر هم اجرا می‌کند.
 
-**محدودیت مهم:** بخشی از فایل‌های legacy شامل Better Auth، OAuth قدیمی، TanStack Start server helpers، app-data connector و PostgreSQL/PGLite هنوز در مخزن باقی است. آن‌ها از entrypoint فعال مرورگر وارد نمی‌شوند، اما حذف کامل فایل‌ها و وابستگی‌های package هنوز انجام و تأیید نشده است. قبل از حذف، import graph کامل، اسکریپت‌های تست، tsconfig و lockfile باید بررسی شوند.
+**وضعیت حذف legacy:** فایل‌های runtime مربوط به Better Auth، OAuth، TanStack Start server helpers، app-data connector، PGLite/PostgreSQL و helperهای preview قدیمی از شاخه پاک‌سازی حذف شده‌اند. وابستگی‌های مستقیم مربوطه نیز از package manifest و lockfile خارج شده‌اند. CI مستقل Node شامل typecheck، تست‌ها، lint و build cPanel روی شاخه پاک‌سازی موفق شده است؛ نتیجه‌ی تست PHP/MySQL در workflow جداگانه هنوز باید نهایی شود.
 
 ## 4) وضعیت فنی و موارد باقی‌مانده
 
@@ -59,7 +59,7 @@ PR پاک‌سازی: https://github.com/jalilsh7/3Food-pos/pull/1
 - API health و auth/me در هاست قبلاً پاسخ داده‌اند؛ نشست کاربر در وضعیت unauthenticated و setup در وضعیت setup_required بوده است.
 - بررسی قبلی مرورگر نشان داده بود CPU در اجرای JavaScript مصرف می‌شود، اما source map در دسترس نبود. تست مرورگر واقعی بعد از build مستقل هنوز لازم است.
 - وضعیت داده‌ها و عملیات چنددستگاهی باید با بررسی کد فعلی و تست MySQL واقعی تأیید شود؛ polling دوره‌ای به‌تنهایی اثبات همگام‌سازی کامل نیست.
-- باید build، typecheck، unit tests، lint، PHP syntax، API integration و browser smoke روی commit نهایی موفق شوند.
+- typecheck، unit tests، lint و build مستقل cPanel در workflow پاک‌سازی موفق شده‌اند. PHP syntax و API/MySQL integration در workflow اصلی در حال بررسی نهایی هستند. تست واقعی مرورگر و staging همچنان باقی است.
 - باید روی staging واقعی، ورود، ساخت مدیر، نقش‌ها، ثبت سفارش، هم‌زمانی، موجودی، تخفیف، بکاپ/بازیابی و SMS تست شوند.
 - نسخه production هاست نباید بدون تأیید مالک و backup دستکاری شود.
 
