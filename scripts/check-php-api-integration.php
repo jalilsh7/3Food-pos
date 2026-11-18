@@ -177,6 +177,11 @@ try {
         'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 1000],
         'note' => 'CI integration order',
     ];
+    $missingKeyBody = $orderBody;
+    unset($missingKeyBody['idempotencyKey']);
+    $missingKey = api('POST', '/api/v1/orders', $missingKeyBody, csrf_headers());
+    check($missingKey['status'] === 422 && ($missingKey['json']['error'] ?? '') === 'invalid_idempotency_key', 'new orders require a valid idempotency key');
+
     $created = api('POST', '/api/v1/orders', $orderBody, csrf_headers());
     check($created['status'] === 201, 'create order: ' . json_encode($created['json']));
     $orderId = (string)($created['json']['order']['id'] ?? '');
