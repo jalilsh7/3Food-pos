@@ -17,8 +17,7 @@
  * broker env var and this constant together.
  */
 export const PREVIEW_CLIENT_ID = "grok_preview";
-export const PREVIEW_CLIENT_SECRET =
-  "8bcdb7fc5a33874ad933ca568918d5790388a0795e44c4d1dea691f801b17ec5";
+// Retired: the cPanel application authenticates through its PHP/MySQL API.\n// Do not keep a shared preview OAuth credential in the repository.\nexport const PREVIEW_CLIENT_SECRET = "";
 
 /** The shared auth broker issuer (OIDC discovery lives under it). */
 export const GROK_ISSUER_DEFAULT = "https://auth.grok.me";
