@@ -1192,6 +1192,10 @@ function ReportsScreen() {
   const reportCost = typeof serverSummary?.cost_of_goods === "number" ? serverSummary.cost_of_goods : costGuess;
   const reportExpenses = typeof serverSummary?.expenses === "number" ? serverSummary.expenses : spend;
   const reportNet = typeof serverSummary?.net_profit === "number" ? serverSummary.net_profit : sales-costGuess-spend;
+  const reportTax = typeof serverSummary?.tax_collected === "number" ? serverSummary.tax_collected : 0;
+  const reportDiscounts = typeof serverSummary?.discounts === "number" ? serverSummary.discounts : 0;
+  const reportOrders = typeof serverSummary?.orders === "number" ? serverSummary.orders : done.length;
+  const reportCancelled = typeof serverSummary?.cancelled === "number" ? serverSummary.cancelled : 0;
   const inventoryPurchases = typeof serverSummary?.inventory_purchases === "number" ? serverSummary.inventory_purchases : 0;
   const daily = new Map<string,number>();
   for(const o of done) daily.set(tehranDate(o.createdAt),(daily.get(tehranDate(o.createdAt))??0)+o.total);
@@ -1253,6 +1257,12 @@ function ReportsScreen() {
         <Card><p className="text-xs text-muted">بهای تمام‌شده</p><p className="text-lg font-bold">{money(reportCost)}</p></Card>
         <Card><p className="text-xs text-muted">هزینه‌های ثبت‌شده</p><p className="text-lg font-bold">{money(reportExpenses)}</p></Card>
         <Card><p className="text-xs text-muted">سود پس از هزینه‌ها</p><p className="text-lg font-bold">{money(reportNet)}</p></Card>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Card><p className="text-xs text-muted">تعداد سفارش‌های معتبر</p><p className="text-lg font-bold">{reportOrders.toLocaleString("fa-IR")}</p></Card>
+        <Card><p className="text-xs text-muted">سفارش‌های لغوشده</p><p className="text-lg font-bold">{reportCancelled.toLocaleString("fa-IR")}</p></Card>
+        <Card><p className="text-xs text-muted">تخفیف‌ها</p><p className="text-lg font-bold">{money(reportDiscounts)}</p></Card>
+        <Card><p className="text-xs text-muted">مالیات وصول‌شده</p><p className="text-lg font-bold">{money(reportTax)}</p></Card>
       </div>
       <Card><h3 className="mb-2 font-semibold">فروش روزانه</h3>{dailyRows.length?dailyRows.map(([day,total])=><p key={day} className="flex justify-between border-b border-line py-1 text-sm"><span>{new Date(day+"T12:00:00").toLocaleDateString("fa-IR")}</span><b>{money(total)}</b></p>):<Empty text="در این بازه سفارشی وجود ندارد"/>}</Card>
       <Card><h3 className="mb-2 font-semibold">گزارش ماهانه</h3>{monthlyRows.length?monthlyRows.map(row=><p key={row.month} className="flex justify-between border-b border-line py-1 text-sm"><span>{row.month}</span><b>{money(row.sales)}</b></p>):<Empty text="داده ماهانه‌ای در این بازه وجود ندارد"/>}</Card>
