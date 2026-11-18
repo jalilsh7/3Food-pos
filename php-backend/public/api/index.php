@@ -300,7 +300,9 @@ if ($method === 'GET' && $path === '/appearance') {
     $stored = $pdo->query('SELECT settings FROM app_appearance_settings WHERE id = 1')->fetchColumn();
     $settings = is_string($stored) ? json_decode($stored, true) : null;
     if (!is_array($settings)) $settings = $defaults;
-    json_response(['ok'=>true,'settings'=>array_merge($defaults,$settings)]);
+    $settings = array_merge($defaults,$settings);
+    $settings['fontFamily'] = 'byekan';
+    json_response(['ok'=>true,'settings'=>$settings]);
 }
 if ($method === 'POST' && $path === '/appearance') {
     $actor = require_role($pdo, ['manager']); require_csrf(); $body = request_json(); $input = $body['settings'] ?? null;
@@ -937,8 +939,9 @@ if (preg_match('#^/suppliers/([A-Za-z0-9_-]+)/purchases$#D', $path, $supplierMat
             $pdo->rollBack(); json_response(['ok'=>false,'error'=>'supplier_not_found','message'=>'تأمین‌کننده فعال پیدا نشد'],404);
         }
         $item['supplierId']=$supplierId;
-        $item['date']=date('Y-m-d');
-        $item['createdAt']=date('c');
+        $tehranNow = new DateTimeImmutable('now', new DateTimeZone('Asia/Tehran'));
+        $item['date']=$tehranNow->format('Y-m-d');
+        $item['createdAt']=$tehranNow->format('c');
         $balance=max(0,(int)($supplier['balance']??0)+($item['kind']==='purchase'?$amount-$paid:-$paid));
         $supplier['balance']=$balance;
         $payload=json_encode($item,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
@@ -2102,12 +2105,15 @@ if ($method === 'GET' && $path === '/reports/summary') {
     foreach($expenseStmt->fetchAll(PDO::FETCH_COLUMN) as $raw){
         $e=json_decode((string)$raw,true); if(!is_array($e)) continue;
         $date=(string)($e['date']??''); if($date<$from||$date>$to) continue;
-        $amount=max(0,(int)($e['amount']??0)); $expenseTotal+=$amount;
-        $category=(string)($e['category']??'سایر هزینه‌ها'); $expenseGroups[$category]=($expenseGroups[$category]??0)+$amount;
+        $amount=max(0,(int)($e['amount']??0));
+        $category=(string)($e['category']??'سایر هزینه‌ها');
+        // Raw-material purchases increase inventory; consumed ingredient cost is counted in COGS above.
+        if ($category !== 'مواد اولیه') $expenseTotal += $amount;
+        $expenseGroups[$category]=($expenseGroups[$category]??0)+$amount;
         $expenses[]=['id'=>(string)($e['id']??''),'title'=>(string)($e['title']??''),'amount'=>$amount,'category'=>$category,'date'=>$date];
     }
     arsort($daily); ksort($expenseGroups); uasort($byProduct,static fn($a,$b)=>$b['quantity']<=>$a['quantity']);
-    json_response(['ok'=>true,'range'=>['from'=>$from,'to'=>$to],'sales'=>$sales,'orders'=>$count,'cancelled'=>$cancelled,'average_order'=>$count?intdiv($sales,$count):0,'cost_of_goods'=>$cost,'expenses'=>$expenseTotal,'gross_profit'=>$sales-$cost,'net_profit'=>$sales-$cost-$expenseTotal,'daily'=>array_map(static fn($d,$v)=>['date'=>$d,'sales'=>$v],array_keys($daily),array_values($daily)),'payments'=>$byPayment,'products'=>array_slice(array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),0,100),'expense_categories'=>$expenseGroups,'expense_items'=>$expenses]);
+    json_response(['ok'=>true,'range'=>['from'=>$from,'to'=>$to],'sales'=>$sales,'orders'=>$count,'cancelled'=>$cancelled,'average_order'=>$count?intdiv($sales,$count):0,'cost_of_goods'=>$cost,'expenses'=>$expenseTotal,'inventory_purchases'=>array_sum(array_map(static fn($e)=>($e['category']??'')==='مواد اولیه'?(int)($e['amount']??0):0,$expenses)),'gross_profit'=>$sales-$cost,'net_profit'=>$sales-$cost-$expenseTotal,'daily'=>array_map(static fn($d,$v)=>['date'=>$d,'sales'=>$v],array_keys($daily),array_values($daily)),'payments'=>$byPayment,'products'=>array_slice(array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),0,100),'expense_categories'=>$expenseGroups,'expense_items'=>$expenses]);
 }
 
 if ($method === 'POST' && $path === '/sms/send') {
