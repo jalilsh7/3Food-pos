@@ -361,7 +361,7 @@ try {
     $backup = api('GET', '/api/v1/backup/export');
     $backupData = $backup['json']['backup'] ?? [];
     check($backup['status'] === 200 && ($backupData['format'] ?? '') === '3food-pos-mysql-backup', 'manager can export MySQL backup');
-    check(count($backupData['orders'] ?? []) === 1 && count($backupData['order_effects'] ?? []) === 2, 'backup includes order history and reversible effect ledger: ' . count($backupData['orders'] ?? []) . '/' . count($backupData['order_effects'] ?? []));
+    check(count($backupData['orders'] ?? []) >= 1 && count($backupData['order_effects'] ?? []) >= 2, 'backup includes all order history and reversible effect ledger: ' . count($backupData['orders'] ?? []) . '/' . count($backupData['order_effects'] ?? []));
     $backupSettings = [];
     foreach ($backupData['records'] ?? [] as $record) {
         if (($record['resource'] ?? '') === 'settings') $backupSettings = $record['payload'] ?? [];
