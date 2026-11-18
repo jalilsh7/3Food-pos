@@ -134,6 +134,7 @@ export type Settings = {
   tomanPerPoint: number;
   paperWidth: 58 | 80;
   autoPrint: boolean;
+  invoiceSmsEnabledDefault?: boolean;
   printCustomer: boolean;
   printKitchen: boolean;
   headerNote: string;
