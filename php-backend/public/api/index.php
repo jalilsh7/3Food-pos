@@ -792,7 +792,7 @@ if ($method === 'POST' && $path === '/migration/import') {
     $actor = require_role($pdo, ['manager']);
     require_csrf();
     $body = request_json();
-    $allowed = ['categories','products','ingredients','customers','discounts','expenses','templates','settings'];
+    $allowed = ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings'];
     $provided = $body['data'] ?? null;
     if (!is_array($provided)) json_response(['ok' => false, 'error' => 'invalid_import'], 422);
     $encodedBody = json_encode($provided, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
