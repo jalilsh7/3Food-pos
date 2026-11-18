@@ -1132,7 +1132,7 @@ function asciiDigits(value:string){
 function jalaliToIso(value:string):string|null{
   const match=asciiDigits(value).trim().match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
   if(!match)return null;
-  let jy=Number(match[1]),jm=Number(match[2]),jd=Number(match[3]);
+  const jy=Number(match[1]),jm=Number(match[2]),jd=Number(match[3]);
   if(jm<1||jm>12||jd<1||jd>31)return null;
   jy+=1595;
   let days=-355668+365*jy+Math.floor(jy/33)*8+Math.floor(((jy%33)+3)/4)+jd+(jm<7?(jm-1)*31:(jm-7)*30+186);
