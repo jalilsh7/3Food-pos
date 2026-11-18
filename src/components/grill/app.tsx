@@ -464,7 +464,7 @@ function PosScreen() {
       }
       const idempotencyKey = pendingIdempotencyKey.current ?? crypto.randomUUID();
       pendingIdempotencyKey.current = idempotencyKey;
-      const server = await phpApi.createOrder<{ id: string; orderNumber: number }>({
+      const server = await phpApi.createOrder<{ id: string; orderNumber: number; createdAt: string }>({
         idempotencyKey,
         items: cart.map((line) => ({
           key: line.key,
@@ -494,7 +494,7 @@ function PosScreen() {
       const res = placeOrder({
         lines: cart, customer: checkoutCustomer, code, pointsToUse: points, taxEnabled: settings.taxEnabled !== false, payment: pay,
         guestName, guestPhone: phone.trim(),
-        serverOrder: { id: server.order.id, number: server.order.orderNumber },
+        serverOrder: { id: server.order.id, number: server.order.orderNumber, createdAt: server.order.createdAt },
       });
       if (!res.ok) {
         setMsg(`سفارش در سرور ثبت شد اما همگام‌سازی محلی انجام نشد: ${res.error}. صفحه را تازه‌سازی کنید.`);
@@ -1372,7 +1372,7 @@ function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, role: Ro
   const orders: Order[] = (data.orders ?? []).map((order) => ({
     id: String(order.id),
     number: Number(order.orderNumber),
-    createdAt: order.created_at ?? new Date().toISOString(),
+    createdAt: order.createdAt ?? order.created_at ?? new Date().toISOString(),
     status: order.status,
     lines: Array.isArray(order.items) ? order.items : [],
     subtotal: Number(order.totals?.subtotal ?? 0),
