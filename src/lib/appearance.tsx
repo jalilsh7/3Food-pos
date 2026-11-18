@@ -6,10 +6,15 @@ const AppearanceContext=createContext<AppearanceContextValue|null>(null);
 function safeColor(value:string,fallback:string){return /^#[0-9a-f]{6}$/i.test(value)?value:fallback;}
 function applyAppearance(s:AppearanceSettings){
  const root=document.documentElement,dark=s.mode==="dark";
+ const secondary=safeColor(s.secondary,DEFAULT_APPEARANCE.secondary);
+ const resolvedSecondary=dark&&secondary.toLowerCase()===DEFAULT_APPEARANCE.secondary?"#5eead4":secondary;
+ root.style.colorScheme=dark?"dark":"light";
  const fonts={byekan:'"IRANYekanWeb FarsiNum", Tahoma, sans-serif'};
- root.style.setProperty("--color-chili",safeColor(s.primary,DEFAULT_APPEARANCE.primary));root.style.setProperty("--color-leaf",safeColor(s.secondary,DEFAULT_APPEARANCE.secondary));
+ root.style.setProperty("--color-chili",safeColor(s.primary,DEFAULT_APPEARANCE.primary));root.style.setProperty("--color-leaf",resolvedSecondary);
  root.style.setProperty("--color-bg",dark?"#111a16":"#f3f7f3");root.style.setProperty("--color-surface",dark?"#1b2821":"#ffffff");root.style.setProperty("--color-ink",dark?"#f0f6f1":"#17251d");
  root.style.setProperty("--color-muted",dark?"#a6b8ac":"#68786d");root.style.setProperty("--color-line",dark?"#34483b":"#e0e9e1");
+ root.style.setProperty("--color-leaf-ink",dark?"#14362e":"#f0fdfa");root.style.setProperty("--color-warn",dark?"#fdba74":"#9a3412");root.style.setProperty("--color-warn-bg",dark?"#3b2a1f":"#fff1e6");
+ root.style.setProperty("--color-overlay",dark?"rgb(0 0 0 / 0.64)":"rgb(23 37 29 / 0.42)");root.style.setProperty("--shadow-card",dark?"0 14px 36px rgb(0 0 0 / 0.22)":"0 12px 34px rgb(20 45 30 / 0.06)");
  root.style.setProperty("--radius-card",`${Math.min(28,Math.max(8,s.cardRadius))}px`);root.style.setProperty("--radius-2xl",`${Math.min(28,Math.max(8,s.cardRadius))}px`);
  root.style.setProperty("--radius-xl",`${Math.min(24,Math.max(6,s.buttonRadius))}px`);root.style.setProperty("--font-sans",fonts[s.fontFamily]??fonts.byekan);
  root.style.setProperty("--app-font-size",`${Math.min(20,Math.max(13,s.fontSize))}px`);root.dataset.theme=dark?"dark":"light";
