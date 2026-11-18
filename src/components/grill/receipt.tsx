@@ -1,4 +1,4 @@
-import { money, type Order, type Settings } from "@/lib/pos/model";
+import { money, type Order, type Settings } from "@/lib/pos/model";\nimport { useAppearance } from "@/lib/appearance";
 
 const pay: Record<Order["payment"], string> = {
   cash: "نقد",
@@ -15,11 +15,11 @@ export function ReceiptView({
   settings: Settings;
   kind: "customer" | "kitchen";
 }) {
-  const width = settings.paperWidth === 58 ? "max-w-56" : "max-w-80";
+  const width = settings.paperWidth === 58 ? "max-w-56" : "max-w-80";\n  const { settings: appearance } = useAppearance();
   return (
     <article className={`mx-auto bg-surface p-3 text-ink ${width}`} dir="rtl">
       <header className="border-b border-dashed border-line pb-2 text-center">
-        <p className="text-lg font-bold">{settings.shopName}</p>
+        {appearance.logoUrl ? <img src={appearance.logoUrl} alt="لوگوی فروشگاه" className="mx-auto mb-2 max-h-12 max-w-32 object-contain" /> : null}\n        <p className="text-lg font-bold">{settings.shopName}</p>
         {kind === "customer" ? (
           <>
             <p className="text-xs text-muted">{settings.headerNote}</p>
