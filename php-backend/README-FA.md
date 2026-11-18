@@ -34,7 +34,7 @@
 
 ## ساختار و نصب آزمایشی
 1. در cPanel دیتابیس MySQL و کاربر اختصاصی بسازید و دسترسی کامل را فقط به همان دیتابیس بدهید.
-2. `schema.sql` را در phpMyAdmin وارد کنید. اگر دیتابیس را قبلاً با نسخه قدیمی‌تر ساخته‌اید، فایل‌های `migrations/002-session-version.sql`، `migrations/003-order-idempotency.sql`، `migrations/004-order-effects-ledger.sql`، `migrations/005-order-discount-code.sql`، `migrations/006-discount-redemptions-ledger.sql` و در پایان `migrations/007-order-payment-and-guest-details.sql` را به‌ترتیب و هرکدام فقط یک‌بار اجرا کنید.
+2. `schema.sql` را در phpMyAdmin وارد کنید. اگر دیتابیس را قبلاً با نسخه قدیمی‌تر ساخته‌اید، فایل‌های `migrations/002-session-version.sql`، `migrations/003-order-idempotency.sql`، `migrations/004-order-effects-ledger.sql`، `migrations/005-order-discount-code.sql`، `migrations/006-discount-redemptions-ledger.sql` و در پایان `migrations/007-order-payment-and-guest-details.sql` و سپس `migrations/008-global-appearance-settings.sql` را به‌ترتیب و هرکدام فقط یک‌بار اجرا کنید.
 3. `private/config.example.php` را به `private/config.php` کپی کنید و اطلاعات دیتابیس را وارد کنید.
 4. برای `app_key` و `setup_token` دو مقدار تصادفی مستقل با حداقل 64 نویسه hex تولید کنید. از قرار دادن آن‌ها در پوشه عمومی یا JavaScript خودداری کنید.
 5. برای پیامک، فقط در `private/config.php` مقدار `sms.provider` را `national_payamak` و مقادیر `username`، `password` و `sender` را تنظیم کنید. این اطلاعات را در تنظیمات مرورگر یا فایل‌های Git قرار ندهید.
@@ -48,6 +48,10 @@
 | Method | Path | دسترسی | توضیح |
 |---|---|---|---|
 | GET | `/api/v1/health` | عمومی | سلامت API و اتصال MySQL |
+| GET | `/api/v1/appearance` | عمومی | دریافت ظاهر غیرحساس برای صفحه ورود و همه کاربران |
+| POST | `/api/v1/appearance` | مدیر + CSRF | ذخیره ظاهر سراسری |
+| POST | `/api/v1/appearance/reset` | مدیر + CSRF | بازنشانی ظاهر سراسری |
+| POST | `/api/v1/appearance/logo` | مدیر + CSRF | بارگذاری PNG/JPG/WebP تا ۵۱۲ کیلوبایت |
 | GET | `/api/v1/preflight` | عمومی | پیش‌بررسی نسخه PHP، افزونه‌ها، اتصال DB، schema و HTTPS؛ بدون نمایش اطلاعات محرمانه |
 | GET | `/api/v1/setup/status` | عمومی | اعلام اینکه راه‌اندازی اولیه لازم است یا نه |
 | POST | `/api/v1/setup/manager` | توکن یک‌بارمصرف | ایجاد مدیر اولیه و شروع نشست مدیر |

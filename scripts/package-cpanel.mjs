@@ -27,6 +27,8 @@ mkdirSync(databaseRoot, { recursive: true });
 
 cpSync(builtPublic, publicRoot, { recursive: true });
 cpSync(resolve(root, "php-backend/public/.htaccess"), resolve(publicRoot, ".htaccess"));
+mkdirSync(resolve(publicRoot, "uploads"), { recursive: true });
+cpSync(resolve(root, "php-backend/public/uploads/.htaccess"), resolve(publicRoot, "uploads/.htaccess"));
 cpSync(resolve(root, "php-backend/public/api"), resolve(publicRoot, "api"), { recursive: true });
 cpSync(resolve(root, "php-backend/private/.htaccess"), resolve(privateRoot, ".htaccess"));
 cpSync(

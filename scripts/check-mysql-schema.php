@@ -32,6 +32,7 @@ $requiredTables = [
     'pos_orders',
     'pos_order_effects',
     'pos_discount_redemptions',
+    'app_appearance_settings',
 ];
 $tableQuery = $pdo->prepare(
     'SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES

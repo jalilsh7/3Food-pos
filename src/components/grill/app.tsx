@@ -11,7 +11,8 @@ import {
   type CartLine, type DiscountCode, type Order, type Product, type Role, type SmsEvent, type PosState, type Settings, type SmsLog,
 } from "@/lib/pos/model";
 import { lowStock, usePos } from "@/lib/pos/store";
-import { phpApi, type ApiUser, type ManagedUser } from "@/lib/api/php-client";
+import { phpApi, type ApiUser, type ManagedUser, type AppearanceSettings } from "@/lib/api/php-client";
+import { useAppearance } from "@/lib/appearance";
 
 
 async function saveCentralRecord<T extends { id: string | number }>(resource: string, item: T, commit: () => void) {
@@ -68,6 +69,7 @@ const EVENT_LABEL: Record<SmsEvent, string> = {
 
 export function GrillApp() {
   const shop = usePos((s) => s.settings.shopName);
+  const { settings: appearance } = useAppearance();
   const [user, setUser] = useState<ApiUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [setupRequired, setSetupRequired] = useState(false);
@@ -147,7 +149,7 @@ export function GrillApp() {
     <div className="min-h-screen bg-bg text-ink">
       <header className="sticky top-0 z-20 flex min-w-0 items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3">
         <div>
-          <p className="text-lg font-bold">{shop}</p>
+          <div className="flex items-center gap-2">{appearance.logoUrl ? <img src={appearance.logoUrl} alt="لوگوی فروشگاه" className="h-9 w-9 rounded-lg object-contain" /> : null}<p className="text-lg font-bold">{shop}</p></div>
           <p className="text-xs text-muted">{user.display_name} — {ROLE_LABEL[user.role]}</p>
         </div>
         <button type="button" onClick={() => void logout()} className="rounded-xl border border-line px-3 py-2 text-sm">خروج امن</button>
@@ -274,7 +276,8 @@ function UsersScreen() {
 }
 
 function AuthFrame({ children }: { children: ReactNode }) {
-  return <div className="grid min-h-screen place-items-center bg-bg p-4"><Card>{children}</Card></div>;
+ const {settings:appearance}=useAppearance();
+ return <div className="grid min-h-screen place-items-center bg-bg p-4"><Card>{appearance.logoUrl?<img src={appearance.logoUrl} alt="لوگوی فروشگاه" className="mx-auto mb-3 h-16 max-w-40 object-contain"/>:null}{children}</Card></div>;
 }
 
 function PhpLoginScreen({ setupRequired, onAuthenticated }: { setupRequired: boolean; onAuthenticated: (user: ApiUser) => void }) {
@@ -1196,6 +1199,30 @@ function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, role: Ro
   return true;
 }
 
+
+function AppearanceSettingsPanel(){
+ const {settings,update,save,reset,uploadLogo}=useAppearance();
+ const [busy,setBusy]=useState(false),[logoBusy,setLogoBusy]=useState(false),[note,setNote]=useState("");
+ async function persist(){setBusy(true);setNote("");try{await save();setNote("ظاهر جدید برای همه کاربران ذخیره شد.");}catch(e){setNote(e instanceof Error?e.message:"ذخیره ظاهر انجام نشد.");}finally{setBusy(false);}}
+ async function restore(){if(!window.confirm("همه تنظیمات ظاهری به حالت پیش‌فرض برگردد؟"))return;setBusy(true);setNote("");try{await reset();setNote("ظاهر پیش‌فرض برای همه کاربران فعال شد.");}catch(e){setNote(e instanceof Error?e.message:"بازنشانی انجام نشد.");}finally{setBusy(false);}}
+ async function logo(file?:File){if(!file)return;setLogoBusy(true);setNote("");try{await uploadLogo(file);setNote("لوگو بارگذاری شد؛ برای انتشار آن روی همه دستگاه‌ها «ذخیره ظاهر» را بزنید.");}catch(e){setNote(e instanceof Error?e.message:"بارگذاری لوگو انجام نشد.");}finally{setLogoBusy(false);}}
+ return <Card className="space-y-4">
+ <div><h3 className="font-semibold">طراحی ظاهری سراسری</h3><p className="mt-1 text-xs text-muted">تغییرات زنده پیش‌نمایش می‌شوند؛ پس از ذخیره برای همه کاربران و دستگاه‌ها اعمال خواهند شد.</p></div>
+ <div className="grid gap-3 sm:grid-cols-2">
+ <Field label="رنگ اصلی"><div className="flex items-center gap-3"><input aria-label="رنگ اصلی" type="color" value={settings.primary} onChange={e=>update({primary:e.target.value})} className="h-11 w-16 cursor-pointer rounded-lg border border-line bg-surface p-1"/><span className="text-xs text-muted">{settings.primary}</span></div></Field>
+ <Field label="رنگ مکمل"><div className="flex items-center gap-3"><input aria-label="رنگ مکمل" type="color" value={settings.secondary} onChange={e=>update({secondary:e.target.value})} className="h-11 w-16 cursor-pointer rounded-lg border border-line bg-surface p-1"/><span className="text-xs text-muted">{settings.secondary}</span></div></Field>
+ <Field label="حالت نمایش"><select className={inputCls} value={settings.mode} onChange={e=>update({mode:e.target.value as AppearanceSettings["mode"]})}><option value="light">روشن</option><option value="dark">تیره</option></select></Field>
+ <Field label="فونت"><select className={inputCls} value={settings.fontFamily} onChange={e=>update({fontFamily:e.target.value as AppearanceSettings["fontFamily"]})}><option value="vazirmatn">وزیرمتن</option><option value="tahoma">Tahoma</option><option value="system">فونت پیش‌فرض دستگاه</option></select></Field>
+ <Field label={`اندازه متن: ${settings.fontSize} پیکسل`}><input className="w-full accent-chili" type="range" min="13" max="20" value={settings.fontSize} onChange={e=>update({fontSize:Number(e.target.value)})}/></Field>
+ <Field label={`گردی کارت‌ها: ${settings.cardRadius} پیکسل`}><input className="w-full accent-chili" type="range" min="8" max="28" value={settings.cardRadius} onChange={e=>update({cardRadius:Number(e.target.value)})}/></Field>
+ <Field label={`گردی دکمه‌ها: ${settings.buttonRadius} پیکسل`}><input className="w-full accent-chili" type="range" min="6" max="24" value={settings.buttonRadius} onChange={e=>update({buttonRadius:Number(e.target.value)})}/></Field>
+ <Field label="لوگو (PNG، JPG یا WebP؛ حداکثر ۵۱۲ کیلوبایت)"><input className={inputCls} type="file" accept="image/png,image/jpeg,image/webp" disabled={logoBusy} onChange={e=>{void logo(e.target.files?.[0]);e.currentTarget.value="";}}/></Field>
+ </div>
+ <div className="rounded-[var(--radius-card)] border border-line bg-bg p-4"><p className="mb-3 text-xs text-muted">پیش‌نمایش زنده</p><div className="flex flex-wrap items-center gap-3">{settings.logoUrl?<img src={settings.logoUrl} alt="پیش‌نمایش لوگو" className="h-12 w-12 rounded-lg object-contain"/>:null}<div className="min-w-0 flex-1"><p className="font-bold">گریل‌کَش | 3Food POS</p><p className="text-xs text-muted">نمونه ظاهر پنل فروشگاه</p></div><span className="rounded-full bg-leaf px-3 py-1 text-xs text-leaf-ink">فعال</span><button type="button" className="rounded-xl bg-chili px-4 py-2 text-sm font-semibold text-chili-ink">دکمه نمونه</button></div></div>
+ <div className="flex flex-wrap items-center gap-2"><Btn onClick={()=>void persist()} disabled={busy||logoBusy}>{busy?"در حال ذخیره...":"ذخیره ظاهر برای همه"}</Btn><Btn tone="ghost" onClick={()=>void restore()} disabled={busy||logoBusy}>بازنشانی پیش‌فرض</Btn>{logoBusy?<span className="text-xs text-muted">در حال بارگذاری لوگو...</span>:null}</div>
+ {note?<p className="text-sm text-muted" role="status">{note}</p>:null}</Card>;
+}
+
 function SettingsScreen() {
   const settings = usePos((s) => s.settings);
   const patchSettings = usePos((s) => s.patchSettings);
@@ -1289,6 +1316,7 @@ function SettingsScreen() {
   return (
     <div className="space-y-4">
       <h2 className="font-bold">تنظیمات فروشگاه و فیش‌پرینتر</h2>
+      <AppearanceSettingsPanel />
       <Card className="grid gap-2 sm:grid-cols-2">
         <Field label="نام فروشگاه"><input className={inputCls} value={settings.shopName} onChange={(e) => patchSettings({ shopName: e.target.value })} onBlur={persistSettings} /></Field>
         <Field label="تلفن"><input className={inputCls} value={settings.phone} onChange={(e) => patchSettings({ phone: e.target.value })} onBlur={persistSettings} /></Field>

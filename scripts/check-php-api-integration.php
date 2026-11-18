@@ -130,6 +130,11 @@ try {
     check(is_bool($preflightChecks['https'] ?? null), 'preflight reports HTTPS state');
     check(is_bool($preflight['json']['production_ready'] ?? null), 'preflight reports production readiness separately');
 
+    $appearancePublic = api('GET', '/api/v1/appearance');
+    check($appearancePublic['status'] === 200 && ($appearancePublic['json']['settings']['mode'] ?? '') === 'light', 'global appearance is readable before login');
+    $appearanceUnauth = api('POST', '/api/v1/appearance', ['settings' => []]);
+    check($appearanceUnauth['status'] === 401, 'appearance writes require an authenticated manager');
+
     $setup = api('POST', '/api/v1/setup/manager', [
         'username' => 'ci_manager',
         'password' => 'CI-Only-Strong-Password-2026!',
@@ -138,6 +143,21 @@ try {
     check($setup['status'] === 201, 'first manager setup: ' . json_encode($setup['json']));
     $csrf = (string)($setup['json']['csrf_token'] ?? '');
     check(strlen($csrf) >= 32 && $cookie !== '', 'setup session and CSRF token');
+
+    $appearanceSettings = [
+        'primary' => '#123456', 'secondary' => '#654321', 'mode' => 'dark',
+        'fontFamily' => 'tahoma', 'fontSize' => 17, 'cardRadius' => 20,
+        'buttonRadius' => 10, 'logoUrl' => null,
+    ];
+    $appearanceSaved = api('POST', '/api/v1/appearance', ['settings' => $appearanceSettings], csrf_headers());
+    check($appearanceSaved['status'] === 200 && ($appearanceSaved['json']['settings']['primary'] ?? '') === '#123456', 'manager can save global appearance');
+    $appearanceFetched = api('GET', '/api/v1/appearance');
+    check(($appearanceFetched['json']['settings']['mode'] ?? '') === 'dark' && ($appearanceFetched['json']['settings']['fontSize'] ?? 0) === 17, 'global appearance persists for public reads');
+    $invalidLogo = api('POST', '/api/v1/appearance/logo', ['image' => base64_encode('not-an-image')], csrf_headers());
+    check($invalidLogo['status'] === 422, 'logo upload rejects non-image content');
+    $appearanceReset = api('POST', '/api/v1/appearance/reset', [], csrf_headers());
+    check($appearanceReset['status'] === 200 && ($appearanceReset['json']['settings']['mode'] ?? '') === 'light', 'manager can reset global appearance');
+
 
     $setupAgain = api('POST', '/api/v1/setup/manager', [
         'username' => 'ci_manager2',

@@ -19,6 +19,7 @@ export type ApiUser = {
   must_change_password?: boolean;
 };
 
+export type AppearanceSettings={primary:string;secondary:string;mode:"light"|"dark";fontFamily:"vazirmatn"|"tahoma"|"system";fontSize:number;cardRadius:number;buttonRadius:number;logoUrl:string|null};
 export type ManagedUser = ApiUser & {
   is_active: number | boolean;
   last_login_at?: string | null;
@@ -92,6 +93,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
 export const phpApi = {
   health: () => request<ApiEnvelope<{ service?: string; database?: string }>>("/health"),
+  getAppearance:()=>request<ApiEnvelope<{settings:AppearanceSettings}>>("/appearance"),
+  saveAppearance:(settings:AppearanceSettings)=>request<ApiEnvelope<{settings:AppearanceSettings}>>("/appearance",{method:"POST",csrf:true,body:{settings}}),
+  resetAppearance:()=>request<ApiEnvelope<{settings:AppearanceSettings}>>("/appearance/reset",{method:"POST",csrf:true,body:{}}),
+  uploadAppearanceLogo:(image:string)=>request<ApiEnvelope<{logo_url:string}>>("/appearance/logo",{method:"POST",csrf:true,body:{image}}),
 
   setupStatus: () =>
     request<ApiEnvelope<{ setup_required: boolean }>>("/setup/status"),
