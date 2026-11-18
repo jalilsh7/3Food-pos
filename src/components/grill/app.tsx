@@ -403,6 +403,7 @@ async function postSms(phone: string, text: string, event: string, bodyId: strin
 function PosScreen() {
   const products = usePos((s) => s.products);
   const categories = usePos((s) => s.categories);
+  const ingredients = usePos((s) => s.ingredients);
   const customers = usePos((s) => s.customers);
   const discounts = usePos((s) => s.discounts);
   const orders = usePos((s) => s.orders);
@@ -425,6 +426,39 @@ function PosScreen() {
   const [optFor, setOptFor] = useState<Product | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [note, setNote] = useState("");
+  const [stockWarningMutedUntil, setStockWarningMutedUntil] = useState(0);
+  const [stockClock, setStockClock] = useState(Date.now());
+  useEffect(() => {
+    try {
+      setStockWarningMutedUntil(Number(window.localStorage.getItem("3food-pos-stock-warning-muted-until") || 0));
+    } catch {
+      setStockWarningMutedUntil(0);
+    }
+    const timer = window.setInterval(() => setStockClock(Date.now()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const requiredIngredients = new Map<string, number>();
+  for (const line of cart) {
+    const product = products.find((item) => item.id === line.productId);
+    for (const recipeLine of product?.recipe ?? []) {
+      requiredIngredients.set(recipeLine.ingredientId, (requiredIngredients.get(recipeLine.ingredientId) ?? 0) + recipeLine.qty * line.qty);
+    }
+  }
+  const stockShortages = [...requiredIngredients.entries()].flatMap(([ingredientId, required]) => {
+    const ingredient = ingredients.find((item) => item.id === ingredientId);
+    return ingredient && ingredient.stock < required ? [{ name: ingredient.name, stock: ingredient.stock, required, unit: ingredient.unit }] : [];
+  });
+  const showStockWarning = stockShortages.length > 0 && stockClock >= stockWarningMutedUntil;
+  function muteStockWarningForHour() {
+    const until = Date.now() + 60 * 60 * 1000;
+    setStockWarningMutedUntil(until);
+    setStockClock(Date.now());
+    try {
+      window.localStorage.setItem("3food-pos-stock-warning-muted-until", String(until));
+    } catch {
+      // The alert remains dismissible for this session if storage is unavailable.
+    }
+  }
   const customer = customers.find((c) => normalizeIranPhone(c.phone) === normalizeIranPhone(phone)) ?? null;
   const uses = customer && code ? customerCodeUses(orders, customer.id, code) : 0;
   const q = quoteOrder({ lines: cart, customer, code, discounts, pointsToUse: points, taxPercent: settings.taxPercent, taxEnabled: settings.taxEnabled, tomanPerPoint: settings.tomanPerPoint, usesSoFar: uses, settings });
@@ -558,6 +592,14 @@ function PosScreen() {
       </div>
       <Card>
         <h2 className="mb-3 font-bold">سفارش جاری</h2>
+        {showStockWarning ? (
+          <div role="status" className="mb-3 rounded-xl border border-warn bg-warn-bg p-3 text-sm text-warn">
+            <p className="font-bold">هشدار کمبود موجودی</p>
+            <p className="mt-1">{stockShortages.map((item) => `${item.name}: موجودی ${item.stock.toLocaleString("fa-IR")}، نیاز سفارش ${item.required.toLocaleString("fa-IR")} ${item.unit}`).join(" · ")}</p>
+            <p className="mt-1">ثبت سفارش متوقف نمی‌شود و با تأیید شما ادامه پیدا می‌کند.</p>
+            <Btn tone="ghost" onClick={muteStockWarningForHour}>خاموش‌کردن هشدار برای یک ساعت</Btn>
+          </div>
+        ) : null}
         {cart.length === 0 ? <Empty text="آیتمی انتخاب نشده" /> : null}
         <ul className="space-y-2">
           {cart.map((l) => (
