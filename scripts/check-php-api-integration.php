@@ -454,7 +454,7 @@ try {
     $csrf = '';
     $managerRelogin = api('POST', '/api/v1/auth/login', [
         'username' => 'ci_manager',
-        'password' => 'CI-Only-Strong-Password-2026!',
+        'password' => 'CI-Only-New-Password-2026!',
     ]);
     check($managerRelogin['status'] === 200 && ($managerRelogin['json']['user']['role'] ?? '') === 'manager', 'manager relogin for account revocation');
     $csrf = (string)($managerRelogin['json']['csrf_token'] ?? '');
