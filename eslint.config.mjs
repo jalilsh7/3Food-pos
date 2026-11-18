@@ -15,8 +15,6 @@ export default tseslint.config(
       ".nitro/**",
       "node_modules/**",
       "src/routeTree.gen.ts",
-      // Vendored MIT QR implementation is kept intact; lint application code, not upstream source.
-      "src/lib/vendor/qrcode-generator.ts",
     ],
   },
   js.configs.recommended,
