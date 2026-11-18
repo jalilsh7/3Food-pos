@@ -1,5 +1,8 @@
 # ممیزی واقعی سورس 3Food POS برای مهاجرت به PHP و MySQL
 
+> **گزارش تاریخی:** این سند وضعیت snapshot اولیه در 2026-11-16 را توصیف می‌کند و معماری فعلی شاخه پاک‌سازی نیست. لایه‌ی فعال cPanel اکنون React/Vite SPA + PHP API + MySQL است؛ کدهای Better Auth، PGLite/PostgreSQL و اتصال‌های Grok از شاخه `cleanup/remove-grok-dependencies` حذف شده‌اند. برای وضعیت جاری به `README.md` و `AI_HANDOFF_FA.md` مراجعه کنید.
+
+
 تاریخ بررسی: 2026-11-16
 فایل ورودی: `grok-workspace.zip`
 نسخه کاری: استخراج مستقل از آرشیو اصلی؛ فایل ZIP اصلی تغییر نکرده است.
