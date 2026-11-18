@@ -6,7 +6,7 @@ import {
 import { Btn, Card, Empty, Field, inputCls } from "./bits";
 import { ReceiptView } from "./receipt";
 import {
-  customerCodeUses, fillTemplate, money, quoteOrder, TIER_LABEL, TIER_OFF, tierOf, uid,
+  customerCodeUses, fillTemplate, money, quoteOrder, TIER_LABEL, tierOf, uid,
   type CartLine, type DiscountCode, type Order, type Product, type Role, type SmsEvent, type PosState, type Settings, type SmsLog,
 } from "@/lib/pos/model";
 import { lowStock, usePos } from "@/lib/pos/store";
@@ -576,7 +576,7 @@ function PosScreen() {
         <div className="mt-3 space-y-2">
           <Field label="موبایل مشتری"><input className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0912..." /></Field>
           {customer ? (
-            <p className="rounded-xl bg-leaf-ink px-3 py-2 text-sm text-leaf">{customer.name} — {TIER_LABEL[tierOf(customer.points)]} ({customer.points.toLocaleString("fa-IR")} امتیاز، تخفیف {TIER_OFF[tierOf(customer.points)].toLocaleString("fa-IR")}٪)</p>
+            <p className="rounded-xl bg-leaf-ink px-3 py-2 text-sm text-leaf">{customer.name} — {TIER_LABEL[tierOf(customer.points,settings)]} ({customer.points.toLocaleString("fa-IR")} امتیاز، تخفیف {(tierOf(customer.points,settings)==="silver"?settings.loyaltySilverDiscount??3:tierOf(customer.points,settings)==="gold"?settings.loyaltyGoldDiscount??5:tierOf(customer.points,settings)==="platinum"?settings.loyaltyPlatinumDiscount??8:0).toLocaleString("fa-IR")}٪)</p>
           ) : (
             <Field label="نام (اگر عضو نیست)"><input className={inputCls} value={guestName} onChange={(e) => setGuestName(e.target.value)} /></Field>
           )}
