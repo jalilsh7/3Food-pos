@@ -37,7 +37,7 @@ try {
         new PerformanceObserver(list => {
           for (const entry of list.getEntries()) window.__posPerf.longTasks.push(entry.duration);
         }).observe({ type: "longtask", buffered: true });
-      } catch {}
+      } catch { /* Performance observers are optional in unsupported browsers. */ }
     });
 
     const response = await page.goto(url, { waitUntil: "load", timeout: timeoutMs });
