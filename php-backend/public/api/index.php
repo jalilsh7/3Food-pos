@@ -2113,7 +2113,22 @@ if ($method === 'GET' && $path === '/reports/summary') {
         $expenses[]=['id'=>(string)($e['id']??''),'title'=>(string)($e['title']??''),'amount'=>$amount,'category'=>$category,'date'=>$date];
     }
     arsort($daily); ksort($expenseGroups); uasort($byProduct,static fn($a,$b)=>$b['quantity']<=>$a['quantity']);
-    json_response(['ok'=>true,'range'=>['from'=>$from,'to'=>$to],'sales'=>$sales,'orders'=>$count,'cancelled'=>$cancelled,'average_order'=>$count?intdiv($sales,$count):0,'cost_of_goods'=>$cost,'expenses'=>$expenseTotal,'inventory_purchases'=>array_sum(array_map(static fn($e)=>($e['category']??'')==='مواد اولیه'?(int)($e['amount']??0):0,$expenses)),'gross_profit'=>$sales-$cost,'net_profit'=>$sales-$cost-$expenseTotal,'daily'=>array_map(static fn($d,$v)=>['date'=>$d,'sales'=>$v],array_keys($daily),array_values($daily)),'payments'=>$byPayment,'products'=>array_slice(array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),0,100),'expense_categories'=>$expenseGroups,'expense_items'=>$expenses]);
+    $monthly=[];
+    foreach($daily as $day=>$value){$month=substr((string)$day,0,7);$monthly[$month]=($monthly[$month]??0)+$value;}
+    $lowStock=[]; $inventoryValue=0;
+    foreach($pdo->query("SELECT payload FROM pos_records WHERE resource='ingredients'")->fetchAll(PDO::FETCH_COLUMN) as $raw){
+        $ingredient=json_decode((string)$raw,true);if(!is_array($ingredient))continue;
+        $stock=(float)($ingredient['stock']??0);$min=(float)($ingredient['minStock']??0);$unitCost=(float)($ingredient['costPerUnit']??0);
+        $inventoryValue+=max(0,$stock)*max(0,$unitCost);
+        if($stock<=$min)$lowStock[]=['name'=>(string)($ingredient['name']??''),'stock'=>$stock,'minStock'=>$min,'unit'=>(string)($ingredient['unit']??'')];
+    }
+    $customerRows=[];
+    foreach($pdo->query("SELECT payload FROM pos_records WHERE resource='customers'")->fetchAll(PDO::FETCH_COLUMN) as $raw){
+        $customer=json_decode((string)$raw,true);if(!is_array($customer))continue;
+        $customerRows[]=['name'=>(string)($customer['name']??''),'phone'=>(string)($customer['phone']??''),'totalSpent'=>(int)($customer['totalSpent']??0),'visits'=>(int)($customer['visits']??0),'points'=>(int)($customer['points']??0)];
+    }
+    usort($customerRows,static fn($a,$b)=>$b['totalSpent']<=>$a['totalSpent']);
+    json_response(['ok'=>true,'range'=>['from'=>$from,'to'=>$to],'sales'=>$sales,'orders'=>$count,'cancelled'=>$cancelled,'average_order'=>$count?intdiv($sales,$count):0,'cost_of_goods'=>$cost,'expenses'=>$expenseTotal,'inventory_purchases'=>array_sum(array_map(static fn($e)=>($e['category']??'')==='مواد اولیه'?(int)($e['amount']??0):0,$expenses)),'gross_profit'=>$sales-$cost,'net_profit'=>$sales-$cost-$expenseTotal,'daily'=>array_map(static fn($d,$v)=>['date'=>$d,'sales'=>$v],array_keys($daily),array_values($daily)),'monthly'=>array_map(static fn($m,$v)=>['month'=>$m,'sales'=>$v],array_keys($monthly),array_values($monthly)),'payments'=>$byPayment,'products'=>array_slice(array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),0,100),'expense_categories'=>$expenseGroups,'expense_items'=>$expenses,'inventory'=>['value'=>round($inventoryValue),'low_stock_count'=>count($lowStock)],'low_stock'=>$lowStock,'top_customers'=>array_slice($customerRows,0,20)]);
 }
 
 if ($method === 'POST' && $path === '/sms/send') {
