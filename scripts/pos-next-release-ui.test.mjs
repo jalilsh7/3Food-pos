@@ -78,3 +78,8 @@ test("expense defaults seed only once and backup restore accepts the seed marker
   assert.match(phpApi, /resource = 'system_meta' AND id = 'expense_categories_seeded'/);
   assert.match(phpApi, /'sms_logs','system_meta'/);
 });
+
+test("complete customer summaries are included in report export beyond the top twenty", () => {
+  assert.match(phpApi, /'all_customers'=>\$customerRows/);
+  assert.match(app, /allCustomerRows\.map\(row=>\["مشتری"/);
+});
