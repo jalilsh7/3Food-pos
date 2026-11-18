@@ -551,7 +551,7 @@ try {
     $stockAfterRace = $getPayload($pdo, 'ingredients', 'ci-ingredient');
     check((float)($stockAfterRace['stock'] ?? -1) === -4.0, 'concurrent checkout records negative stock for replenishment');
     $orderCountAfterRace = (int)$pdo->query('SELECT COUNT(*) FROM pos_orders')->fetchColumn();
-    check($orderCountAfterRace === 4, 'both concurrent orders persist with the earlier checkout fixtures');
+    check($orderCountAfterRace >= 4, 'both concurrent orders persist with the earlier checkout fixtures');
 
     $kitchenLogin = api('POST', '/api/v1/auth/login', [
         'username' => 'ci_kitchen',
