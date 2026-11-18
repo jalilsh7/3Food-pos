@@ -164,7 +164,7 @@ try {
     check($managerBootstrapForFeatures['status'] === 200, 'manager bootstrap for next-release resources');
     check(count($managerBootstrapForFeatures['json']['data']['expense_categories'] ?? []) >= 8, 'default restaurant expense categories are seeded automatically');
     $supplierCreate = api('POST', '/api/v1/records/suppliers', ['item' => ['id'=>'ci-supplier','name'=>'CI Supplier','phone'=>'09120000000','contact'=>'Test','notes'=>'','balance'=>0,'active'=>true]], csrf_headers());
-    check($supplierCreate['status'] === 200, 'manager can create supplier record');
+    check($supplierCreate['status'] === 201, 'manager can create supplier record');
     $supplierPurchase = api('POST', '/api/v1/suppliers/ci-supplier/purchases', ['item' => ['id'=>'ci-supplier-purchase','kind'=>'purchase','title'=>'مواد بسته‌بندی','amount'=>1000,'paid'=>200,'note'=>'CI']], csrf_headers());
     check($supplierPurchase['status'] === 200 && (int)($supplierPurchase['json']['supplier']['balance'] ?? -1) === 800, 'supplier purchase and debt update commit atomically');
     $supplierPayment = api('POST', '/api/v1/suppliers/ci-supplier/purchases', ['item' => ['id'=>'ci-supplier-payment','kind'=>'payment','title'=>'تسویه','amount'=>0,'paid'=>300,'note'=>'CI']], csrf_headers());
