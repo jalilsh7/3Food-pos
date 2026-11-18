@@ -1165,6 +1165,8 @@ function ReportsScreen() {
   const [amount, setAmount] = useState(0);
   const [cat, setCat] = useState("");
   const [note, setNote] = useState("");
+  const [expenseDate,setExpenseDate]=useState(tehranDate());
+  const [expenseDateText,setExpenseDateText]=useState(()=>isoToJalali(tehranDate()));
   const initialFrom=tehranDate(Date.now()-6*86400000);
   const initialTo=tehranDate();
   const [from, setFrom] = useState(initialFrom);
