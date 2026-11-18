@@ -96,3 +96,23 @@ test("Excel report is a native XLSX workbook, not a renamed CSV", () => {
   assert.match(app, /createObjectURL\(createXlsxBlob\(rows\)\)/);
   assert.match(app, /a\.download="3food-pos-report\.xlsx"/);
 });
+
+test("marketing campaigns require explicit consent and combine multiple filters with AND or OR", () => {
+  assert.match(model, /smsConsent\?: boolean/);
+  assert.match(app, /customer\.smsConsent!==true/);
+  assert.match(app, /campaignLogic==="all"\?conditions\.every\(Boolean\):conditions\.some\(Boolean\)/);
+  assert.match(app, /حداقل مجموع خرید/);
+  assert.match(app, /خرید محصول مشخص/);
+});
+
+test("sales reports render visual daily, monthly, product and payment charts", () => {
+  assert.match(app, /نمودار فروش روزانه/);
+  assert.match(app, /نمودار فروش ماهانه/);
+  assert.match(app, /نمودار محصولات پرفروش/);
+  assert.match(app, /نمودار روش‌های پرداخت/);
+});
+
+test("expenses have a dedicated manager navigation page", () => {
+  assert.match(app, /id: "expenses", label: "هزینه‌ها"/);
+  assert.match(app, /current === "expenses" \? <ExpensesScreen \/>/);
+});
