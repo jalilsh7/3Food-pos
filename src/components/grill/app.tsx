@@ -1156,7 +1156,7 @@ function ReportsScreen() {
   const reportSales = typeof serverSummary?.sales === "number" ? serverSummary.sales : sales;
   const reportCost = typeof serverSummary?.cost_of_goods === "number" ? serverSummary.cost_of_goods : costGuess;
   const reportExpenses = typeof serverSummary?.expenses === "number" ? serverSummary.expenses : spend;
-  const reportNet = typeof serverSummary?.net_profit === "number" ? serverSummary.net_profit : sales-costGuess-spend;
+  const reportNet = typeof serverSummary?.net_profit === "number" ? serverSummary.net_profit : sales-costGuess-spend;\n  const inventoryPurchases = typeof serverSummary?.inventory_purchases === "number" ? serverSummary.inventory_purchases : 0;
   const daily = new Map<string,number>();
   for(const o of done) daily.set(tehranDate(o.createdAt),(daily.get(tehranDate(o.createdAt))??0)+o.total);
   const dailyRows=[...daily.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
@@ -1224,7 +1224,7 @@ function ReportsScreen() {
       <Card><h3 className="mb-2 font-semibold">مشتریان برتر بر اساس مجموع خرید</h3>{topCustomerRows.map(row=><p key={row.phone} className="flex flex-wrap justify-between gap-2 border-b border-line py-1 text-sm"><span>{row.name} · {row.phone}</span><b>{money(row.totalSpent)}</b></p>)}</Card>
       <Card><h3 className="mb-2 font-semibold">محصولات پرفروش</h3>{top.length?top.map(([name,v])=><p key={name} className="flex justify-between border-b border-line py-1 text-sm"><span>{name} · {v.qty.toLocaleString("fa-IR")} عدد</span><b>{money(v.revenue)}</b></p>):<Empty text="فروشی ثبت نشده است"/>}</Card>
       <Card><h3 className="mb-2 font-semibold">گزارش روش‌های پرداخت</h3>{payments.map(p=><p key={p.method} className="flex justify-between py-1 text-sm"><span>{p.label}</span><b>{money(p.amount)}</b></p>)}</Card>
-      <Card><h3 className="mb-2 font-semibold">هزینه‌ها بر اساس دسته</h3>{expenseByCategory.map(([name,value])=><p key={name} className="flex justify-between py-1 text-sm"><span>{name}</span><b>{money(value)}</b></p>)}</Card>
+      <Card><h3 className="mb-2 font-semibold">هزینه‌ها بر اساس دسته</h3>{expenseByCategory.map(([name,value])=><p key={name} className="flex justify-between py-1 text-sm"><span>{name}</span><b>{money(value)}</b></p>)}<p className="mt-2 border-t border-line pt-2 text-xs text-muted">خرید مواد اولیه (سرمایه‌گذاری موجودی، خارج از هزینه عملیاتی سود و زیان): {money(inventoryPurchases)}</p></Card>
       <Card><h3 className="mb-3 font-semibold">ثبت هزینه جدید</h3><form className="grid gap-2 sm:grid-cols-2" onSubmit={e=>void addCost(e)}>
         <Field label="شرح هزینه"><input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} required/></Field>
         <Field label="مبلغ (تومان)"><input className={inputCls} type="number" min="1" value={amount||""} onChange={e=>setAmount(Number(e.target.value))} required/></Field>
@@ -1362,7 +1362,7 @@ function SmsScreen() {
           <textarea className={inputCls} rows={2} value={manual.text} onChange={(e) => setManual({ ...manual, text: e.target.value })} />
           <div className="flex flex-wrap gap-2">
             <Btn onClick={() => void sendRaw(manual.to, manual.text)}>ارسال به یک شماره</Btn>
-            <Btn tone="ghost" onClick={() => { for (const c of customers) void sendRaw(c.phone, manual.text); }}>ارسال به اعضای باشگاه</Btn>
+            
           </div>
         </div>
       </Card>
@@ -1607,9 +1607,9 @@ function SettingsScreen() {
         <Field label="ارزش هر امتیاز"><input className={inputCls} type="number" value={settings.tomanPerPoint} onChange={(e) => patchSettings({ tomanPerPoint: Number(e.target.value) })} onBlur={persistSettings} /></Field>
         <Field label="آستانه عضویت نقره (امتیاز)"><input className={inputCls} type="number" min="1" value={settings.loyaltySilverPoints??500} onChange={e=>patchSettings({loyaltySilverPoints:Math.max(1,Number(e.target.value))})} onBlur={persistSettings}/></Field>
         <Field label="تخفیف نقره (%)"><input className={inputCls} type="number" min="0" max="100" value={settings.loyaltySilverDiscount??3} onChange={e=>patchSettings({loyaltySilverDiscount:Math.min(100,Math.max(0,Number(e.target.value)))})} onBlur={persistSettings}/></Field>
-        <Field label="آستانه عضویت طلا (امتیاز)"><input className={inputCls} type="number" min="1" value={settings.loyaltyGoldPoints??1500} onChange={e=>patchSettings({loyaltyGoldPoints:Math.max(1,Number(e.target.value))})} onBlur={persistSettings}/></Field>
+        <Field label="آستانه عضویت طلا (امتیاز)"><input className={inputCls} type="number" min={(settings.loyaltySilverPoints??500)+1} value={settings.loyaltyGoldPoints??1500} onChange={e=>patchSettings({loyaltyGoldPoints:Math.max((settings.loyaltySilverPoints??500)+1,Number(e.target.value))})} onBlur={persistSettings}/></Field>
         <Field label="تخفیف طلا (%)"><input className={inputCls} type="number" min="0" max="100" value={settings.loyaltyGoldDiscount??5} onChange={e=>patchSettings({loyaltyGoldDiscount:Math.min(100,Math.max(0,Number(e.target.value)))})} onBlur={persistSettings}/></Field>
-        <Field label="آستانه عضویت پلاتین (امتیاز)"><input className={inputCls} type="number" min="1" value={settings.loyaltyPlatinumPoints??4000} onChange={e=>patchSettings({loyaltyPlatinumPoints:Math.max(1,Number(e.target.value))})} onBlur={persistSettings}/></Field>
+        <Field label="آستانه عضویت پلاتین (امتیاز)"><input className={inputCls} type="number" min={(settings.loyaltyGoldPoints??1500)+1} value={settings.loyaltyPlatinumPoints??4000} onChange={e=>patchSettings({loyaltyPlatinumPoints:Math.max((settings.loyaltyGoldPoints??1500)+1,Number(e.target.value))})} onBlur={persistSettings}/></Field>
         <Field label="تخفیف پلاتین (%)"><input className={inputCls} type="number" min="0" max="100" value={settings.loyaltyPlatinumDiscount??8} onChange={e=>patchSettings({loyaltyPlatinumDiscount:Math.min(100,Math.max(0,Number(e.target.value)))})} onBlur={persistSettings}/></Field>
         <Field label="عرض کاغذ">
           <select className={inputCls} value={settings.paperWidth} onChange={(e) => patchSettings({ paperWidth: Number(e.target.value) as 58 | 80 })} onBlur={persistSettings}>
