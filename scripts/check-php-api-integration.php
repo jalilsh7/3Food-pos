@@ -277,8 +277,11 @@ try {
         'customer' => ['id' => 'ci-customer'],
         'totals' => ['subtotal' => 5000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 5000],
     ];
-    $rejectedStock = api('POST', '/api/v1/orders', $stockFailure, csrf_headers());
-    check($rejectedStock['status'] === 409 && ($rejectedStock['json']['error'] ?? '') === 'insufficient_stock', 'insufficient stock rejected');
+    $acceptedStock = api('POST', '/api/v1/orders', $stockFailure, csrf_headers());
+    check($acceptedStock['status'] === 201 && !empty($acceptedStock['json']['order']['id']), 'checkout succeeds even when recipe stock is depleted');
+    $stockDepletionOrderId = (string)($acceptedStock['json']['order']['id'] ?? '');
+    $stockDepletionCancel = api('PATCH', '/api/v1/orders/' . rawurlencode($stockDepletionOrderId) . '/status', ['status' => 'cancelled'], csrf_headers());
+    check($stockDepletionCancel['status'] === 200, 'cancel stock depletion fixture and restore its inventory effect');
 
     $pdo = new PDO(
         'mysql:host=' . (getenv('MYSQL_TEST_HOST') ?: '127.0.0.1') . ';port=' . (getenv('MYSQL_TEST_PORT') ?: '3306') . ';dbname=' . (getenv('MYSQL_TEST_DATABASE') ?: 'threefood_test') . ';charset=utf8mb4',
