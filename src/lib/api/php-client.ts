@@ -19,7 +19,7 @@ export type ApiUser = {
   must_change_password?: boolean;
 };
 
-export type AppearanceSettings={primary:string;secondary:string;mode:"light"|"dark";fontFamily:"vazirmatn"|"tahoma"|"system";fontSize:number;cardRadius:number;buttonRadius:number;logoUrl:string|null};
+export type AppearanceSettings={primary:string;secondary:string;mode:"light"|"dark";fontFamily:"byekan";fontSize:number;cardRadius:number;buttonRadius:number;logoUrl:string|null};
 export type ManagedUser = ApiUser & {
   is_active: number | boolean;
   last_login_at?: string | null;
@@ -167,6 +167,8 @@ export const phpApi = {
 
   listUsers: () => request<ApiEnvelope<{ users: ManagedUser[] }>>("/users"),
 
+  getReportSummary: (from: string, to: string) => request<ApiEnvelope<Record<string, unknown>>>(`/reports/summary?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+
   createUser: (input: { username: string; password: string; display_name: string; role: PosRole }) =>
     request<ApiEnvelope<{ user: ManagedUser }>>("/users", { method: "POST", csrf: true, body: input }),
 
@@ -199,6 +201,8 @@ export const phpApi = {
 
   listRecords: <TItem>(resource: string) =>
     request<ApiEnvelope<{ items: TItem[] }>>(`/records/${encodeURIComponent(resource)}`),
+
+  createSupplierTransaction: <TItem, TSupplier>(supplierId: string, item: TItem) => request<ApiEnvelope<{item:TItem;supplier:TSupplier}>>(`/suppliers/${encodeURIComponent(supplierId)}/purchases`, { method: "POST", csrf: true, body: { item } }),
 
   saveRecord: <TItem extends { id: string | number }>(resource: string, item: TItem) =>
     request<ApiEnvelope<{ item: TItem }>>(`/records/${encodeURIComponent(resource)}`, {
