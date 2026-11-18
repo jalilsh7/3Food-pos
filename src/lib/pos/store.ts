@@ -207,7 +207,7 @@ export const usePos = create<PosState & Actions>()(
             if (rec) need += rec.qty * line.qty;
             if (line.optionLabels.some((l) => l.includes("پنیر")) && ing.id === "i3") need += line.qty;
           }
-          return { ...ing, stock: Math.max(0, +(ing.stock - need).toFixed(2)) };
+          return { ...ing, stock: +(ing.stock - need).toFixed(2) };
         });
         customers = customers.map((c) =>
           c.id === customerId
