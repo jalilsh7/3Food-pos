@@ -5,7 +5,7 @@ on:
     branches:
       - migration/php-mysql
       - cleanup/remove-grok-dependencies
-      - feature/3food-pos-next-release
+      - feature/3food-pos-next-release-v2
   pull_request:
     branches:
       - migration/php-mysql
