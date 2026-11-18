@@ -64,3 +64,8 @@ test("recipe-based cost of goods sold follows weighted ingredient purchase costs
 test("invoice SMS choice resets to the manager default after each completed order", () => {
   assert.match(app, /setCart\(\[\]\); setCode\(""\); setPoints\(0\); setSendInvoiceSms\(null\); setPrinted\(res\.order\)/);
 });
+
+test("expense history can be filtered by selected date range and category", () => {
+  assert.match(app, /expenseFilterCategory === "all" \|\| e\.category === expenseFilterCategory/);
+  assert.match(app, /value=\{expenseFilterCategory\} onChange=\{e=>setExpenseFilterCategory\(e\.target\.value\)\}/);
+});
