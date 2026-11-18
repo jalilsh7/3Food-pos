@@ -350,6 +350,13 @@ function ChangePasswordScreen({ user, onChanged }: { user: ApiUser; onChanged: (
   </form></AuthFrame>;
 }
 
+function normalizeIranPhone(value:string){
+  let digits=value.replace(/[۰-۹]/g,d=>String(d.charCodeAt(0)-1776)).replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-1632)).replace(/[^0-9+]/g,"");
+  if(digits.startsWith("+98"))digits="0"+digits.slice(3);
+  else if(digits.startsWith("0098"))digits="0"+digits.slice(4);
+  else if(digits.startsWith("98")&&digits.length===12)digits="0"+digits.slice(2);
+  return digits.replace(/\D/g,"");
+}
 function orderVars(order: Order, balance = "") {
   return { name: order.customerName || "مشتری", order: String(order.number), total: money(order.total), points: String(order.pointsEarned), code: order.discountCode, balance, shop: usePos.getState().settings.shopName };
 }
@@ -416,7 +423,7 @@ function PosScreen() {
   const [optFor, setOptFor] = useState<Product | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [note, setNote] = useState("");
-  const customer = customers.find((c) => c.phone === phone.trim()) ?? null;
+  const customer = customers.find((c) => normalizeIranPhone(c.phone) === normalizeIranPhone(phone)) ?? null;
   const uses = customer && code ? customerCodeUses(orders, customer.id, code) : 0;
   const q = quoteOrder({ lines: cart, customer, code, discounts, pointsToUse: points, taxPercent: settings.taxPercent, taxEnabled: settings.taxEnabled, tomanPerPoint: settings.tomanPerPoint, usesSoFar: uses });
 
@@ -489,7 +496,7 @@ function PosScreen() {
         discountCode: q.discount?.code ?? '',
         note: cart.map((line) => line.note).filter(Boolean).join(" | ").slice(0, 2000),
         guestName,
-        guestPhone: phone.trim(),
+        guestPhone: normalizeIranPhone(phone),
         payment: pay,
       });
       const res = placeOrder({
