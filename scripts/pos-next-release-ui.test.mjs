@@ -90,3 +90,9 @@ test("report API and Excel-compatible export include all products and inventory 
   assert.match(app, /allProductRows\.map\(row=>\["محصول"/);
   assert.match(app, /inventoryRows\.map\(row=>\["انبار"/);
 });
+
+test("Excel report is a native XLSX workbook, not a renamed CSV", () => {
+  assert.match(app, /function createXlsxBlob\(rows: unknown\[\]\[\]\): Blob/);
+  assert.match(app, /createObjectURL\(createXlsxBlob\(rows\)\)/);
+  assert.match(app, /a\.download="3food-pos-report\.xlsx"/);
+});
