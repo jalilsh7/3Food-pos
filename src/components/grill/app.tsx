@@ -1172,7 +1172,7 @@ function asciiDigits(value:string){
   return value.replace(/[۰-۹]/g,d=>String(d.charCodeAt(0)-1776)).replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-1632));
 }
 function jalaliToIso(value:string):string|null{
-  const match=asciiDigits(value).trim().match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+  const match=asciiDigits(value).trim().match(/^(\d{4})[/-](\d{1,2})[\/-](\d{1,2})$/);
   if(!match)return null;
   let jy=Number(match[1]); const jm=Number(match[2]),jd=Number(match[3]);
   if(jm<1||jm>12||jd<1||jd>31)return null;
