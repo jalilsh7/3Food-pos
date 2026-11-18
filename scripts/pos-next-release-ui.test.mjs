@@ -63,7 +63,8 @@ test("recipe-based cost of goods sold follows weighted ingredient purchase costs
 });
 
 test("invoice SMS choice resets to the manager default after each completed order", () => {
-  assert.match(app, /setCart\(\[\]\); setPhone\(""); setGuestName\("مشتری عزیز"\); setCode\("".*setSendInvoiceSms\(null\); setPrinted\(res\.order\)/);
+  assert.ok(app.includes('setCart([]); setPhone(""); setGuestName("مشتری عزیز"); setCode("");'));
+  assert.ok(app.includes("setSendInvoiceSms(null); setPrinted(res.order)"));
 });
 
 test("expense history can be filtered by selected date range and category", () => {
