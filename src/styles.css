@@ -12,7 +12,6 @@
   font-weight: 300;
   font-display: swap;
 }
-
 @font-face {
   font-family: "IRANYekanWeb FarsiNum";
   src: url("/fonts/iranyekanwebmediumfanum.woff") format("woff");
@@ -20,7 +19,6 @@
   font-weight: 500;
   font-display: swap;
 }
-
 @font-face {
   font-family: "IRANYekanWeb FarsiNum";
   src: url("/fonts/iranyekanwebboldfanum.woff") format("woff");
@@ -28,7 +26,6 @@
   font-weight: 700;
   font-display: swap;
 }
-
 @font-face {
   font-family: "IRANYekanWeb FarsiNum";
   src: url("/fonts/iranyekanwebextraboldfanum.woff") format("woff");
@@ -36,7 +33,6 @@
   font-weight: 800;
   font-display: swap;
 }
-
 @font-face {
   font-family: "IRANYekanWeb FarsiNum";
   src: url("/fonts/iranyekanwebblackfanum.woff") format("woff");
@@ -44,7 +40,6 @@
   font-weight: 900;
   font-display: swap;
 }
-
 @font-face {
   font-family: "IRANYekanWeb FarsiNum";
   src: url("/fonts/iranyekanwebextrablackfanum.woff") format("woff");
@@ -55,46 +50,185 @@
 
 :root {
   font-family: "IRANYekanWeb FarsiNum", Tahoma, sans-serif;
+  color-scheme: light;
 }
 
 @theme {
-  --color-bg: #f4efe6;
-  --color-surface: #fffdf8;
-  --color-ink: #1c1712;
-  --color-muted: #6f655c;
-  --color-line: #e4d9cb;
-  --color-chili: #c2410c;
-  --color-chili-ink: #fff7f2;
-  --color-leaf: #1f6b4a;
-  --color-leaf-ink: #f3faf6;
+  --color-bg: #f3f7f3;
+  --color-surface: #ffffff;
+  --color-ink: #17251d;
+  --color-muted: #68786d;
+  --color-line: #e0e9e1;
+  --color-chili: #14532d;
+  --color-chili-ink: #f4fbf5;
+  --color-leaf: #0f766e;
+  --color-leaf-ink: #f0fdfa;
   --color-warn: #9a3412;
   --color-warn-bg: #fff1e6;
   --font-sans: "IRANYekanWeb FarsiNum", Tahoma, sans-serif;
-  --radius-card: 1rem;
-  --shadow-card: 0 10px 30px rgb(28 23 18 / 0.06);
+  --radius-card: 1.25rem;
+  --shadow-card: 0 12px 34px rgb(20 45 30 / 0.06);
 }
 
 @layer base {
-  button:not(:disabled),
-  [role="button"]:not(:disabled) {
-    cursor: pointer;
+  * {
+    box-sizing: border-box;
   }
   html {
     direction: rtl;
+    background: var(--color-bg);
+    scroll-behavior: smooth;
   }
   body {
-    background: var(--color-bg);
+    margin: 0;
+    background:
+      radial-gradient(ellipse at 92% 0%, rgb(20 83 45 / 0.055), transparent 32rem),
+      var(--color-bg);
     color: var(--color-ink);
     font-family: var(--font-sans);
     min-height: 100vh;
     font-size: var(--app-font-size, 15px);
     overflow-x: clip;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-chili) 65%, transparent);
+    outline-offset: 2px;
   }
   input,
   select,
-  textarea,
-  button {
+  textarea {
     font-family: inherit;
+  }
+  ::selection {
+    background: rgb(20 83 45 / 0.16);
+  }
+}
+
+@layer components {
+  .pos-topbar {
+    border-bottom: 1px solid rgb(224 233 225 / 0.8);
+    background: rgb(255 255 255 / 0.88);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+  .pos-nav {
+    min-width: 0;
+  }
+  .pos-nav-list {
+    scrollbar-width: none;
+  }
+  .pos-nav-list::-webkit-scrollbar {
+    display: none;
+  }
+  .pos-nav-item {
+    min-height: 48px;
+    color: var(--color-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    transition: color 180ms ease, background 180ms ease, border-color 180ms ease, transform 180ms ease;
+  }
+  .pos-nav-item > span:first-child {
+    color: inherit;
+    background: rgb(104 120 109 / 0.08);
+    transition: inherit;
+  }
+  .pos-nav-item:hover {
+    color: var(--color-ink);
+    background: rgb(255 255 255 / 0.72);
+    border-color: var(--color-line);
+  }
+  .pos-nav-item.is-active {
+    color: var(--color-chili-ink);
+    background: linear-gradient(135deg, var(--color-chili), color-mix(in srgb, var(--color-chili) 78%, #0b2415));
+    border-color: transparent;
+    box-shadow: 0 9px 22px color-mix(in srgb, var(--color-chili) 20%, transparent);
+  }
+  .pos-nav-item.is-active > span:first-child {
+    color: inherit;
+    background: rgb(255 255 255 / 0.14);
+  }
+  .pos-logout {
+    color: var(--color-muted);
+    transition: all 180ms ease;
+  }
+  .pos-logout:hover {
+    color: var(--color-chili);
+    border-color: color-mix(in srgb, var(--color-chili) 28%, var(--color-line));
+    background: color-mix(in srgb, var(--color-chili) 5%, white);
+  }
+}
+
+@layer utilities {
+  .text-chili {
+    color: var(--color-chili);
+  }
+  .bg-chili {
+    background-color: var(--color-chili);
+  }
+}
+
+/* Bring legacy button variants into the new royal-green primary palette. */
+button.bg-ink {
+  color: var(--color-chili-ink);
+  background-color: var(--color-chili);
+}
+button.bg-ink:hover,
+button.bg-chili:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+button.bg-chili,
+button.bg-leaf {
+  transition: filter 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+button.bg-chili {
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--color-chili) 18%, transparent);
+}
+button:disabled {
+  cursor: not-allowed;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+select,
+textarea {
+  border-radius: 0.85rem;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):focus,
+select:focus,
+textarea:focus {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-chili) 10%, transparent);
+}
+section.rounded-2xl.border,
+section.rounded-\[var\(--radius-card\)\] {
+  border-color: color-mix(in srgb, var(--color-line) 85%, white);
+}
+@media (min-width: 1024px) {
+  .pos-nav-list {
+    gap: 0.4rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }
 
