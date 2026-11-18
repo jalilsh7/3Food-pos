@@ -2090,7 +2090,7 @@ if ($method === 'GET' && $path === '/reports/summary') {
         $totals=json_decode((string)$order['totals'],true) ?: [];
         $total=(int)($totals['total']??0); $sales+=$total; $count++;
         $payment=(string)($order['payment_method']??'cash'); if(isset($byPayment[$payment])) $byPayment[$payment]+=$total;
-        $day=substr((string)$order['created_at'],0,10); $daily[$day]=($daily[$day]??0)+$total;
+        $day=(new DateTimeImmutable((string)$order['created_at'],new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Asia/Tehran'))->format('Y-m-d'); $daily[$day]=($daily[$day]??0)+$total;
         $items=json_decode((string)$order['items'],true) ?: [];
         foreach($items as $line){
             if(!is_array($line)) continue;
