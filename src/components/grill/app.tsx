@@ -407,7 +407,8 @@ function PosScreen() {
   const [code, setCode] = useState("");
   const [points, setPoints] = useState(0);
   const [pay, setPay] = useState<Order["payment"]>("cash");
-  const [sendInvoiceSms, setSendInvoiceSms] = useState(settings.invoiceSmsEnabledDefault ?? false);
+  const [sendInvoiceSms, setSendInvoiceSms] = useState<boolean | null>(null);
+  const shouldSendInvoiceSms = sendInvoiceSms ?? settings.invoiceSmsEnabledDefault ?? false;
   const [msg, setMsg] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const pendingIdempotencyKey = useRef<string | null>(null);
@@ -506,7 +507,7 @@ function PosScreen() {
       const fresh = usePos.getState().customers.find((c) => c.id === res.order.customerId);
       const vars = orderVars(res.order, String(fresh?.points ?? 0));
       void pushSms("order_created", res.order.customerPhone, vars);
-      if (sendInvoiceSms && res.order.customerPhone) {
+      if (shouldSendInvoiceSms && res.order.customerPhone) {
         const invoice = [`${settings.shopName} - فاکتور سفارش ${res.order.number}`, ...res.order.lines.map(line => `${line.name} × ${line.qty}: ${money(line.unitPrice * line.qty)}`), `جمع: ${money(res.order.subtotal)}`, `مبلغ نهایی: ${money(res.order.total)}`, `تاریخ: ${new Date(res.order.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})}`].join("\\n").slice(0, 950);
         void postSms(res.order.customerPhone, invoice, "order_invoice", "");
       }
@@ -580,7 +581,7 @@ function PosScreen() {
               <button key={p} onClick={() => setPay(p)} className={`flex-1 rounded-xl py-3 text-sm ${pay === p ? "bg-ink text-bg" : "border border-line"}`}>{p === "cash" ? "نقد" : p === "card" ? "کارت" : "آنلاین"}</button>
             ))}
           </div>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sendInvoiceSms} onChange={e=>setSendInvoiceSms(e.target.checked)}/>ارسال پیامک ریز فاکتور برای مشتری</label>\n          <p className="flex justify-between text-sm"><span>جمع</span><span>{money(q.subtotal)}</span></p>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={shouldSendInvoiceSms} onChange={e=>setSendInvoiceSms(e.target.checked)}/>ارسال پیامک ریز فاکتور برای مشتری</label>\n          <p className="flex justify-between text-sm"><span>جمع</span><span>{money(q.subtotal)}</span></p>
           {q.tierDiscount ? <p className="flex justify-between text-sm"><span>سطح عضویت</span><span>{money(q.tierDiscount)}</span></p> : null}
           {q.codeDiscount ? <p className="flex justify-between text-sm"><span>کد</span><span>{money(q.codeDiscount)}</span></p> : null}
           <p className="flex justify-between text-base font-bold"><span>قابل پرداخت</span><span>{money(q.total)}</span></p>
