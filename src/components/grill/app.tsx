@@ -490,7 +490,7 @@ function PosScreen() {
         payment: pay,
       });
       const res = placeOrder({
-        lines: cart, customer: checkoutCustomer, code, pointsToUse: points, taxEnabled: settings.taxEnabled !== false,
+        lines: cart, customer: checkoutCustomer, code, pointsToUse: points, taxEnabled: settings.taxEnabled !== false, payment: pay,
         guestName, guestPhone: phone.trim(),
         serverOrder: { id: server.order.id, number: server.order.orderNumber },
       });
