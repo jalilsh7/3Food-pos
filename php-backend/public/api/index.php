@@ -2189,12 +2189,14 @@ if ($method === 'GET' && $path === '/reports/summary') {
     $inventoryPurchases=0;
     foreach($pdo->query("SELECT payload FROM pos_records WHERE resource='supplier_purchases'")->fetchAll(PDO::FETCH_COLUMN) as $rawPurchase){$purchase=json_decode((string)$rawPurchase,true);$purchaseDate=(string)($purchase['date']??'');if(is_array($purchase)&&$purchaseDate>=$from&&$purchaseDate<=$to&&($purchase['kind']??'')==='purchase'&&!empty($purchase['ingredientId']))$inventoryPurchases+=(int)($purchase['amount']??0);}
     $inventoryPurchases+=array_sum(array_map(static fn($e)=>($e['category']??'')==='مواد اولیه'?(int)($e['amount']??0):0,$expenses));
-    $lowStock=[]; $inventoryValue=0;
+    $lowStock=[]; $allInventory=[]; $inventoryValue=0;
     foreach($pdo->query("SELECT payload FROM pos_records WHERE resource='ingredients'")->fetchAll(PDO::FETCH_COLUMN) as $raw){
         $ingredient=json_decode((string)$raw,true);if(!is_array($ingredient))continue;
         $stock=(float)($ingredient['stock']??0);$min=(float)($ingredient['minStock']??0);$unitCost=(float)($ingredient['costPerUnit']??0);
-        $inventoryValue+=max(0,$stock)*max(0,$unitCost);
-        if($stock<=$min)$lowStock[]=['name'=>(string)($ingredient['name']??''),'stock'=>$stock,'minStock'=>$min,'unit'=>(string)($ingredient['unit']??'')];
+        $value=max(0,$stock)*max(0,$unitCost);$inventoryValue+=$value;
+        $inventoryRow=['name'=>(string)($ingredient['name']??''),'stock'=>$stock,'minStock'=>$min,'unit'=>(string)($ingredient['unit']??''),'costPerUnit'=>$unitCost,'value'=>round($value)];
+        $allInventory[]=$inventoryRow;
+        if($stock<=$min)$lowStock[]=$inventoryRow;
     }
     $customerRows=[];
     foreach($pdo->query("SELECT payload FROM pos_records WHERE resource='customers'")->fetchAll(PDO::FETCH_COLUMN) as $raw){
@@ -2202,7 +2204,7 @@ if ($method === 'GET' && $path === '/reports/summary') {
         $customerRows[]=['name'=>(string)($customer['name']??''),'phone'=>(string)($customer['phone']??''),'totalSpent'=>(int)($customer['totalSpent']??0),'visits'=>(int)($customer['visits']??0),'points'=>(int)($customer['points']??0)];
     }
     usort($customerRows,static fn($a,$b)=>$b['totalSpent']<=>$a['totalSpent']);
-    json_response(['ok'=>true,'range'=>['from'=>$from,'to'=>$to],'sales'=>$sales,'orders'=>$count,'cancelled'=>$cancelled,'average_order'=>$count?intdiv($sales,$count):0,'tax_collected'=>$taxCollected,'discounts'=>$discountsTotal,'cost_of_goods'=>$cost,'expenses'=>$expenseTotal,'inventory_purchases'=>$inventoryPurchases,'gross_profit'=>$sales-$cost,'net_profit'=>$sales-$cost-$expenseTotal,'daily'=>array_map(static fn($d,$v)=>['date'=>$d,'sales'=>$v],array_keys($daily),array_values($daily)),'monthly'=>array_map(static fn($m,$v)=>['month'=>$m,'sales'=>$v],array_keys($monthly),array_values($monthly)),'payments'=>$byPayment,'products'=>array_slice(array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),0,100),'product_categories'=>array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byCategory),array_values($byCategory)),'expense_categories'=>$expenseGroups,'expense_items'=>$expenses,'inventory'=>['value'=>round($inventoryValue),'low_stock_count'=>count($lowStock)],'low_stock'=>$lowStock,'top_customers'=>array_slice($customerRows,0,20),'all_customers'=>$customerRows]);
+    json_response(['ok'=>true,'range'=>['from'=>$from,'to'=>$to],'sales'=>$sales,'orders'=>$count,'cancelled'=>$cancelled,'average_order'=>$count?intdiv($sales,$count):0,'tax_collected'=>$taxCollected,'discounts'=>$discountsTotal,'cost_of_goods'=>$cost,'expenses'=>$expenseTotal,'inventory_purchases'=>$inventoryPurchases,'gross_profit'=>$sales-$cost,'net_profit'=>$sales-$cost-$expenseTotal,'daily'=>array_map(static fn($d,$v)=>['date'=>$d,'sales'=>$v],array_keys($daily),array_values($daily)),'monthly'=>array_map(static fn($m,$v)=>['month'=>$m,'sales'=>$v],array_keys($monthly),array_values($monthly)),'payments'=>$byPayment,'products'=>array_slice(array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),0,100),'all_products'=>array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),'product_categories'=>array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byCategory),array_values($byCategory)),'expense_categories'=>$expenseGroups,'expense_items'=>$expenses,'inventory'=>['value'=>round($inventoryValue),'low_stock_count'=>count($lowStock)],'inventory_items'=>$allInventory,'low_stock'=>$lowStock,'top_customers'=>array_slice($customerRows,0,20),'all_customers'=>$customerRows]);
 }
 
 if ($method === 'POST' && $path === '/sms/send') {
