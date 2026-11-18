@@ -1190,11 +1190,12 @@ function ReportsScreen() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold">مرکز گزارش‌گیری و هزینه‌ها</h2><div className="flex gap-2"><Btn tone="ghost" onClick={downloadCsv}>خروجی Excel (CSV)</Btn><Btn onClick={()=>window.print()}>چاپ / ذخیره PDF</Btn></div></div>
       <Card className="grid gap-2 sm:grid-cols-2"><Field label="از تاریخ"><input className={inputCls} type="date" value={from} onChange={e=>setFrom(e.target.value)}/></Field><Field label="تا تاریخ"><input className={inputCls} type="date" value={to} onChange={e=>setTo(e.target.value)}/></Field></Card>
+      {reportError?<p className="text-xs text-warn">گزارش زنده سرور در دسترس نیست: {reportError}</p>:null}
       <div className="grid gap-3 sm:grid-cols-4">
-        <Card><p className="text-xs text-muted">فروش خالص سفارش‌ها</p><p className="text-lg font-bold">{money(sales)}</p></Card>
-        <Card><p className="text-xs text-muted">بهای تمام‌شده تقریبی</p><p className="text-lg font-bold">{money(costGuess)}</p></Card>
-        <Card><p className="text-xs text-muted">هزینه‌های ثبت‌شده</p><p className="text-lg font-bold">{money(spend)}</p></Card>
-        <Card><p className="text-xs text-muted">سود پس از هزینه‌ها</p><p className="text-lg font-bold">{money(sales-costGuess-spend)}</p></Card>
+        <Card><p className="text-xs text-muted">فروش خالص سفارش‌ها</p><p className="text-lg font-bold">{money(reportSales)}</p></Card>
+        <Card><p className="text-xs text-muted">بهای تمام‌شده</p><p className="text-lg font-bold">{money(reportCost)}</p></Card>
+        <Card><p className="text-xs text-muted">هزینه‌های ثبت‌شده</p><p className="text-lg font-bold">{money(reportExpenses)}</p></Card>
+        <Card><p className="text-xs text-muted">سود پس از هزینه‌ها</p><p className="text-lg font-bold">{money(reportNet)}</p></Card>
       </div>
       <Card><h3 className="mb-2 font-semibold">فروش روزانه</h3>{dailyRows.length?dailyRows.map(([day,total])=><p key={day} className="flex justify-between border-b border-line py-1 text-sm"><span>{new Date(day+"T12:00:00").toLocaleDateString("fa-IR")}</span><b>{money(total)}</b></p>):<Empty text="در این بازه سفارشی وجود ندارد"/>}</Card>
       <Card><h3 className="mb-2 font-semibold">محصولات پرفروش</h3>{top.length?top.map(([name,v])=><p key={name} className="flex justify-between border-b border-line py-1 text-sm"><span>{name} · {v.qty.toLocaleString("fa-IR")} عدد</span><b>{money(v.revenue)}</b></p>):<Empty text="فروشی ثبت نشده است"/>}</Card>
