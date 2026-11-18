@@ -453,7 +453,7 @@ function PosScreen() {
       if (!checkoutCustomer) {
         const normalizedPhone = phone.trim();
         if (!normalizedPhone) throw new Error("برای ثبت خرید و گزارش سوابق مشتری، شماره موبایل را وارد کنید.");
-        const existing = usePos.getState().customers.find((item) => item.phone.trim() === normalizedPhone);
+        const existing = usePos.getState().customers.find((item) => normalizeIranPhone(item.phone) === normalizedPhone);
         if (existing) {
           checkoutCustomer = existing;
         } else {
