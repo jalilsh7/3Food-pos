@@ -1274,11 +1274,11 @@ function ReportsScreen() {
 
 function SuppliersScreen(){
   type Supplier={id:string;name:string;phone:string;contact:string;notes:string;balance:number;active:boolean};
-  type Purchase={id:string;supplierId:string;title:string;amount:number;date:string;paid:number;note:string};
-  const [suppliers,setSuppliers]=useState<Supplier[]>([]);
+  type Purchase={id:string;supplierId:string;title:string;amount:number;date:string;paid:number;note:string;kind?:string;ingredientId?:string;quantity?:number;unitCost?:number};
+  const ingredients=usePos((s)=>s.ingredients);\n  const [suppliers,setSuppliers]=useState<Supplier[]>([]);
   const [purchases,setPurchases]=useState<Purchase[]>([]);
   const [draft,setDraft]=useState({name:"",phone:"",contact:"",notes:""});
-  const [purchase,setPurchase]=useState({supplierId:"",title:"",amount:0,paid:0,note:""});
+  const [purchase,setPurchase]=useState({supplierId:"",title:"",amount:0,paid:0,note:"",ingredientId:"",quantity:0,unitCost:0});
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
   async function refresh(){
@@ -1294,13 +1294,13 @@ function SuppliersScreen(){
     if(await saveCentralRecord("suppliers",item,()=>setSuppliers(old=>[item,...old])))setDraft({name:"",phone:"",contact:"",notes:""});
   }
   async function addPurchase(e:FormEvent<HTMLFormElement>){
-    e.preventDefault();if(!purchase.supplierId||!purchase.title.trim()||purchase.amount<=0||purchase.paid<0||purchase.paid>purchase.amount)return;
+    e.preventDefault();const total=purchase.ingredientId?Math.round(purchase.quantity*purchase.unitCost):purchase.amount;\n    if(!purchase.supplierId||!purchase.title.trim()||total<=0||purchase.paid<0||purchase.paid>total||(purchase.ingredientId&&(purchase.quantity<=0||purchase.unitCost<=0)))return;
     const supplier=suppliers.find(s=>s.id===purchase.supplierId);if(!supplier)return;
-    const item:Purchase={id:uid("pur"),...purchase,title:purchase.title.trim(),date:tehranDate(),note:purchase.note.trim()};
+    const item:Purchase={id:uid("pur"),...purchase,amount:total,title:purchase.title.trim(),date:tehranDate(),note:purchase.note.trim()};
     setBusy(true);
     try{
       const result=await phpApi.createSupplierTransaction<Purchase & {kind:string},Supplier>(supplier.id,{...item,kind:"purchase"});
-      setPurchases(old=>[result.item,...old]);setSuppliers(old=>old.map(s=>s.id===supplier.id?result.supplier:s));setPurchase({supplierId:"",title:"",amount:0,paid:0,note:""});
+      setPurchases(old=>[result.item,...old]);setSuppliers(old=>old.map(s=>s.id===supplier.id?result.supplier:s));setPurchase({supplierId:"",title:"",amount:0,paid:0,note:"",ingredientId:"",quantity:0,unitCost:0});
     }catch(e){setError(e instanceof Error?e.message:"ثبت خرید انجام نشد");}
     finally{setBusy(false);}
   }
@@ -1335,7 +1335,9 @@ function SuppliersScreen(){
     <Card><h3 className="mb-2 font-semibold">ثبت فاکتور خرید / بدهی</h3><form className="grid gap-2 sm:grid-cols-2" onSubmit={e=>void addPurchase(e)}>
       <Field label="تأمین‌کننده"><select className={inputCls} value={purchase.supplierId} onChange={e=>setPurchase({...purchase,supplierId:e.target.value})} required><option value="">انتخاب کنید</option>{suppliers.filter(s=>s.active).map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
       <Field label="شرح خرید"><input className={inputCls} value={purchase.title} onChange={e=>setPurchase({...purchase,title:e.target.value})} required/></Field>
-      <Field label="مبلغ کل"><input className={inputCls} type="number" min="1" value={purchase.amount||""} onChange={e=>setPurchase({...purchase,amount:Number(e.target.value)})} required/></Field>
+      <Field label="ماده اولیه (اختیاری؛ برای ورود به انبار)"><select className={inputCls} value={purchase.ingredientId} onChange={e=>{const ingredient=ingredients.find(x=>x.id===e.target.value);setPurchase({...purchase,ingredientId:e.target.value,title:ingredient?purchase.title||ingredient.name:purchase.title,unitCost:ingredient?.costPerUnit??purchase.unitCost});}}><option value="">خرید غیرانبار / سایر</option>{ingredients.map(x=><option key={x.id} value={x.id}>{x.name} — موجودی {x.stock} {x.unit}</option>)}</select></Field>
+      {purchase.ingredientId?<><Field label="مقدار ورودی"><input className={inputCls} type="number" min="0.001" step="0.001" value={purchase.quantity||""} onChange={e=>{const quantity=Number(e.target.value);setPurchase({...purchase,quantity,amount:Math.round(quantity*purchase.unitCost)});}} required/></Field><Field label="قیمت خرید هر واحد"><input className={inputCls} type="number" min="1" value={purchase.unitCost||""} onChange={e=>{const unitCost=Number(e.target.value);setPurchase({...purchase,unitCost,amount:Math.round(purchase.quantity*unitCost)});}} required/></Field></>:null}
+      <Field label="مبلغ کل (تومان)"><input className={inputCls} type="number" min="1" value={(purchase.ingredientId?Math.round(purchase.quantity*purchase.unitCost):purchase.amount)||""} onChange={e=>setPurchase({...purchase,amount:Number(e.target.value)})} disabled={!!purchase.ingredientId} required/></Field>
       <Field label="پرداخت‌شده"><input className={inputCls} type="number" min="0" value={purchase.paid||""} onChange={e=>setPurchase({...purchase,paid:Number(e.target.value)})}/></Field>
       <Field label="یادداشت"><input className={inputCls} value={purchase.note} onChange={e=>setPurchase({...purchase,note:e.target.value})}/></Field><div><Btn type="submit" disabled={busy}>ثبت خرید</Btn></div>
     </form></Card>
