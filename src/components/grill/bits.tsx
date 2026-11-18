@@ -24,12 +24,14 @@ export function Btn({
   tone = "chili",
   type = "button",
   disabled,
+  className = "",
 }: {
   children: ReactNode;
   onClick?: () => void;
   tone?: "chili" | "leaf" | "ghost" | "ink";
   type?: "button" | "submit";
   disabled?: boolean;
+  className?: string;
 }) {
   const map = {
     chili: "bg-chili text-chili-ink",
@@ -42,7 +44,7 @@ export function Btn({
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className={`rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-50 ${map[tone]}`}
+      className={`rounded-xl px-4 py-3 text-sm font-semibold disabled:opacity-50 ${map[tone]} ${className}`}
     >
       {children}
     </button>
