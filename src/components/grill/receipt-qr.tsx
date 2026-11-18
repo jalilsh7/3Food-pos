@@ -5,10 +5,11 @@ type ReceiptQrProps = { value: string; size?: number };
 type QRCodeInstance = { addData: (input: string, mode?: string) => void; make: () => void; getModuleCount: () => number; isDark: (row: number, col: number) => boolean };
 type QRFactory = ((typeNumber: number, level: string) => QRCodeInstance) & { stringToBytes: (input: string) => number[] };
 
+const qrFactory = qrcode as unknown as QRFactory;
+qrFactory.stringToBytes = (input: string) => Array.from(new TextEncoder().encode(input));
+
 export function ReceiptQr({ value, size = 112 }: ReceiptQrProps) {
   const matrix = useMemo(() => {
-    const qrFactory = qrcode as unknown as QRFactory;
-    qrFactory.stringToBytes = (input: string) => Array.from(new TextEncoder().encode(input));
     const code = qrFactory(0, "M");
     code.addData(value, "Byte");
     code.make();
