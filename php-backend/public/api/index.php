@@ -592,6 +592,9 @@ $resourceRoles = [
     'customers' => ['manager','cashier'],
     'discounts' => ['manager'],
     'expenses' => ['manager'],
+    'expense_categories' => ['manager'],
+    'suppliers' => ['manager'],
+    'supplier_purchases' => ['manager'],
     'templates' => ['manager'],
     'settings' => ['manager'],
     'sms_logs' => ['manager'],
@@ -712,7 +715,7 @@ if ($method === 'POST' && $path === '/backup/restore') {
             $pdo->rollBack();
             json_response(['ok' => false, 'error' => 'restore_requires_empty_pos', 'message' => 'بازیابی فقط روی دیتابیس عملیاتی خالی انجام می‌شود؛ ابتدا از اطلاعات فعلی پشتیبان بگیرید و دیتابیس مقصد خالی باشد'], 409);
         }
-        $allowedResources = ['categories','products','ingredients','customers','discounts','expenses','templates','settings'];
+        $allowedResources = ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings'];
         $insertRecord = $pdo->prepare('INSERT INTO pos_records (id, resource, payload, updated_by) VALUES (?, ?, ?, ?)');
         foreach ($backup['records'] as $record) {
             if (!is_array($record) || !in_array($record['resource'] ?? '', $allowedResources, true) ||
@@ -845,7 +848,18 @@ if ($method === 'POST' && $path === '/migration/import') {
 
 if ($method === 'GET' && $path === '/bootstrap') {
     $user = require_user($pdo);
-    $resources = $user['role'] === 'kitchen' ? ['categories','products'] : ($user['role'] === 'cashier' ? ['categories','products','customers','discounts'] : ['categories','products','ingredients','customers','discounts','expenses','templates','settings','sms_logs']);
+    if ($user['role'] === 'manager') {
+        $defaults = ['قبوض آب، برق و گاز','مواد اولیه','حقوق و دستمزد','اجاره','تعمیرات و نگهداری','بسته‌بندی','حمل‌ونقل','سایر هزینه‌ها'];
+        $exists = (int)$pdo->query("SELECT COUNT(*) FROM pos_records WHERE resource = 'expense_categories'")->fetchColumn();
+        if ($exists === 0) {
+            $seed = $pdo->prepare("INSERT IGNORE INTO pos_records (id, resource, payload, updated_by) VALUES (?, 'expense_categories', ?, ?)");
+            foreach ($defaults as $index => $label) {
+                $id = 'expense_cat_' . ($index + 1);
+                $seed->execute([$id, json_encode(['id'=>$id,'name'=>$label,'active'=>true], JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES), (int)$user['id']]);
+            }
+        }
+    }
+    $resources = $user['role'] === 'kitchen' ? ['categories','products'] : ($user['role'] === 'cashier' ? ['categories','products','customers','discounts'] : ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings','sms_logs']);
     $result = [];
     foreach ($resources as $resource) {
         $q = $pdo->prepare('SELECT id, payload FROM pos_records WHERE resource = ? ORDER BY created_at ASC');
