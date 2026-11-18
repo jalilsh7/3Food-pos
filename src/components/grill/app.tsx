@@ -1213,7 +1213,7 @@ function ReportsScreen() {
   const lowStockRows = Array.isArray(serverSummary?.low_stock) ? serverSummary.low_stock as {name:string;stock:number;minStock:number;unit:string}[] : [];
   const topCustomerRows = Array.isArray(serverSummary?.top_customers) ? serverSummary.top_customers as {name:string;phone:string;totalSpent:number;visits:number;points:number}[] : [];
   function downloadCsv(){
-    const rows=[["نوع","عنوان","تعداد","مبلغ"],["فروش","جمع فروش","",String(reportSales)],...top.map(([name,v])=>["محصول",name,String(v.qty),String(v.revenue)]),...payments.map(p=>["پرداخت",p.label,"",String(p.amount)]),...expenseByCategory.map(([name,value])=>["هزینه",name,"",String(value)])];
+    const rows=[["نوع","عنوان","تعداد","مبلغ"],["فروش","جمع فروش","",String(reportSales)],...dailyRows.map(([day,value])=>["روزانه",day,"",String(value)]),...monthlyRows.map(row=>["ماهانه",row.month,"",String(row.sales)]),...top.map(([name,v])=>["محصول",name,String(v.qty),String(v.revenue)]),...productCategoryRows.map(row=>["دسته محصول",row.name,String(row.quantity),String(row.revenue)]),...payments.map(p=>["پرداخت",p.label,"",String(p.amount)]),...topCustomerRows.map(row=>["مشتری",row.name,row.phone,String(row.totalSpent)]),...expenseByCategory.map(([name,value])=>["هزینه",name,"",String(value)]),...lowStockRows.map(row=>["انبار",row.name,String(row.stock),String(row.minStock)])];
     const csv="\uFEFF"+rows.map(row=>row.map(cell=>'"'+String(cell).replaceAll('"','""')+'"').join(",")).join("\r\n");
     const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
     const a=document.createElement("a");a.href=url;a.download="3food-pos-report.csv";a.click();URL.revokeObjectURL(url);
