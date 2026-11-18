@@ -485,8 +485,8 @@ function PosScreen() {
       // The phone is the stable lookup key; the server then updates points and purchase totals.
       let checkoutCustomer = customer;
       if (!checkoutCustomer) {
-        const normalizedPhone = phone.trim();
-        if (!normalizedPhone) throw new Error("برای ثبت خرید و گزارش سوابق مشتری، شماره موبایل را وارد کنید.");
+        const normalizedPhone = normalizeIranPhone(phone);
+        if (!/^09[0-9]{9}$/.test(normalizedPhone)) throw new Error("برای ثبت سفارش، شماره موبایل معتبر ایران را وارد کنید.");
         const existing = usePos.getState().customers.find((item) => normalizeIranPhone(item.phone) === normalizedPhone);
         if (existing) {
           checkoutCustomer = existing;
