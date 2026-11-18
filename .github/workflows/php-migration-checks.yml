@@ -117,7 +117,7 @@ jobs:
           if ($path !== '/' && is_file($file)) return false;
           require $public . '/index.html';
           PHP
-          PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8088 /tmp/3food-pos-cpanel-router.php > /tmp/3food-pos-cpanel.log 2>&1 &
+          PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8088 -t dist-cpanel/public /tmp/3food-pos-cpanel-router.php > /tmp/3food-pos-cpanel.log 2>&1 &
           echo $! > /tmp/3food-pos-cpanel.pid
           trap 'kill "$(cat /tmp/3food-pos-cpanel.pid)" 2>/dev/null || true; rm -f dist-cpanel/private/config.php' EXIT
           for attempt in $(seq 1 30); do
