@@ -32,7 +32,7 @@ export function ReceiptView({
       </header>
       <p className="mt-2 flex justify-between text-sm">
         <span>سفارش {order.number.toLocaleString("fa-IR")}</span>
-        <span>{new Date(order.createdAt).toLocaleString("fa-IR")}</span>
+        <span>{new Date(order.createdAt).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}</span>
       </p>
       <p className="text-sm">
         {order.customerName}
