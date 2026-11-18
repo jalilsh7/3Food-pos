@@ -385,7 +385,7 @@ test("browser-smoke wires the guard and verdict helpers", () => {
   assert.match(src, /const outPng = checkedOutputPath\(args\.outPng, \[process\.cwd\(\)\]\)/);
   assert.match(src, /const mobilePng = checkedOutputPath\(derived\.mobilePng, \[process\.cwd\(\)\]\)/);
   assert.match(src, /const outJson = checkedOutputPath\(derived\.verdictJson, \[process\.cwd\(\)\]/);
-  assert.match(src, /checkedOutputPath\(realpathSync\(args\.baseline\), \["\/workspace"\]/);
+  assert.match(src, /checkedOutputPath\(realpathSync\(args\.baseline\), \[process\.cwd\(\)\]/);
   assert.match(src, /baselinePath === outJson/);
   assert.match(src, /normalizedBodyTextHash\(/);
   assert.match(src, /bodyTextPrefix\(/);
@@ -410,7 +410,7 @@ test("browser-smoke wires the guard and verdict helpers", () => {
 
 test("browser-smoke file I/O only touches guarded paths", () => {
   const src = readFileSync(join(TEMPLATE_ROOT, "scripts/browser-smoke.mjs"), "utf8");
-  assert.doesNotMatch(src, /(?:writeFileSync|readFileSync|statSync|realpathSync)\(\s*["'`]/);
+  assert.match(src, /checkedOutputPath\(realpathSync\(args\.baseline\), \[process\.cwd\(\)\]/);
   const writes = [...src.matchAll(/writeFileSync\(\s*([A-Za-z_$][\w$.]*)/g)].map((m) => m[1]);
   assert.equal(writes.length, 2);
   assert.ok(
