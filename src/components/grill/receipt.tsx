@@ -1,4 +1,5 @@
-import { money, type Order, type Settings } from "@/lib/pos/model";\nimport { useAppearance } from "@/lib/appearance";
+import { money, type Order, type Settings } from "@/lib/pos/model";
+import { useAppearance } from "@/lib/appearance";
 import { ReceiptQr } from "@/components/grill/receipt-qr";
 
 const pay: Record<Order["payment"], string> = {
