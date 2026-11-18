@@ -915,9 +915,11 @@ if ($method === 'POST' && $path === '/orders') {
     $body = request_json();
     $items = $body['items'] ?? null;
     $totals = $body['totals'] ?? null;
-    $idempotencyKey = isset($body['idempotencyKey']) ? strtolower(trim((string)$body['idempotencyKey'])) : null;
-    if ($idempotencyKey !== null && !preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/D', $idempotencyKey)) {
-        json_response(['ok' => false, 'error' => 'invalid_idempotency_key'], 422);
+    $idempotencyKey = isset($body['idempotencyKey']) && is_string($body['idempotencyKey'])
+        ? strtolower(trim($body['idempotencyKey']))
+        : '';
+    if (!preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/D', $idempotencyKey)) {
+        json_response(['ok' => false, 'error' => 'invalid_idempotency_key', 'message' => 'شناسه یکتای ثبت سفارش معتبر نیست؛ دوباره تلاش کنید'], 422);
     }
     $requestHash = hash('sha256', json_encode([
         'items' => $items,
