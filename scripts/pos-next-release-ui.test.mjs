@@ -60,3 +60,7 @@ test("recipe-based cost of goods sold follows weighted ingredient purchase costs
   assert.match(helper, /if\(!is_array\(\$recipe\)\|\|!\$recipe\)return \$configured/);
   assert.match(helper, /return \$validLines>0\?\(int\)round\(\$total\):\$configured/);
 });
+
+test("invoice SMS choice resets to the manager default after each completed order", () => {
+  assert.match(app, /setCart\(\[\]\); setCode\(" "\); setPoints\(0\); setSendInvoiceSms\(null\); setPrinted\(res\.order\)/);
+});
