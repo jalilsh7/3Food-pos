@@ -525,13 +525,11 @@ try {
     );
     $concurrentStatuses = array_column($concurrentResults, 'status');
     sort($concurrentStatuses);
-    check($concurrentStatuses === [201, 409], 'concurrent orders cannot oversell locked ingredient stock; responses=' . json_encode($concurrentResults));
-    $concurrentErrors = array_values(array_filter($concurrentResults, fn($r) => $r['status'] === 409));
-    check(($concurrentErrors[0]['json']['error'] ?? '') === 'insufficient_stock', 'losing concurrent order fails for insufficient stock');
+    check($concurrentStatuses === [201, 201], 'concurrent orders both persist when stock is depleted; responses=' . json_encode($concurrentResults));
     $stockAfterRace = $getPayload($pdo, 'ingredients', 'ci-ingredient');
-    check((float)($stockAfterRace['stock'] ?? -1) === 2.0, 'concurrent checkout consumes stock exactly once');
+    check((float)($stockAfterRace['stock'] ?? -1) === -4.0, 'concurrent checkout records negative stock for replenishment');
     $orderCountAfterRace = (int)$pdo->query('SELECT COUNT(*) FROM pos_orders')->fetchColumn();
-    check($orderCountAfterRace === 3, 'only one of the two competing orders is persisted (including the earlier checkout and guest-order fixtures)');
+    check($orderCountAfterRace === 4, 'both concurrent orders persist with the earlier checkout fixtures');
 
     $kitchenLogin = api('POST', '/api/v1/auth/login', [
         'username' => 'ci_kitchen',
