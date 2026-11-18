@@ -8,16 +8,18 @@ import { join, resolve, extname } from "node:path";
 
 const root = resolve(process.argv[2] ?? "dist");
 const forbidden = [
-  /grok(?:-sandbox)?\.com/i,
-  /grok\.me/i,
+  /grok(?:-sandbox)?\\.com/i,
+  /grok\\.me/i,
   /app-builder/i,
   /PreviewHostBridge/i,
   /__grok/i,
   /x-grok-identity/i,
-  /grok-auth\.bearer-token/i,
+  /grok-auth\\.bearer-token/i,
 ];
-const externalHtmlAsset = /<(?:script|link)\b[^>]*\b(?:src|href)\s*=\s*["']https?:\/\//i;
-const externalCssImport = /@import\s+(?:url\()?\s*["']?https?:\/\//i;
+const externalHtmlAsset = /<(?:script|link)\\b[^>]*\\b(?:src|href)\\s*=\\s*["']https?:\\/\\//i;
+const externalCssImport = /@import\\s+(?:url\\()?\\s*["']?https?:\\/\\//i;
+const externalCssUrl = /url\\(\\s*["']?(?:https?:)?\\/\\//i;
+const externalJsRequest = /\\b(?:fetch|WebSocket|EventSource)\\s*\\(\\s*["'`](?:https?:)?\\/\\//i;
 const files = [];
 
 function walk(dir) {
@@ -42,6 +44,8 @@ for (const path of files) {
   const relative = path.slice(root.length + 1);
   if (externalHtmlAsset.test(source)) failures.push(`${relative}: remote script/stylesheet asset reference`);
   if (ext === ".css" && externalCssImport.test(source)) failures.push(`${relative}: remote CSS import`);
+  if (ext === ".css" && externalCssUrl.test(source)) failures.push(`${relative}: remote CSS resource URL`);
+  if ([".js", ".mjs"].includes(ext) && externalJsRequest.test(source)) failures.push(`${relative}: remote browser runtime request`);
   for (const pattern of forbidden) {
     if (pattern.test(source)) {
       failures.push(`${relative}: forbidden platform marker ${pattern}`);
@@ -55,4 +59,4 @@ if (failures.length) {
   for (const failure of failures) console.error(` - ${failure}`);
   process.exit(1);
 }
-console.log(`[cpanel-audit] Passed: ${files.length} generated files contain no Grok host integration or remote HTML/CSS assets.`);
+console.log(`[cpanel-audit] Passed: ${files.length} generated files contain no Grok integration, remote browser assets, or remote runtime requests.`);
