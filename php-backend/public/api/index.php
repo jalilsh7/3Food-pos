@@ -1154,6 +1154,7 @@ if ($method === 'POST' && $path === '/orders') {
             'productId' => $productId,
             'qty' => (int)$line['qty'],
             'unitPrice' => $unitPrice,
+            'unitCost' => max(0,(int)($product['cost']??0)),
             'optionIds' => $optionIds,
             'optionLabels' => $optionLabels,
             'note' => isset($line['note']) ? substr(trim((string)$line['note']), 0, 500) : '',
@@ -2116,7 +2117,7 @@ if ($method === 'GET' && $path === '/reports/summary') {
             $productId=(string)($line['productId']??''); $qty=max(0,(int)($line['qty']??0));
             $name=(string)($line['name']??'محصول'); $unit=(int)($line['unitPrice']??0);
             $byProduct[$name]??=['quantity'=>0,'revenue'=>0]; $byProduct[$name]['quantity']+=$qty; $byProduct[$name]['revenue']+=$unit*$qty;
-            $cost += max(0,(int)($products[$productId]['cost']??0))*$qty;
+            $cost += max(0,(int)($line['unitCost']??($products[$productId]['cost']??0)))*$qty;
         }
     }
     $expenseStmt=$pdo->prepare("SELECT payload FROM pos_records WHERE resource='expenses'");
@@ -2131,9 +2132,9 @@ if ($method === 'GET' && $path === '/reports/summary') {
         $expenseGroups[$category]=($expenseGroups[$category]??0)+$amount;
         $expenses[]=['id'=>(string)($e['id']??''),'title'=>(string)($e['title']??''),'amount'=>$amount,'category'=>$category,'date'=>$date];
     }
-    arsort($daily); ksort($expenseGroups); uasort($byProduct,static fn($a,$b)=>$b['quantity']<=>$a['quantity']);
+    ksort($daily); ksort($expenseGroups); uasort($byProduct,static fn($a,$b)=>$b['quantity']<=>$a['quantity']);
     $monthly=[];
-    foreach($daily as $day=>$value){$month=substr((string)$day,0,7);$monthly[$month]=($monthly[$month]??0)+$value;}
+    foreach($daily as $day=>$value){$month=substr((string)$day,0,7);$monthly[$month]=($monthly[$month]??0)+$value;}\n    ksort($monthly);
     $lowStock=[]; $inventoryValue=0;
     foreach($pdo->query("SELECT payload FROM pos_records WHERE resource='ingredients'")->fetchAll(PDO::FETCH_COLUMN) as $raw){
         $ingredient=json_decode((string)$raw,true);if(!is_array($ingredient))continue;
