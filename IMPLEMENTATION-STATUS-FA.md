@@ -57,4 +57,4 @@
 - ممیزی جدید import graph مرورگر قبل از build اضافه شده است و ممیزی bundle خروجی نیز نشانگرهای Grok/App Builder و assetهای خارجی را رد می‌کند.
 - routeTree قدیمی به مسیر حذف‌شده `/api/sms` اشاره می‌کرد؛ ارجاع stale و type registration قدیمی TanStack Start حذف شدند.
 - فایل‌های runtime قدیمی Better Auth/OAuth، TanStack Start server helpers، connector app-data، PGLite/PostgreSQL و helperهای preview از شاخه پاک‌سازی حذف شدند؛ dependencyهای مستقیم و lockfile نیز همگام شدند.
-- workflow پاک‌سازی برای typecheck، تست‌ها، lint و build مستقل cPanel موفق شده است. workflow اصلی PHP/MySQL در حال اجرای نهایی است؛ تست مرورگر واقعی و staging هنوز باقی است. هیچ تغییر زنده‌ای روی cPanel یا دیتابیس production انجام نشده است.
+- اجرای کامل workflow در run `44279040124` موفق شده است: PHP syntax، schema MySQL تازه، API integration، TypeScript، unit tests، lint، build مستقل cPanel و artifact upload. ابزار browser smoke نیز تایپ حرف‌به‌حرف فیلدهای ورود را اندازه می‌گیرد؛ اجرای واقعی آن روی مرورگر/هاست و تست staging هنوز باقی است. هیچ تغییر زنده‌ای روی cPanel یا دیتابیس production انجام نشده است.
