@@ -398,7 +398,8 @@ function PosScreen() {
   const orders = usePos((s) => s.orders);
   const settings = usePos((s) => s.settings);
   const placeOrder = usePos((s) => s.placeOrder);
-  const [cat, setCat] = useState(categories[0]?.id ?? "");
+  const [cat, setCat] = useState("");
+  const [productQuery, setProductQuery] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [phone, setPhone] = useState("");
   const [guestName, setGuestName] = useState("");
@@ -513,14 +514,22 @@ function PosScreen() {
     }
   }
 
-  const shown = products.filter((p) => p.active && (!cat || p.categoryId === cat));
+  const shown = products.filter((p) =>
+    p.active &&
+    (!cat || p.categoryId === cat) &&
+    (!productQuery.trim() || p.name.toLocaleLowerCase("fa").includes(productQuery.trim().toLocaleLowerCase("fa")))
+  );
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
       <div>
-        <div className="mb-3 flex min-w-0 flex-wrap gap-2">
-          {categories.map((c) => (
-            <button key={c.id} onClick={() => setCat(c.id)} className={`rounded-full px-4 py-2 text-sm ${cat === c.id ? "bg-ink text-bg" : "bg-surface border border-line"}`}>{c.name}</button>
-          ))}
+        <div className="mb-3 space-y-2">
+          <input className={inputCls} value={productQuery} onChange={(e) => setProductQuery(e.target.value)} placeholder="جستجوی نام محصول..." />
+          <div className="flex min-w-0 flex-wrap gap-2">
+            <button onClick={() => setCat("")} className={`rounded-full px-4 py-2 text-sm ${cat === "" ? "bg-ink text-bg" : "bg-surface border border-line"}`}>همه دسته‌ها</button>
+            {categories.map((c) => (
+              <button key={c.id} onClick={() => setCat(c.id)} className={`rounded-full px-4 py-2 text-sm ${cat === c.id ? "bg-ink text-bg" : "bg-surface border border-line"}`}>{c.name}</button>
+            ))}
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {shown.map((p) => (
