@@ -1064,7 +1064,7 @@ if ($method === 'POST' && $path === '/orders') {
         'payment' => $body['payment'] ?? 'cash',
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
     if ($idempotencyKey !== null) {
-        $existingStmt = $pdo->prepare('SELECT id, order_number, status, items, totals, request_hash FROM pos_orders WHERE idempotency_key = ? LIMIT 1');
+        $existingStmt = $pdo->prepare('SELECT id, order_number, status, items, totals, request_hash, created_at FROM pos_orders WHERE idempotency_key = ? LIMIT 1');
         $existingStmt->execute([$idempotencyKey]);
         $existing = $existingStmt->fetch();
         if (is_array($existing)) {
@@ -1075,6 +1075,7 @@ if ($method === 'POST' && $path === '/orders') {
                 'id' => (string)$existing['id'],
                 'orderNumber' => (int)$existing['order_number'],
                 'status' => (string)$existing['status'],
+                'createdAt' => (new DateTimeImmutable((string)$existing['created_at'], new DateTimeZone('UTC')))->format('Y-m-d\\TH:i:s\\Z'),
                 'items' => json_decode((string)$existing['items'], true) ?: [],
                 'totals' => json_decode((string)$existing['totals'], true) ?: [],
             ]]);
@@ -1423,12 +1424,12 @@ if ($method === 'POST' && $path === '/orders') {
         }
         audit($pdo, (int)$actor['id'], 'order_created', 'order', (string)$id, ['order_number' => $orderNumber]);
         $pdo->commit();
-        json_response(['ok' => true, 'order' => ['id' => (string)$id, 'orderNumber' => $orderNumber, 'status' => 'new', 'items' => $canonicalItems, 'totals' => $totals]], 201);
+        json_response(['ok' => true, 'order' => ['id' => (string)$id, 'orderNumber' => $orderNumber, 'status' => 'new', 'createdAt' => gmdate('Y-m-d\\TH:i:s\\Z'), 'items' => $canonicalItems, 'totals' => $totals]], 201);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         // A concurrent retry may win the unique idempotency key after our initial lookup.
         if ($idempotencyKey !== null && $e instanceof PDOException && (string)$e->getCode() === '23000') {
-            $retryStmt = $pdo->prepare('SELECT id, order_number, status, items, totals, request_hash FROM pos_orders WHERE idempotency_key = ? LIMIT 1');
+            $retryStmt = $pdo->prepare('SELECT id, order_number, status, items, totals, request_hash, created_at FROM pos_orders WHERE idempotency_key = ? LIMIT 1');
             $retryStmt->execute([$idempotencyKey]);
             $retry = $retryStmt->fetch();
             if (is_array($retry)) {
@@ -1439,6 +1440,7 @@ if ($method === 'POST' && $path === '/orders') {
                     'id' => (string)$retry['id'],
                     'orderNumber' => (int)$retry['order_number'],
                     'status' => (string)$retry['status'],
+                    'createdAt' => (new DateTimeImmutable((string)$retry['created_at'], new DateTimeZone('UTC')))->format('Y-m-d\\TH:i:s\\Z'),
                     'items' => json_decode((string)$retry['items'], true) ?: [],
                     'totals' => json_decode((string)$retry['totals'], true) ?: [],
                 ]]);
