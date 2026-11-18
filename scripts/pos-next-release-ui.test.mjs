@@ -69,3 +69,7 @@ test("expense history can be filtered by selected date range and category", () =
   assert.match(app, /expenseFilterCategory === "all" \|\| e\.category === expenseFilterCategory/);
   assert.match(app, /value=\{expenseFilterCategory\} onChange=\{e=>setExpenseFilterCategory\(e\.target\.value\)\}/);
 });
+
+test("checkout validates normalized Iranian mobile numbers before enrollment", () => {
+  assert.match(app, /if \(!\^09\[0-9\]\{9\}\$/.source/);
+});
