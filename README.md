@@ -24,13 +24,13 @@ Completed on the cleanup branch:
 - Updated the browser smoke runner to test the standalone SPA without platform auth/brand gates.
 - Kept the PHP API, MySQL schema/migrations, POS screens, role model, stock/order logic and optional server-side SMS integration.
 
-Full CI succeeded in [run 44279040124](https://github.com/jalilsh7/3Food-pos/actions/runs/44279040124): PHP syntax, fresh MySQL schema, PHP API integration, TypeScript, unit tests, lint, cPanel build and artifact upload. The dependency manifest and lockfile are synchronized; the direct dependency set has been reduced to the libraries used by the SPA and its build/test tools.
+Full CI succeeded in [run 44280981233](https://github.com/jalilsh7/3Food-pos/actions/runs/44280981233): PHP syntax, fresh MySQL schema, PHP API integration, TypeScript, unit tests, lint, cPanel build, Playwright smoke against the packaged app and artifact upload. The dependency manifest and lockfile are synchronized; the direct dependency set has been reduced to the libraries used by the SPA and its build/test tools.
 
 ## Not yet a production release
 
 - The cleanup PR is still separate from the migration branch.
-- The generated `3food-pos-cpanel` artifact from run 44279040124 is available until 2026-12-02; validate it on a staging cPanel host with PHP/MySQL before any production deployment.
-- Real browser end-to-end testing is still required, including typing in login fields, sign-in/out, role restrictions, orders, stock and multi-device consistency. The browser smoke tool now measures per-character typing responsiveness without submitting the form.
+- The generated `3food-pos-cpanel` artifact from run 44280981233 is available until 2026-12-02; validate it on a staging cPanel host with PHP/MySQL before any production deployment.
+- The packaged app passed Playwright smoke in desktop and mobile viewports. Typing 46 test characters took 42 ms for username and 32 ms for password in the CI runner, without submitting the form. Real staging/device end-to-end testing is still required for sign-in/out, role restrictions, orders, stock and multi-device consistency.
 - Backup/restore and live SMS integration tests remain separate release gates.
 - No cleanup operation has modified the live cPanel files or production database.
 
