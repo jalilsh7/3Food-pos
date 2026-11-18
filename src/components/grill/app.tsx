@@ -3,7 +3,7 @@ import {
   ChefHat, ClipboardList, LayoutDashboard, MessageSquare, Percent,
   Settings as SettingsIcon, ShoppingBag, Users, UtensilsCrossed, Warehouse, Truck, LogOut,
 } from "lucide-react";
-import { Btn, Card, Empty, Field, inputCls } from "./bits";
+import { Btn, Card, Empty, Field, PageHeading, inputCls } from "./bits";
 import { ReceiptView } from "./receipt";
 import {
   customerCodeUses, fillTemplate, money, quoteOrder, TIER_LABEL, tierOf, uid,
@@ -272,7 +272,7 @@ function UsersScreen() {
 
   return (
     <div className="space-y-4">
-      <h2 className="font-bold">مدیریت کاربران</h2>
+      <PageHeading title="مدیریت کاربران" description="حساب‌ها، نقش‌ها و سطح دسترسی اعضای تیم را مدیریت کنید." />
       <Card>
         <h3 className="mb-3 font-semibold">ساخت حساب جدید</h3>
         <form className="grid gap-2 sm:grid-cols-2" onSubmit={(event) => void create(event)}>
@@ -599,6 +599,7 @@ function PosScreen() {
   );
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+      <div className="lg:col-span-2"><PageHeading title="صندوق فروش" description="محصول را انتخاب کنید، سفارش را بسازید و پرداخت را ثبت کنید." /></div>
       <div>
         <div className="mb-3 space-y-2">
           <input className={inputCls} value={productQuery} onChange={(e) => setProductQuery(e.target.value)} placeholder="جستجوی نام محصول..." />
@@ -876,7 +877,7 @@ function OrdersScreen({ role }: { role: Role }) {
   }
   return (
     <div className="space-y-3">
-      <h2 className="flex items-center gap-2 text-xl font-bold"><ChefHat size={20} /> سفارش‌ها</h2>
+      <PageHeading title="مدیریت سفارش‌ها" description="وضعیت سفارش‌ها، زمان آماده‌سازی و فیش هر سفارش را پیگیری کنید." icon={<ChefHat size={20} />} />
       {orders.length === 0 ? <Empty text="هنوز سفارشی ثبت نشده" /> : null}
       {orders.map((o) => (
         <Card key={o.id}>
@@ -978,7 +979,9 @@ function MenuScreen() {
   return (
     <div className="space-y-4">
       <Card>
-        <h2 className="mb-2 font-bold">دسته‌بندی</h2>
+        <PageHeading title="مدیریت منو و محصولات" description="دسته‌ها، قیمت‌ها و ترکیب مواد اولیه محصولات را یکپارچه مدیریت کنید." />
+      <Card>
+        <h3 className="mb-2 font-bold">دسته‌بندی</h3>
         <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (!name.trim()) return; const item = { id: uid("c"), name: name.trim() }; void saveCentralRecord("categories", item, () => saveCategory(item)).then((ok) => { if (ok) setName(""); }); }}>
           <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="نام دسته" />
           <Btn type="submit">افزودن</Btn>
@@ -1037,7 +1040,7 @@ function StockScreen() {
   const [unit, setUnit] = useState("عدد");
   return (
     <div className="space-y-3">
-      <h2 className="font-bold">انبار مواد اولیه</h2>
+      <PageHeading title="انبار مواد اولیه" description="موجودی، حد هشدار و تغییرات روزانه مواد اولیه را کنترل کنید." />
       {lows.length ? <Card className="bg-warn-bg text-warn">کمبود: {lows.map((i) => i.name).join("، ")}</Card> : <p className="text-sm text-leaf">موجودی بالای حد هشدار است.</p>}
       <form className="grid gap-2 sm:grid-cols-3" onSubmit={(e) => { e.preventDefault(); if (!name.trim()) return; const item = { id: uid("i"), name: name.trim(), unit, stock: 0, minStock: 5, costPerUnit: 0 }; void saveCentralRecord("ingredients", item, () => saveIngredient(item)).then((ok) => { if (ok) setName(""); }); }}>
         <input className={inputCls} placeholder="ماده جدید" value={name} onChange={(e) => setName(e.target.value)} />
@@ -1081,7 +1084,7 @@ function CustomersScreen({ role }: { role: Role }) {
     : [];
   return (
     <div className="space-y-3">
-      <h2 className="font-bold">باشگاه مشتریان</h2>
+      <PageHeading title="باشگاه مشتریان" description="اعضا، سوابق خرید و امتیازهای وفاداری را مدیریت کنید." />
       <p className="text-sm text-muted">سطوح عضویت: نقره از {Number(settings.loyaltySilverPoints??500).toLocaleString("fa-IR")} امتیاز ({settings.loyaltySilverDiscount??3}٪)، طلا از {Number(settings.loyaltyGoldPoints??1500).toLocaleString("fa-IR")} ({settings.loyaltyGoldDiscount??5}٪)، پلاتین از {Number(settings.loyaltyPlatinumPoints??4000).toLocaleString("fa-IR")} ({settings.loyaltyPlatinumDiscount??8}٪).</p>
       {role === "manager" ? (
         <Card>
@@ -1160,7 +1163,7 @@ function CodesScreen() {
   const [draft, setDraft] = useState<DiscountCode | null>(null);
   return (
     <div className="space-y-3">
-      <div className="flex justify-between"><h2 className="font-bold">کدهای تخفیف</h2><Btn onClick={() => setDraft(emptyCode())}>کد جدید</Btn></div>
+      <div className="flex justify-between"><PageHeading title="کدهای تخفیف" description="کمپین‌های تخفیف را با محدودیت و شرایط استفاده تعریف کنید." /><Btn onClick={() => setDraft(emptyCode())}>کد جدید</Btn></div>
       {discounts.map((d) => (
         <Card key={d.id} className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -1440,7 +1443,7 @@ function ReportsScreen() {
   }
   return (
     <div id="print-root" className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 print:hidden"><h2 className="font-bold">مرکز گزارش‌گیری و هزینه‌ها</h2><div className="flex gap-2"><Btn tone="ghost" onClick={downloadExcel}>خروجی Excel</Btn><Btn onClick={()=>window.print()}>چاپ / ذخیره PDF</Btn></div></div>
+      <div className="flex flex-wrap items-end justify-between gap-3 print:hidden"><PageHeading title="مرکز گزارش‌گیری و هزینه‌ها" description="عملکرد فروش، سود و زیان، موجودی و هزینه‌های کسب‌وکار را تحلیل کنید." /><div className="flex gap-2"><Btn tone="ghost" onClick={downloadExcel}>خروجی Excel</Btn><Btn onClick={()=>window.print()}>چاپ / ذخیره PDF</Btn></div></div>
       <Card className="grid gap-2 sm:grid-cols-2 print:hidden"><Field label="از تاریخ شمسی"><input className={inputCls} inputMode="numeric" placeholder="۱۴۰۵/۰۱/۰۱" value={fromText} onChange={e=>{setFromText(e.target.value);const parsed=jalaliToIso(e.target.value);if(parsed)setFrom(parsed);}} onBlur={()=>{if(!jalaliToIso(fromText))setFromText(isoToJalali(from));}}/></Field><Field label="تا تاریخ شمسی"><input className={inputCls} inputMode="numeric" placeholder="۱۴۰۵/۰۱/۰۷" value={toText} onChange={e=>{setToText(e.target.value);const parsed=jalaliToIso(e.target.value);if(parsed)setTo(parsed);}} onBlur={()=>{if(!jalaliToIso(toText))setToText(isoToJalali(to));}}/></Field></Card>
       {reportError?<p className="text-xs text-warn">گزارش زنده سرور در دسترس نیست: {reportError}</p>:null}
       <div className="grid gap-3 sm:grid-cols-4">
@@ -1532,7 +1535,7 @@ function SuppliersScreen(){
     catch(e){setError(e instanceof Error?e.message:"ثبت تسویه انجام نشد");}
     finally{setBusy(false);}
   }
-  return <div className="space-y-4"><h2 className="font-bold">مدیریت تأمین‌کنندگان</h2>{error?<p className="text-sm text-warn">{error}</p>:null}
+  return <div className="space-y-4"><PageHeading title="مدیریت تأمین‌کنندگان" description="تأمین‌کننده‌ها، خریدها و مانده‌حساب‌ها را پیگیری کنید." />{error?<p className="text-sm text-warn">{error}</p>:null}
     <Card><h3 className="mb-2 font-semibold">ثبت تأمین‌کننده</h3><form className="grid gap-2 sm:grid-cols-2" onSubmit={e=>void addSupplier(e)}>
       <Field label="نام تأمین‌کننده"><input className={inputCls} value={draft.name} onChange={e=>setDraft({...draft,name:e.target.value})} required/></Field>
       <Field label="شماره تماس"><input className={inputCls} value={draft.phone} onChange={e=>setDraft({...draft,phone:e.target.value})}/></Field>
@@ -1586,7 +1589,7 @@ function SmsScreen() {
   }
   return (
     <div className="space-y-4">
-      <h2 className="font-bold">ملی‌پیامک</h2>
+      <PageHeading title="مرکز پیامک" description="قالب‌های اطلاع‌رسانی، ارسال دستی و کمپین‌های مشتریان را مدیریت کنید." />
       <Card>
         <p className="text-sm">اعتبارنامهٔ ملی‌پیامک فقط در فایل خصوصی سرور (private/config.php) تنظیم می‌شود و در این صفحه یا مرورگر نگهداری نمی‌شود.</p>
         <p className="mt-2 text-xs text-muted">برای فعال‌سازی، مدیر سرور باید provider را روی national_payamak قرار دهد و نام کاربری، رمز/API Key و سرشماره را در تنظیمات خصوصی هاست وارد کند. برای آزمایش، ابتدا ارسال دستی را به شمارهٔ آزمایشی خود انجام دهید.</p>
@@ -1842,7 +1845,7 @@ function SettingsScreen() {
   }
   return (
     <div className="space-y-4">
-      <h2 className="font-bold">تنظیمات فروشگاه و فیش‌پرینتر</h2>
+      <PageHeading title="تنظیمات فروشگاه" description="ظاهر سامانه، اطلاعات فروشگاه، فیش‌پرینتر و پشتیبان‌گیری را پیکربندی کنید." />
       <AppearanceSettingsPanel />
       <Card className="grid gap-2 sm:grid-cols-2">
         <Field label="نام فروشگاه"><input className={inputCls} value={settings.shopName} onChange={(e) => patchSettings({ shopName: e.target.value })} onBlur={persistSettings} /></Field>
