@@ -306,7 +306,7 @@ function UsersScreen() {
 
 function AuthFrame({ children }: { children: ReactNode }) {
  const {settings:appearance}=useAppearance();
- return <div className="grid min-h-screen place-items-center bg-bg p-4"><Card>{appearance.logoUrl?<img src={appearance.logoUrl} alt="لوگوی فروشگاه" className="mx-auto mb-3 h-16 max-w-40 object-contain"/>:null}{children}</Card></div>;
+ return <div className="pos-auth-shell grid min-h-screen place-items-center bg-bg p-4"><Card className="pos-auth-card w-full max-w-md">{appearance.logoUrl?<img src={appearance.logoUrl} alt="لوگوی فروشگاه" className="mx-auto mb-3 h-16 max-w-40 object-contain"/>:null}{children}</Card></div>;
 }
 
 function PhpLoginScreen({ setupRequired, onAuthenticated }: { setupRequired: boolean; onAuthenticated: (user: ApiUser) => void }) {
@@ -978,8 +978,7 @@ function MenuScreen() {
   const visibleProducts = products.filter((product) => productCategory === "all" || product.categoryId === productCategory);
   return (
     <div className="space-y-4">
-      <Card>
-        <PageHeading title="مدیریت منو و محصولات" description="دسته‌ها، قیمت‌ها و ترکیب مواد اولیه محصولات را یکپارچه مدیریت کنید." />
+      <PageHeading title="مدیریت منو و محصولات" description="دسته‌ها، قیمت‌ها و ترکیب مواد اولیه محصولات را یکپارچه مدیریت کنید." />
       <Card>
         <h3 className="mb-2 font-bold">دسته‌بندی</h3>
         <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (!name.trim()) return; const item = { id: uid("c"), name: name.trim() }; void saveCentralRecord("categories", item, () => saveCategory(item)).then((ok) => { if (ok) setName(""); }); }}>
