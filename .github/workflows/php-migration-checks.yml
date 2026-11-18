@@ -105,6 +105,8 @@ jobs:
         run: |
           mkdir -p dist-cpanel/private screenshots
           php -r '$c = require "dist-cpanel/private/config.example.php"; $c["app_key"] = str_repeat("a", 64); $c["setup_token"] = getenv("POS_TEST_SETUP_TOKEN"); $c["db"] = ["host" => "127.0.0.1", "port" => 3306, "database" => "threefood_test", "username" => "root", "password" => "root-ci-password", "charset" => "utf8mb4"]; file_put_contents("dist-cpanel/private/config.php", "<?php\ndeclare(strict_types=1);\nreturn " . var_export($c, true) . ";\n");'
+          php -l dist-cpanel/private/config.php
+          php -r '$c = require "dist-cpanel/private/config.php"; $d = $c["db"]; new PDO("mysql:host=" . $d["host"] . ";port=" . $d["port"] . ";dbname=" . $d["database"] . ";charset=" . $d["charset"], $d["username"], $d["password"]); echo "Packaged private config and MySQL connection OK\\n";'
           cat > /tmp/3food-pos-cpanel-router.php <<'PHP'
           <?php
           $public = getenv('POS_PUBLIC_ROOT');
@@ -124,7 +126,12 @@ jobs:
             if curl -fsS http://127.0.0.1:8088/api/v1/health >/dev/null; then break; fi
             sleep 1
           done
-          curl -fsS http://127.0.0.1:8088/api/v1/health >/dev/null
+          if ! curl -fsS http://127.0.0.1:8088/api/v1/health >/dev/null; then
+            echo "Packaged API health failed; PHP server log follows:"
+            curl -sS -i http://127.0.0.1:8088/api/v1/health || true
+            cat /tmp/3food-pos-cpanel.log
+            exit 1
+          fi
           node scripts/browser-smoke.mjs http://127.0.0.1:8088/ screenshots/3food-pos-ci-smoke.png
       - name: Upload cPanel deployment package
         uses: actions/upload-artifact@v4
