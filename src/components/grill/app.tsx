@@ -626,6 +626,11 @@ function statusFa(s: Order["status"]) {
   return { new: "جدید", preparing: "در حال آماده‌سازی", ready: "آماده", delivered: "تحویل شد", cancelled: "لغو" }[s];
 }
 
+function formatElapsed(ms:number){
+  const total=Math.max(0,Math.floor(ms/60000));const days=Math.floor(total/1440);const hours=Math.floor((total%1440)/60);const minutes=total%60;
+  return days>0?`${days.toLocaleString("fa-IR")} روز و ${hours.toLocaleString("fa-IR")} ساعت`:hours>0?`${hours.toLocaleString("fa-IR")} ساعت و ${minutes.toLocaleString("fa-IR")} دقیقه`:`${minutes.toLocaleString("fa-IR")} دقیقه`;
+}
+
 function OrdersScreen({ role }: { role: Role }) {
   const orders = usePos((s) => s.orders);
   const settings = usePos((s) => s.settings);
@@ -634,6 +639,8 @@ function OrdersScreen({ role }: { role: Role }) {
   const discounts = usePos((s) => s.discounts);
   const setStatus = usePos((s) => s.setStatus);
   const [focus, setFocus] = useState<Order | null>(null);
+  const [clockNow, setClockNow] = useState(Date.now());
+  useEffect(() => { const timer=window.setInterval(()=>setClockNow(Date.now()),30000); return ()=>window.clearInterval(timer); }, []);
   const [editing, setEditing] = useState<Order | null>(null);
   const [editLines, setEditLines] = useState<CartLine[]>([]);
   const [editPhone, setEditPhone] = useState("");
@@ -787,7 +794,7 @@ function OrdersScreen({ role }: { role: Role }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="font-bold">#{o.number.toLocaleString("fa-IR")} — {o.customerName}</p>
-              <p className="text-sm text-muted">{o.lines.map((l) => `${l.qty} ${l.name}`).join(" · ")} — {money(o.total)}</p>
+              <p className="text-sm text-muted">{o.lines.map((l) => `${l.qty} ${l.name}`).join(" · ")} — {money(o.total)}</p>\n              <p className="text-xs text-muted">ثبت: {new Date(o.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})} · زمان سپری‌شده: {formatElapsed(clockNow-new Date(o.createdAt).getTime())}</p>
             </div>
             <span className="rounded-full bg-warn-bg px-3 py-1 text-xs text-warn">{statusFa(o.status)}</span>
           </div>
@@ -1039,7 +1046,7 @@ function CustomersScreen({ role }: { role: Role }) {
             <div className="mt-3 space-y-2">
               {selectedOrders.map((order) => (
                 <div key={order.id} className="flex flex-wrap justify-between gap-2 border-t border-line pt-2 text-sm">
-                  <span>سفارش {order.number.toLocaleString("fa-IR")} — {new Date(order.createdAt).toLocaleDateString("fa-IR")}</span>
+                  <span>سفارش {order.number.toLocaleString("fa-IR")} — {new Date(order.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})}</span>
                   <span className="font-semibold">{money(order.total)}{order.status === "cancelled" ? " — لغو شده" : ""}</span>
                 </div>
               ))}
