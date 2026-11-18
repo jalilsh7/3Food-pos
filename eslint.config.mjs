@@ -6,6 +6,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 /** Flat ESLint config for the TanStack Start app-builder template. */
+// Keep route-module exports compatible with React Fast Refresh.
 export default tseslint.config(
   {
     ignores: [
