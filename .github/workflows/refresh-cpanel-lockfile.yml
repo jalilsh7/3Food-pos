@@ -1,11 +1,12 @@
 name: Refresh cPanel dependency lockfile
 
 on:
-  push:
+  pull_request:
     branches:
-      - cleanup/remove-grok-dependencies
+      - migration/php-mysql
     paths:
       - package.json
+      - .github/workflows/refresh-cpanel-lockfile.yml
 
 permissions:
   contents: write
@@ -29,6 +30,13 @@ jobs:
           node-version: 22
       - name: Regenerate package lock without running install scripts
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Verify application after lockfile refresh
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test
+          npm run lint
+          npm run build:cpanel
       - name: Commit lockfile when changed
         run: |
           if git diff --quiet -- package-lock.json; then
