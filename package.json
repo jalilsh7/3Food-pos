@@ -82,5 +82,6 @@
     "playwright": "^1.62.0",
     "prettier": "^3.4.0",
     "typescript-eslint": "^8.56.1"
-  }
+  },
+  "description": "Standalone 3Food POS for cPanel with React, PHP and MySQL"
 }
