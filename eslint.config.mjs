@@ -35,7 +35,7 @@ export default tseslint.config(
         "warn",
         {
           allowConstantExport: true,
-          allowExportNames: ["DEFAULT_APPEARANCE", "useAppearance"],
+          allowExportNames: ["DEFAULT_APPEARANCE", "useAppearance", "Route"],
         },
       ],
       "@typescript-eslint/no-unused-vars": [
