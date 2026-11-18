@@ -434,6 +434,31 @@ function PosScreen() {
     setSubmitting(true);
     setMsg("");
     try {
+      // Every identified buyer joins the shared customer club before the order is created.
+      // The phone is the stable lookup key; the server then updates points and purchase totals.
+      let checkoutCustomer = customer;
+      if (!checkoutCustomer) {
+        const normalizedPhone = phone.trim();
+        if (!normalizedPhone) throw new Error("برای ثبت خرید و گزارش سوابق مشتری، شماره موبایل را وارد کنید.");
+        const existing = usePos.getState().customers.find((item) => item.phone.trim() === normalizedPhone);
+        if (existing) {
+          checkoutCustomer = existing;
+        } else {
+          const createdCustomer = {
+            id: uid("cu"),
+            name: guestName.trim() || "بدون نام",
+            phone: normalizedPhone,
+            points: 0,
+            birthday: "",
+            totalSpent: 0,
+            visits: 0,
+            createdAt: new Date().toISOString(),
+          };
+          const savedCustomer = await phpApi.saveRecord("customers", createdCustomer);
+          usePos.getState().saveCustomer(savedCustomer.item ?? createdCustomer);
+          checkoutCustomer = createdCustomer;
+        }
+      }
       const idempotencyKey = pendingIdempotencyKey.current ?? crypto.randomUUID();
       pendingIdempotencyKey.current = idempotencyKey;
       const server = await phpApi.createOrder<{ id: string; orderNumber: number }>({
@@ -456,7 +481,7 @@ function PosScreen() {
           tax: q.tax,
           total: q.total,
         },
-        customer: customer ? { id: customer.id } : undefined,
+        customer: checkoutCustomer ? { id: checkoutCustomer.id } : undefined,
         discountCode: q.discount?.code ?? '',
         note: cart.map((line) => line.note).filter(Boolean).join(" | ").slice(0, 2000),
         guestName,
@@ -464,7 +489,7 @@ function PosScreen() {
         payment: pay,
       });
       const res = placeOrder({
-        lines: cart, customer, code, pointsToUse: points, taxEnabled: settings.taxEnabled !== false, payment: pay,
+        lines: cart, customer: checkoutCustomer, code, pointsToUse: points, taxEnabled: settings.taxEnabled !== false,
         guestName, guestPhone: phone.trim(),
         serverOrder: { id: server.order.id, number: server.order.orderNumber },
       });
@@ -840,6 +865,8 @@ function MenuScreen() {
   const removeProduct = usePos((s) => s.removeProduct);
   const [name, setName] = useState("");
   const [draft, setDraft] = useState<Product | null>(null);
+  const [productCategory, setProductCategory] = useState("all");
+  const visibleProducts = products.filter((product) => productCategory === "all" || product.categoryId === productCategory);
   return (
     <div className="space-y-4">
       <Card>
@@ -853,7 +880,13 @@ function MenuScreen() {
       <div className="flex justify-between"><h2 className="font-bold">محصولات</h2>
         <Btn onClick={() => setDraft({ id: uid("p"), name: "", categoryId: categories[0]?.id ?? "", price: 0, cost: 0, options: [], recipe: [], active: true })}>محصول جدید</Btn>
       </div>
-      {products.map((p) => (
+      <Field label="فیلتر دسته‌بندی محصولات">
+        <select className={inputCls} value={productCategory} onChange={(e) => setProductCategory(e.target.value)}>
+          <option value="all">همه دسته‌ها</option>
+          {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+        </select>
+      </Field>
+      {visibleProducts.map((p) => (
         <Card key={p.id} className="flex items-center justify-between gap-2">
           <div><p className="font-semibold">{p.name}</p><p className="text-sm text-muted">{money(p.price)} — تمام‌شده {money(p.cost)}</p></div>
           <div className="flex gap-2"><Btn tone="ghost" onClick={() => setDraft(p)}>ویرایش</Btn><Btn tone="ghost" onClick={() => void deleteCentralRecord("products", p.id, () => removeProduct(p.id))}>حذف</Btn></div>
@@ -927,12 +960,18 @@ function CustomersScreen() {
   const orders = usePos((s) => s.orders);
   const saveCustomer = usePos((s) => s.saveCustomer);
   const [q, setQ] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", phone: "", birthday: "" });
   const list = customers.filter((c) => c.name.includes(q) || c.phone.includes(q));
+  const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId) ?? null;
+  const selectedOrders = selectedCustomer
+    ? orders.filter((order) => order.customerId === selectedCustomer.id || order.customerPhone === selectedCustomer.phone)
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    : [];
   return (
     <div className="space-y-3">
       <h2 className="font-bold">باشگاه مشتریان</h2>
-      <p className="text-sm text-muted">نقره از ۵۰۰ امتیاز (۳٪)، طلا از ۱۵۰۰ (۵٪)، پلاتین از ۴۰۰۰ (۸٪). هر ۱۰۰٬۰۰۰ تومان یک امتیاز.</p>
+      <p className="text-sm text-muted">نقره از ۵۰۰ امتیاز (۳٪)، طلا از ۱۵۰۰ (۵٪)، پلاتین از ۴۰۰۰ (۸٪). نرخ امتیازدهی از تنظیمات فروشگاه قابل تغییر است.</p>
       <Card>
         <form className="grid gap-2 sm:grid-cols-4" onSubmit={(e) => {
           e.preventDefault();
@@ -946,16 +985,35 @@ function CustomersScreen() {
           <Btn type="submit">عضویت</Btn>
         </form>
       </Card>
-      <input className={inputCls} placeholder="جستجو" value={q} onChange={(e) => setQ(e.target.value)} />
+      <input className={inputCls} placeholder="جستجو با شماره موبایل یا نام خانوادگی" value={q} onChange={(e) => setQ(e.target.value)} />
       {list.map((c) => (
         <Card key={c.id}>
           <div className="flex flex-wrap justify-between gap-2">
             <div><p className="font-bold">{c.name}</p><p className="text-sm text-muted">{c.phone}</p></div>
             <p className="text-sm">{TIER_LABEL[tierOf(c.points)]} — {c.points.toLocaleString("fa-IR")} امتیاز — {money(c.totalSpent)}</p>
           </div>
-          <p className="mt-1 text-xs text-muted">{orders.filter((o) => o.customerId === c.id).length.toLocaleString("fa-IR")} سفارش</p>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted">{orders.filter((o) => o.customerId === c.id || o.customerPhone === c.phone).length.toLocaleString("fa-IR")} سفارش ثبت‌شده</p>
+            <Btn tone="ghost" onClick={() => setSelectedCustomerId(selectedCustomerId === c.id ? null : c.id)}>{selectedCustomerId === c.id ? "بستن سوابق" : "گزارش خریدها"}</Btn>
+          </div>
         </Card>
       ))}
+      {selectedCustomer ? (
+        <Card>
+          <h3 className="font-bold">سوابق خرید {selectedCustomer.name}</h3>
+          <p className="mt-1 text-sm text-muted">موبایل: {selectedCustomer.phone} — مجموع خرید: {money(selectedCustomer.totalSpent)} — {selectedOrders.length.toLocaleString("fa-IR")} سفارش</p>
+          {selectedOrders.length ? (
+            <div className="mt-3 space-y-2">
+              {selectedOrders.map((order) => (
+                <div key={order.id} className="flex flex-wrap justify-between gap-2 border-t border-line pt-2 text-sm">
+                  <span>سفارش {order.number.toLocaleString("fa-IR")} — {new Date(order.createdAt).toLocaleDateString("fa-IR")}</span>
+                  <span className="font-semibold">{money(order.total)}{order.status === "cancelled" ? " — لغو شده" : ""}</span>
+                </div>
+              ))}
+            </div>
+          ) : <Empty text="سفارشی برای این مشتری ثبت نشده است." />}
+        </Card>
+      ) : null}
     </div>
   );
 }
