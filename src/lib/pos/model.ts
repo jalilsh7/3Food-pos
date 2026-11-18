@@ -135,6 +135,12 @@ export type Settings = {
   paperWidth: 58 | 80;
   autoPrint: boolean;
   invoiceSmsEnabledDefault?: boolean;
+  loyaltySilverPoints?: number;
+  loyaltyGoldPoints?: number;
+  loyaltyPlatinumPoints?: number;
+  loyaltySilverDiscount?: number;
+  loyaltyGoldDiscount?: number;
+  loyaltyPlatinumDiscount?: number;
   printCustomer: boolean;
   printKitchen: boolean;
   headerNote: string;
@@ -173,10 +179,10 @@ export const TIER_OFF: Record<Tier, number> = {
   platinum: 8,
 };
 
-export function tierOf(points: number): Tier {
-  if (points >= 4000) return "platinum";
-  if (points >= 1500) return "gold";
-  if (points >= 500) return "silver";
+export function tierOf(points: number, settings?: Partial<Settings>): Tier {
+  if (points >= (settings?.loyaltyPlatinumPoints ?? 4000)) return "platinum";
+  if (points >= (settings?.loyaltyGoldPoints ?? 1500)) return "gold";
+  if (points >= (settings?.loyaltySilverPoints ?? 500)) return "silver";
   return "bronze";
 }
 
@@ -215,10 +221,11 @@ export function quoteOrder(input: {
   tomanPerPoint: number;
   usesSoFar?: number;
   now?: Date;
+  settings?: Partial<Settings>;
 }): Quote {
   const subtotal = input.lines.reduce((s, l) => s + l.unitPrice * l.qty, 0);
-  const tier = input.customer ? tierOf(input.customer.points) : null;
-  const tierRate = tier ? TIER_OFF[tier] : 0;
+  const tier = input.customer ? tierOf(input.customer.points, input.settings) : null;
+  const tierRate = tier === "silver" ? input.settings?.loyaltySilverDiscount ?? TIER_OFF.silver : tier === "gold" ? input.settings?.loyaltyGoldDiscount ?? TIER_OFF.gold : tier === "platinum" ? input.settings?.loyaltyPlatinumDiscount ?? TIER_OFF.platinum : 0;
   const tierDiscount = Math.round((subtotal * tierRate) / 100);
   const afterTier = subtotal - tierDiscount;
   let codeDiscount = 0;
