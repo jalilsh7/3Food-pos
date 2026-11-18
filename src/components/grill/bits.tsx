@@ -44,7 +44,7 @@ export function Btn({
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className={`rounded-xl px-4 py-3 text-sm font-bold shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chili/30 disabled:translate-y-0 disabled:opacity-50 ${map[tone]} ${className}`}
+      className={`pos-btn inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chili/30 disabled:translate-y-0 disabled:opacity-50 ${map[tone]} ${className}`}
     >
       {children}
     </button>
@@ -53,9 +53,21 @@ export function Btn({
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <section className={`rounded-[var(--radius-card)] border border-line/80 bg-surface p-5 shadow-[0_8px_28px_rgba(20,45,30,0.045)] transition-shadow duration-200 ${className}`}>
+    <section className={`pos-card min-w-0 rounded-[var(--radius-card)] border border-line bg-surface p-5 shadow-[var(--shadow-card)] transition-shadow duration-200 ${className}`}>
       {children}
     </section>
+  );
+}
+
+export function PageHeading({ title, description, icon }: { title: string; description?: string; icon?: ReactNode }) {
+  return (
+    <header className="pos-page-heading min-w-0">
+      <div className="pos-page-heading-mark" aria-hidden="true">{icon ?? <span />}</div>
+      <div className="min-w-0">
+        <h2>{title}</h2>
+        {description ? <p>{description}</p> : null}
+      </div>
+    </header>
   );
 }
 
