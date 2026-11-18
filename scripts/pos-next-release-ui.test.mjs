@@ -71,5 +71,5 @@ test("expense history can be filtered by selected date range and category", () =
 });
 
 test("checkout validates normalized Iranian mobile numbers before enrollment", () => {
-  assert.match(app, /if \(!\^09\[0-9\]\{9\}\$/.source/);
+  assert.ok(app.includes("if (!/^09[0-9]{9}$/.test(normalizedPhone))"));
 });
