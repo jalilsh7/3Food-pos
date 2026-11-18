@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - migration/php-mysql
+      - feature/3food-pos-next-release
   pull_request:
     branches:
       - migration/php-mysql
+      - cleanup/remove-grok-dependencies
 
 permissions:
   contents: read
