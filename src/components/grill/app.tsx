@@ -1086,7 +1086,7 @@ function CustomersScreen({ role }: { role: Role }) {
   const saveCustomer = usePos((s) => s.saveCustomer);
   const [q, setQ] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", phone: "", birthday: "" });
+  const [form, setForm] = useState({ name: "", phone: "", birthday: "", smsConsent: false });
   const normalizedQuery=normalizeIranPhone(q);
   const list = customers.filter((c) => c.name.includes(q) || (normalizedQuery.length>0 && normalizeIranPhone(c.phone).includes(normalizedQuery)));
   const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId) ?? null;
@@ -1122,12 +1122,13 @@ function CustomersScreen({ role }: { role: Role }) {
         <form className="grid gap-2 sm:grid-cols-4" onSubmit={(e) => {
           e.preventDefault();
           if (!form.phone) return;
-          const item = { id: uid("cu"), name: form.name || "بدون نام", phone: form.phone, points: 0, birthday: form.birthday, totalSpent: 0, visits: 0, createdAt: new Date().toISOString() };
-          void saveCentralRecord("customers", item, () => saveCustomer(item)).then((ok) => { if (ok) setForm({ name: "", phone: "", birthday: "" }); });
+          const item = { id: uid("cu"), name: form.name || "بدون نام", phone: form.phone, points: 0, birthday: form.birthday, smsConsent: form.smsConsent, totalSpent: 0, visits: 0, createdAt: new Date().toISOString() };
+          void saveCentralRecord("customers", item, () => saveCustomer(item)).then((ok) => { if (ok) setForm({ name: "", phone: "", birthday: "", smsConsent: false }); });
         }}>
           <input className={inputCls} placeholder="نام" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input className={inputCls} placeholder="موبایل" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <input className={inputCls} type="date" value={form.birthday} onChange={(e) => setForm({ ...form, birthday: e.target.value })} />
+          <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={form.smsConsent} onChange={e=>setForm({...form,smsConsent:e.target.checked})}/>رضایت دریافت پیامک تبلیغاتی</label>
           <Btn type="submit">عضویت</Btn>
         </form>
       </Card>
@@ -1139,6 +1140,7 @@ function CustomersScreen({ role }: { role: Role }) {
             <p className="text-sm">{TIER_LABEL[tierOf(c.points,settings)]} — {c.points.toLocaleString("fa-IR")} امتیاز — {money(c.totalSpent)}</p>
           </div>
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={c.smsConsent === true} onChange={e=>{const updated={...c,smsConsent:e.target.checked};void saveCentralRecord("customers",updated,()=>saveCustomer(updated));}}/>رضایت پیامک تبلیغاتی</label>
             <p className="text-xs text-muted">{orders.filter((o) => o.customerId === c.id || normalizeIranPhone(o.customerPhone) === normalizeIranPhone(c.phone)).length.toLocaleString("fa-IR")} سفارش ثبت‌شده</p>
             <Btn tone="ghost" onClick={() => setSelectedCustomerId(selectedCustomerId === c.id ? null : c.id)}>{selectedCustomerId === c.id ? "بستن سوابق" : "گزارش خریدها"}</Btn>
           </div>
@@ -1590,21 +1592,28 @@ function SmsScreen() {
   const orders = usePos((s) => s.orders);
   const settings = usePos((s) => s.settings);
   const [manual, setManual] = useState({ to: "", text: "" });
-  const [campaignSegment,setCampaignSegment]=useState("all");
+  const products = usePos((s) => s.products);
+  const [campaignLogic,setCampaignLogic]=useState<"all"|"any">("all");
+  const [campaignFilters,setCampaignFilters]=useState({tier:"",birthday:"",inactiveDays:"",minOrders:"",minSpent:"",productId:""});
   const [campaignText,setCampaignText]=useState("");
   const [campaignBusy,setCampaignBusy]=useState(false);
   const [campaignProgress,setCampaignProgress]=useState("");
   const [campaignClock,setCampaignClock]=useState(INITIAL_RENDER_TIME);
   useEffect(() => { const timer=window.setInterval(()=>setCampaignClock(Date.now()),60000); return ()=>window.clearInterval(timer); }, []);
+  const activeCampaignFilters = Object.entries(campaignFilters).filter(([,value])=>value!=="");
   const campaignRecipients=customers.filter(customer=>{
-    if(campaignSegment==="all")return true;
-    if(["bronze","silver","gold","platinum"].includes(campaignSegment))return tierOf(customer.points,settings)===campaignSegment;
-    if(campaignSegment==="birthday"){return !!customer.birthday&&customer.birthday.slice(5,7)===tehranDate().slice(5,7);}
-    if(campaignSegment==="inactive60"){
-      const latest=orders.filter(order=>order.customerId===customer.id||normalizeIranPhone(order.customerPhone)===normalizeIranPhone(customer.phone)).reduce((max,order)=>Math.max(max,new Date(order.createdAt).getTime()),0);
-      const baseline=latest||new Date(customer.createdAt||0).getTime();return !baseline||campaignClock-baseline>=60*86400000;
-    }
-    return false;
+    if(customer.smsConsent!==true||!normalizeIranPhone(customer.phone))return false;
+    const customerOrders=orders.filter(order=>order.status!=="cancelled"&&(order.customerId===customer.id||normalizeIranPhone(order.customerPhone)===normalizeIranPhone(customer.phone)));
+    const latest=customerOrders.reduce((max,order)=>Math.max(max,new Date(order.createdAt).getTime()),0);
+    const conditions:boolean[]=[];
+    if(campaignFilters.tier)conditions.push(tierOf(customer.points,settings)===campaignFilters.tier);
+    if(campaignFilters.birthday==="month")conditions.push(!!customer.birthday&&customer.birthday.slice(5,7)===tehranDate().slice(5,7));
+    if(campaignFilters.birthday==="known")conditions.push(!!customer.birthday);
+    if(campaignFilters.inactiveDays){const days=Number(campaignFilters.inactiveDays);const baseline=latest||new Date(customer.createdAt||0).getTime();conditions.push(days>0&&(!baseline||campaignClock-baseline>=days*86400000));}
+    if(campaignFilters.minOrders)conditions.push(customerOrders.length>=Number(campaignFilters.minOrders));
+    if(campaignFilters.minSpent)conditions.push(customer.totalSpent>=Number(campaignFilters.minSpent));
+    if(campaignFilters.productId)conditions.push(customerOrders.some(order=>order.lines.some(line=>line.productId===campaignFilters.productId)));
+    return conditions.length===0|| (campaignLogic==="all"?conditions.every(Boolean):conditions.some(Boolean));
   });
   async function runCampaign(){
     if(campaignBusy||!campaignText.trim()||!campaignRecipients.length)return;
@@ -1644,9 +1653,18 @@ function SmsScreen() {
       </Card>
       <Card>
         <h3 className="mb-2 font-semibold">کمپین باشگاه مشتریان</h3>
-        <p className="mb-2 text-xs text-muted">ارسال هدفمند بر اساس سطح عضویت، تولد یا مشتریان غیرفعال. ارسال‌ها به‌ترتیب انجام و نتیجه هر شماره ثبت می‌شود.</p>
-        <Field label="گروه مشتریان"><select className={inputCls} value={campaignSegment} onChange={e=>setCampaignSegment(e.target.value)}><option value="all">همه اعضا</option><option value="inactive60">بدون خرید در ۶۰ روز اخیر</option><option value="birthday">متولدین ماه جاری</option><option value="bronze">سطح برنز</option><option value="silver">سطح نقره</option><option value="gold">سطح طلا</option><option value="platinum">سطح پلاتین</option></select></Field>
-        <p className="my-2 text-sm">تعداد گیرندگان: <b>{campaignRecipients.length.toLocaleString("fa-IR")}</b></p>
+        <p className="mb-2 text-xs text-muted">فقط اعضایی انتخاب می‌شوند که رضایت دریافت پیامک تبلیغاتی را ثبت کرده باشند. می‌توانید چند شرط را ترکیب کنید.</p>
+        <Field label="نحوه ترکیب شروط"><select className={inputCls} value={campaignLogic} onChange={e=>setCampaignLogic(e.target.value as "all"|"any")}><option value="all">همه شروط برقرار باشند (AND)</option><option value="any">حداقل یکی از شروط برقرار باشد (OR)</option></select></Field>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Field label="سطح عضویت"><select className={inputCls} value={campaignFilters.tier} onChange={e=>setCampaignFilters({...campaignFilters,tier:e.target.value})}><option value="">همه سطوح</option><option value="bronze">برنز</option><option value="silver">نقره</option><option value="gold">طلا</option><option value="platinum">پلاتین</option></select></Field>
+          <Field label="تاریخ تولد"><select className={inputCls} value={campaignFilters.birthday} onChange={e=>setCampaignFilters({...campaignFilters,birthday:e.target.value})}><option value="">بدون شرط</option><option value="month">متولدین ماه جاری</option><option value="known">دارای تاریخ تولد ثبت‌شده</option></select></Field>
+          <Field label="عدم خرید در چند روز اخیر"><input className={inputCls} type="number" min="1" max="3650" value={campaignFilters.inactiveDays} onChange={e=>setCampaignFilters({...campaignFilters,inactiveDays:e.target.value})} placeholder="مثلاً ۴۵ روز"/></Field>
+          <Field label="حداقل تعداد سفارش"><input className={inputCls} type="number" min="1" value={campaignFilters.minOrders} onChange={e=>setCampaignFilters({...campaignFilters,minOrders:e.target.value})} placeholder="مثلاً ۳"/></Field>
+          <Field label="حداقل مجموع خرید (تومان)"><input className={inputCls} type="number" min="1" value={campaignFilters.minSpent} onChange={e=>setCampaignFilters({...campaignFilters,minSpent:e.target.value})} placeholder="مثلاً ۱۰۰۰۰۰۰"/></Field>
+          <Field label="خرید محصول مشخص"><select className={inputCls} value={campaignFilters.productId} onChange={e=>setCampaignFilters({...campaignFilters,productId:e.target.value})}><option value="">همه محصولات</option>{products.map(product=><option key={product.id} value={product.id}>{product.name}</option>)}</select></Field>
+        </div>
+        <div className="flex justify-end"><Btn tone="ghost" onClick={()=>setCampaignFilters({tier:"",birthday:"",inactiveDays:"",minOrders:"",minSpent:"",productId:""})}>پاک کردن شروط</Btn></div>
+        <p className="my-2 text-sm">تعداد شروط فعال: <b>{activeCampaignFilters.length.toLocaleString("fa-IR")}</b> · تعداد گیرندگان واجد شرایط و دارای رضایت: <b>{campaignRecipients.length.toLocaleString("fa-IR")}</b></p>
         <textarea className={inputCls} rows={3} maxLength={950} value={campaignText} onChange={e=>setCampaignText(e.target.value)} placeholder="متن پیامک کمپین..."/>
         <div className="mt-2 flex flex-wrap items-center gap-2"><Btn onClick={()=>void runCampaign()} disabled={campaignBusy||!campaignText.trim()||campaignRecipients.length===0}>{campaignBusy?"در حال ارسال...":"ارسال کمپین"}</Btn><span className="text-xs text-muted">{campaignProgress}</span></div>
       </Card>
