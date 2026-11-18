@@ -1199,7 +1199,14 @@ function isoToJalali(value:string){
 
 function createXlsxBlob(rows: unknown[][]): Blob {
   const encoder = new TextEncoder();
-  const escapeXml = (value: string) => value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;");
+  const escapeXml = (value: string) => {
+    let clean = "";
+    for (const character of value) {
+      const code = character.charCodeAt(0);
+      if (code === 9 || code === 10 || code === 13 || code >= 32) clean += character;
+    }
+    return clean.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;");
+  };
   const columnName = (index: number) => {
     let number = index + 1;
     let name = "";
