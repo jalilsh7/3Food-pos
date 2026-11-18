@@ -758,7 +758,7 @@ if ($method === 'POST' && $path === '/backup/restore') {
             $pdo->rollBack();
             json_response(['ok' => false, 'error' => 'restore_requires_empty_pos', 'message' => 'بازیابی فقط روی دیتابیس عملیاتی خالی انجام می‌شود؛ ابتدا از اطلاعات فعلی پشتیبان بگیرید و دیتابیس مقصد خالی باشد'], 409);
         }
-        $allowedResources = ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings','sms_logs'];
+        $allowedResources = ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings','sms_logs','system_meta'];
         $insertRecord = $pdo->prepare('INSERT INTO pos_records (id, resource, payload, updated_by) VALUES (?, ?, ?, ?)');
         foreach ($backup['records'] as $record) {
             if (!is_array($record) || !in_array($record['resource'] ?? '', $allowedResources, true) ||
