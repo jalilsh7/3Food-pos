@@ -96,6 +96,8 @@ export type Expense = {
   amount: number;
   category: string;
   date: string;
+  note?: string;
+  createdAt?: string;
 };
 
 export type SmsEvent =
