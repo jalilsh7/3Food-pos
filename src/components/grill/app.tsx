@@ -425,7 +425,7 @@ function PosScreen() {
   const [note, setNote] = useState("");
   const customer = customers.find((c) => normalizeIranPhone(c.phone) === normalizeIranPhone(phone)) ?? null;
   const uses = customer && code ? customerCodeUses(orders, customer.id, code) : 0;
-  const q = quoteOrder({ lines: cart, customer, code, discounts, pointsToUse: points, taxPercent: settings.taxPercent, taxEnabled: settings.taxEnabled, tomanPerPoint: settings.tomanPerPoint, usesSoFar: uses });
+  const q = quoteOrder({ lines: cart, customer, code, discounts, pointsToUse: points, taxPercent: settings.taxPercent, taxEnabled: settings.taxEnabled, tomanPerPoint: settings.tomanPerPoint, usesSoFar: uses, settings });
 
   function addProduct(p: Product, optionIds: string[], noteText: string) {
     const opts = p.options.filter((o) => optionIds.includes(o.id));
@@ -690,6 +690,7 @@ function OrdersScreen({ role }: { role: Role }) {
     taxEnabled: settings.taxEnabled !== false,
     tomanPerPoint: settings.tomanPerPoint,
     usesSoFar: editCodeUses,
+    settings,
   });
   function beginEdit(order: Order) {
     setEditing(order);
@@ -1045,7 +1046,7 @@ function CustomersScreen({ role }: { role: Role }) {
         <Card key={c.id}>
           <div className="flex flex-wrap justify-between gap-2">
             <div><p className="font-bold">{c.name}</p><p className="text-sm text-muted">{c.phone}</p></div>
-            <p className="text-sm">{TIER_LABEL[tierOf(c.points)]} — {c.points.toLocaleString("fa-IR")} امتیاز — {money(c.totalSpent)}</p>
+            <p className="text-sm">{TIER_LABEL[tierOf(c.points,settings)]} — {c.points.toLocaleString("fa-IR")} امتیاز — {money(c.totalSpent)}</p>
           </div>
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-muted">{orders.filter((o) => o.customerId === c.id || o.customerPhone === c.phone).length.toLocaleString("fa-IR")} سفارش ثبت‌شده</p>
