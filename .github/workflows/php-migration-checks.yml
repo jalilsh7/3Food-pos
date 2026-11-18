@@ -133,6 +133,17 @@ jobs:
             exit 1
           fi
           node scripts/browser-smoke.mjs http://127.0.0.1:8099/ screenshots/3food-pos-ci-smoke.png
+      - name: Desktop and mobile performance budget audit
+        run: |
+          mkdir -p performance-results
+          node scripts/performance-smoke.mjs http://127.0.0.1:8099/ | tee performance-results/performance.json
+      - name: Upload performance report
+        uses: actions/upload-artifact@v4
+        with:
+          name: 3food-pos-performance-report
+          path: performance-results/performance.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload cPanel deployment package
         uses: actions/upload-artifact@v4
         with:
