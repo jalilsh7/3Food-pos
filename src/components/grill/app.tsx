@@ -1283,11 +1283,14 @@ function SuppliersScreen(){
     await saveCentralRecord("suppliers",updated,()=>setSuppliers(old=>old.map(s=>s.id===supplier.id?updated:s)));
   }
   async function settle(supplier:Supplier){
+    if(busy)return;
     const raw=window.prompt("مبلغ پرداختی برای تسویه (تومان):");if(raw===null)return;
     const amount=Number(raw);if(!Number.isFinite(amount)||amount<=0||amount>supplier.balance){setError("مبلغ تسویه معتبر نیست.");return;}
-    const item={id:uid("pay"),supplierId:supplier.id,title:"پرداخت/تسویه",amount:0,paid:amount,date:new Date().toISOString().slice(0,10),note:"تسویه حساب",kind:"payment"};
+    const item={id:uid("pay"),supplierId:supplier.id,title:"پرداخت/تسویه",amount:0,paid:amount,date:tehranDate(),note:"تسویه حساب",kind:"payment"};
+    setBusy(true);
     try{const result=await phpApi.createSupplierTransaction<typeof item,Supplier>(supplier.id,item);setSuppliers(old=>old.map(s=>s.id===supplier.id?result.supplier:s));setPurchases(old=>[result.item as Purchase,...old]);}
     catch(e){setError(e instanceof Error?e.message:"ثبت تسویه انجام نشد");}
+    finally{setBusy(false);}
   }
   return <div className="space-y-4"><h2 className="font-bold">مدیریت تأمین‌کنندگان</h2>{error?<p className="text-sm text-warn">{error}</p>:null}
     <Card><h3 className="mb-2 font-semibold">ثبت تأمین‌کننده</h3><form className="grid gap-2 sm:grid-cols-2" onSubmit={e=>void addSupplier(e)}>
