@@ -2139,7 +2139,8 @@ if ($method === 'GET' && $path === '/reports/summary') {
     $ordersStmt = $pdo->prepare('SELECT id, order_number, status, payment_method, items, totals, created_at FROM pos_orders WHERE created_at >= ? AND created_at < ? ORDER BY created_at ASC');
     $ordersStmt->execute([$fromUtc, $toUtc]);
     $orders = $ordersStmt->fetchAll();
-    $products = [];
+    $products = []; $categoryNames=[]; $byCategory=[];
+    foreach ($pdo->query("SELECT id,payload FROM pos_records WHERE resource='categories'")->fetchAll() as $row) { $category=json_decode((string)$row['payload'],true); if(is_array($category))$categoryNames[(string)$row['id']]=(string)($category['name']??'بدون دسته'); }
     foreach ($pdo->query("SELECT id,payload FROM pos_records WHERE resource='products'")->fetchAll() as $row) {
         $p = json_decode((string)$row['payload'], true);
         if (is_array($p)) $products[(string)$row['id']] = $p;
@@ -2157,6 +2158,7 @@ if ($method === 'GET' && $path === '/reports/summary') {
             $productId=(string)($line['productId']??''); $qty=max(0,(int)($line['qty']??0));
             $name=(string)($line['name']??'محصول'); $unit=(int)($line['unitPrice']??0);
             $byProduct[$name]??=['quantity'=>0,'revenue'=>0]; $byProduct[$name]['quantity']+=$qty; $byProduct[$name]['revenue']+=$unit*$qty;
+            $categoryId=(string)($products[$productId]['categoryId']??'');$categoryName=$categoryNames[$categoryId]??'بدون دسته';$byCategory[$categoryName]??=['quantity'=>0,'revenue'=>0];$byCategory[$categoryName]['quantity']+=$qty;$byCategory[$categoryName]['revenue']+=$unit*$qty;
             $cost += max(0,(int)($line['unitCost']??($products[$productId]['cost']??0)))*$qty;
         }
     }
@@ -2172,7 +2174,7 @@ if ($method === 'GET' && $path === '/reports/summary') {
         $expenseGroups[$category]=($expenseGroups[$category]??0)+$amount;
         $expenses[]=['id'=>(string)($e['id']??''),'title'=>(string)($e['title']??''),'amount'=>$amount,'category'=>$category,'date'=>$date];
     }
-    ksort($daily); ksort($expenseGroups); uasort($byProduct,static fn($a,$b)=>$b['quantity']<=>$a['quantity']);
+    ksort($daily); ksort($expenseGroups); uasort($byProduct,static fn($a,$b)=>$b['quantity']<=>$a['quantity']); uasort($byCategory,static fn($a,$b)=>$b['revenue']<=>$a['revenue']);
     $monthly=[];
     foreach($daily as $day=>$value){$month=substr((string)$day,0,7);$monthly[$month]=($monthly[$month]??0)+$value;}
     ksort($monthly);
@@ -2192,7 +2194,7 @@ if ($method === 'GET' && $path === '/reports/summary') {
         $customerRows[]=['name'=>(string)($customer['name']??''),'phone'=>(string)($customer['phone']??''),'totalSpent'=>(int)($customer['totalSpent']??0),'visits'=>(int)($customer['visits']??0),'points'=>(int)($customer['points']??0)];
     }
     usort($customerRows,static fn($a,$b)=>$b['totalSpent']<=>$a['totalSpent']);
-    json_response(['ok'=>true,'range'=>['from'=>$from,'to'=>$to],'sales'=>$sales,'orders'=>$count,'cancelled'=>$cancelled,'average_order'=>$count?intdiv($sales,$count):0,'tax_collected'=>$taxCollected,'discounts'=>$discountsTotal,'cost_of_goods'=>$cost,'expenses'=>$expenseTotal,'inventory_purchases'=>$inventoryPurchases,'gross_profit'=>$sales-$cost,'net_profit'=>$sales-$cost-$expenseTotal,'daily'=>array_map(static fn($d,$v)=>['date'=>$d,'sales'=>$v],array_keys($daily),array_values($daily)),'monthly'=>array_map(static fn($m,$v)=>['month'=>$m,'sales'=>$v],array_keys($monthly),array_values($monthly)),'payments'=>$byPayment,'products'=>array_slice(array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),0,100),'expense_categories'=>$expenseGroups,'expense_items'=>$expenses,'inventory'=>['value'=>round($inventoryValue),'low_stock_count'=>count($lowStock)],'low_stock'=>$lowStock,'top_customers'=>array_slice($customerRows,0,20)]);
+    json_response(['ok'=>true,'range'=>['from'=>$from,'to'=>$to],'sales'=>$sales,'orders'=>$count,'cancelled'=>$cancelled,'average_order'=>$count?intdiv($sales,$count):0,'tax_collected'=>$taxCollected,'discounts'=>$discountsTotal,'cost_of_goods'=>$cost,'expenses'=>$expenseTotal,'inventory_purchases'=>$inventoryPurchases,'gross_profit'=>$sales-$cost,'net_profit'=>$sales-$cost-$expenseTotal,'daily'=>array_map(static fn($d,$v)=>['date'=>$d,'sales'=>$v],array_keys($daily),array_values($daily)),'monthly'=>array_map(static fn($m,$v)=>['month'=>$m,'sales'=>$v],array_keys($monthly),array_values($monthly)),'payments'=>$byPayment,'products'=>array_slice(array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),0,100),'product_categories'=>array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byCategory),array_values($byCategory)),'expense_categories'=>$expenseGroups,'expense_items'=>$expenses,'inventory'=>['value'=>round($inventoryValue),'low_stock_count'=>count($lowStock)],'low_stock'=>$lowStock,'top_customers'=>array_slice($customerRows,0,20)]);
 }
 
 if ($method === 'POST' && $path === '/sms/send') {
