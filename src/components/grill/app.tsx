@@ -1243,9 +1243,9 @@ function ReportsScreen() {
   }
   async function addCost(event:FormEvent<HTMLFormElement>){
     event.preventDefault();if(!title.trim()||amount<=0||!cat)return;
-    const item={id:uid("ex"),title:title.trim(),amount,category:cat,date:tehranDate(),note:note.trim(),createdAt:new Date().toISOString()};
+    const item={id:uid("ex"),title:title.trim(),amount,category:cat,date:expenseDate,note:note.trim(),createdAt:new Date().toISOString()};
     const ok=await saveCentralRecord("expenses",item,()=>addExpense(item));
-    if(ok){setTitle("");setAmount(0);setNote("");}
+    if(ok){setTitle("");setAmount(0);setNote("");setExpenseDate(tehranDate());setExpenseDateText(isoToJalali(tehranDate()));}
   }
   return (
     <div className="space-y-4">
@@ -1274,6 +1274,7 @@ function ReportsScreen() {
       <Card><h3 className="mb-3 font-semibold">ثبت هزینه جدید</h3><p className="mb-2 text-xs text-muted">برای خرید مواد اولیه که باید موجودی انبار را افزایش دهد، از بخش تأمین‌کنندگان استفاده کن؛ ثبت هزینه به‌تنهایی موجودی را تغییر نمی‌دهد.</p><form className="grid gap-2 sm:grid-cols-2" onSubmit={e=>void addCost(e)}>
         <Field label="شرح هزینه"><input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} required/></Field>
         <Field label="مبلغ (تومان)"><input className={inputCls} type="number" min="1" value={amount||""} onChange={e=>setAmount(Number(e.target.value))} required/></Field>
+        <Field label="تاریخ هزینه شمسی"><input className={inputCls} inputMode="numeric" placeholder="۱۴۰۵/۰۱/۰۱" value={expenseDateText} onChange={e=>{setExpenseDateText(e.target.value);const parsed=jalaliToIso(e.target.value);if(parsed)setExpenseDate(parsed);}} onBlur={()=>{if(!jalaliToIso(expenseDateText))setExpenseDateText(isoToJalali(expenseDate));}} required/></Field>
         <Field label="دسته‌بندی"><select className={inputCls} value={cat} onChange={e=>setCat(e.target.value)} required>{categories.filter(c=>c.active!==false).map(c=><option key={c.id} value={c.name}>{c.name}</option>)}</select></Field>
         <Field label="توضیحات"><input className={inputCls} value={note} onChange={e=>setNote(e.target.value)}/></Field>
         <div><Btn type="submit">ثبت هزینه</Btn></div>
