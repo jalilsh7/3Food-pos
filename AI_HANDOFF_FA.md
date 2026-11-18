@@ -38,6 +38,11 @@ PR پاک‌سازی: https://github.com/jalilsh7/3Food-pos/pull/1
 شاخه `cleanup/remove-grok-dependencies` بر پایه `migration/php-mysql` ساخته شده و PR شماره 1 باز است؛ این شاخه هنوز merge نشده است.
 
 تغییرات پاک‌سازی موجود:
+- کدهای متروک Better Auth، OAuth broker/Grok، PGLite/PostgreSQL، TanStack Start server functions و App Builder connector از سورس حذف شده‌اند؛ این مسیرها متعلق به معماری قدیمی بودند و از entrypoint فعال React/PHP استفاده نمی‌شدند.
+- migration قدیمی Better Auth و تست‌های مرتبط با app-data/auth حذف شده‌اند؛ قرارداد احراز هویت فعلی PHP session و MySQL است.
+- وابستگی‌های مستقیم `@electric-sql/pglite`, `@tanstack/react-start`, `better-auth`, `jose`, `kysely`, `nitro`, `pg` و `@types/pg` از manifest حذف شده‌اند.
+- lockfile باید توسط workflow مخصوص PR با npm بازتولید شود؛ تا پایان اجرای آن، `package-lock.json` را synchronized فرض نکنید.
+- تست TypeScriptهای حذف‌شده‌ی ماژول‌های قدیمی از script تست خارج شده‌اند؛ تست‌های مستقل PHP/API و اسکریپت‌های فعال حفظ شده‌اند.
 - حذف فایل‌ها و افزونه‌های PWA/Preview وابسته به Grok و نشانگرهای مربوط به آن‌ها.
 - حذف shell مخصوص TanStack Start از route ریشه‌ی SPA.
 - حذف ارجاع routeTree به مسیر ناموجود `/api/sms` و حذف type registration قدیمی TanStack Start از routeTree.
