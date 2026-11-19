@@ -555,3 +555,12 @@
 - endpointهای فهرست/ایجاد دسته و محصول اضافه شدند؛ مجوزهای catalog.read/catalog.manage، CSRF، Origin، audit و idempotency اعمال می‌شوند.
 - مبلغ محصول و tax rate فقط integerهای اعتبارسنجی‌شده‌اند؛ کاتالوگ بین شعب یک کسب‌وکار مشترک است.
 - ویرایش/آرشیو، variant/options، تصاویر و recipe integration در بسته‌های بعدی.
+
+
+### BE-01F1 — Audit و Idempotency
+- وضعیت: **زیرساخت و اتصال عملیات پایه کدنویسی شد؛ تست جامع در انتهای پروژه.**
+- migration 004 برای idempotency رمز‌شده و migration 005 برای scope کسب‌وکار/شعبه audit ثبت شد.
+- IdempotencyService عملیات دامنه و ذخیره پاسخ را اتمیک انجام می‌دهد؛ پاسخ‌های موفق رمز‌شده و قابل replay هستند.
+- AuditLogService و endpoint صفحه‌بندی audit log اضافه/متصل شدند؛ رویدادهای احراز هویت، setup، branch، user، role و catalog ثبت می‌شوند.
+- موارد بعدی: تکمیل audit سایر عملیات دامنه، retention/cleanup، سیاست export و اتصال صفحه audit در UI.
+
