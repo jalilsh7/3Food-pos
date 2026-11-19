@@ -111,6 +111,7 @@ export const phpApi = {
   createTerminalPayment:(input:{terminalId:string;amount:number;idempotencyKey:string})=>request<ApiEnvelope<{payment:{id:string;status:TerminalPaymentStatus;amount:number}}>>("/terminal-payments",{method:"POST",csrf:true,body:input}),
   getTerminalPayment:(id:string)=>request<ApiEnvelope<{payment:TerminalPayment}>>(`/terminal-payments/${encodeURIComponent(id)}`),
   cancelTerminalPayment:(id:string)=>request<ApiEnvelope<{status:TerminalPaymentStatus}>>(`/terminal-payments/${encodeURIComponent(id)}/cancel`,{method:"POST",csrf:true,body:{}}),
+  attachTerminalPayment:(id:string,orderId:number)=>request<ApiEnvelope<{order_id:number}>>(`/terminal-payments/${encodeURIComponent(id)}/attach-order`,{method:"POST",csrf:true,body:{orderId}}),
 
   health: () => request<ApiEnvelope<{ service?: string; database?: string }>>("/health"),
   getAppearance:()=>request<ApiEnvelope<{settings:AppearanceSettings}>>("/appearance"),
