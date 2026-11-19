@@ -1848,6 +1848,11 @@ function AppearanceSettingsPanel(){
  return <Card className="space-y-4">
  <div><h3 className="font-semibold">طراحی ظاهری سراسری</h3><p className="mt-1 text-xs text-muted">تغییرات زنده پیش‌نمایش می‌شوند؛ پس از ذخیره برای همه کاربران و دستگاه‌ها اعمال خواهند شد.</p></div>
  <div>
+  <p className="mb-2 text-sm font-semibold">عنوان برنامه</p>
+  <Field label="عنوان نمایش‌داده‌شده در سربرگ مرورگر"><input className={inputCls} maxLength={60} value={settings.appTitle} onChange={e=>update({appTitle:e.target.value})} placeholder="صندوق فروشگاهی آنلاین"/></Field>
+  <p className="mt-1 text-xs text-muted">این عنوان پس از ذخیره، در عنوان تب مرورگر همه دستگاه‌ها نمایش داده می‌شود.</p>
+ </div>
+ <div>
   <p className="mb-2 text-sm font-semibold">ترکیب‌رنگ‌های آماده</p>
   <p className="mb-3 text-xs text-muted">پالت‌های کلاسیک و مدرن آماده؛ سه ترکیب مدرن به‌صورت خودکار روی حالت روشن قرار می‌گیرند.</p>
   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -1871,7 +1876,7 @@ function AppearanceSettingsPanel(){
  <Field label={`گردی دکمه‌ها: ${settings.buttonRadius} پیکسل`}><input className="w-full accent-chili" type="range" min="6" max="24" value={settings.buttonRadius} onChange={e=>update({buttonRadius:Number(e.target.value)})}/></Field>
  <Field label="لوگو (PNG، JPG یا WebP؛ حداکثر ۵۱۲ کیلوبایت)"><input className={inputCls} type="file" accept="image/png,image/jpeg,image/webp" disabled={logoBusy} onChange={e=>{void logo(e.target.files?.[0]);e.currentTarget.value="";}}/></Field>
  </div>
- <div className="rounded-[var(--radius-card)] border border-line bg-bg p-4"><p className="mb-3 text-xs text-muted">پیش‌نمایش زنده</p><div className="flex flex-wrap items-center gap-3">{settings.logoUrl?<img src={settings.logoUrl} alt="پیش‌نمایش لوگو" className="h-12 w-12 rounded-lg object-contain"/>:null}<div className="min-w-0 flex-1"><p className="font-bold">گریل‌کَش | 3Food POS</p><p className="text-xs text-muted">نمونه ظاهر پنل فروشگاه</p></div><span className="rounded-full bg-leaf px-3 py-1 text-xs text-leaf-ink">فعال</span><button type="button" className="rounded-xl bg-chili px-4 py-2 text-sm font-semibold text-chili-ink">دکمه نمونه</button></div></div>
+ <div className="rounded-[var(--radius-card)] border border-line bg-bg p-4"><p className="mb-3 text-xs text-muted">پیش‌نمایش زنده</p><div className="flex flex-wrap items-center gap-3">{settings.logoUrl?<img src={settings.logoUrl} alt="پیش‌نمایش لوگو" className="h-12 w-12 rounded-lg object-contain"/>:null}<div className="min-w-0 flex-1"><p className="font-bold">{settings.appTitle.trim()||"صندوق فروشگاهی آنلاین"}</p><p className="text-xs text-muted">نمونه ظاهر پنل فروشگاه</p></div><span className="rounded-full bg-leaf px-3 py-1 text-xs text-leaf-ink">فعال</span><button type="button" className="rounded-xl bg-chili px-4 py-2 text-sm font-semibold text-chili-ink">دکمه نمونه</button></div></div>
  <div className="flex flex-wrap items-center gap-2"><Btn onClick={()=>void persist()} disabled={busy||logoBusy}>{busy?"در حال ذخیره...":"ذخیره ظاهر برای همه"}</Btn><Btn tone="ghost" onClick={()=>void restore()} disabled={busy||logoBusy}>بازنشانی پیش‌فرض</Btn>{logoBusy?<span className="text-xs text-muted">در حال بارگذاری لوگو...</span>:null}</div>
  {note?<p className="text-sm text-muted" role="status">{note}</p>:null}</Card>;
 }
