@@ -4,12 +4,25 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Auth;
 
 use DateTimeZone;
+use PDO;
 use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\BusinessRepository;
+use PersiaCoder\PosV3\Infrastructure\Database\TransactionManager;
+use PersiaCoder\PosV3\Security\AuditLogService;
 
 final readonly class BranchManagementService
 {
-    public function __construct(private BusinessRepository $businesses) {}
+    private BusinessRepository $businesses;
+    private TransactionManager $transactions;
+    private AuditLogService $audit;
+
+    public function __construct(PDO $connection)
+    {
+        $this->businesses = new BusinessRepository($connection);
+        $this->transactions = new TransactionManager($connection);
+        $this->audit = new AuditLogService(new AuditLogRepository($connection));
+    }
 
     public function list(BusinessScope $scope): array
     {
@@ -17,10 +30,13 @@ final readonly class BranchManagementService
     }
 
     public function create(
+        AuthenticatedPrincipal $actor,
         BusinessScope $scope,
         string $name,
         string $code,
         ?string $timezone,
+        string $requestId,
+        string $ipAddress,
     ): array {
         $name = trim($name);
         $code = strtolower(trim($code));
@@ -43,7 +59,29 @@ final readonly class BranchManagementService
         }
 
         $publicId = self::uuidV4();
-        $this->businesses->createBranch($publicId, $scope->businessId, $code, $name, $timezone);
+        $this->transactions->run(function (PDO $connection) use (
+            $publicId,
+            $scope,
+            $code,
+            $name,
+            $timezone,
+            $actor,
+            $requestId,
+            $ipAddress,
+        ): void {
+            $this->businesses->createBranch($publicId, $scope->businessId, $code, $name, $timezone);
+            $this->audit->record(
+                $actor->userId,
+                'branch.created',
+                'branch',
+                $publicId,
+                null,
+                ['business_id' => $scope->businessPublicId, 'code' => $code, 'name' => $name, 'timezone' => $timezone],
+                null,
+                $requestId,
+                $ipAddress,
+            );
+        });
 
         return [
             'id' => $publicId,
