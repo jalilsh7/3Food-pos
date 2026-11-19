@@ -81,11 +81,16 @@ final readonly class OrderService
             throw new HttpException(422, 'table_session_channel_mismatch', 'A table session can only be used for table orders.');
         }
 
+        [$fulfillmentMethod, $recipientName, $recipientPhone, $addressJson] = $this->normalizeFulfillment($payload, $sourceChannel);
         $items = $this->normalizeItems($payload['items'] ?? null);
         $fingerprint = self::fingerprint([
             'source_channel' => $sourceChannel,
             'customer_id' => $customerPublicId,
             'table_session_id' => $tableSessionPublicId,
+            'fulfillment_method' => $fulfillmentMethod,
+            'recipient_name' => $recipientName,
+            'recipient_phone' => $recipientPhone,
+            'address_snapshot' => $addressJson,
             'items' => $items,
         ]);
 
@@ -101,6 +106,10 @@ final readonly class OrderService
                 $sourceChannel,
                 $customerPublicId,
                 $tableSessionPublicId,
+                $fulfillmentMethod,
+                $recipientName,
+                $recipientPhone,
+                $addressJson,
                 $items,
                 $requestId,
                 $ipAddress,
@@ -205,6 +214,17 @@ final readonly class OrderService
                     $total,
                     $actor->userId,
                 );
+                if ($fulfillmentMethod !== null) {
+                    $this->orders->createFulfillment(
+                        $scope->businessId,
+                        (int) $scope->branchId,
+                        $orderId,
+                        $fulfillmentMethod,
+                        $recipientName,
+                        $recipientPhone,
+                        $addressJson,
+                    );
+                }
 
                 foreach ($orderLines as $line) {
                     $product = $line['product'];
@@ -264,6 +284,7 @@ final readonly class OrderService
                         'order_number' => $orderNumber,
                         'source_channel' => $sourceChannel,
                         'item_count' => count($orderLines),
+                        'fulfillment_method' => $fulfillmentMethod,
                         'subtotal_amount' => $subtotal,
                         'tax_amount' => $taxTotal,
                         'total_amount' => $total,
@@ -290,6 +311,7 @@ final readonly class OrderService
                                 'tax_amount' => $taxTotal,
                                 'total_amount' => $total,
                                 'currency_code' => 'IRT',
+                                'fulfillment_method' => $fulfillmentMethod,
                                 'item_count' => count($orderLines),
                             ],
                         ],
@@ -444,6 +466,58 @@ final readonly class OrderService
             $ipAddress,
             true,
         );
+    }
+
+    /** @return array{?string,?string,?string,?string} */
+    private function normalizeFulfillment(array $payload, string $sourceChannel): array
+    {
+        $method = $payload['fulfillment_method'] ?? null;
+        $expectedMethod = match ($sourceChannel) {
+            'table' => 'dine_in',
+            'takeaway' => 'takeaway',
+            default => null,
+        };
+        if ($expectedMethod !== null) {
+            if ($method !== null && $method !== $expectedMethod) {
+                throw new HttpException(422, 'fulfillment_channel_mismatch', 'Fulfillment method does not match the order channel.');
+            }
+            $method = $expectedMethod;
+        }
+        if ($method !== null && (!is_string($method) || !in_array($method, ['dine_in', 'takeaway', 'delivery'], true))) {
+            throw new HttpException(422, 'invalid_fulfillment_method', 'The fulfillment method is invalid.');
+        }
+
+        $recipientName = $payload['recipient_name'] ?? null;
+        $recipientPhone = $payload['recipient_phone'] ?? null;
+        $address = $payload['delivery_address'] ?? null;
+        if ($method === 'delivery') {
+            if (!is_string($recipientName) || trim($recipientName) === '' || self::unicodeLength($recipientName) > 160) {
+                throw new HttpException(422, 'delivery_recipient_required', 'A delivery recipient name is required.');
+            }
+            if (!is_string($recipientPhone) || !preg_match('/^[0-9+(). -]{7,32}$/', $recipientPhone)) {
+                throw new HttpException(422, 'delivery_phone_invalid', 'A valid delivery phone number is required.');
+            }
+            if (!is_array($address) || array_is_list($address) || $address === []) {
+                throw new HttpException(422, 'delivery_address_required', 'A delivery address object is required.');
+            }
+            foreach ($address as $key => $value) {
+                if (!is_string($key) || !preg_match('/^[a-z][a-z0-9_]{1,39}$/', $key)
+                    || (!is_string($value) && !is_int($value))
+                    || (is_string($value) && self::unicodeLength($value) > 300)) {
+                    throw new HttpException(422, 'delivery_address_invalid', 'The delivery address contains an invalid field.');
+                }
+            }
+            $addressJson = json_encode($address, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if (strlen($addressJson) > 4000) {
+                throw new HttpException(422, 'delivery_address_too_large', 'The delivery address is too large.');
+            }
+            return [$method, trim($recipientName), trim($recipientPhone), $addressJson];
+        }
+
+        if ($recipientName !== null || $recipientPhone !== null || $address !== null) {
+            throw new HttpException(422, 'unexpected_delivery_details', 'Recipient and address details are only valid for delivery fulfillment.');
+        }
+        return [$method, null, null, null];
     }
 
     /** @return list<array{product_id:string,variant_id:?string,quantity:string,quantity_milli:int,options:list<string>}> */
