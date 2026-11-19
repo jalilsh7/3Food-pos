@@ -707,3 +707,17 @@
 - مسیر baseline مستقل database/v3 تعریف شد؛ schema فعلی php-backend/schema.sql دست‌نخورده می‌ماند تا زمان اجرای بسته جدا و مجوز تغییر.
 - نکته سازگاری: README فعلی هنوز MySQL 5.7.8+ را ذکر می‌کند؛ این با هدف تجاری جدید تعارض دارد و باید در بسته مستندات نصب/CI اصلاح شود. پشتیبانی واقعی MariaDB هنوز تست نشده است.
 - هیچ SQL اجرایی، migration، API، UI یا دیتابیس تغییر نکرده است؛ تست اجرایی انجام نشده است.
+
+
+## DB-02 — ایجاد baseline مستقل Schema تجاری V3
+- تاریخ: 2026-11-19
+- وضعیت: **فایل baseline ثبت شد؛ اجرای دیتابیس و تست موتور واقعی باقی است.**
+- فایل SQL: [database/v3/schema.sql](database/v3/schema.sql).
+- راهنمای نصب: [database/v3/README-FA.md](database/v3/README-FA.md).
+- تعداد جداول: 61؛ شامل نصب و migration ledger، کاربران و RBAC، تنظیمات/feature/usage limits، کاتالوگ، مشتری، سالن/میز، سفارش و snapshot، آماده‌سازی، terminal/payment/refund/settlement، صندوق/شیفت/هزینه، واحدها/انبار/رسپی/رزرو/ledger، وفاداری و تخفیف.
+- قراردادها: BIGINT UNSIGNED برای کلید داخلی، UUID عمومی برای resourceهای بیرونی، پول integer تومان، مقدار انبار DECIMAL، UTC DATETIME(3)، InnoDB و utf8mb4.
+- جدول pos_sequences برای شماره‌های ترتیبی تراکنش‌پذیر اضافه شد؛ unique/idempotency و FKهای typed تعریف شدند.
+- بررسی ایستای خودکار روی متن SQL: 61 جدول شناسایی شد؛ indexها و FKهای تعریف‌شده به ستون‌های موجود ارجاع می‌دهند؛ جدول/ستون مقصد FK وجود دارد؛ نوع ستون‌های FK با مقصد برابر است؛ نام constraint تکراری و FLOAT/DOUBLE پیدا نشد.
+- محدودیت تست: محیط اجرا در این بسته MySQL/MariaDB server در دسترس نداشت؛ بنابراین syntax/behavior واقعی CHECK، generated columns، FKها، اجرای کامل baseline، backup/restore و race condition هنوز اثبات نشده‌اند.
+- فایل runtime فعلی `php-backend/schema.sql` و دیتابیس عملیاتی دست‌نخورده باقی ماندند. هیچ اتصال backend یا installer به این baseline انجام نشده است.
+- گام بعد: DB-03 — harness تست نصب تازه و سازگاری MySQL/MariaDB، رفع هر خطای واقعی و سپس migration runner با checksum/lock.
