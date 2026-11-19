@@ -374,3 +374,10 @@
 - route عمومی فعلی فقط `GET /api/v1/health` و صرفاً liveness است؛ health نباید در UI به‌عنوان «دیتابیس آماده است» تعبیر شود.
 - هیچ صفحه POS، سفارش، مالی، انبار یا storefront به این route یا endpoint آزمایشی متصل نشده است.
 - تا تکمیل authentication، RBAC، CSRF، CORS و rate limit، APIهای عملیاتی و اتصال UI مسدود باقی می‌مانند.
+
+
+### BE-01C — قرارداد دسترسی داده
+- اتصال UI همچنان غیرفعال است؛ PDO factory و transaction manager فقط زیرساخت سمت سرور هستند.
+- تمام نوشتن‌های یک command دامنه باید در یک TransactionManager boundary انجام شوند؛ UI هرگز مستقیماً به DB متصل نمی‌شود.
+- repositoryهای آینده باید prepared statement داشته باشند و مبلغ/موجودی/مجوز را از ورودی UI authoritative ندانند.
+- هیچ اتصال واقعی دیتابیس یا تست engine در BE-01C انجام نشده است.
