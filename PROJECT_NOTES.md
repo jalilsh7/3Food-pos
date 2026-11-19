@@ -828,13 +828,17 @@
   - `src/shared/ui/primitives.tsx`: Button، Surface، PageHeader، StatusBadge، Notice و EmptyState.
   - `src/shared/ui/primitives.css`: استایل و variantهای primitives.
   - `src/shared/ui/index.ts`: barrel export برای API داخلی UI.
+  - `src/shared/ui/form-controls.tsx`: TextField، SelectField، CheckboxField و FilterBar با label/hint/error و ARIA.
+  - `src/shared/ui/data-table.tsx`: DataTable generic با ستون‌های typed، row key پایدار و empty state.
+  - `src/shared/ui/forms-table.css`: استایل فرم، فیلتر و جدول responsive.
   - `DESIGN_SYSTEM.md`: مستند قرارداد، دسترس‌پذیری و نمونه استفاده.
 - فایل‌های به‌روزشده:
   - `src/styles.css`: import توکن‌ها و component styles؛ حذف CSS placeholderهای قدیمی.
   - `src/app/App.tsx`: مصرف primitives برای header، status، سطح‌های نمای کلی، placeholder و پاک‌کردن جست‌وجو.
   - `README.md`: لینک مستند Design System و اعلام وضعیت تست.
   - `POS_V3_UX_ARCHITECTURE.md` و `ROADMAP_V3.md`: ثبت خروجی و وضعیت UX-02.
-- بررسی ایستای پس از تغییر: فایل‌ها از شاخه دوباره fetch شدند؛ تعداد Surface opening/closing در App برابر است؛ nav section جدا باقی مانده؛ importهای V2 در workspace جدید دیده نشدند. این بررسی، جایگزین TypeScript compiler یا مرورگر نیست.
+- راهنمای `v3/frontend/DESIGN_SYSTEM.md` با قرارداد فرم‌ها و جدول به‌روزرسانی شد.
+- بررسی ایستای پس از تغییر: فایل‌ها از شاخه دوباره fetch شدند؛ تعداد Surface و nav section در App متوازن است؛ exportهای componentها در barrel بررسی شدند؛ importهای V2 در workspace جدید دیده نشدند. این بررسی، جایگزین TypeScript compiler یا مرورگر نیست.
 - تست‌های typecheck/unit/lint/build و browser acceptance اجرا نشده‌اند. GitHub Actions به مانع runner/billing ثبت‌شده وابسته است؛ lockfile نیز هنوز تولید نشده است.
 - ریسک باقی: ناسازگاری احتمالی TS/JSX یا تفاوت visual در مرورگر تا زمان build واقعی؛ primitives هنوز آزمون واحد و visual regression ندارند.
-- گام بعد: ساخت primitiveهای فرم، فیلتر و جدول و سپس UX-03 صفحه فروش؛ پیش از اتصال به backend باید قرارداد API مستقل V3 تثبیت شود.
+- گام بعد: استفاده از primitiveهای فرم/جدول در صفحه فروش و طراحی UX-03؛ پیش از اتصال به backend باید قرارداد API مستقل V3 تثبیت شود.
