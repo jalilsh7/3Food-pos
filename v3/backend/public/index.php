@@ -8,6 +8,8 @@ use PersiaCoder\PosV3\Orders\OrderController;
 use PersiaCoder\PosV3\Orders\OrderService;
 use PersiaCoder\PosV3\Dining\DiningController;
 use PersiaCoder\PosV3\Dining\DiningService;
+use PersiaCoder\PosV3\Finance\CashRegisterController;
+use PersiaCoder\PosV3\Finance\CashRegisterService;
 use PersiaCoder\PosV3\Auth\AuthController;
 use PersiaCoder\PosV3\Auth\AuditLogController;
 use PersiaCoder\PosV3\Auth\BusinessSetupController;
@@ -89,6 +91,16 @@ try {
             $setupController = new BusinessSetupController(new BusinessSetupService($getConnection()));
         }
         return $setupController;
+    };
+
+    $cashRegisterController = null;
+    $getCashRegisterController = static function () use (&$cashRegisterController, $getConnection, $configuration): CashRegisterController {
+        if (!$cashRegisterController instanceof CashRegisterController) {
+            $cashRegisterController = new CashRegisterController(
+                new CashRegisterService($getConnection(), $configuration->applicationKey),
+            );
+        }
+        return $cashRegisterController;
     };
 
     $diningController = null;
@@ -217,6 +229,31 @@ try {
     $router->add('POST', '/api/v1/auth/change-password',
         static fn (Request $request): Response => $getController()->changePassword($request),
         [$sessionMiddleware, $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('GET', '/api/v1/cash/registers',
+        static fn (Request $request): Response => $getCashRegisterController()->list($request),
+        [$sessionMiddleware, $makePermissionMiddleware('finance.read', true)],
+    );
+
+    $router->add('POST', '/api/v1/cash/registers',
+        static fn (Request $request): Response => $getCashRegisterController()->createRegister($request),
+        [$sessionMiddleware, $makePermissionMiddleware('finance.manage', true), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('POST', '/api/v1/cash/registers/{registerPublicId}/sessions',
+        static fn (Request $request, array $parameters): Response => $getCashRegisterController()->openSession($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('cash.session.open', true), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('PATCH', '/api/v1/cash/sessions/{sessionPublicId}/close',
+        static fn (Request $request, array $parameters): Response => $getCashRegisterController()->closeSession($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('cash.session.close', true), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('POST', '/api/v1/cash/sessions/{sessionPublicId}/review',
+        static fn (Request $request, array $parameters): Response => $getCashRegisterController()->reviewSession($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('finance.manage', true), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('GET', '/api/v1/dining',
