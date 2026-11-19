@@ -26,6 +26,11 @@ final readonly class OrderController
         return Response::success(['orders' => $orders]);
     }
 
+    public function show(Request $request, array $parameters): Response
+    {
+        return Response::success($this->orders->get($this->scope($request), $parameters['orderPublicId']));
+    }
+
     public function create(Request $request): Response
     {
         $this->assertJson($request);
