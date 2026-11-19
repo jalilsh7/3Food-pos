@@ -618,8 +618,13 @@ try {
 
     $cashierBootstrap = api('GET', '/api/v1/bootstrap');
     check($cashierBootstrap['status'] === 200, 'cashier bootstrap');
-    foreach (['ingredients', 'expenses', 'templates'] as $restrictedResource) {
+    foreach (['expenses', 'templates'] as $restrictedResource) {
         check(!array_key_exists($restrictedResource, $cashierBootstrap['json']['data'] ?? []), 'cashier bootstrap excludes ' . $restrictedResource);
+    }
+    $cashierIngredient = array_values(array_filter($cashierBootstrap['json']['data']['ingredients'] ?? [], fn($item) => ($item['id'] ?? '') === 'ci-ingredient'))[0] ?? [];
+    check((float)($cashierIngredient['stock'] ?? -1) >= 0 && ($cashierIngredient['name'] ?? '') !== '', 'cashier receives ingredient stock needed for checkout warnings');
+    foreach (['costPerUnit', 'cost', 'unitCost'] as $costField) {
+        check(!array_key_exists($costField, $cashierIngredient), 'cashier bootstrap hides ingredient ' . $costField);
     }
     $cashierSettings = $cashierBootstrap['json']['data']['settings'][0] ?? [];
     check((float)($cashierSettings['taxPercent'] ?? -1) === 9.0 && ($cashierSettings['taxEnabled'] ?? false) === true, 'cashier bootstrap receives authoritative tax settings');
