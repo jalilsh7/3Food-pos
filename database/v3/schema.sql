@@ -341,7 +341,7 @@ CREATE TABLE pos_orders (
   CONSTRAINT chk_orders_status CHECK (order_status IN ('draft','awaiting_payment','accepted','preparing','ready','completed','cancelled','rejected')),
   CONSTRAINT chk_orders_payment_status CHECK (payment_status IN ('unpaid','partial','paid','refunded','partially_refunded','failed','pending')),
   CONSTRAINT chk_orders_currency CHECK (currency_code = 'IRT'),
-  CONSTRAINT chk_orders_totals CHECK (total_amount = subtotal_amount - discount_amount + tax_amount + delivery_fee_amount OR total_amount = 0)
+  CONSTRAINT chk_orders_discount CHECK (discount_amount <= subtotal_amount)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE pos_order_items (
@@ -434,6 +434,7 @@ CREATE TABLE pos_order_item_preparations (
   ready_at DATETIME(3) NULL,
   started_by BIGINT UNSIGNED NULL,
   completed_by BIGINT UNSIGNED NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
   KEY idx_preparation_queue (station_id, status, created_at, id),
   KEY idx_preparation_order_item (order_item_id, id),
@@ -554,6 +555,7 @@ CREATE TABLE pos_payments (
   UNIQUE KEY uq_payment_order_idempotency (order_id, idempotency_key),
   UNIQUE KEY uq_payment_terminal_tx (terminal_transaction_id),
   KEY idx_payments_order_status_time (order_id, status, created_at, id),
+  UNIQUE KEY uq_payments_provider_reference (provider_code, provider_reference),
   KEY idx_payments_provider_reference (provider_code, provider_reference),
   CONSTRAINT fk_payments_order FOREIGN KEY (order_id) REFERENCES pos_orders(id) ON DELETE RESTRICT,
   CONSTRAINT fk_payments_terminal_tx FOREIGN KEY (terminal_transaction_id) REFERENCES pos_terminal_transactions(id) ON DELETE RESTRICT,
@@ -643,6 +645,7 @@ CREATE TABLE pos_settlement_items (
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
   UNIQUE KEY uq_settlement_item_batch_payment (batch_id, payment_id),
+  UNIQUE KEY uq_settlement_item_batch_reference (batch_id, provider_reference),
   KEY idx_settlement_items_match (match_status, batch_id),
   KEY idx_settlement_items_provider_ref (provider_reference),
   CONSTRAINT fk_settlement_items_batch FOREIGN KEY (batch_id) REFERENCES pos_settlement_batches(id) ON DELETE RESTRICT,
@@ -806,6 +809,7 @@ CREATE TABLE pos_unit_conversions (
   created_by BIGINT UNSIGNED NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
+  UNIQUE KEY uq_unit_conversions_pair_effective (from_unit_id, to_unit_id, effective_from),
   KEY idx_unit_conversions_pair_effective (from_unit_id, to_unit_id, effective_from),
   CONSTRAINT fk_unit_conversions_from FOREIGN KEY (from_unit_id) REFERENCES pos_units(id) ON DELETE RESTRICT,
   CONSTRAINT fk_unit_conversions_to FOREIGN KEY (to_unit_id) REFERENCES pos_units(id) ON DELETE RESTRICT,
