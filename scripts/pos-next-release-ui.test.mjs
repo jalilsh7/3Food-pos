@@ -40,10 +40,13 @@ test("new product form remains ready for consecutive product entry after save", 
   );
 });
 
-test("Excel-compatible export includes profit and individual expense rows", () => {
-  assert.match(app, /\["سود و زیان","سود خالص"/);
-  assert.match(app, /visibleExpenseItemRows\.map\(row=>\["ریز هزینه"/);
-  assert.match(app, /["]مالیات وصول‌شده["]/);
+test("sales Excel export includes profit and tax without mixing expense records", () => {
+  const start = app.indexOf("function ReportsScreen()");
+  const end = app.indexOf("\\nfunction SuppliersScreen", start);
+  const reports = app.slice(start, end);
+  assert.match(reports, /\["سود و زیان","سود ناخالص"/);
+  assert.match(reports, /["]مالیات وصول‌شده["]/);
+  assert.doesNotMatch(reports, /visibleExpenseItemRows|ریز هزینه|expenseFilterCategory/);
 });
 
 test("reports print action targets a visible print root for PDF and paper output", () => {
@@ -67,9 +70,14 @@ test("invoice SMS choice resets to the manager default after each completed orde
   assert.ok(app.includes("setSendInvoiceSms(null); setPrinted(res.order)"));
 });
 
-test("expense history can be filtered by selected date range and category", () => {
-  assert.match(app, /expenseFilterCategory === "all" \|\| e\.category === expenseFilterCategory/);
-  assert.match(app, /value=\{expenseFilterCategory\} onChange=\{e=>setExpenseFilterCategory\(e\.target\.value\)\}/);
+test("expense reporting is separate and includes date-range totals and category filtering", () => {
+  const start = app.indexOf("function ExpensesScreen()");
+  const end = app.indexOf("\\nfunction SuppliersScreen", start);
+  const expenses = app.slice(start, end);
+  assert.match(expenses, /item\.date>=reportFrom&&item\.date<=reportTo/);
+  assert.match(expenses, /reportByCategory/);
+  assert.match(expenses, /value=\{filter\} onChange=\{e=>setFilter\(e\.target\.value\)\}/);
+  assert.match(expenses, /گزارش هزینه‌ها/);
 });
 
 test("checkout validates normalized Iranian mobile numbers before enrollment", () => {
