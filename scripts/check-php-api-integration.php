@@ -212,16 +212,16 @@ try {
     $agentJob = api('GET', '/api/v1/terminal-agent/next', null, $agentHeaders);
     check($agentJob['status'] === 200 && ($agentJob['json']['payment']['id'] ?? '') === $terminalPaymentId && ($agentJob['json']['payment']['status'] ?? '') === 'processing', 'authenticated agent atomically claims queued payment');
     $agentResult = api('POST', '/api/v1/terminal-agent/payments/' . rawurlencode($terminalPaymentId) . '/result', [
-        'status' => 'approved',
+        'status' => 'declined',
         'amount' => 125000,
         'traceNumber' => 'CI-TRACE-001',
         'retrievalReferenceNumber' => 'CI-RRN-001',
         'providerCode' => 'ci_test',
         'responseCode' => '00',
     ], $agentHeaders);
-    check($agentResult['status'] === 200 && ($agentResult['json']['status'] ?? '') === 'approved', 'authenticated agent submits an approved synthetic result');
+    check($agentResult['status'] === 200 && ($agentResult['json']['status'] ?? '') === 'declined', 'authenticated agent submits an approved synthetic result');
     $terminalPaymentStatus = api('GET', '/api/v1/terminal-payments/' . rawurlencode($terminalPaymentId));
-    check($terminalPaymentStatus['status'] === 200 && ($terminalPaymentStatus['json']['payment']['status'] ?? '') === 'approved', 'cashier can read final terminal payment state');
+    check($terminalPaymentStatus['status'] === 200 && ($terminalPaymentStatus['json']['payment']['status'] ?? '') === 'declined', 'cashier can read final terminal payment state');
     $terminalPaymentReplay = api('POST', '/api/v1/terminal-payments', [
         'terminalId' => 'ci-terminal',
         'amount' => 125000,
@@ -411,6 +411,11 @@ try {
         'status' => 'approved', 'amount' => 1000, 'traceNumber' => 'CI-TRACE-ORDER',
     ], $agentHeaders);
     check($orderPaymentResult['status'] === 200, 'agent approves second synthetic payment');
+    $duplicateAfterApproval = api('POST', '/api/v1/terminal-payments', [
+        'terminalId' => 'ci-terminal', 'amount' => 1000,
+        'idempotencyKey' => '44444444-4444-4444-8444-000000000013',
+    ], csrf_headers());
+    check($duplicateAfterApproval['status'] === 409, 'server blocks a second charge while an approved payment is not yet linked to an order');
     $cardOrder = api('POST', '/api/v1/orders', [
         'idempotencyKey' => '44444444-4444-4444-8444-000000000012',
         'items' => [['key' => 'ci-card-line', 'productId' => 'ci-terminal-product', 'qty' => 1, 'unitPrice' => 1000, 'optionIds' => []]],
