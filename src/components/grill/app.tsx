@@ -1625,8 +1625,7 @@ function SmsScreen() {
     <div className="space-y-4">
       <PageHeading title="مرکز پیامک" description="قالب‌های اطلاع‌رسانی، ارسال دستی و کمپین‌های مشتریان را مدیریت کنید." />
       <Card>
-        <p className="text-sm">اعتبارنامهٔ ملی‌پیامک فقط در فایل خصوصی سرور (private/config.php) تنظیم می‌شود و در این صفحه یا مرورگر نگهداری نمی‌شود.</p>
-        <p className="mt-2 text-xs text-muted">برای فعال‌سازی، مدیر سرور باید provider را روی national_payamak قرار دهد و نام کاربری، رمز/API Key و سرشماره را در تنظیمات خصوصی هاست وارد کند. برای آزمایش، ابتدا ارسال دستی را به شمارهٔ آزمایشی خود انجام دهید.</p>
+        <p className="text-sm">تنظیمات اتصال ملی‌پیامک از بخش «تنظیمات فروشگاه» مدیریت می‌شود؛ این بخش برای قالب‌ها، کمپین‌ها و ارسال پیامک است.</p>
       </Card>
       {templates.map((t) => (
         <Card key={t.event}>
@@ -1640,7 +1639,7 @@ function SmsScreen() {
       ))}
       <Card>
         <h3 className="mb-2 font-semibold">دریافت تاریخ تولد از پیامک</h3>
-        <p className="mb-2 text-xs text-muted">پس از تنظیم صندوق ورودی ملی‌پیامک در private/config.php، پاسخ‌های «تولد ۱۳۷۰/۰۵/۱۲» را دریافت و فقط برای شماره مشتری یکتای منطبق ثبت می‌کند. تاریخ تولد موجود بازنویسی نمی‌شود.</p>
+        <p className="mb-2 text-xs text-muted">پس از تکمیل تنظیم صندوق ورودی ملی‌پیامک در بخش تنظیمات، پاسخ‌های «تولد ۱۳۷۰/۰۵/۱۲» را دریافت و فقط برای شماره مشتری یکتای منطبق ثبت می‌کند. تاریخ تولد موجود بازنویسی نمی‌شود.</p>
         <Btn onClick={async () => {
           try {
             const result = await phpApi.syncBirthdaySmsInbox();
@@ -1848,6 +1847,25 @@ function AppearanceSettingsPanel(){
  {note?<p className="text-sm text-muted" role="status">{note}</p>:null}</Card>;
 }
 
+function SmsProviderSettingsPanel(){
+  const [draft,setDraft]=useState({enabled:false,username:"",password:"",sender:"",inbox_location:"",inbox_from:"",inbox_index:"1",inbox_count:50});
+  const [hasPassword,setHasPassword]=useState(false);
+  const [testPhone,setTestPhone]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [testing,setTesting]=useState(false);
+  const [note,setNote]=useState("");
+  useEffect(()=>{let active=true;void phpApi.getSmsSettings().then(result=>{if(!active)return;const s=result.settings;setDraft({enabled:s.enabled,username:s.username,password:"",sender:s.sender,inbox_location:s.inbox_location,inbox_from:s.inbox_from,inbox_index:s.inbox_index,inbox_count:s.inbox_count});setHasPassword(s.has_password);}).catch(error=>{if(active)setNote(error instanceof Error?error.message:"دریافت تنظیمات ملی‌پیامک انجام نشد");});return()=>{active=false;};},[]);
+  async function save(){setBusy(true);setNote("");try{const result=await phpApi.saveSmsSettings(draft);setHasPassword(result.settings.has_password);setDraft(old=>({...old,password:""}));setNote("تنظیمات ملی‌پیامک با امنیت در پوشه خصوصی سرور ذخیره شد.");}catch(error){setNote(error instanceof Error?error.message:"ذخیره تنظیمات انجام نشد");}finally{setBusy(false);}}
+  async function test(){if(!/^09[0-9]{9}$/.test(normalizeIranPhone(testPhone))){setNote("شماره آزمایشی معتبر وارد کنید.");return;}setTesting(true);setNote("");try{await phpApi.sendSms({to:normalizeIranPhone(testPhone),text:"پیامک آزمایشی اتصال 3Food POS"});setNote("درخواست ارسال آزمایشی با موفقیت به سرویس ارسال شد.");}catch(error){setNote(error instanceof Error?error.message:"ارسال آزمایشی ناموفق بود");}finally{setTesting(false);}}
+  return <Card className="space-y-3"><div><h3 className="font-semibold">اتصال ملی‌پیامک</h3><p className="mt-1 text-xs text-muted">اطلاعات اتصال فقط روی سرور و خارج از فضای عمومی سایت ذخیره می‌شود؛ رمز عبور هرگز به مرورگر بازگردانده نمی‌شود.</p></div>
+    <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.enabled} onChange={e=>setDraft({...draft,enabled:e.target.checked})}/>فعال‌سازی سرویس ملی‌پیامک</label>
+    <div className="grid gap-2 sm:grid-cols-2"><Field label="نام کاربری"><input className={inputCls} value={draft.username} onChange={e=>setDraft({...draft,username:e.target.value})} autoComplete="off"/></Field><Field label={hasPassword?"رمز/API Key (برای حفظ رمز فعلی خالی بگذارید)":"رمز/API Key"}><input className={inputCls} type="password" value={draft.password} onChange={e=>setDraft({...draft,password:e.target.value})} autoComplete="new-password"/></Field><Field label="شماره فرستنده"><input className={inputCls} value={draft.sender} onChange={e=>setDraft({...draft,sender:e.target.value})}/></Field><Field label="شناسه محل صندوق ورودی (اختیاری)"><input className={inputCls} inputMode="numeric" value={draft.inbox_location} onChange={e=>setDraft({...draft,inbox_location:e.target.value})}/></Field><Field label="شماره/فرستنده صندوق ورودی"><input className={inputCls} value={draft.inbox_from} onChange={e=>setDraft({...draft,inbox_from:e.target.value})}/></Field><Field label="شاخص شروع صندوق"><input className={inputCls} inputMode="numeric" value={draft.inbox_index} onChange={e=>setDraft({...draft,inbox_index:e.target.value})}/></Field><Field label="تعداد پیامک‌های دریافتی (۱ تا ۱۰۰)"><input className={inputCls} type="number" min="1" max="100" value={draft.inbox_count} onChange={e=>setDraft({...draft,inbox_count:Number(e.target.value)})}/></Field></div>
+    <div className="flex flex-wrap items-center gap-2"><Btn onClick={()=>void save()} disabled={busy}>{busy?"در حال ذخیره...":"ذخیره تنظیمات ملی‌پیامک"}</Btn><span className="text-xs text-muted">{hasPassword?"رمز در سرور ذخیره شده است.":"رمزی ذخیره نشده است."}</span></div>
+    <div className="border-t border-line pt-3"><h4 className="mb-2 text-sm font-semibold">آزمایش ارسال پیامک</h4><div className="flex flex-wrap gap-2"><input className={inputCls+" min-w-0 flex-1"} placeholder="شماره موبایل آزمایشی" value={testPhone} onChange={e=>setTestPhone(e.target.value)}/><Btn tone="ghost" disabled={testing||!draft.enabled} onClick={()=>void test()}>{testing?"در حال ارسال...":"ارسال پیامک آزمایشی"}</Btn></div></div>
+    {note?<p className="text-sm text-muted" role="status">{note}</p>:null}
+  </Card>;
+}
+
 function SettingsScreen() {
   const settings = usePos((s) => s.settings);
   const patchSettings = usePos((s) => s.patchSettings);
@@ -1942,6 +1960,7 @@ function SettingsScreen() {
     <div className="space-y-4">
       <PageHeading title="تنظیمات فروشگاه" description="ظاهر سامانه، اطلاعات فروشگاه، فیش‌پرینتر و پشتیبان‌گیری را پیکربندی کنید." />
       <AppearanceSettingsPanel />
+      <SmsProviderSettingsPanel />
       <Card className="grid gap-2 sm:grid-cols-2">
         <Field label="نام فروشگاه"><input className={inputCls} value={settings.shopName} onChange={(e) => patchSettings({ shopName: e.target.value })} onBlur={persistSettings} /></Field>
         <Field label="تلفن"><input className={inputCls} value={settings.phone} onChange={(e) => patchSettings({ phone: e.target.value })} onBlur={persistSettings} /></Field>
