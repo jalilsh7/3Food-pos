@@ -120,8 +120,10 @@ ALTER TABLE pos_recipes
   DROP FOREIGN KEY fk_recipes_variant,
   ADD COLUMN business_id BIGINT UNSIGNED NOT NULL AFTER id,
   ADD COLUMN public_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL AFTER business_id,
+  ADD COLUMN variant_scope_id BIGINT UNSIGNED GENERATED ALWAYS AS (COALESCE(variant_id, 0)) STORED AFTER variant_id,
   ADD UNIQUE KEY uq_recipes_business_id_id (business_id, id),
-  ADD KEY idx_recipes_business_product_variant_active (business_id, product_id, variant_id, is_active),
+  ADD UNIQUE KEY uq_recipes_business_product_variant (business_id, product_id, variant_scope_id),
+  ADD KEY idx_recipes_business_product_active (business_id, product_id, is_active),
   ADD CONSTRAINT fk_v3_recipes_business FOREIGN KEY (business_id) REFERENCES pos_businesses(id) ON DELETE RESTRICT;
 UPDATE pos_recipes SET public_id = UUID() WHERE public_id IS NULL;
 ALTER TABLE pos_recipes
