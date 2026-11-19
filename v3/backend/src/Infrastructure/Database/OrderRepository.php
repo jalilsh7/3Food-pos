@@ -71,7 +71,7 @@ final readonly class OrderRepository
     {
         $statement = $this->connection->prepare(
             'SELECT g.id, g.public_id, g.name, g.selection_type, g.min_select, g.max_select,
-                    pog.is_required
+                    pog.is_required, g.is_required_default
              FROM pos_product_option_groups pog
              INNER JOIN pos_option_groups g
                ON g.id = pog.option_group_id AND g.business_id = pog.business_id
