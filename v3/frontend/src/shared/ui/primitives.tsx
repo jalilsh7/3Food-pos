@@ -25,7 +25,7 @@ export function Button({
   );
 }
 
-export type SurfaceProps = HTMLAttributes<HTMLDivElement> & {
+export type SurfaceProps = HTMLAttributes<HTMLElement> & {
   padding?: "none" | "sm" | "md" | "lg";
 };
 
@@ -35,7 +35,7 @@ export function Surface({
   ...props
 }: SurfaceProps) {
   return (
-    <div
+    <section
       {...props}
       className={`ui-surface ui-surface--${padding} ${className}`.trim()}
     />
