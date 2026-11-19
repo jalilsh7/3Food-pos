@@ -470,6 +470,32 @@ try {
     check(($guestData['customerName'] ?? '') === 'Guest Test' && ($guestData['customerPhone'] ?? '') === '09120000000', 'bootstrap preserves guest identity');
     check(($guestData['payment'] ?? '') === 'online', 'bootstrap preserves guest payment method');
     $guestOrderId = (string)($guestOrder['json']['order']['id'] ?? '');
+
+    $orderPaymentKey = '44444444-4444-4444-8444-000000000011';
+    $orderPayment = api('POST', '/api/v1/terminal-payments', [
+        'terminalId' => 'ci-terminal', 'amount' => 1000, 'idempotencyKey' => $orderPaymentKey,
+    ], csrf_headers());
+    check($orderPayment['status'] === 201, 'create second terminal payment for order linking');
+    $orderPaymentId = (string)($orderPayment['json']['payment']['id'] ?? '');
+    $orderPaymentJob = api('GET', '/api/v1/terminal-agent/next', null, $agentHeaders);
+    check(($orderPaymentJob['json']['payment']['id'] ?? '') === $orderPaymentId, 'agent claims payment intended for order');
+    $orderPaymentResult = api('POST', '/api/v1/terminal-agent/payments/' . rawurlencode($orderPaymentId) . '/result', [
+        'status' => 'approved', 'amount' => 1000, 'traceNumber' => 'CI-TRACE-ORDER',
+    ], $agentHeaders);
+    check($orderPaymentResult['status'] === 200, 'agent approves second synthetic payment');
+    $cardOrder = api('POST', '/api/v1/orders', [
+        'idempotencyKey' => '44444444-4444-4444-8444-000000000012',
+        'items' => [['key' => 'ci-card-line', 'productId' => 'ci-product', 'qty' => 1, 'unitPrice' => 1000, 'optionIds' => []]],
+        'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 1000],
+        'guestName' => 'Terminal Test', 'guestPhone' => '09120000001', 'payment' => 'card',
+    ], csrf_headers());
+    check($cardOrder['status'] === 201, 'create card order after synthetic terminal approval');
+    $cardOrderId = (int)($cardOrder['json']['order']['id'] ?? 0);
+    $paymentAttached = api('POST', '/api/v1/terminal-payments/' . rawurlencode($orderPaymentId) . '/attach-order', ['orderId' => $cardOrderId], csrf_headers());
+    check($paymentAttached['status'] === 200 && (int)($paymentAttached['json']['order_id'] ?? 0) === $cardOrderId, 'approved payment attaches only to matching card order');
+    $paymentLinkedRead = api('GET', '/api/v1/terminal-payments/' . rawurlencode($orderPaymentId));
+    check((int)($paymentLinkedRead['json']['payment']['order_id'] ?? 0) === $cardOrderId, 'payment ledger retains linked order id');
+
     // Keep this order new until the cashier authorization check below.
 
     $smsLogWrite = api('POST', '/api/v1/records/sms_logs', ['item' => [
