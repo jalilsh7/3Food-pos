@@ -150,6 +150,8 @@ final readonly class UserManagementService
                 null,
                 $requestId,
                 $ipAddress,
+                $scope->businessId,
+                $branchScoped ? $scope->branchId : null,
             );
         });
 
