@@ -67,6 +67,21 @@ final readonly class SessionRepository
         return $session;
     }
 
+    public function replaceCsrfTokenHash(int $sessionId, string $csrfTokenHash): void
+    {
+        $statement = $this->connection->prepare(
+            'UPDATE app_user_sessions
+             SET csrf_token_hash = :csrf_token_hash
+             WHERE id = :session_id
+               AND revoked_at IS NULL
+               AND expires_at > UTC_TIMESTAMP(3)'
+        );
+        $statement->execute([
+            'csrf_token_hash' => $csrfTokenHash,
+            'session_id' => $sessionId,
+        ]);
+    }
+
     public function revokeByTokenHash(string $tokenHash): void
     {
         $statement = $this->connection->prepare(
