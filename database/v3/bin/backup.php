@@ -19,7 +19,10 @@ try{
  $pdo->exec('SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ');
  $pdo->exec('START TRANSACTION WITH CONSISTENT SNAPSHOT');
  $tables=$pdo->query("SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() AND table_type='BASE TABLE' ORDER BY table_name")->fetchAll(PDO::FETCH_COLUMN);
- if(count($tables)<61)throw new RuntimeException('Refusing backup: V3 schema table count is not 61.');
+ if(count($tables)<61)throw new RuntimeException('Refusing backup: V3 schema table count is below the 61-table baseline.');
+ $baselineQuery=$pdo->prepare('SELECT checksum FROM app_schema_migrations WHERE version=?');$baselineQuery->execute(['000_baseline']);$installedBaseline=$baselineQuery->fetchColumn();
+ $expectedBaseline=hash_file('sha256',dirname(__DIR__).'/schema.sql');
+ if(!is_string($installedBaseline)||!hash_equals($expectedBaseline,$installedBaseline))throw new RuntimeException('Refusing backup: installed V3 baseline checksum is missing or differs from this release.');
  $descriptors=[];
  foreach($tables as $table){
   $create=$pdo->query('SHOW CREATE TABLE '.PosV3DatabaseTools::quoteIdentifier($table))->fetch(PDO::FETCH_NUM);
@@ -34,7 +37,7 @@ try{
  if($gzip===false)throw new RuntimeException('Cannot create compressed backup file.');
  $write=static function(array $record)use($gzip):void{$line=json_encode($record,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE)."\n";if(gzwrite($gzip,$line)!==strlen($line))throw new RuntimeException('Short write while creating backup archive.');};
  $version=(string)$pdo->query('SELECT VERSION()')->fetchColumn();$engine=stripos($version,'mariadb')!==false?'mariadb':'mysql';
- $write(['type'=>'header','format'=>'persiacoder-pos-v3-jsonl-gzip','format_version'=>1,'created_at_utc'=>gmdate('c'),'engine'=>$engine,'server_version'=>$version,'table_count'=>count($tables),'baseline_sha256'=>hash_file('sha256',dirname(__DIR__).'/schema.sql')]);
+ $write(['type'=>'header','format'=>'persiacoder-pos-v3-jsonl-gzip','format_version'=>1,'created_at_utc'=>gmdate('c'),'engine'=>$engine,'server_version'=>$version,'table_count'=>count($tables),'baseline_sha256'=>$expectedBaseline]);
  foreach($descriptors as $descriptor)$write($descriptor);
  foreach($descriptors as $descriptor){
   $table=$descriptor['name'];$quotedColumns=implode(',',array_map([PosV3DatabaseTools::class,'quoteIdentifier'],$descriptor['columns']));
