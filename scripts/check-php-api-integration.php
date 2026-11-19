@@ -557,7 +557,7 @@ try {
     $guestOrder = api('POST', '/api/v1/orders', [
         'idempotencyKey' => '44444444-4444-4444-8444-444444444444',
         'items' => [['key' => 'ci-guest-line', 'productId' => 'ci-product', 'qty' => 1, 'unitPrice' => 1000, 'optionIds' => []]],
-        'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 1000],
+        'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 90, 'total' => 1090],
         'guestName' => 'Guest Test',
         'guestPhone' => '09120000000',
         'payment' => 'online',
