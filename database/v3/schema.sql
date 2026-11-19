@@ -138,6 +138,13 @@ CREATE TABLE pos_usage_limits (
   CONSTRAINT fk_usage_limit_actor FOREIGN KEY (updated_by) REFERENCES app_users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE pos_sequences (
+  sequence_key VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  current_value BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (sequence_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE pos_setting_history (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   setting_key VARCHAR(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
@@ -556,7 +563,6 @@ CREATE TABLE pos_payments (
   UNIQUE KEY uq_payment_terminal_tx (terminal_transaction_id),
   KEY idx_payments_order_status_time (order_id, status, created_at, id),
   UNIQUE KEY uq_payments_provider_reference (provider_code, provider_reference),
-  KEY idx_payments_provider_reference (provider_code, provider_reference),
   CONSTRAINT fk_payments_order FOREIGN KEY (order_id) REFERENCES pos_orders(id) ON DELETE RESTRICT,
   CONSTRAINT fk_payments_terminal_tx FOREIGN KEY (terminal_transaction_id) REFERENCES pos_terminal_transactions(id) ON DELETE RESTRICT,
   CONSTRAINT fk_payments_creator FOREIGN KEY (created_by) REFERENCES app_users(id) ON DELETE SET NULL,
@@ -810,7 +816,6 @@ CREATE TABLE pos_unit_conversions (
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
   UNIQUE KEY uq_unit_conversions_pair_effective (from_unit_id, to_unit_id, effective_from),
-  KEY idx_unit_conversions_pair_effective (from_unit_id, to_unit_id, effective_from),
   CONSTRAINT fk_unit_conversions_from FOREIGN KEY (from_unit_id) REFERENCES pos_units(id) ON DELETE RESTRICT,
   CONSTRAINT fk_unit_conversions_to FOREIGN KEY (to_unit_id) REFERENCES pos_units(id) ON DELETE RESTRICT,
   CONSTRAINT fk_unit_conversions_actor FOREIGN KEY (created_by) REFERENCES app_users(id) ON DELETE SET NULL,
