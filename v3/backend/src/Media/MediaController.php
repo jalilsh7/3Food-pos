@@ -96,4 +96,25 @@ final readonly class MediaController
         }
         return $scope;
     }
+
+    public function detachProductImage(Request $request, array $parameters): Response
+    {
+        return $this->idempotentResponse($this->media->detachProductImage(
+            $this->principal($request), $this->scope($request),
+            (string) ($parameters['productPublicId'] ?? ''),
+            $request->header('idempotency-key') ?? '', $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
+        ));
+    }
+
+    public function detachCategoryImage(Request $request, array $parameters): Response
+    {
+        return $this->idempotentResponse($this->media->detachCategoryImage(
+            $this->principal($request), $this->scope($request),
+            (string) ($parameters['categoryPublicId'] ?? ''),
+            $request->header('idempotency-key') ?? '', $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
+        ));
+    }
+
 }
