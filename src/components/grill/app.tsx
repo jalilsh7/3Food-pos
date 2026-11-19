@@ -150,7 +150,7 @@ export function GrillApp() {
   const [viewFallback] = allowed;
   return (
     <div className="pos-app min-h-screen bg-bg text-ink">
-      <header className="pos-topbar sticky top-0 z-30 flex min-w-0 items-center justify-between gap-3 px-4 py-3 sm:px-6">
+      <header className="pos-topbar sticky top-0 z-30 flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-3 sm:flex-nowrap sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           {appearance.logoUrl ? (
             <img src={appearance.logoUrl} alt="لوگوی فروشگاه" className="h-11 w-11 rounded-2xl border border-line bg-surface object-contain p-1" />
@@ -162,6 +162,7 @@ export function GrillApp() {
             <p className="text-[11px] font-medium text-muted sm:text-xs">سامانه مدیریت و فروش 3Food</p>
           </div>
         </div>
+        <HeaderClock />
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <div className="hidden text-left sm:block">
             <p className="text-sm font-bold">{user.display_name}</p>
@@ -174,6 +175,24 @@ export function GrillApp() {
         </div>
       </header>
       <PosWorkspace allowed={allowed} initialView={viewFallback?.id ?? "orders"} role={user.role} />
+    </div>
+  );
+}
+
+function HeaderClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return (
+    <div className="order-3 flex w-full items-center justify-center gap-3 rounded-xl border border-line bg-surface/80 px-3 py-2 text-center sm:order-none sm:w-auto sm:justify-start sm:border-0 sm:bg-transparent sm:px-0">
+      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted sm:text-sm">
+        <span aria-hidden="true">📅</span>
+        {formatPersianDate(now)}
+      </span>
+      <span className="h-4 w-px bg-line" />
+      <time className="text-sm font-extrabold tabular-nums" dateTime={now.toISOString()}>{formatPersianTime(now)}</time>
     </div>
   );
 }
@@ -649,7 +668,7 @@ function PosScreen() {
       const vars = orderVars(res.order, String(fresh?.points ?? 0));
       void pushSms("order_created", res.order.customerPhone, vars);
       if (shouldSendInvoiceSms && res.order.customerPhone) {
-        const invoice = [`${settings.shopName} - فاکتور سفارش ${res.order.number}`, ...res.order.lines.map(line => `${line.name} × ${line.qty}: ${money(line.unitPrice * line.qty)}`), `جمع: ${money(res.order.subtotal)}`, `تخفیف: ${money(res.order.tierDiscount + res.order.codeDiscount + res.order.pointsDiscount)}`, `مالیات: ${money(res.order.tax)}`, `مبلغ نهایی: ${money(res.order.total)}`, `تاریخ: ${new Date(res.order.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})}`].join("\n").slice(0, 950);
+        const invoice = [`${settings.shopName} - فاکتور سفارش ${res.order.number}`, ...res.order.lines.map(line => `${line.name} × ${line.qty}: ${money(line.unitPrice * line.qty)}`), `جمع: ${money(res.order.subtotal)}`, `تخفیف: ${money(res.order.tierDiscount + res.order.codeDiscount + res.order.pointsDiscount)}`, `مالیات: ${money(res.order.tax)}`, `مبلغ نهایی: ${money(res.order.total)}`, `تاریخ: ${formatPersianDateTime(res.order.createdAt)}`].join("\n").slice(0, 950);
         void postSms(res.order.customerPhone, invoice, "order_invoice", "");
       }
       if (res.order.pointsEarned) void pushSms("points_earned", res.order.customerPhone, vars);
@@ -778,6 +797,51 @@ function PosScreen() {
 
 function statusFa(s: Order["status"]) {
   return { new: "جدید", preparing: "در حال آماده‌سازی", ready: "آماده", delivered: "تحویل شد", cancelled: "لغو" }[s];
+}
+
+function formatPersianDate(value: Date | string | number = new Date()) {
+  return new Intl.DateTimeFormat("fa-IR-u-ca-persian-nu-arabext", {
+    timeZone: "Asia/Tehran", weekday: "long", year: "numeric", month: "long", day: "numeric",
+  }).format(new Date(value));
+}
+function formatPersianTime(value: Date | string | number = new Date()) {
+  return new Intl.DateTimeFormat("fa-IR-u-ca-persian-nu-arabext", {
+    timeZone: "Asia/Tehran", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).format(new Date(value));
+}
+function formatPersianDateTime(value: Date | string | number) {
+  return new Intl.DateTimeFormat("fa-IR-u-ca-persian-nu-arabext", {
+    timeZone: "Asia/Tehran", dateStyle: "medium", timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function JalaliDateInput({ value, onChange, required = false }: { value: string; onChange: (value: string) => void; required?: boolean }) {
+  const [draft, setDraft] = useState(() => value ? isoToJalali(value) : "");
+  useEffect(() => { setDraft(value ? isoToJalali(value) : ""); }, [value]);
+  return (
+    <input
+      className={inputCls}
+      type="text"
+      inputMode="numeric"
+      dir="ltr"
+      placeholder="۱۴۰۵/۰۱/۰۱"
+      value={draft}
+      required={required}
+      onChange={(event) => {
+        const next = event.target.value;
+        setDraft(next);
+        if (!next.trim()) onChange("");
+        else {
+          const parsed = jalaliToIso(next);
+          if (parsed) onChange(parsed);
+        }
+      }}
+      onBlur={() => {
+        if (!draft.trim()) onChange("");
+        else if (!jalaliToIso(draft)) setDraft(value ? isoToJalali(value) : "");
+      }}
+    />
+  );
 }
 
 function tehranDate(value:Date|string|number = new Date()){
@@ -953,7 +1017,7 @@ function OrdersScreen({ role }: { role: Role }) {
             <div>
               <p className="font-bold">#{o.number.toLocaleString("fa-IR")} — {o.customerName}</p>
               <p className="text-sm text-muted">{o.lines.map((l) => `${l.qty} ${l.name}`).join(" · ")} — {money(o.total)}</p>
-              <p className="text-xs text-muted">ثبت: {new Date(o.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})} · زمان سپری‌شده: {formatElapsed(clockNow-new Date(o.createdAt).getTime())}</p>
+              <p className="text-xs text-muted">ثبت: {formatPersianDateTime(o.createdAt)} · زمان سپری‌شده: {formatElapsed(clockNow-new Date(o.createdAt).getTime())}</p>
             </div>
             <span className={`order-status order-status-${o.status}`}>{statusFa(o.status)}</span>
           </div>
@@ -1182,7 +1246,7 @@ function CustomersScreen({ role }: { role: Role }) {
         }}>
           <input className={inputCls} placeholder="نام" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input className={inputCls} placeholder="موبایل" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          <input className={inputCls} type="date" value={form.birthday} onChange={(e) => setForm({ ...form, birthday: e.target.value })} />
+          <JalaliDateInput value={form.birthday} onChange={(birthday) => setForm({ ...form, birthday })} />
           <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={form.smsConsent} onChange={e=>setForm({...form,smsConsent:e.target.checked})}/>رضایت دریافت پیامک تبلیغاتی</label>
           <Btn type="submit">عضویت</Btn>
         </form>
@@ -1209,7 +1273,7 @@ function CustomersScreen({ role }: { role: Role }) {
             <div className="mt-3 space-y-2">
               {selectedOrders.map((order) => (
                 <div key={order.id} className="flex flex-wrap justify-between gap-2 border-t border-line pt-2 text-sm">
-                  <span>سفارش {order.number.toLocaleString("fa-IR")} — {new Date(order.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})}</span>
+                  <span>سفارش {order.number.toLocaleString("fa-IR")} — {formatPersianDateTime(order.createdAt)}</span>
                   <span className="font-semibold">{money(order.total)}{order.status === "cancelled" ? " — لغو شده" : ""}</span>
                 </div>
               ))}
@@ -1258,8 +1322,8 @@ function CodesScreen() {
                 <option value="bronze">برنز</option><option value="silver">نقره</option><option value="gold">طلا</option><option value="platinum">پلاتین</option>
               </select>
             </Field>
-            <Field label="از"><input className={inputCls} type="date" value={draft.startsAt} onChange={(e) => setDraft({ ...draft, startsAt: e.target.value })} /></Field>
-            <Field label="تا"><input className={inputCls} type="date" value={draft.endsAt} onChange={(e) => setDraft({ ...draft, endsAt: e.target.value })} /></Field>
+            <Field label="از"><JalaliDateInput value={draft.startsAt} onChange={(startsAt) => setDraft({ ...draft, startsAt })} /></Field>
+            <Field label="تا"><JalaliDateInput value={draft.endsAt} onChange={(endsAt) => setDraft({ ...draft, endsAt })} /></Field>
           </div>
           <div className="mt-3 flex gap-2"><Btn onClick={() => { if (draft.code) void saveCentralRecord("discounts", draft, () => saveDiscount(draft)).then((ok) => { if (ok) setDraft(null); }); }}>ذخیره</Btn><Btn tone="ghost" onClick={() => setDraft(null)}>بستن</Btn></div>
         </Card>
@@ -1446,7 +1510,7 @@ function ReportsScreen() {
   const allCustomerRows = Array.isArray(serverSummary?.all_customers) ? serverSummary.all_customers as {name:string;phone:string;totalSpent:number;visits:number;points:number}[] : topCustomerRows;
   const grossProfit = typeof serverSummary?.gross_profit === "number" ? serverSummary.gross_profit : reportSales - reportCost;
   function downloadExcel(){
-    const rows=[["نوع","عنوان","تعداد / جزئیات","مبلغ"],["فروش","جمع فروش خالص","",String(reportSales)],["سود و زیان","بهای تمام‌شده","",String(reportCost)],["سود و زیان","سود ناخالص","",String(grossProfit)],["مالی","تخفیف‌ها","",String(reportDiscounts)],["مالی","مالیات وصول‌شده","",String(reportTax)],["انبار","خرید مواد اولیه","",String(inventoryPurchases)],...dailyRows.map(([day,value])=>["روزانه",day,"",String(value)]),...monthlyRows.map(row=>["ماهانه",row.month,"",String(row.sales)]),...allProductRows.map(row=>["محصول",row.name,String(row.quantity),String(row.revenue)]),...productCategoryRows.map(row=>["دسته محصول",row.name,String(row.quantity),String(row.revenue)]),...payments.map(p=>["پرداخت",p.label,"",String(p.amount)]),...allCustomerRows.map(row=>["مشتری",row.name,row.phone,String(row.totalSpent)]),...inventoryRows.map(row=>["انبار",row.name,`${row.stock} / حداقل ${row.minStock} ${row.unit}`,String(row.value)])];
+    const rows=[["نوع","عنوان","تعداد / جزئیات","مبلغ"],["فروش","جمع فروش خالص","",String(reportSales)],["سود و زیان","بهای تمام‌شده","",String(reportCost)],["سود و زیان","سود ناخالص","",String(grossProfit)],["مالی","تخفیف‌ها","",String(reportDiscounts)],["مالی","مالیات وصول‌شده","",String(reportTax)],["انبار","خرید مواد اولیه","",String(inventoryPurchases)],...dailyRows.map(([day,value])=>["روزانه",isoToJalali(day),"",String(value)]),...monthlyRows.map(row=>["ماهانه",row.month.split("-").map(part=>Number(part).toLocaleString("fa-IR")).join("/"),"",String(row.sales)]),...allProductRows.map(row=>["محصول",row.name,String(row.quantity),String(row.revenue)]),...productCategoryRows.map(row=>["دسته محصول",row.name,String(row.quantity),String(row.revenue)]),...payments.map(p=>["پرداخت",p.label,"",String(p.amount)]),...allCustomerRows.map(row=>["مشتری",row.name,row.phone,String(row.totalSpent)]),...inventoryRows.map(row=>["انبار",row.name,`${row.stock} / حداقل ${row.minStock} ${row.unit}`,String(row.value)])];
     const url=URL.createObjectURL(createXlsxBlob(rows));const a=document.createElement("a");a.href=url;a.download="3food-pos-report.xlsx";a.click();URL.revokeObjectURL(url);
   }
   return (
@@ -1456,7 +1520,7 @@ function ReportsScreen() {
       {reportError?<p className="text-xs text-warn">گزارش زنده سرور در دسترس نیست: {reportError}</p>:null}
       <div className="grid gap-3 sm:grid-cols-4"><Card><p className="text-xs text-muted">فروش خالص سفارش‌ها</p><p className="text-lg font-bold">{money(reportSales)}</p></Card><Card><p className="text-xs text-muted">بهای تمام‌شده</p><p className="text-lg font-bold">{money(reportCost)}</p></Card><Card><p className="text-xs text-muted">سود ناخالص</p><p className="text-lg font-bold">{money(grossProfit)}</p></Card><Card><p className="text-xs text-muted">تعداد سفارش معتبر</p><p className="text-lg font-bold">{reportOrders.toLocaleString("fa-IR")}</p></Card></div>
       <div className="grid gap-3 sm:grid-cols-3"><Card><p className="text-xs text-muted">سفارش‌های لغوشده</p><p className="text-lg font-bold">{reportCancelled.toLocaleString("fa-IR")}</p></Card><Card><p className="text-xs text-muted">تخفیف‌ها</p><p className="text-lg font-bold">{money(reportDiscounts)}</p></Card><Card><p className="text-xs text-muted">مالیات وصول‌شده</p><p className="text-lg font-bold">{money(reportTax)}</p></Card></div>
-      <Card><h3 className="mb-3 font-semibold">نمودار فروش روزانه</h3>{dailyRows.length?<div className="space-y-3">{dailyRows.map(([day,total])=><div key={day} className="grid grid-cols-[84px_minmax(0,1fr)_auto] items-center gap-2 text-xs"><span>{new Date(day+"T12:00:00").toLocaleDateString("fa-IR",{month:"short",day:"numeric"})}</span><div className="h-3 overflow-hidden rounded-full bg-soft"><div className="h-full rounded-full bg-leaf" style={{width:`${Math.max(1,total/Math.max(1,...dailyRows.map(row=>row[1]))*100)}%`}}/></div><b>{money(total)}</b></div>)}</div>:<Empty text="در این بازه سفارشی وجود ندارد"/>}</Card>
+      <Card><h3 className="mb-3 font-semibold">نمودار فروش روزانه</h3>{dailyRows.length?<div className="space-y-3">{dailyRows.map(([day,total])=><div key={day} className="grid grid-cols-[84px_minmax(0,1fr)_auto] items-center gap-2 text-xs"><span>{formatPersianDate(day+"T12:00:00")}</span><div className="h-3 overflow-hidden rounded-full bg-soft"><div className="h-full rounded-full bg-leaf" style={{width:`${Math.max(1,total/Math.max(1,...dailyRows.map(row=>row[1]))*100)}%`}}/></div><b>{money(total)}</b></div>)}</div>:<Empty text="در این بازه سفارشی وجود ندارد"/>}</Card>
       <Card><h3 className="mb-3 font-semibold">نمودار فروش ماهانه</h3>{monthlyRows.length?<div className="space-y-3">{monthlyRows.map(row=><div key={row.month} className="grid grid-cols-[84px_minmax(0,1fr)_auto] items-center gap-2 text-xs"><span>{row.month}</span><div className="h-3 overflow-hidden rounded-full bg-soft"><div className="h-full rounded-full bg-leaf" style={{width:`${Math.max(1,row.sales/Math.max(1,...monthlyRows.map(item=>item.sales))*100)}%`}}/></div><b>{money(row.sales)}</b></div>)}</div>:<Empty text="داده ماهانه‌ای در این بازه وجود ندارد"/>}</Card>
       <Card><h3 className="mb-2 font-semibold">وضعیت انبار</h3><p className="text-sm">ارزش تقریبی موجودی: {money(Number((serverSummary?.inventory as {value?:number}|undefined)?.value??0))}</p><p className="text-sm">مواد اولیه زیر حد هشدار: {lowStockRows.length.toLocaleString("fa-IR")}</p>{lowStockRows.map(row=><p key={row.name} className="flex justify-between text-sm"><span>{row.name}</span><span>{row.stock} / حداقل {row.minStock} {row.unit}</span></p>)}</Card>
       <Card><h3 className="mb-2 font-semibold">مشتریان برتر بر اساس مجموع خرید</h3>{topCustomerRows.map(row=><p key={row.phone} className="flex flex-wrap justify-between gap-2 border-b border-line py-1 text-sm"><span>{row.name} · {row.phone}</span><b>{money(row.totalSpent)}</b></p>)}</Card>
@@ -1499,8 +1563,8 @@ function ExpensesScreen(){
     <Card className="space-y-3">
       <div><h3 className="font-semibold">گزارش هزینه‌ها</h3><p className="mt-1 text-xs text-muted">گزارش هزینه‌ها فقط در همین بخش نمایش داده می‌شود و از مرکز گزارش‌گیری فروش جداست.</p></div>
       <div className="grid gap-2 sm:grid-cols-2">
-        <Field label="از تاریخ"><input className={inputCls} type="date" value={reportFrom} max={reportTo} onChange={e=>setReportFrom(e.target.value)}/></Field>
-        <Field label="تا تاریخ"><input className={inputCls} type="date" value={reportTo} min={reportFrom} onChange={e=>setReportTo(e.target.value)}/></Field>
+        <Field label="از تاریخ"><JalaliDateInput value={reportFrom} onChange={setReportFrom} /></Field>
+        <Field label="تا تاریخ"><JalaliDateInput value={reportTo} onChange={setReportTo} /></Field>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl bg-bg p-3"><p className="text-xs text-muted">جمع هزینه در بازه انتخابی</p><p className="mt-1 text-xl font-bold">{money(reportTotal)}</p></div>
@@ -1511,10 +1575,10 @@ function ExpensesScreen(){
       </div>
     </Card>
     <div className="grid gap-3 sm:grid-cols-2">
-      <Card><h3 className="mb-3 font-semibold">ثبت هزینه جدید</h3><form className="grid gap-2" onSubmit={e=>void add(e)}><Field label="عنوان هزینه"><input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} required/></Field><Field label="مبلغ (تومان)"><input className={inputCls} type="number" min="1" value={amount||""} onChange={e=>setAmount(Number(e.target.value))} required/></Field><Field label="تاریخ"><input className={inputCls} type="date" value={date} onChange={e=>setDate(e.target.value)} required/></Field><Field label="گروه هزینه"><select className={inputCls} value={category} onChange={e=>setCategory(e.target.value)} required><option value="">انتخاب گروه</option>{categories.filter(item=>item.active!==false).map(item=><option key={item.id} value={item.name}>{item.name}</option>)}</select></Field><Field label="توضیحات"><input className={inputCls} value={note} onChange={e=>setNote(e.target.value)}/></Field><Btn type="submit">ثبت هزینه</Btn></form></Card>
+      <Card><h3 className="mb-3 font-semibold">ثبت هزینه جدید</h3><form className="grid gap-2" onSubmit={e=>void add(e)}><Field label="عنوان هزینه"><input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} required/></Field><Field label="مبلغ (تومان)"><input className={inputCls} type="number" min="1" value={amount||""} onChange={e=>setAmount(Number(e.target.value))} required/></Field><Field label="تاریخ"><JalaliDateInput value={date} onChange={setDate} required /></Field><Field label="گروه هزینه"><select className={inputCls} value={category} onChange={e=>setCategory(e.target.value)} required><option value="">انتخاب گروه</option>{categories.filter(item=>item.active!==false).map(item=><option key={item.id} value={item.name}>{item.name}</option>)}</select></Field><Field label="توضیحات"><input className={inputCls} value={note} onChange={e=>setNote(e.target.value)}/></Field><Btn type="submit">ثبت هزینه</Btn></form></Card>
       <Card><h3 className="mb-3 font-semibold">گروه‌های هزینه</h3><form className="flex gap-2" onSubmit={e=>void addCat(e)}><input className={inputCls} value={newCategory} onChange={e=>setNewCategory(e.target.value)} placeholder="نام گروه جدید"/><Btn type="submit">افزودن</Btn></form><div className="mt-3 flex flex-wrap gap-2">{categories.map(item=><span key={item.id} className="rounded-lg border border-line px-3 py-2 text-sm">{item.name}</span>)}</div></Card>
     </div>
-    <Card><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">سوابق هزینه‌ها</h3><select className={inputCls+" max-w-64"} value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">همه گروه‌ها</option>{categories.map(item=><option key={item.id} value={item.name}>{item.name}</option>)}</select></div>{visible.length?visible.map(item=><div key={item.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-line py-3 text-sm"><div><b>{item.title}</b><p className="text-xs text-muted">{item.category} · {new Date(item.date+"T12:00:00").toLocaleDateString("fa-IR")}{item.note?" · "+item.note:""}</p></div><div className="flex items-center gap-2"><b>{money(item.amount)}</b><Btn tone="ghost" onClick={()=>void edit(item)}>ویرایش</Btn><Btn tone="ghost" onClick={()=>void remove(item)}>حذف</Btn></div></div>):<Empty text="هنوز هزینه‌ای ثبت نشده است."/>}</Card>
+    <Card><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">سوابق هزینه‌ها</h3><select className={inputCls+" max-w-64"} value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">همه گروه‌ها</option>{categories.map(item=><option key={item.id} value={item.name}>{item.name}</option>)}</select></div>{visible.length?visible.map(item=><div key={item.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-line py-3 text-sm"><div><b>{item.title}</b><p className="text-xs text-muted">{item.category} · {formatPersianDate(item.date+"T12:00:00")}{item.note?" · "+item.note:""}</p></div><div className="flex items-center gap-2"><b>{money(item.amount)}</b><Btn tone="ghost" onClick={()=>void edit(item)}>ویرایش</Btn><Btn tone="ghost" onClick={()=>void remove(item)}>حذف</Btn></div></div>):<Empty text="هنوز هزینه‌ای ثبت نشده است."/>}</Card>
   </div>;
 }
 function SuppliersScreen(){
@@ -1599,7 +1663,7 @@ function SuppliersScreen(){
       <Field label="یادداشت"><input className={inputCls} value={purchase.note} onChange={e=>setPurchase({...purchase,note:e.target.value})}/></Field><div><Btn type="submit" disabled={busy}>ثبت خرید</Btn></div>
     </form></Card>
     {suppliers.map(s=><Card key={s.id}><div className="flex flex-wrap items-center justify-between gap-2"><div><b>{s.name}</b><p className="text-xs text-muted">{s.phone} · رابط: {s.contact||"—"}</p></div><div className="text-left"><b>{money(s.balance)} بدهی</b><div className="flex gap-1"><Btn tone="ghost" onClick={()=>void editSupplier(s)}>ویرایش</Btn><Btn tone="ghost" onClick={()=>void toggleSupplier(s)}>{s.active?"غیرفعال‌کردن":"فعال‌کردن"}</Btn><Btn tone="ghost" onClick={()=>void settle(s)} disabled={s.balance<=0}>ثبت تسویه</Btn></div></div></div>
-      <div className="mt-2 border-t border-line pt-2 text-sm">{purchases.filter(p=>p.supplierId===s.id).map(p=><p key={p.id} className="flex justify-between"><span>{p.title} · {new Date(p.date+"T12:00:00").toLocaleDateString("fa-IR",{timeZone:"Asia/Tehran"})}{p.quantity&&p.unitCost?` · ${p.quantity} × ${money(p.unitCost)}`:""}</span><span>{money(p.amount)} / پرداخت {money(p.paid)}</span></p>)}</div></Card>)}
+      <div className="mt-2 border-t border-line pt-2 text-sm">{purchases.filter(p=>p.supplierId===s.id).map(p=><p key={p.id} className="flex justify-between"><span>{p.title} · {formatPersianDate(p.date+"T12:00:00")}{p.quantity&&p.unitCost?` · ${p.quantity} × ${money(p.unitCost)}`:""}</span><span>{money(p.amount)} / پرداخت {money(p.paid)}</span></p>)}</div></Card>)}
     {busy?<p className="text-xs text-muted">در حال بارگذاری...</p>:null}
   </div>;
 }
