@@ -448,6 +448,20 @@ if ($method==='POST' && $path==='/terminal-payments') {
     }
 }
 
+if (preg_match('#^/terminal-payments/([a-f0-9-]{36})$#iD',$path,$m) && $method==='GET') {
+    $actor=require_role($pdo,['manager','cashier']);
+    $stmt=$pdo->prepare('SELECT p.id,p.terminal_id,p.order_id,p.amount,p.currency,p.status,p.external_transaction_id,p.trace_number,p.retrieval_reference_number,p.response_code,p.response_message,p.requested_at,p.completed_at,p.created_by,t.name AS terminal_name FROM pos_terminal_payments p JOIN pos_payment_terminals t ON t.id=p.terminal_id WHERE p.id=? LIMIT 1');
+    $stmt->execute([$m[1]]);
+    $payment=$stmt->fetch();
+    if(!is_array($payment)||($actor['role']!=='manager'&&(int)$payment['created_by']!==(int)$actor['id'])) {
+        json_response(['ok'=>false,'error'=>'terminal_payment_not_found','message'=>'تراکنش کارتخوان پیدا نشد'],404);
+    }
+    unset($payment['created_by']);
+    $payment['amount']=(int)$payment['amount'];
+    $payment['order_id']=$payment['order_id']===null?null:(int)$payment['order_id'];
+    json_response(['ok'=>true,'payment'=>$payment]);
+}
+
 if (preg_match('#^/terminal-payments/([a-f0-9-]{36})/attach-order$#iD',$path,$m) && $method==='POST') {
     $actor=require_role($pdo,['manager','cashier']);require_csrf();$body=request_json();
     $orderId=filter_var($body['orderId']??null,FILTER_VALIDATE_INT);
@@ -1852,6 +1866,15 @@ if (preg_match('#^/orders/(\d+)$#', $path, $editMatch) && $method === 'PATCH') {
         $pdo->rollBack();
         json_response(['ok' => false, 'error' => 'order_not_editable', 'message' => 'فقط سفارش‌های جدید قابل ویرایش هستند'], 409);
     }
+    $storedPaymentMethod = (string)($existingOrder['payment_method'] ?? 'cash');
+    if (array_key_exists('payment', $body) && (string)$body['payment'] !== $storedPaymentMethod) {
+        $pdo->rollBack();
+        json_response(['ok' => false, 'error' => 'payment_method_change_requires_new_transaction', 'message' => 'روش پرداخت سفارش پس از ثبت قابل تغییر نیست؛ پرداخت جدید را جداگانه و با تأیید معتبر ثبت کنید'], 409);
+    }
+    if ($storedPaymentMethod === 'card') {
+        $pdo->rollBack();
+        json_response(['ok' => false, 'error' => 'card_order_edit_requires_reconciliation', 'message' => 'سفارش پرداخت‌شده با کارتخوان قابل ویرایش نیست؛ ابتدا وضعیت مالی و برگشت وجه آن باید تعیین‌تکلیف شود'], 409);
+    }
     $oldRedemptionStmt = $pdo->prepare('SELECT id, discount_id FROM pos_discount_redemptions WHERE order_id = ? AND reversed_at IS NULL FOR UPDATE');
     $oldRedemptionStmt->execute([$id]);
     $oldRedemption = $oldRedemptionStmt->fetch();
@@ -2024,7 +2047,7 @@ if (preg_match('#^/orders/(\d+)$#', $path, $editMatch) && $method === 'PATCH') {
     $customerPhone = is_array($customerRecord) ? substr((string)($customerRecord['phone'] ?? ''), 0, 30) : null;
     $guestName = $customerId === '' ? trim((string)($body['guestName'] ?? 'مشتری')) : null;
     $guestPhone = $customerId === '' ? trim((string)($body['guestPhone'] ?? '')) : null;
-    $payment = (string)($body['payment'] ?? 'cash');
+    $payment = (string)($body['payment'] ?? $existingOrder['payment_method'] ?? 'cash');
     if (!in_array($payment, ['cash','card','online'], true) || utf8_length($guestName ?? '') > 160 || strlen($guestPhone ?? '') > 30) {
         json_response(['ok' => false, 'error' => 'invalid_order_details', 'message' => 'اطلاعات مشتری یا روش پرداخت معتبر نیست'], 422);
     }
