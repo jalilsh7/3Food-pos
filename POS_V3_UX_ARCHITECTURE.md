@@ -404,3 +404,13 @@
 - درخواست‌های GET/HEAD/OPTIONS بدون CSRF هستند؛ عملیات تغییردهنده state باید POST/PUT/PATCH/DELETE و دارای CSRF باشند.
 - SessionMiddleware و CsrfMiddleware به ترتیب احراز نشست و سپس بررسی CSRF را انجام می‌دهند؛ routeهای حساس بدون این زنجیره نباید ثبت شوند.
 - login/logout route و اتصال UI هنوز ساخته نشده‌اند.
+
+
+### BE-01D4 — قرارداد اتصال login و نشست رابط
+- Login به \`POST /api/v1/auth/login\` با \`Content-Type: application/json\` و body شامل username/password انجام می‌شود؛ موفقیت، پروفایل امن کاربر، CSRF token و expiry را برمی‌گرداند.
+- session token فقط در cookie HttpOnly می‌ماند؛ Frontend نباید آن را بخواند یا در localStorage/sessionStorage ذخیره کند.
+- CSRF token از پاسخ login یا \`GET /api/v1/auth/me\` گرفته و برای POST/PUT/PATCH/DELETE در \`X-CSRF-Token\` ارسال می‌شود؛ cookie \`pos_v3_csrf\` باید همراه درخواست باشد.
+- \`GET /api/v1/auth/me\` برای بازیابی نشست پس از refresh است؛ پاسخ 401 به معنی نیاز به ورود مجدد است.
+- Logout فقط با CSRF معتبر از \`POST /api/v1/auth/logout\` انجام می‌شود.
+- API auth پیاده شده اما UI هنوز به آن متصل نشده است؛ تا تکمیل RBAC و scope، endpointهای عملیاتی فرانت‌اند نباید فعال شوند.
+
