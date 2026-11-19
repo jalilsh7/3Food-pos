@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button, EmptyState, PageHeader, StatusBadge, Surface } from "../shared/ui/primitives";
+import { PosWorkspace } from "../features/pos/PosWorkspace";
 
 type ViewId = "overview" | "pos" | "orders" | "kitchen" | "catalog" | "inventory" | "customers" | "finance" | "settings";
 
@@ -199,7 +200,7 @@ export function App() {
         </header>
 
         <div className="content-area">
-          {activeView === "overview" ? <Overview /> : (
+          {activeView === "overview" ? <Overview /> : activeView === "pos" ? <PosWorkspace /> : (
             <div className="page-stack">
               <PageHeader
                 eyebrow={activeItem.description}
