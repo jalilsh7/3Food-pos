@@ -6,6 +6,7 @@ on:
       - migration/php-mysql
       - cleanup/remove-grok-dependencies
       - feature/3food-pos-next-release-v2
+      - release/v2-pre-terminal
   pull_request:
     branches:
       - migration/php-mysql
