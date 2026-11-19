@@ -19,6 +19,7 @@ import { Button, EmptyState, PageHeader, StatusBadge, Surface } from "../shared/
 import { PosWorkspace } from "../features/pos/PosWorkspace";
 import { OrderCenter } from "../features/orders/OrderCenter";
 import { KitchenBoard } from "../features/kitchen/KitchenBoard";
+import { CatalogWorkspace } from "../features/catalog/CatalogWorkspace";
 
 type ViewId = "overview" | "pos" | "orders" | "kitchen" | "catalog" | "inventory" | "customers" | "finance" | "settings";
 
@@ -202,7 +203,7 @@ export function App() {
         </header>
 
         <div className="content-area">
-          {activeView === "overview" ? <Overview /> : activeView === "pos" ? <PosWorkspace /> : activeView === "orders" ? <OrderCenter /> : activeView === "kitchen" ? <KitchenBoard /> : (
+          {activeView === "overview" ? <Overview /> : activeView === "pos" ? <PosWorkspace /> : activeView === "orders" ? <OrderCenter /> : activeView === "kitchen" ? <KitchenBoard /> : activeView === "catalog" ? <CatalogWorkspace /> : (
             <div className="page-stack">
               <PageHeader
                 eyebrow={activeItem.description}
