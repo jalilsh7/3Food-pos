@@ -473,3 +473,13 @@
 - `SessionRepository` ساخت، lookup نشست فعال، revoke یک نشست و revoke نشست‌های کاربر را با prepared statements انجام می‌دهد.
 - تست ایستای migration افزایشی به database check اضافه شد؛ engine test اجرا نشده و migration اجرا نشده است.
 - گام بعد: login throttling، user repository، password verification، session token issuance، cookie و CSRF middleware؛ سپس endpoint ورود/خروج.
+
+
+### BE-01D2 — سرویس اعتبارسنجی رمز و محدودسازی ورود
+- وضعیت: **سرویس پایه ثبت شد؛ اتصال HTTP، cookie، CSRF و تست DB واقعی باقی است.**
+- `POS_V3_APP_KEY` اجباری با حداقل ۳۲ بایت شد و bootstrap checks آن را اعتبارسنجی می‌کنند.
+- migration `002_create-auth-login-attempts.sql` و `LoginAttemptLimiter` اضافه شدند؛ پنج تلاش ناموفق در ۱۵ دقیقه موجب block پانزده‌دقیقه‌ای می‌شود.
+- `UserRepository`، `AuthenticationService` و DTO نشست احراز‌شده اضافه شدند؛ password_verify، dummy hash، رد user غیرفعال، password rehash و صدور token/CSRF تصادفی پیاده شد.
+- token خام در DB ذخیره نمی‌شود؛ session و CSRF hash در جدول نشست ثبت می‌شوند.
+- سرویس هنوز endpoint ندارد و تست MySQL/MariaDB اجرا نشده است.
+- گام بعد: middleware اعتبارسنجی session، cookie امن، CSRF enforcement، logout و بعد RBAC.
