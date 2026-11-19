@@ -106,6 +106,27 @@ final readonly class AuthenticationService
         );
     }
 
+    public function changePassword(int $userId, string $currentPassword, string $newPassword): void
+    {
+        if ($currentPassword === '' || strlen($currentPassword) > 4096
+            || strlen($newPassword) < 12 || strlen($newPassword) > 128) {
+            throw new HttpException(422, 'invalid_password_format', 'The new password must contain between 12 and 128 bytes.');
+        }
+
+        $user = $this->users->findActiveById($userId);
+        if ($user === null || !password_verify($currentPassword, (string) $user['password_hash'])) {
+            throw new HttpException(422, 'current_password_invalid', 'The current password is incorrect.');
+        }
+        if (password_verify($newPassword, (string) $user['password_hash'])) {
+            throw new HttpException(422, 'password_unchanged', 'The new password must be different from the current password.');
+        }
+
+        $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
+        $this->transactions->run(function (PDO $connection) use ($userId, $newHash): void {
+            $this->users->changePasswordAndRevokeSessions($userId, $newHash);
+        });
+    }
+
     private static function randomToken(): string
     {
         return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
