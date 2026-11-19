@@ -181,27 +181,64 @@ export function GrillApp() {
 function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; initialView: View; role: Role }) {
   const [view, setView] = useState<View>(initialView);
   const [showAllNav, setShowAllNav] = useState(false);
-  const visibleNav = showAllNav ? allowed : allowed.slice(0, 5);
+  const [visibleNavCount, setVisibleNavCount] = useState(5);
+  const navRef = useRef<HTMLElement | null>(null);
+  const navListRef = useRef<HTMLDivElement | null>(null);
   const current = allowed.some((n) => n.id === view) ? view : allowed[0]?.id ?? "orders";
+  useEffect(() => {
+    const nav = navRef.current;
+    const list = navListRef.current;
+    if (!nav || !list) return;
+    const measure = () => {
+      // On compact/mobile layouts the navigation is a horizontal strip, not a
+      // vertical sidebar; keep every permitted destination available there.
+      if (window.matchMedia("(max-width: 1023px)").matches) {
+        setVisibleNavCount(allowed.length);
+        return;
+      }
+      const heading = nav.querySelector<HTMLElement>(".pos-nav-heading");
+      const footer = nav.querySelector<HTMLElement>(".pos-nav-footer");
+      const firstItem = list.querySelector<HTMLElement>(".pos-nav-item");
+      if (!firstItem) return;
+      const navStyle = window.getComputedStyle(list);
+      const gap = Number.parseFloat(navStyle.rowGap || navStyle.gap) || 8;
+      const itemHeight = firstItem.getBoundingClientRect().height;
+      const reserved = (heading?.getBoundingClientRect().height ?? 0)
+        + (footer?.getBoundingClientRect().height ?? 0) + 16;
+      const available = Math.max(0, nav.getBoundingClientRect().height - reserved);
+      const count = Math.max(1, Math.floor((available + gap) / (itemHeight + gap)));
+      setVisibleNavCount(Math.min(allowed.length, count));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(nav);
+    observer.observe(list);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [allowed.length]);
+  const visibleNav = showAllNav ? allowed : allowed.slice(0, visibleNavCount);
   return (
     <div className="pos-layout mx-auto grid w-full max-w-[1600px] min-w-0 gap-4 px-3 py-4 sm:px-5 lg:grid-cols-[248px_minmax(0,1fr)] lg:gap-6 lg:px-7 lg:py-7">
-      <nav className="pos-nav min-w-0 lg:sticky lg:top-[92px] lg:flex lg:h-[calc(100vh-116px)] lg:flex-col">
-        <div className="hidden px-3 pb-4 pt-2 lg:block">
+      <nav ref={navRef} className="pos-nav min-w-0 lg:sticky lg:top-[92px] lg:flex lg:h-[calc(100vh-116px)] lg:flex-col">
+        <div className="pos-nav-heading hidden px-3 pb-4 pt-2 lg:block">
           <p className="text-[10px] font-bold tracking-[0.18em] text-muted">WORKSPACE</p>
           <p className="mt-1 text-sm font-extrabold">دسترسی سریع</p>
         </div>
-        <div className="pos-nav-list flex min-w-0 gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
+        <div ref={navListRef} className="pos-nav-list flex min-w-0 gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
           {visibleNav.map((n) => {
             const Icon = n.icon;
             const on = current === n.id;
             return (
-              <button key={n.id} type="button" aria-current={on ? "page" : undefined} onClick={() => setView(n.id)} className={`pos-nav-item inline-flex shrink-0 items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold ${on ? "is-active" : ""}`}>
+              <button key={n.id} type="button" aria-current={on ? "page" : undefined} onClick={() => { setView(n.id); if (allowed.findIndex((item) => item.id === n.id) >= visibleNavCount) setShowAllNav(true); }} className={`pos-nav-item inline-flex shrink-0 items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold ${on ? "is-active" : ""}`}>
                 <span className="grid h-8 w-8 place-items-center rounded-xl"><Icon size={18} strokeWidth={2} /></span>
                 <span>{n.label}</span>
               </button>
             );
           })}
-          {allowed.length > 5 ? (
+          {allowed.length > visibleNavCount ? (
             <button
               type="button"
               aria-expanded={showAllNav}
@@ -212,7 +249,7 @@ function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; ini
             </button>
           ) : null}
         </div>
-        <div className="mt-auto hidden rounded-2xl border border-line bg-surface/80 p-4 lg:block">
+        <div className="pos-nav-footer mt-auto hidden rounded-2xl border border-line bg-surface/80 p-4 lg:block">
           <p className="text-xs font-bold text-ink">3Food POS</p>
           <p className="mt-1 text-[11px] leading-6 text-muted">مدیریت یکپارچه فروش، سفارش و موجودی</p>
           <span className="mt-2 inline-flex items-center gap-2 text-[10px] font-semibold text-leaf"><span className="h-1.5 w-1.5 rounded-full bg-leaf" /> سامانه فعال</span>
