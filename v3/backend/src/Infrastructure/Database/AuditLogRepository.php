@@ -47,11 +47,12 @@ final readonly class AuditLogRepository
     public function listForBusiness(int $businessId, ?int $branchId, ?int $beforeId, int $limit): array
     {
         $sql = 'SELECT l.id, l.action, l.entity_type, l.entity_id, l.before_json, l.after_json,
-                       l.reason, l.request_id, l.ip_address, l.created_at, l.branch_id,
+                       l.reason, l.request_id, l.ip_address, l.created_at, b.public_id AS branch_public_id,
                        u.public_id AS actor_public_id, u.username AS actor_username,
                        u.display_name AS actor_display_name
                 FROM app_audit_logs l
                 LEFT JOIN app_users u ON u.id = l.actor_user_id
+                LEFT JOIN pos_branches b ON b.id = l.branch_id
                 WHERE l.business_id = :business_id';
         if ($branchId !== null) {
             $sql .= ' AND (l.branch_id IS NULL OR l.branch_id = :branch_id)';
@@ -85,7 +86,7 @@ final readonly class AuditLogRepository
                 'reason' => $row['reason'] === null ? null : (string) $row['reason'],
                 'request_id' => $row['request_id'] === null ? null : (string) $row['request_id'],
                 'ip_address' => $row['ip_address'] === null ? null : (string) $row['ip_address'],
-                'branch_id' => $row['branch_id'] === null ? null : (int) $row['branch_id'],
+                'branch_id' => $row['branch_public_id'] === null ? null : (string) $row['branch_public_id'],
                 'actor' => $row['actor_public_id'] === null ? null : [
                     'id' => (string) $row['actor_public_id'],
                     'username' => (string) $row['actor_username'],
