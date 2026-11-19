@@ -486,3 +486,12 @@
 
 
 - hardening تکمیلی BE-01D2: محدودسازی حساب و IP در bucketهای مستقل HMAC؛ پنج شکست برای حساب و سی شکست برای IP در ۱۵ دقیقه.
+
+
+### BE-01D3 — Session/CSRF middleware و cookie
+- وضعیت: **زیرساخت و guardها ثبت شدند؛ route ورود/خروج و اتصال middleware به endpointهای عملیاتی باقی است.**
+- SessionAuthenticator، SessionMiddleware، AuthenticatedPrincipal و CsrfGuard/CsrfMiddleware اضافه شدند.
+- Router از middleware pipeline با ترتیب قابل آزمون و Request immutable attributes پشتیبانی می‌کند.
+- cookie نشست با HttpOnly، SameSite=Lax، Path=/ و Secure در حالت امن صادر و در logout منقضی می‌شود.
+- تست guardها برای CSRF، cookie و ترتیب middleware اضافه شد؛ هنوز runner اجرایی نداشته است.
+- هیچ login/logout یا endpoint تجاری به middleware وصل نشده؛ مرحله بعدی ساخت controller و routeهای login/logout/me با Origin/CORS و secure cookie policy است.
