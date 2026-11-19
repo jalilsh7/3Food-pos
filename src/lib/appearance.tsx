@@ -12,7 +12,7 @@ function applyAppearance(s:AppearanceSettings){
  const fonts={byekan:'"IRANYekanWeb FarsiNum", Tahoma, sans-serif'};
  root.style.setProperty("--color-chili",safeColor(s.primary,DEFAULT_APPEARANCE.primary));root.style.setProperty("--color-leaf",resolvedSecondary);
  root.style.setProperty("--color-bg",dark?"#111a16":"#f3f7f3");root.style.setProperty("--color-surface",dark?"#1b2821":"#ffffff");root.style.setProperty("--color-ink",dark?"#f0f6f1":"#17251d");
- root.style.setProperty("--color-muted",dark?"#a6b8ac":"#68786d");root.style.setProperty("--color-line",dark?"#34483b":"#e0e9e1");
+ root.style.setProperty("--color-muted",dark?"#b2c2b7":"#68786d");root.style.setProperty("--color-line",dark?"#52685a":"#e0e9e1");root.style.setProperty("--color-price",dark?"#86efac":safeColor(s.primary,DEFAULT_APPEARANCE.primary));
  root.style.setProperty("--color-leaf-ink",dark?"#14362e":"#f0fdfa");root.style.setProperty("--color-warn",dark?"#fdba74":"#9a3412");root.style.setProperty("--color-warn-bg",dark?"#3b2a1f":"#fff1e6");
  root.style.setProperty("--color-overlay",dark?"rgb(0 0 0 / 0.64)":"rgb(23 37 29 / 0.42)");root.style.setProperty("--shadow-card",dark?"0 14px 36px rgb(0 0 0 / 0.22)":"0 12px 34px rgb(20 45 30 / 0.06)");
  root.style.setProperty("--radius-card",`${Math.min(28,Math.max(8,s.cardRadius))}px`);root.style.setProperty("--radius-2xl",`${Math.min(28,Math.max(8,s.cardRadius))}px`);
