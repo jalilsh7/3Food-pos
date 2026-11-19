@@ -8,6 +8,9 @@ export const APPEARANCE_PRESETS = [
  { id:"violet", name:"بنفش مدرن", description:"خاص، خلاق و امروزی", primary:"#6d28d9", secondary:"#c026d3" },
  { id:"teal", name:"فیروزه‌ای گرم", description:"تازه و پرانرژی با تأکید کهربایی", primary:"#0f766e", secondary:"#d97706" },
  { id:"graphite", name:"زغالی لوکس", description:"مینیمال و شیک با جزئیات طلایی", primary:"#334155", secondary:"#b45309" },
+ { id:"orange-white", name:"نارنجی و سفید", description:"مدرن، پرانرژی و روشن؛ مناسب محیط فروش", primary:"#ea580c", secondary:"#f59e0b", mode:"light" },
+ { id:"ice-blue", name:"آبی یخی", description:"سفید تمیز با آبی شفاف و حس تکنولوژیک", primary:"#2563eb", secondary:"#06b6d4", mode:"light" },
+ { id:"coral", name:"مرجانی و صورتی", description:"گرم، دوستانه و امروزی با زمینه روشن", primary:"#e11d48", secondary:"#f97316", mode:"light" },
 ] as const;
 type AppearanceContextValue={settings:AppearanceSettings;update:(patch:Partial<AppearanceSettings>)=>void;save:()=>Promise<void>;reset:()=>Promise<void>;uploadLogo:(file:File)=>Promise<void>;loading:boolean};
 const AppearanceContext=createContext<AppearanceContextValue|null>(null);
