@@ -28,4 +28,13 @@ try {
     $assert($exception->getMessage() !== 'Unsafe host must not be accepted.', 'Unsafe host was accepted.');
 }
 
+$migrationPath = $root . '/database/v3/migrations/001_create-user-sessions.sql';
+$migration = file_get_contents($migrationPath);
+if (!is_string($migration)) throw new RuntimeException('Session migration file is missing.');
+$assert(str_contains($migration, 'CREATE TABLE app_user_sessions'), 'Session table migration missing.');
+$assert(str_contains($migration, 'UNIQUE KEY uq_app_user_sessions_token_hash'), 'Session token hash must be unique.');
+$assert(str_contains($migration, 'REFERENCES app_users(id)'), 'Session user foreign key missing.');
+$assert(str_contains($migration, 'expires_at > created_at'), 'Session expiry constraint missing.');
+$assert(!preg_match('/\\b(DROP|TRUNCATE|ALTER)\\b/i', $migration), 'Session migration must remain additive.');
+
 echo "V3 backend database configuration checks passed.\n";
