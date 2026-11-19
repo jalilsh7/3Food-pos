@@ -1669,6 +1669,18 @@ function SmsScreen() {
         </Card>
       ))}
       <Card>
+        <h3 className="mb-2 font-semibold">دریافت تاریخ تولد از پیامک</h3>
+        <p className="mb-2 text-xs text-muted">پس از تنظیم صندوق ورودی ملی‌پیامک در private/config.php، پاسخ‌های «تولد ۱۳۷۰/۰۵/۱۲» را دریافت و فقط برای شماره مشتری یکتای منطبق ثبت می‌کند. تاریخ تولد موجود بازنویسی نمی‌شود.</p>
+        <Btn onClick={async () => {
+          try {
+            const result = await phpApi.syncBirthdaySmsInbox();
+            window.alert(`بررسی صندوق انجام شد. دریافت: ${result.received}، تاریخ تولد ثبت‌شده: ${result.birthdays_saved}، تکراری: ${result.duplicates}، نامنطبق: ${result.unmatched}، نادیده‌گرفته‌شده: ${result.ignored}`);
+          } catch (error) {
+            window.alert(error instanceof Error ? error.message : "دریافت پیامک انجام نشد.");
+          }
+        }}>دریافت و ثبت پاسخ‌های تولد</Btn>
+      </Card>
+      <Card>
         <h3 className="mb-2 font-semibold">ارسال دستی</h3>
         <div className="grid gap-2">
           <input className={inputCls} placeholder="شماره" value={manual.to} onChange={(e) => setManual({ ...manual, to: e.target.value })} />
