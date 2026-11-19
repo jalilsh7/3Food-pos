@@ -228,6 +228,25 @@ function require_role(PDO $pdo, array $roles): array {
     return $user;
 }
 
+
+function require_terminal_agent(PDO $pdo): array {
+    $token = (string)($_SERVER['HTTP_X_TERMINAL_AGENT_TOKEN'] ?? '');
+    if (!preg_match('/^[a-f0-9]{64}$/D', $token)) {
+        json_response(['ok'=>false,'error'=>'terminal_agent_unauthorized','message'=>'عامل کارتخوان مجاز نیست'],401);
+    }
+    $stmt=$pdo->prepare('SELECT id,name,enabled FROM app_terminal_agents WHERE token_hash=? LIMIT 1');
+    $stmt->execute([hash('sha256',$token)]);
+    $agent=$stmt->fetch();
+    if(!is_array($agent)||(int)$agent['enabled']!==1) {
+        json_response(['ok'=>false,'error'=>'terminal_agent_unauthorized','message'=>'عامل کارتخوان غیرفعال است'],401);
+    }
+    return $agent;
+}
+
+function valid_uuid(string $value): bool {
+    return preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iD',$value)===1;
+}
+
 function audit(PDO $pdo, ?int $actor, string $action, ?string $entityType = null, ?string $entityId = null, array $details = []): void {
     $stmt = $pdo->prepare('INSERT INTO app_audit_logs (actor_user_id, action, entity_type, entity_id, ip_address, details) VALUES (?, ?, ?, ?, ?, ?)');
     $stmt->execute([
@@ -291,6 +310,157 @@ if ($method === 'GET' && $path === '/health') {
     $pdo->query('SELECT 1');
     json_response(['ok' => true, 'service' => '3food-pos-php-api', 'database' => 'mysql']);
 }
+
+
+/* Network payment terminal management and local-agent queue. */
+if ($method === 'GET' && $path === '/terminal-agents') {
+    require_role($pdo,['manager']);
+    $rows=$pdo->query('SELECT id,name,enabled,agent_version,last_seen_at,created_at FROM app_terminal_agents ORDER BY created_at DESC')->fetchAll();
+    json_response(['ok'=>true,'items'=>$rows]);
+}
+if ($method === 'POST' && $path === '/terminal-agents') {
+    $actor=require_role($pdo,['manager']); require_csrf(); $body=request_json();
+    $name=trim((string)($body['name']??''));
+    if($name===''||utf8_length($name)>120) json_response(['ok'=>false,'error'=>'invalid_agent_name','message'=>'نام کامپیوتر صندوق معتبر نیست'],422);
+    $id=sprintf('%s-%s-%s-%s-%s',bin2hex(random_bytes(4)),bin2hex(random_bytes(2)),sprintf('%04x',(hexdec(bin2hex(random_bytes(2)))&0x0fff)|0x4000),sprintf('%04x',(hexdec(bin2hex(random_bytes(2)))&0x3fff)|0x8000),bin2hex(random_bytes(6)));
+    $token=bin2hex(random_bytes(32));
+    $stmt=$pdo->prepare('INSERT INTO app_terminal_agents (id,name,token_hash,created_by) VALUES (?,?,?,?)');
+    $stmt->execute([$id,$name,hash('sha256',$token),(int)$actor['id']]);
+    audit($pdo,(int)$actor['id'],'terminal_agent_created','terminal_agent',$id);
+    json_response(['ok'=>true,'agent'=>['id'=>$id,'name'=>$name,'enabled'=>true],'token'=>$token],201);
+}
+if (preg_match('#^/terminal-agents/([a-f0-9-]{36})/disable$#iD',$path,$m) && $method==='POST') {
+    $actor=require_role($pdo,['manager']); require_csrf();
+    $stmt=$pdo->prepare('UPDATE app_terminal_agents SET enabled=0 WHERE id=?'); $stmt->execute([$m[1]]);
+    if($stmt->rowCount()===0) json_response(['ok'=>false,'error'=>'agent_not_found','message'=>'عامل محلی پیدا نشد یا قبلاً غیرفعال شده است'],404);
+    audit($pdo,(int)$actor['id'],'terminal_agent_disabled','terminal_agent',$m[1]);
+    json_response(['ok'=>true]);
+}
+if ($method==='GET' && $path==='/terminals') {
+    require_role($pdo,['manager']);
+    $rows=$pdo->query('SELECT t.id,t.agent_id,t.local_terminal_key,t.name,t.provider_code,t.model_name,t.driver_code,t.connection_type,t.host,t.port,t.enabled,t.is_default,t.last_seen_at,a.name AS agent_name,a.enabled AS agent_enabled FROM pos_payment_terminals t JOIN app_terminal_agents a ON a.id=t.agent_id ORDER BY t.is_default DESC,t.name ASC')->fetchAll();
+    foreach($rows as &$row){$row['enabled']=(bool)$row['enabled'];$row['is_default']=(bool)$row['is_default'];$row['agent_enabled']=(bool)$row['agent_enabled'];$row['port']=(int)$row['port'];} unset($row);
+    json_response(['ok'=>true,'items'=>$rows]);
+}
+if ($method==='POST' && $path==='/terminals') {
+    $actor=require_role($pdo,['manager']); require_csrf(); $body=request_json();
+    $id=trim((string)($body['id']??'')); $agentId=strtolower(trim((string)($body['agentId']??'')));
+    $localKey=trim((string)($body['localTerminalKey']??'')); $name=trim((string)($body['name']??''));
+    $provider=preg_replace('/[^a-z0-9_-]/','',strtolower(trim((string)($body['providerCode']??'unknown'))));
+    $driver=preg_replace('/[^a-z0-9_-]/','',strtolower(trim((string)($body['driverCode']??'unconfigured'))));
+    $connection=(string)($body['connectionType']??'lan'); $host=trim((string)($body['host']??'')); $port=filter_var($body['port']??null,FILTER_VALIDATE_INT);
+    $model=trim((string)($body['modelName']??'')); $enabled=($body['enabled']??true)===true?1:0; $isDefault=($body['isDefault']??false)===true?1:0;
+    if(!preg_match('/^[A-Za-z0-9_-]{1,100}$/D',$id)||!valid_uuid($agentId)||!preg_match('/^[A-Za-z0-9_-]{1,100}$/D',$localKey)||
+       $name===''||utf8_length($name)>120||$provider===''||strlen($provider)>64||$driver===''||strlen($driver)>80||
+       !in_array($connection,['lan','wifi'],true)||filter_var($host,FILTER_VALIDATE_IP)===false||$port===false||$port<1||$port>65535||utf8_length($model)>120) {
+        json_response(['ok'=>false,'error'=>'invalid_terminal','message'=>'مشخصات کارتخوان معتبر نیست'],422);
+    }
+    $agentStmt=$pdo->prepare('SELECT id FROM app_terminal_agents WHERE id=? AND enabled=1 LIMIT 1');$agentStmt->execute([$agentId]);
+    if(!$agentStmt->fetchColumn()) json_response(['ok'=>false,'error'=>'terminal_agent_unavailable','message'=>'عامل محلی فعال پیدا نشد'],409);
+    try {
+        $pdo->beginTransaction();
+        if($isDefault===1) $pdo->exec('UPDATE pos_payment_terminals SET is_default=0');
+        $stmt=$pdo->prepare('INSERT INTO pos_payment_terminals (id,agent_id,local_terminal_key,name,provider_code,model_name,driver_code,connection_type,host,port,enabled,is_default,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE agent_id=VALUES(agent_id),local_terminal_key=VALUES(local_terminal_key),name=VALUES(name),provider_code=VALUES(provider_code),model_name=VALUES(model_name),driver_code=VALUES(driver_code),connection_type=VALUES(connection_type),host=VALUES(host),port=VALUES(port),enabled=VALUES(enabled),is_default=VALUES(is_default)');
+        $stmt->execute([$id,$agentId,$localKey,$name,$provider,$model!==''?$model:null,$driver,$connection,$host,$port,$enabled,$isDefault,(int)$actor['id']]);
+        audit($pdo,(int)$actor['id'],'terminal_saved','payment_terminal',$id,['provider'=>$provider,'driver'=>$driver,'enabled'=>$enabled===1]);
+        $pdo->commit();
+        json_response(['ok'=>true,'terminal'=>['id'=>$id,'agentId'=>$agentId,'name'=>$name,'providerCode'=>$provider,'driverCode'=>$driver,'connectionType'=>$connection,'host'=>$host,'port'=>$port,'enabled'=>$enabled===1,'isDefault'=>$isDefault===1]],201);
+    } catch(Throwable $e) {
+        if($pdo->inTransaction())$pdo->rollBack();
+        error_log('[3Food POS] Terminal save failed: '.$e->getMessage());
+        json_response(['ok'=>false,'error'=>'terminal_save_failed','message'=>'ذخیره کارتخوان انجام نشد'],500);
+    }
+}
+if (preg_match('#^/terminals/([A-Za-z0-9_-]{1,100})/disable$#D',$path,$m) && $method==='POST') {
+    $actor=require_role($pdo,['manager']); require_csrf();
+    $stmt=$pdo->prepare('UPDATE pos_payment_terminals SET enabled=0,is_default=0 WHERE id=?');$stmt->execute([$m[1]]);
+    if($stmt->rowCount()===0) json_response(['ok'=>false,'error'=>'terminal_not_found','message'=>'کارتخوان پیدا نشد یا غیرفعال است'],404);
+    audit($pdo,(int)$actor['id'],'terminal_disabled','payment_terminal',$m[1]);
+    json_response(['ok'=>true]);
+}
+if ($method==='POST' && $path==='/terminal-payments') {
+    $actor=require_role($pdo,['manager','cashier']); require_csrf(); $body=request_json();
+    $terminalId=trim((string)($body['terminalId']??''));$amount=filter_var($body['amount']??null,FILTER_VALIDATE_INT);
+    $key=strtolower(trim((string)($body['idempotencyKey']??'')));
+    if(!preg_match('/^[A-Za-z0-9_-]{1,100}$/D',$terminalId)||$amount===false||$amount<1||$amount>100000000000||!valid_uuid($key))
+        json_response(['ok'=>false,'error'=>'invalid_terminal_payment','message'=>'مبلغ یا شناسه پرداخت معتبر نیست'],422);
+    $existing=$pdo->prepare('SELECT id,terminal_id,amount,status FROM pos_terminal_payments WHERE idempotency_key=? LIMIT 1');$existing->execute([$key]);$old=$existing->fetch();
+    if(is_array($old)){
+        if($old['terminal_id']!==$terminalId||(int)$old['amount']!==$amount) json_response(['ok'=>false,'error'=>'terminal_payment_idempotency_conflict','message'=>'شناسه تکراری برای پرداخت دیگری استفاده شده است'],409);
+        json_response(['ok'=>true,'payment'=>['id'=>$old['id'],'status'=>$old['status'],'amount'=>(int)$old['amount']]]);
+    }
+    $device=$pdo->prepare('SELECT t.id,t.driver_code,t.enabled,a.enabled AS agent_enabled,a.last_seen_at FROM pos_payment_terminals t JOIN app_terminal_agents a ON a.id=t.agent_id WHERE t.id=? LIMIT 1');$device->execute([$terminalId]);$terminal=$device->fetch();
+    if(!is_array($terminal)||(int)$terminal['enabled']!==1||(int)$terminal['agent_enabled']!==1) json_response(['ok'=>false,'error'=>'terminal_unavailable','message'=>'کارتخوان فعال یا متصل نیست'],409);
+    if($terminal['driver_code']==='unconfigured') json_response(['ok'=>false,'error'=>'terminal_driver_unconfigured','message'=>'برای این مدل کارتخوان هنوز درایور تأییدشده نصب نشده است'],409);
+    if(!$terminal['last_seen_at']||strtotime((string)$terminal['last_seen_at'])<time()-90) json_response(['ok'=>false,'error'=>'terminal_agent_offline','message'=>'برنامه اتصال کارتخوان روی کامپیوتر صندوق آنلاین نیست'],409);
+    $paymentId=sprintf('%s-%s-%s-%s-%s',bin2hex(random_bytes(4)),bin2hex(random_bytes(2)),sprintf('%04x',(hexdec(bin2hex(random_bytes(2)))&0x0fff)|0x4000),sprintf('%04x',(hexdec(bin2hex(random_bytes(2)))&0x3fff)|0x8000),bin2hex(random_bytes(6)));
+    $insert=$pdo->prepare("INSERT INTO pos_terminal_payments (id,idempotency_key,terminal_id,amount,currency,status,created_by) VALUES (?,?,?,?,'IRT','queued',?)");
+    $insert->execute([$paymentId,$key,$terminalId,$amount,(int)$actor['id']]);
+    audit($pdo,(int)$actor['id'],'terminal_payment_queued','terminal_payment',$paymentId,['terminal_id'=>$terminalId,'amount'=>$amount]);
+    json_response(['ok'=>true,'payment'=>['id'=>$paymentId,'status'=>'queued','amount'=>$amount]],201);
+}
+if (preg_match('#^/terminal-payments/([a-f0-9-]{36})$#iD',$path,$m) && $method==='GET') {
+    $actor=require_role($pdo,['manager','cashier']);
+    $stmt=$pdo->prepare('SELECT p.id,p.terminal_id,p.order_id,p.amount,p.currency,p.status,p.external_transaction_id,p.trace_number,p.retrieval_reference_number,p.response_code,p.response_message,p.requested_at,p.completed_at,p.created_by,t.name AS terminal_name FROM pos_terminal_payments p JOIN pos_payment_terminals t ON t.id=p.terminal_id WHERE p.id=? LIMIT 1');
+    $stmt->execute([$m[1]]);$payment=$stmt->fetch();
+    if(!is_array($payment)||($actor['role']!=='manager'&&(int)$payment['created_by']!==(int)$actor['id'])) json_response(['ok'=>false,'error'=>'payment_not_found','message'=>'تراکنش پیدا نشد'],404);
+    foreach(['amount','created_by'] as $key) $payment[$key]=(int)$payment[$key];
+    unset($payment['created_by']);
+    json_response(['ok'=>true,'payment'=>$payment]);
+}
+if (preg_match('#^/terminal-payments/([a-f0-9-]{36})/cancel$#iD',$path,$m) && $method==='POST') {
+    $actor=require_role($pdo,['manager','cashier']);require_csrf();
+    $stmt=$pdo->prepare("UPDATE pos_terminal_payments SET status='cancelled',completed_at=UTC_TIMESTAMP() WHERE id=? AND status='queued' AND (created_by=? OR ?='manager')");
+    $stmt->execute([$m[1],(int)$actor['id'],$actor['role']]);
+    if($stmt->rowCount()!==1) json_response(['ok'=>false,'error'=>'payment_cannot_be_cancelled','message'=>'این تراکنش در حال اجرا یا تعیین‌تکلیف است؛ وضعیت آن را بررسی کنید'],409);
+    audit($pdo,(int)$actor['id'],'terminal_payment_cancelled','terminal_payment',$m[1]);
+    json_response(['ok'=>true,'status'=>'cancelled']);
+}
+if ($method==='GET' && $path==='/terminal-agent/next') {
+    $agent=require_terminal_agent($pdo);
+    try {
+        $pdo->beginTransaction();
+        $heartbeat=$pdo->prepare('UPDATE app_terminal_agents SET last_seen_at=UTC_TIMESTAMP() WHERE id=?');$heartbeat->execute([$agent['id']]);
+        $stmt=$pdo->prepare("SELECT p.id,p.amount,p.currency,p.status,t.id AS terminal_id,t.name AS terminal_name,t.provider_code,t.model_name,t.driver_code,t.connection_type,t.host,t.port,t.local_terminal_key FROM pos_terminal_payments p JOIN pos_payment_terminals t ON t.id=p.terminal_id WHERE t.agent_id=? AND t.enabled=1 AND p.status='queued' ORDER BY p.requested_at ASC LIMIT 1 FOR UPDATE");
+        $stmt->execute([$agent['id']]);$payment=$stmt->fetch();
+        if(is_array($payment)){
+            $update=$pdo->prepare("UPDATE pos_terminal_payments SET status='processing' WHERE id=? AND status='queued'");$update->execute([$payment['id']]);
+            $payment['status']='processing';$payment['amount']=(int)$payment['amount'];$payment['port']=(int)$payment['port'];
+        }
+        $pdo->commit();
+        json_response(['ok'=>true,'agent'=>['id'=>$agent['id'],'name'=>$agent['name']],'payment'=>$payment?:null]);
+    } catch(Throwable $e) {
+        if($pdo->inTransaction())$pdo->rollBack();
+        error_log('[3Food POS] Terminal agent poll failed: '.$e->getMessage());
+        json_response(['ok'=>false,'error'=>'terminal_agent_poll_failed'],500);
+    }
+}
+if (preg_match('#^/terminal-agent/payments/([a-f0-9-]{36})/result$#iD',$path,$m) && $method==='POST') {
+    $agent=require_terminal_agent($pdo);$body=request_json();
+    $status=(string)($body['status']??'');$amount=filter_var($body['amount']??null,FILTER_VALIDATE_INT);
+    if(!in_array($status,['approved','declined','cancelled','unknown'],true)||$amount===false||$amount<1)
+        json_response(['ok'=>false,'error'=>'invalid_terminal_result'],422);
+    $stmt=$pdo->prepare('SELECT p.id,p.amount,p.status,t.agent_id FROM pos_terminal_payments p JOIN pos_payment_terminals t ON t.id=p.terminal_id WHERE p.id=? LIMIT 1');
+    $stmt->execute([$m[1]]);$payment=$stmt->fetch();
+    if(!is_array($payment)||(string)$payment['agent_id']!==(string)$agent['id']) json_response(['ok'=>false,'error'=>'terminal_payment_not_found'],404);
+    if((int)$payment['amount']!==$amount) json_response(['ok'=>false,'error'=>'terminal_amount_mismatch'],409);
+    if($payment['status']!=='processing') {
+        if($payment['status']===$status) json_response(['ok'=>true,'status'=>$status,'replayed'=>true]);
+        json_response(['ok'=>false,'error'=>'terminal_payment_already_final','message'=>'وضعیت تراکنش قبلاً تعیین شده است'],409);
+    }
+    $external=substr(trim((string)($body['externalTransactionId']??'')),0,120);
+    $trace=substr(trim((string)($body['traceNumber']??'')),0,80);
+    $rrn=substr(trim((string)($body['retrievalReferenceNumber']??'')),0,80);
+    $code=substr(trim((string)($body['responseCode']??'')),0,40);
+    $message=substr(trim((string)($body['responseMessage']??'')),0,240);
+    if($status==='approved'&&$external===''&&$trace===''&&$rrn==='') json_response(['ok'=>false,'error'=>'terminal_approval_reference_missing'],422);
+    $safe=['providerCode'=>substr(preg_replace('/[^a-zA-Z0-9_-]/','',(string)($body['providerCode']??'')),0,64),'responseCode'=>$code];
+    $update=$pdo->prepare('UPDATE pos_terminal_payments SET status=?,external_transaction_id=?,trace_number=?,retrieval_reference_number=?,response_code=?,response_message=?,safe_response=?,completed_at=UTC_TIMESTAMP() WHERE id=? AND status=\'processing\'');
+    $update->execute([$status,$external!==''?$external:null,$trace!==''?$trace:null,$rrn!==''?$rrn:null,$code!==''?$code:null,$message!==''?$message:null,json_encode($safe,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$m[1]]);
+    audit($pdo,null,'terminal_payment_result','terminal_payment',$m[1],['status'=>$status,'trace_present'=>$trace!=='','rrn_present'=>$rrn!=='']);
+    json_response(['ok'=>true,'status'=>$status]);
+}
+
 
 if ($method === 'GET' && $path === '/preflight') {
     $requiredTables = [
