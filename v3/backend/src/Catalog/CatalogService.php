@@ -387,4 +387,185 @@ final readonly class CatalogService
 
 
 
+
+    /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
+    public function updateVariant(
+        AuthenticatedPrincipal $actor, BusinessScope $scope, string $publicId, array $payload,
+        string $key, string $requestId, string $ip,
+    ): array {
+        if (!self::isUuid($publicId)) {
+            throw new HttpException(422, 'variant_id_invalid', 'The variant identifier is invalid.');
+        }
+        $current = $this->catalog->findVariantDetails($scope->businessId, $publicId);
+        if ($current === null) {
+            throw new HttpException(404, 'variant_not_found', 'The variant was not found.');
+        }
+        $name = trim((string) ($payload['name'] ?? $current['name']));
+        $sku = array_key_exists('sku', $payload) ? $payload['sku'] : $current['sku'];
+        $delta = $payload['price_delta_amount'] ?? (int) $current['price_delta_amount'];
+        $active = $payload['is_active'] ?? ((int) $current['is_active'] === 1);
+        if ($name === '' || self::unicodeLength($name) > 140) {
+            throw new HttpException(422, 'variant_name_invalid', 'Variant name is invalid.');
+        }
+        if ($sku !== null && (!is_string($sku) || !preg_match('/^[A-Za-z0-9._-]{1,80}$/', $sku))) {
+            throw new HttpException(422, 'variant_sku_invalid', 'Variant SKU is invalid.');
+        }
+        if (!is_int($delta) || $delta < -9000000000000000 || $delta > 9000000000000000 || !is_bool($active)) {
+            throw new HttpException(422, 'variant_fields_invalid', 'Variant price delta or active flag is invalid.');
+        }
+        $variantId = (int) $current['id'];
+        $productId = (int) $current['product_id'];
+        $before = [
+            'name' => (string) $current['name'], 'sku' => $current['sku'],
+            'price_delta_amount' => (int) $current['price_delta_amount'],
+            'is_active' => (bool) $current['is_active'],
+        ];
+        $after = ['name' => $name, 'sku' => $sku, 'price_delta_amount' => $delta, 'is_active' => $active];
+        $fingerprint = hash('sha256', json_encode($after, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
+        return $this->idempotency->execute(
+            $actor->userId, $scope, 'catalog.variant.update', $key, $fingerprint,
+            function (PDO $db) use (
+                $scope, $variantId, $productId, $publicId, $name, $sku, $delta, $active,
+                $actor, $requestId, $ip, $before, $after,
+            ): array {
+                if ($sku !== null && $this->catalog->variantSkuExists($scope->businessId, $productId, $sku, $variantId)) {
+                    throw new HttpException(409, 'variant_sku_exists', 'Another variant of this product already uses this SKU.');
+                }
+                $this->catalog->updateVariant($scope->businessId, $variantId, $name, $sku, $delta, $active);
+                $this->audit->record(
+                    $actor->userId, 'catalog.variant.updated', 'product_variant', $publicId,
+                    $before, $after, null, $requestId, $ip, $scope->businessId,
+                );
+                return [
+                    'status' => 200,
+                    'body' => ['data' => ['variant' => ['id' => $publicId] + $after], 'meta' => (object) []],
+                ];
+            },
+        );
+    }
+
+    /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
+    public function updateOptionGroup(
+        AuthenticatedPrincipal $actor, BusinessScope $scope, string $publicId, array $payload,
+        string $key, string $requestId, string $ip,
+    ): array {
+        if (!self::isUuid($publicId)) {
+            throw new HttpException(422, 'option_group_id_invalid', 'The option group identifier is invalid.');
+        }
+        $current = $this->catalog->findOptionGroupDetails($scope->businessId, $publicId);
+        if ($current === null) {
+            throw new HttpException(404, 'option_group_not_found', 'The option group was not found.');
+        }
+        $name = trim((string) ($payload['name'] ?? $current['name']));
+        $type = $payload['selection_type'] ?? $current['selection_type'];
+        $min = $payload['min_select'] ?? (int) $current['min_select'];
+        $max = $payload['max_select'] ?? (int) $current['max_select'];
+        $required = $payload['is_required_default'] ?? ((int) $current['is_required_default'] === 1);
+        $active = $payload['is_active'] ?? ((int) $current['is_active'] === 1);
+        if ($name === '' || self::unicodeLength($name) > 140) {
+            throw new HttpException(422, 'option_group_name_invalid', 'Option group name is invalid.');
+        }
+        if (
+            !is_string($type) || !in_array($type, ['single', 'multiple'], true)
+            || !is_int($min) || !is_int($max) || $min < 0 || $max < 1 || $max < $min
+            || $max > 100 || ($type === 'single' && $max > 1)
+            || !is_bool($required) || !is_bool($active) || ($required && $min < 1)
+        ) {
+            throw new HttpException(422, 'option_group_rules_invalid', 'Option group selection rules are invalid.');
+        }
+        $groupId = (int) $current['id'];
+        $activeOptions = $this->catalog->countActiveOptions($scope->businessId, $groupId);
+        if ($max > $activeOptions || $min > $activeOptions) {
+            throw new HttpException(422, 'option_group_bounds_exceed_options', 'Selection bounds cannot exceed the number of active options.');
+        }
+        $before = [
+            'name' => (string) $current['name'], 'selection_type' => (string) $current['selection_type'],
+            'min_select' => (int) $current['min_select'], 'max_select' => (int) $current['max_select'],
+            'is_required_default' => (bool) $current['is_required_default'], 'is_active' => (bool) $current['is_active'],
+        ];
+        $after = [
+            'name' => $name, 'selection_type' => $type, 'min_select' => $min, 'max_select' => $max,
+            'is_required_default' => $required, 'is_active' => $active,
+        ];
+        $fingerprint = hash('sha256', json_encode($after, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
+        return $this->idempotency->execute(
+            $actor->userId, $scope, 'catalog.option-group.update', $key, $fingerprint,
+            function (PDO $db) use (
+                $scope, $groupId, $publicId, $name, $type, $min, $max, $required, $active,
+                $actor, $requestId, $ip, $before, $after,
+            ): array {
+                $this->catalog->updateOptionGroup($scope->businessId, $groupId, $name, $type, $min, $max, $required, $active);
+                $this->audit->record(
+                    $actor->userId, 'catalog.option_group.updated', 'option_group', $publicId,
+                    $before, $after, null, $requestId, $ip, $scope->businessId,
+                );
+                return [
+                    'status' => 200,
+                    'body' => ['data' => ['option_group' => ['id' => $publicId] + $after], 'meta' => (object) []],
+                ];
+            },
+        );
+    }
+
+    /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
+    public function updateOption(
+        AuthenticatedPrincipal $actor, BusinessScope $scope, string $publicId, array $payload,
+        string $key, string $requestId, string $ip,
+    ): array {
+        if (!self::isUuid($publicId)) {
+            throw new HttpException(422, 'option_id_invalid', 'The option identifier is invalid.');
+        }
+        $current = $this->catalog->findOptionDetails($scope->businessId, $publicId);
+        if ($current === null) {
+            throw new HttpException(404, 'option_not_found', 'The option was not found.');
+        }
+        $name = trim((string) ($payload['name'] ?? $current['name']));
+        $delta = $payload['price_delta_amount'] ?? (int) $current['price_delta_amount'];
+        $active = $payload['is_active'] ?? ((int) $current['is_active'] === 1);
+        if (
+            $name === '' || self::unicodeLength($name) > 140
+            || !is_int($delta) || $delta < -9000000000000000 || $delta > 9000000000000000
+            || !is_bool($active)
+        ) {
+            throw new HttpException(422, 'option_fields_invalid', 'Option name, price delta or active flag is invalid.');
+        }
+        $optionId = (int) $current['id'];
+        $groupId = (int) $current['group_id'];
+        $before = [
+            'name' => (string) $current['name'],
+            'price_delta_amount' => (int) $current['price_delta_amount'],
+            'is_active' => (bool) $current['is_active'],
+        ];
+        $after = ['name' => $name, 'price_delta_amount' => $delta, 'is_active' => $active];
+        $fingerprint = hash('sha256', json_encode($after, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
+        return $this->idempotency->execute(
+            $actor->userId, $scope, 'catalog.option.update', $key, $fingerprint,
+            function (PDO $db) use (
+                $scope, $optionId, $groupId, $publicId, $name, $delta, $active,
+                $actor, $requestId, $ip, $before, $after, $current,
+            ): array {
+                if ($active === false && (bool) $before['is_active']) {
+                    $groupPublicId = $this->catalog->findOptionGroupPublicIdById($scope->businessId, $groupId);
+                    $group = $groupPublicId === null ? null : $this->catalog->findOptionGroupDetails($scope->businessId, $groupPublicId);
+                    if ($group !== null) {
+                        $remaining = $this->catalog->countActiveOptions($scope->businessId, $groupId) - 1;
+                        if ($remaining < (int) $group['max_select'] || $remaining < (int) $group['min_select']) {
+                            throw new HttpException(409, 'option_group_selection_bounds', 'This option cannot be disabled while the group selection bounds depend on it.');
+                        }
+                    }
+                }
+                $this->catalog->updateOption($scope->businessId, $optionId, $name, $delta, $active);
+                $this->audit->record(
+                    $actor->userId, 'catalog.option.updated', 'product_option', $publicId,
+                    $before, $after, null, $requestId, $ip, $scope->businessId,
+                );
+                return [
+                    'status' => 200,
+                    'body' => ['data' => ['option' => ['id' => $publicId] + $after], 'meta' => (object) []],
+                ];
+            },
+        );
+    }
+
+
 }
