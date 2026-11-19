@@ -34,3 +34,13 @@ MySQL/MariaDB برای بسیاری از دستورات DDL implicit commit ان
 - دو bucket مستقل با HMAC از نام کاربری و IP نگهداری می‌شوند؛ کلید HMAC از متغیر محرمانه `POS_V3_APP_KEY` می‌آید و شناسه خام در جدول ذخیره نمی‌شود.
 - سیاست فعلی: پنج تلاش ناموفق برای هر حساب یا ۳۰ تلاش از هر IP در پنجره ۱۵ دقیقه‌ای، سپس محدودسازی همان bucket برای ۱۵ دقیقه.
 - این migration نیز فقط ثبت شده و هنوز اجرا نشده است.
+
+
+## Migration 004 — idempotency
+- فایل `004_create-idempotency-keys.sql` جدول کلیدهای idempotency را با scope actor/business/branch/endpoint ایجاد می‌کند.
+- کلید خام ذخیره نمی‌شود؛ hash کلید و fingerprint درخواست نگهداری می‌شوند. پاسخ موفق با AES-256-GCM رمز می‌شود و به `POS_V3_APP_KEY` وابسته است.
+- تمام writeهای دامنه و ثبت پاسخ باید در transaction واحد انجام شوند. Migration فقط ثبت شده و اجرا نشده است.
+
+## Migration 005 — business/branch audit scope
+- فایل `005_add-audit-business-scope.sql` فیلدهای business_id و branch_id را به audit اضافه می‌کند.
+- FK مرکب تضمین می‌کند branch متعلق به business ثبت‌شده باشد. migration فقط ثبت شده و اجرا نشده است.
