@@ -49,6 +49,7 @@
 
 - POS_V3_DB_HOST، POS_V3_DB_PORT، POS_V3_DB_NAME، POS_V3_DB_USER، POS_V3_DB_PASSWORD
 - POS_V3_ADMIN_USERNAME، POS_V3_ADMIN_PASSWORD، POS_V3_ADMIN_NAME
+- POS_V3_BACKUP_HMAC_KEY (کلید محرمانه حداقل ۳۲ بایت برای امضای اصالت backup؛ برای restore همان کلید لازم است)
 
 رمز اولیه مدیر باید حداقل ۱۴ کاراکتر باشد؛ رمز به صورت hash ذخیره می‌شود و تغییر رمز در اولین ورود اجباری است. اجرای installer از HTTP مسدود است و فعلاً فقط CLI دارد.
 
@@ -66,10 +67,13 @@ workflow جداگانه v3-database-validation.yml برای MySQL 8.4 و MariaDB
 
 ## پشتیبان‌گیری و بازیابی CLI
 
-- تهیه نسخه پشتیبان: php database/v3/bin/backup.php /secure/path/pos-v3-backup.jsonl.gz
-- بازیابی فقط روی دیتابیس کاملاً خالی: php database/v3/bin/restore.php /secure/path/pos-v3-backup.jsonl.gz
+- ابتدا یک کلید مستقل و تصادفی بسازید: `openssl rand -hex 32`؛ آن را در secret manager یا environment امن نگهداری کنید و هرگز در Git، log یا فایل backup قرار ندهید.
+- پیش از هر دو دستور backup و restore مقدار `POS_V3_BACKUP_HMAC_KEY` را با همان کلید امن تنظیم کنید؛ حداقل ۳۲ بایت لازم است.
+- تهیه نسخه پشتیبان: `php database/v3/bin/backup.php /secure/path/pos-v3-backup.jsonl.gz`
+- بازیابی فقط روی دیتابیس کاملاً خالی: `php database/v3/bin/restore.php /secure/path/pos-v3-backup.jsonl.gz`
 - فرمت نسخه پشتیبان JSON Lines فشرده با gzip است؛ ساختار جدول‌ها و داده‌ها را ثبت می‌کند، ستون‌های generated را دوباره محاسبه می‌کند و هنگام بازیابی تعداد ردیف‌ها و روابط FK را بررسی می‌کند.
 - فایل خروجی با مجوز 0600 ساخته می‌شود و مسیر داخل php-backend/public رد می‌شود. مسیر پشتیبان باید خارج از web root و ترجیحاً روی فضای جداگانه باشد.
+- همه رکوردهای آرشیو با HMAC-SHA256 احراز اصالت می‌شوند؛ restore قبل از اجرای هر DDL یا تغییر مقصد، امضا را کامل بررسی می‌کند و آرشیو ناقص، دست‌کاری‌شده یا دارای کلید متفاوت را رد می‌کند. کلید HMAC باید جدا از فایل backup نگهداری و در restore نیز در دسترس باشد.
 - بازیابی فقط بین دو سرور از یک خانواده engine (MySQL به MySQL یا MariaDB به MariaDB) مجاز است. مقصد باید خالی باشد. شکست در میانه restore دیتابیس نیمه‌ساخته باقی می‌گذارد؛ مقصد disposable را حذف و از نو ایجاد کنید.
 - archive به‌صورت پیش‌فرض رمزنگاری نمی‌شود و ممکن است داده مشتری/فروش داشته باشد؛ آن را خارج از سرور و بدون رمزنگاری ذخیره نکنید. رمزنگاری و انتقال امن باید در لایه storage/ops انجام شود.
 
