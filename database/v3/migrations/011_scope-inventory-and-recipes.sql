@@ -112,6 +112,13 @@ ALTER TABLE pos_product_variants
   ADD UNIQUE KEY uq_variants_business_product_id (business_id, product_id, id);
 
 ALTER TABLE pos_recipes
+  ADD COLUMN public_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL AFTER business_id;
+UPDATE pos_recipes SET public_id = UUID() WHERE public_id IS NULL;
+ALTER TABLE pos_recipes
+  MODIFY COLUMN public_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  ADD UNIQUE KEY uq_recipes_public_id (public_id);
+
+ALTER TABLE pos_recipes
   DROP FOREIGN KEY fk_recipes_product,
   DROP FOREIGN KEY fk_recipes_variant,
   ADD COLUMN business_id BIGINT UNSIGNED NOT NULL AFTER id,
@@ -122,6 +129,13 @@ ALTER TABLE pos_recipes
     REFERENCES pos_products(business_id, id) ON DELETE RESTRICT,
   ADD CONSTRAINT fk_v3_recipes_variant_product_scope FOREIGN KEY (business_id, product_id, variant_id)
     REFERENCES pos_product_variants(business_id, product_id, id) ON DELETE RESTRICT;
+
+ALTER TABLE pos_recipe_versions
+  ADD COLUMN public_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL AFTER business_id;
+UPDATE pos_recipe_versions SET public_id = UUID() WHERE public_id IS NULL;
+ALTER TABLE pos_recipe_versions
+  MODIFY COLUMN public_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  ADD UNIQUE KEY uq_recipe_versions_public_id (public_id);
 
 ALTER TABLE pos_recipe_versions
   DROP FOREIGN KEY fk_recipe_versions_recipe,
@@ -157,3 +171,28 @@ ALTER TABLE pos_order_item_recipe_lines
     REFERENCES pos_stock_items(business_id, id) ON DELETE RESTRICT,
   ADD CONSTRAINT fk_v3_order_item_recipe_location_scope FOREIGN KEY (business_id, branch_id, location_id)
     REFERENCES pos_stock_locations(business_id, branch_id, id) ON DELETE RESTRICT;
+
+
+-- Shared reference units and deterministic base-unit conversion factors.
+INSERT IGNORE INTO pos_units (code, name, dimension, decimal_places) VALUES
+  ('mg', 'میلی‌گرم', 'mass', 3),
+  ('g', 'گرم', 'mass', 3),
+  ('kg', 'کیلوگرم', 'mass', 3),
+  ('ml', 'میلی‌لیتر', 'volume', 3),
+  ('l', 'لیتر', 'volume', 3),
+  ('pcs', 'عدد', 'count', 0);
+
+INSERT IGNORE INTO pos_unit_conversions (from_unit_id, to_unit_id, factor, effective_from, created_by)
+SELECT f.id, t.id, x.factor, '1970-01-01 00:00:00.000', NULL
+FROM (
+  SELECT 'mg' AS from_code, 'g' AS to_code, 0.001 AS factor
+  UNION ALL SELECT 'g', 'mg', 1000
+  UNION ALL SELECT 'g', 'kg', 0.001
+  UNION ALL SELECT 'kg', 'g', 1000
+  UNION ALL SELECT 'mg', 'kg', 0.000001
+  UNION ALL SELECT 'kg', 'mg', 1000000
+  UNION ALL SELECT 'ml', 'l', 0.001
+  UNION ALL SELECT 'l', 'ml', 1000
+) x
+INNER JOIN pos_units f ON f.code = x.from_code
+INNER JOIN pos_units t ON t.code = x.to_code;
