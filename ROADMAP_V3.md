@@ -483,3 +483,6 @@
 - token خام در DB ذخیره نمی‌شود؛ session و CSRF hash در جدول نشست ثبت می‌شوند.
 - سرویس هنوز endpoint ندارد و تست MySQL/MariaDB اجرا نشده است.
 - گام بعد: middleware اعتبارسنجی session، cookie امن، CSRF enforcement، logout و بعد RBAC.
+
+
+- hardening تکمیلی BE-01D2: محدودسازی حساب و IP در bucketهای مستقل HMAC؛ پنج شکست برای حساب و سی شکست برای IP در ۱۵ دقیقه.
