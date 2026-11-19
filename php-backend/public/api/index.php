@@ -14,6 +14,12 @@ if (!is_file($configPath)) {
     json_response(['ok' => false, 'error' => 'server_not_configured', 'message' => 'تنظیمات سرور انجام نشده است'], 503);
 }
 $config = require $configPath;
+$smsConfigPath = dirname(__DIR__, 2) . '/private/sms-config.php';
+if (is_file($smsConfigPath)) {
+    $storedSms = require $smsConfigPath;
+    if (is_array($storedSms)) $config['sms'] = array_merge($config['sms'] ?? [], $storedSms);
+}
+
 require_once dirname(__DIR__, 2) . '/private/birthday-sms.php';
 require_once dirname(__DIR__, 2) . '/private/birthday-sms-inbox.php';
 if (!is_array($config) || strlen((string)($config['app_key'] ?? '')) < 32) {
@@ -2196,6 +2202,72 @@ if ($method === 'GET' && $path === '/reports/summary') {
     json_response(['ok'=>true,'range'=>['from'=>$from,'to'=>$to],'sales'=>$sales,'orders'=>$count,'cancelled'=>$cancelled,'average_order'=>$count?intdiv($sales,$count):0,'tax_collected'=>$taxCollected,'discounts'=>$discountsTotal,'cost_of_goods'=>$cost,'inventory_purchases'=>$inventoryPurchases,'gross_profit'=>$sales-$cost,'daily'=>array_map(static fn($d,$v)=>['date'=>$d,'sales'=>$v],array_keys($daily),array_values($daily)),'monthly'=>array_map(static fn($m,$v)=>['month'=>$m,'sales'=>$v],array_keys($monthly),array_values($monthly)),'payments'=>$byPayment,'products'=>array_slice(array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),0,100),'all_products'=>array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),'product_categories'=>array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byCategory),array_values($byCategory)),'inventory'=>['value'=>round($inventoryValue),'low_stock_count'=>count($lowStock)],'inventory_items'=>$allInventory,'low_stock'=>$lowStock,'top_customers'=>array_slice($customerRows,0,20),'all_customers'=>$customerRows]);
 }
 
+
+
+if ($path === '/sms/settings' && $method === 'GET') {
+    require_role($pdo, ['manager']);
+    $sms = $config['sms'] ?? [];
+    json_response(['ok' => true, 'settings' => [
+        'enabled' => ($sms['provider'] ?? 'none') === 'national_payamak',
+        'username' => (string)($sms['username'] ?? ''),
+        'sender' => (string)($sms['sender'] ?? ''),
+        'inbox_location' => isset($sms['inbox_location']) ? (string)$sms['inbox_location'] : '',
+        'inbox_from' => (string)($sms['inbox_from'] ?? ''),
+        'inbox_index' => (string)($sms['inbox_index'] ?? '1'),
+        'inbox_count' => (int)($sms['inbox_count'] ?? 50),
+        'has_password' => trim((string)($sms['password'] ?? '')) !== '',
+    ]]);
+}
+
+if ($path === '/sms/settings' && $method === 'POST') {
+    require_role($pdo, ['manager']);
+    require_csrf();
+    $body = request_json();
+    $enabled = ($body['enabled'] ?? false) === true;
+    $username = trim((string)($body['username'] ?? ''));
+    $password = trim((string)($body['password'] ?? ''));
+    $sender = trim((string)($body['sender'] ?? ''));
+    $locationRaw = trim((string)($body['inbox_location'] ?? ''));
+    $inboxFrom = trim((string)($body['inbox_from'] ?? ''));
+    $inboxIndex = trim((string)($body['inbox_index'] ?? '1'));
+    $inboxCount = (int)($body['inbox_count'] ?? 50);
+    $currentSms = $config['sms'] ?? [];
+    if ($password === '') $password = (string)($currentSms['password'] ?? '');
+    if (($enabled && ($username === '' || $password === '' || $sender === ''))
+        || strlen($username) > 160 || strlen($password) > 512 || strlen($sender) > 40
+        || ($locationRaw !== '' && (!ctype_digit($locationRaw) || (int)$locationRaw > 99))
+        || !preg_match('/^[0-9]{1,12}$/D', $inboxIndex) || $inboxCount < 1 || $inboxCount > 100
+        || strlen($inboxFrom) > 40) {
+        json_response(['ok' => false, 'error' => 'invalid_sms_settings', 'message' => 'اطلاعات تنظیمات ملی‌پیامک معتبر یا کامل نیست'], 422);
+    }
+    $smsToStore = [
+        'provider' => $enabled ? 'national_payamak' : 'none',
+        'username' => $username,
+        'password' => $password,
+        'sender' => $sender,
+        'inbox_location' => $locationRaw === '' ? null : (int)$locationRaw,
+        'inbox_from' => $inboxFrom,
+        'inbox_index' => $inboxIndex,
+        'inbox_count' => $inboxCount,
+    ];
+    $privateDir = dirname(__DIR__, 2) . '/private';
+    $target = $privateDir . '/sms-config.php';
+    $temporary = $target . '.tmp';
+    $source = "<?php\ndeclare(strict_types=1);\nreturn " . var_export($smsToStore, true) . ";\n";
+    if (!is_dir($privateDir) || file_put_contents($temporary, $source, LOCK_EX) === false || !rename($temporary, $target)) {
+        if (is_file($temporary)) @unlink($temporary);
+        error_log('[3Food POS] Unable to persist private SMS configuration');
+        json_response(['ok' => false, 'error' => 'sms_settings_save_failed', 'message' => 'ذخیره تنظیمات پیامک روی سرور انجام نشد؛ دسترسی نوشتن پوشه private را بررسی کنید'], 500);
+    }
+    @chmod($target, 0600);
+    $config['sms'] = $smsToStore;
+    json_response(['ok' => true, 'settings' => [
+        'enabled' => $enabled, 'username' => $username, 'sender' => $sender,
+        'inbox_location' => $locationRaw, 'inbox_from' => $inboxFrom,
+        'inbox_index' => $inboxIndex, 'inbox_count' => $inboxCount,
+        'has_password' => $password !== '',
+    ]]);
+}
 
 if ($method === 'POST' && $path === '/sms/birthday-sync') {
     $actor = require_role($pdo, ['manager']);
