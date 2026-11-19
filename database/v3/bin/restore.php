@@ -15,6 +15,7 @@ try{
  if(!$header||($header['type']??'')!=='header'||($header['format']??'')!=='persiacoder-pos-v3-jsonl-gzip'||($header['format_version']??0)!==1)throw new RuntimeException('Unsupported or invalid V3 backup format.');
  $serverVersion=(string)$pdo->query('SELECT VERSION()')->fetchColumn();$destinationEngine=stripos($serverVersion,'mariadb')!==false?'mariadb':'mysql';
  if(($header['engine']??'')!==$destinationEngine)throw new RuntimeException('Backup engine family differs from destination database.');
+ if(!is_string($header['baseline_sha256']??null)||!preg_match('/^[a-f0-9]{64}$/i',$header['baseline_sha256']))throw new RuntimeException('Backup baseline checksum metadata is invalid.');
  $tables=[];$sawRows=false;
  while(($record=$readRecord())!==null){
   if(($record['type']??'')==='row'){$sawRows=true;continue;}
