@@ -510,3 +510,12 @@
 - fulfillment_method اختیاری برای POS/manual/phone/storefront از مقادیر dine_in/takeaway/delivery است؛ table به dine_in و takeaway به takeaway نگاشت می‌شود.
 - برای delivery، recipient_name، recipient_phone و delivery_address object اجباری است؛ UI مبلغ delivery fee را محاسبه یا ارسال نکند، چون در این نسخه صفر و در نسخه بعدی server-calculated خواهد بود.
 
+
+### BE-02B — قرارداد سالن و میز
+- GET /api/v1/dining سالن‌ها و میزها را برمی‌گرداند؛ هر میز status برابر available یا occupied و در صورت اشغال session_id دارد.
+- ایجاد سالن: POST /api/v1/dining/areas با name و sort_order؛ نیازمند settings.manage و Idempotency-Key.
+- ایجاد میز: POST /api/v1/dining/areas/{areaPublicId}/tables با code و capacity؛ نیازمند settings.manage و Idempotency-Key.
+- بازکردن نشست: POST /api/v1/dining/tables/{tablePublicId}/sessions؛ نیازمند orders.create و Idempotency-Key؛ نشست باز برای هر میز یکتا است.
+- بستن نشست: PATCH /api/v1/dining/sessions/{sessionPublicId}/close؛ نیازمند orders.update و Idempotency-Key؛ سفارش‌های ناتمام یا تکمیل‌شده پرداخت‌نشده مانع بستن نشست هستند.
+- سفارش table باید table_session_id نشست باز همان شعبه را بفرستد؛ fulfillment_method به dine_in نگاشت می‌شود.
+
