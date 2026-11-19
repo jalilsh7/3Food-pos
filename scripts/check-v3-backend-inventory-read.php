@@ -1,13 +1,13 @@
 <?php
 declare(strict_types=1);
 
-use PersiaCoder\\PosV3\\Infrastructure\\Database\\InventoryRepository;
+use PersiaCoder\PosV3\Infrastructure\Database\InventoryRepository;
 
 $root = dirname(__DIR__);
 spl_autoload_register(static function (string $class) use ($root): void {
-    $prefix = 'PersiaCoder\\\\PosV3\\\\';
+    $prefix = 'PersiaCoder\\PosV3\\';
     if (!str_starts_with($class, $prefix)) return;
-    $file = $root . '/v3/backend/src/' . str_replace('\\\\', DIRECTORY_SEPARATOR, substr($class, strlen($prefix))) . '.php';
+    $file = $root . '/v3/backend/src/' . str_replace('\\', DIRECTORY_SEPARATOR, substr($class, strlen($prefix))) . '.php';
     if (is_file($file)) require $file;
 });
 
@@ -61,4 +61,4 @@ $assert(($ledger->bindings[':location_id']['value'] ?? null) === 53, 'Ledger loc
 $assert(($ledger->bindings[':before_id']['value'] ?? null) === 900, 'Ledger cursor binding mismatch.');
 $assert(($ledger->bindings[':limit']['value'] ?? null) === 26, 'Ledger limit binding mismatch.');
 
-echo "V3 inventory read scope checks passed.\\n";
+echo "V3 inventory read scope checks passed.\n";
