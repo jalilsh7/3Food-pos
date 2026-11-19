@@ -26,7 +26,7 @@ try{
   if(!str_starts_with(strtoupper(ltrim($createSql)),'CREATE TABLE'))throw new RuntimeException("Invalid CREATE TABLE statement for {$name}.");
   $tables[$name]=['columns'=>$columns,'create_sql'=>$createSql,'expected_rows'=>$rowCount,'actual_rows'=>0,'insert'=>null];
  }
- if(count($tables)!==(int)($header['table_count']??0)||count($tables)!==61)throw new RuntimeException('Backup table count does not match V3 baseline.');
+ if(count($tables)!==(int)($header['table_count']??0)||count($tables)<61)throw new RuntimeException('Backup table count does not match V3 baseline.');
  gzrewind($gzip);$readRecord();
  for($i=0;$i<count($tables);$i++)$readRecord();
  $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
