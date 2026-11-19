@@ -13,7 +13,7 @@ final readonly class PrivateMediaStorage
     {
         if ($configuredPath === '' || strlen($configuredPath) > 512
             || (!str_starts_with($configuredPath, DIRECTORY_SEPARATOR)
-                && preg_match('/^[A-Za-z]:[\\\\\\/]/', $configuredPath) !== 1)) {
+                && !str_starts_with($configuredPath, DIRECTORY_SEPARATOR)) {
             throw new RuntimeException('Private media storage path must be absolute.');
         }
         if (is_link($configuredPath)) {
@@ -24,7 +24,7 @@ final readonly class PrivateMediaStorage
         }
         @chmod($configuredPath, 0700);
         $root = realpath($configuredPath);
-        if (!is_string($root) || !is_dir($root) || !is_writable($root)) {
+        if (!is_string($root) || $root === DIRECTORY_SEPARATOR || !is_dir($root) || !is_writable($root)) {
             throw new RuntimeException('Private media storage directory is not accessible.');
         }
 
