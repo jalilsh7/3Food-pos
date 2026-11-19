@@ -431,3 +431,13 @@
 - UI فقط نقش‌هایی را پیشنهاد دهد که Backend مجاز می‌داند؛ Backend تمام permissionهای نقش هدف را با permissionهای actor مقایسه می‌کند.
 - پس از setup، UI باید business_id و branch_id عمومی برگشتی را برای headerهای X-Business-ID و X-Branch-ID نگه دارد؛ این شناسه‌ها secret نیستند و مجوز را ایجاد نمی‌کنند.
 
+
+### BE-01E3 — قرارداد API مدیریت کاربر، نقش و شعبه
+- GET /api/v1/access/users و GET /api/v1/access/branches/users با scope business یا branch فهرست کاربران همان محدوده را می‌دهند.
+- POST /api/v1/access/users کاربر business-level و POST /api/v1/access/branches/users کاربر branch-level می‌سازد؛ body شامل username، display_name و role_code است.
+- رمز موقت فقط در پاسخ اولیه ایجاد کاربر نمایش داده می‌شود؛ UI باید آن را یک‌بار به مدیر نشان دهد، امکان کپی امن بدهد و پس از خروج از صفحه نگه ندارد.
+- GET /api/v1/access/branches و POST /api/v1/access/branches برای فهرست و ایجاد شعبه استفاده می‌شوند؛ body ساخت شعبه شامل name و code و timezone اختیاری است.
+- GET /api/v1/access/permissions فهرست permission codeها را می‌دهد؛ GET /api/v1/access/roles نقش‌ها را با permissionهایشان برمی‌گرداند.
+- POST /api/v1/access/roles نقش سفارشی با code، name و permissions می‌سازد؛ PATCH /api/v1/access/roles/{roleCode} نقش سفارشی را ویرایش می‌کند. نقش‌های system فقط خواندنی‌اند.
+- UI نباید خودش نقش/permission را معتبر فرض کند؛ خطاهای 403 و 422 از Backend مرجع نهایی هستند.
+
