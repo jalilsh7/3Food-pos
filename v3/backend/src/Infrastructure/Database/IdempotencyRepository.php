@@ -63,19 +63,16 @@ final readonly class IdempotencyRepository
         }
 
         if (!$created && $row['response_status'] === null
+            && hash_equals((string) $row['request_hash'], $requestHash)
             && strtotime((string) $row['lease_expires_at'] . ' UTC') <= time()) {
             $lease = $this->connection->prepare(
                 'UPDATE app_idempotency_keys
-                 SET lease_expires_at = DATE_ADD(UTC_TIMESTAMP(3), INTERVAL 5 MINUTE),
-                     request_hash = :request_hash
+                 SET lease_expires_at = DATE_ADD(UTC_TIMESTAMP(3), INTERVAL 5 MINUTE)
                  WHERE id = :id AND response_status IS NULL
                    AND lease_expires_at <= UTC_TIMESTAMP(3)'
             );
-            $lease->execute(['request_hash' => $requestHash, 'id' => $id]);
+            $lease->execute(['id' => $id]);
             $created = $lease->rowCount() === 1;
-            if ($created) {
-                $row['request_hash'] = $requestHash;
-            }
         }
 
         return [
