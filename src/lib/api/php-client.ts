@@ -110,6 +110,7 @@ export const phpApi = {
   disableTerminal:(id:string)=>request<ApiEnvelope<Record<string,never>>>(`/terminals/${encodeURIComponent(id)}/disable`,{method:"POST",csrf:true,body:{}}),
   createTerminalPayment:(input:{terminalId:string;amount:number;idempotencyKey:string})=>request<ApiEnvelope<{payment:{id:string;status:TerminalPaymentStatus;amount:number}}>>("/terminal-payments",{method:"POST",csrf:true,body:input}),
   getTerminalPayment:(id:string)=>request<ApiEnvelope<{payment:TerminalPayment}>>(`/terminal-payments/${encodeURIComponent(id)}`),
+  listPendingTerminalPayments:()=>request<ApiEnvelope<{items:TerminalPayment[]}>>("/terminal-payments/pending"),
   cancelTerminalPayment:(id:string)=>request<ApiEnvelope<{status:TerminalPaymentStatus}>>(`/terminal-payments/${encodeURIComponent(id)}/cancel`,{method:"POST",csrf:true,body:{}}),
   attachTerminalPayment:(id:string,orderId:number)=>request<ApiEnvelope<{order_id:number}>>(`/terminal-payments/${encodeURIComponent(id)}/attach-order`,{method:"POST",csrf:true,body:{orderId}}),
 
