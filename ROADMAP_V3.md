@@ -270,3 +270,18 @@
 - baseline فقط برای دیتابیس تازه است؛ هیچ تغییری در `php-backend/schema.sql` یا دیتابیس runtime انجام نشد.
 - بررسی ایستا: 61 دستور CREATE TABLE شناسایی شد؛ ارجاع ستون‌های index و FK، وجود جدول/ستون مقصد، تطابق نوع FK و یکتایی نام constraintها بررسی شد؛ هیچ FLOAT/DOUBLE در schema یافت نشد.
 - وضعیت: **baseline و ابزارهای CLI اولیه ثبت شده‌اند؛ تست MySQL/MariaDB، نصب تازه، migration، backup/restore و race tests هنوز با موتور واقعی تأیید نشده‌اند.**
+
+
+---
+
+## 2026-11-19 — بسته DB-05: پیش‌بررسی غیرمخرب نصب V3
+
+- وضعیت: **در حال انجام؛ ابزار preflight ثبت شده، اما installer گرافیکی و پذیرش واقعی هنوز باقی است.**
+- فایل جدید: `database/v3/bin/preflight.php`.
+- کنترل‌ها: PHP 8.2+، افزونه‌های PDO MySQL/JSON/zlib، اتصال و نسخه موتور پشتیبانی‌شده، charset دیتابیس utf8mb4، خالی بودن مقصد و خوانایی/checksum baseline.
+- ابزار CLI است، رمز یا secret را چاپ نمی‌کند و هیچ schema یا داده‌ای را تغییر نمی‌دهد؛ در صورت شکست exit code غیرصفر می‌دهد.
+- workflow دیتابیس V3 اکنون preflight را پیش از اجرای installer در دیتابیس disposable اجرا می‌کند.
+- مستندات `database/v3/README-FA.md` به‌روزرسانی شد.
+- تست واقعی PHP/MySQL/MariaDB هنوز اجرا نشده؛ CI همچنان به مانع تخصیص runner ثبت‌شده در Issue #6 وابسته است.
+- محدودیت: preflight فعلی مجوزهای کامل DDL، محدودیت‌های PHP تحت وب، مسیرهای ذخیره‌سازی امن، تنظیمات cPanel/LiteSpeed و نصب گرافیکی را بررسی نمی‌کند.
+- گام بعد: طراحی و ساخت installer گرافیکی با token یک‌بارمصرف، CSRF، قفل نصب، جلوگیری از نصب مجدد، ذخیره امن config خارج از web root و recovery بدون حذف خودکار دیتابیس.
