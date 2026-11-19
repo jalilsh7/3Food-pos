@@ -477,25 +477,11 @@ if (preg_match('#^/terminal-payments/([a-f0-9-]{36})/attach-order$#iD',$path,$m)
 
 if ($method==='GET' && $path==='/terminal-payments/pending') {
     $actor=require_role($pdo,['manager','cashier']);
-    if($actor['role']==='manager'){
-        $stmt=$pdo->query("SELECT p.id,p.terminal_id,p.amount,p.currency,p.status,p.requested_at,p.completed_at,t.name AS terminal_name FROM pos_terminal_payments p JOIN pos_payment_terminals t ON t.id=p.terminal_id WHERE p.status IN ('queued','processing','unknown') OR (p.status='approved' AND p.order_id IS NULL) ORDER BY p.requested_at DESC LIMIT 20");
-    }else{
-        $stmt=$pdo->prepare("SELECT p.id,p.terminal_id,p.amount,p.currency,p.status,p.requested_at,p.completed_at,t.name AS terminal_name FROM pos_terminal_payments p JOIN pos_payment_terminals t ON t.id=p.terminal_id WHERE p.created_by=? AND (p.status IN ('queued','processing','unknown') OR (p.status='approved' AND p.order_id IS NULL)) ORDER BY p.requested_at DESC LIMIT 10");
-        $stmt->execute([(int)$actor['id']]);
-    }
+    $stmt=$pdo->prepare("SELECT p.id,p.terminal_id,p.amount,p.currency,p.status,p.requested_at,p.completed_at,t.name AS terminal_name FROM pos_terminal_payments p JOIN pos_payment_terminals t ON t.id=p.terminal_id WHERE p.created_by=? AND (p.status IN ('queued','processing','unknown') OR (p.status='approved' AND p.order_id IS NULL)) ORDER BY p.requested_at DESC LIMIT 10");
+    $stmt->execute([(int)$actor['id']]);
     $rows=$stmt->fetchAll();
     foreach($rows as &$row)$row['amount']=(int)$row['amount'];unset($row);
     json_response(['ok'=>true,'items'=>$rows]);
-}
-
-if (preg_match('#^/terminal-payments/([a-f0-9-]{36})$#iD',$path,$m) && $method==='GET') {
-    $actor=require_role($pdo,['manager','cashier']);
-    $stmt=$pdo->prepare('SELECT p.id,p.terminal_id,p.order_id,p.amount,p.currency,p.status,p.external_transaction_id,p.trace_number,p.retrieval_reference_number,p.response_code,p.response_message,p.requested_at,p.completed_at,p.created_by,t.name AS terminal_name FROM pos_terminal_payments p JOIN pos_payment_terminals t ON t.id=p.terminal_id WHERE p.id=? LIMIT 1');
-    $stmt->execute([$m[1]]);$payment=$stmt->fetch();
-    if(!is_array($payment)||($actor['role']!=='manager'&&(int)$payment['created_by']!==(int)$actor['id'])) json_response(['ok'=>false,'error'=>'payment_not_found','message'=>'تراکنش پیدا نشد'],404);
-    foreach(['amount','created_by'] as $key) $payment[$key]=(int)$payment[$key];
-    unset($payment['created_by']);
-    json_response(['ok'=>true,'payment'=>$payment]);
 }
 if (preg_match('#^/terminal-payments/([a-f0-9-]{36})/cancel$#iD',$path,$m) && $method==='POST') {
     $actor=require_role($pdo,['manager','cashier']);require_csrf();
