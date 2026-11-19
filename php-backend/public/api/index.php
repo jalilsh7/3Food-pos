@@ -2172,25 +2172,12 @@ if ($method === 'GET' && $path === '/reports/summary') {
             $cost += max(0,(int)($line['unitCost']??($products[$productId]['cost']??0)))*$qty;
         }
     }
-    $expenseStmt=$pdo->prepare("SELECT payload FROM pos_records WHERE resource='expenses'");
-    $expenseStmt->execute(); $expenses=[]; $expenseTotal=0; $expenseGroups=[];
-    foreach($expenseStmt->fetchAll(PDO::FETCH_COLUMN) as $raw){
-        $e=json_decode((string)$raw,true); if(!is_array($e)) continue;
-        $date=(string)($e['date']??''); if($date<$from||$date>$to) continue;
-        $amount=max(0,(int)($e['amount']??0));
-        $category=(string)($e['category']??'سایر هزینه‌ها');
-        // Raw-material purchases increase inventory; consumed ingredient cost is counted in COGS above.
-        if ($category !== 'مواد اولیه') $expenseTotal += $amount;
-        $expenseGroups[$category]=($expenseGroups[$category]??0)+$amount;
-        $expenses[]=['id'=>(string)($e['id']??''),'title'=>(string)($e['title']??''),'amount'=>$amount,'category'=>$category,'date'=>$date];
-    }
-    ksort($daily); ksort($expenseGroups); uasort($byProduct,static fn($a,$b)=>$b['quantity']<=>$a['quantity']); uasort($byCategory,static fn($a,$b)=>$b['revenue']<=>$a['revenue']);
+    ksort($daily); uasort($byProduct,static fn($a,$b)=>$b['quantity']<=>$a['quantity']); uasort($byCategory,static fn($a,$b)=>$b['revenue']<=>$a['revenue']);
     $monthly=[];
     foreach($daily as $day=>$value){$month=substr((string)$day,0,7);$monthly[$month]=($monthly[$month]??0)+$value;}
     ksort($monthly);
     $inventoryPurchases=0;
     foreach($pdo->query("SELECT payload FROM pos_records WHERE resource='supplier_purchases'")->fetchAll(PDO::FETCH_COLUMN) as $rawPurchase){$purchase=json_decode((string)$rawPurchase,true);$purchaseDate=(string)($purchase['date']??'');if(is_array($purchase)&&$purchaseDate>=$from&&$purchaseDate<=$to&&($purchase['kind']??'')==='purchase'&&!empty($purchase['ingredientId']))$inventoryPurchases+=(int)($purchase['amount']??0);}
-    $inventoryPurchases+=array_sum(array_map(static fn($e)=>($e['category']??'')==='مواد اولیه'?(int)($e['amount']??0):0,$expenses));
     $lowStock=[]; $allInventory=[]; $inventoryValue=0;
     foreach($pdo->query("SELECT payload FROM pos_records WHERE resource='ingredients'")->fetchAll(PDO::FETCH_COLUMN) as $raw){
         $ingredient=json_decode((string)$raw,true);if(!is_array($ingredient))continue;
@@ -2206,7 +2193,7 @@ if ($method === 'GET' && $path === '/reports/summary') {
         $customerRows[]=['name'=>(string)($customer['name']??''),'phone'=>(string)($customer['phone']??''),'totalSpent'=>(int)($customer['totalSpent']??0),'visits'=>(int)($customer['visits']??0),'points'=>(int)($customer['points']??0)];
     }
     usort($customerRows,static fn($a,$b)=>$b['totalSpent']<=>$a['totalSpent']);
-    json_response(['ok'=>true,'range'=>['from'=>$from,'to'=>$to],'sales'=>$sales,'orders'=>$count,'cancelled'=>$cancelled,'average_order'=>$count?intdiv($sales,$count):0,'tax_collected'=>$taxCollected,'discounts'=>$discountsTotal,'cost_of_goods'=>$cost,'expenses'=>$expenseTotal,'inventory_purchases'=>$inventoryPurchases,'gross_profit'=>$sales-$cost,'net_profit'=>$sales-$cost-$expenseTotal,'daily'=>array_map(static fn($d,$v)=>['date'=>$d,'sales'=>$v],array_keys($daily),array_values($daily)),'monthly'=>array_map(static fn($m,$v)=>['month'=>$m,'sales'=>$v],array_keys($monthly),array_values($monthly)),'payments'=>$byPayment,'products'=>array_slice(array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),0,100),'all_products'=>array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),'product_categories'=>array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byCategory),array_values($byCategory)),'expense_categories'=>$expenseGroups,'expense_items'=>$expenses,'inventory'=>['value'=>round($inventoryValue),'low_stock_count'=>count($lowStock)],'inventory_items'=>$allInventory,'low_stock'=>$lowStock,'top_customers'=>array_slice($customerRows,0,20),'all_customers'=>$customerRows]);
+    json_response(['ok'=>true,'range'=>['from'=>$from,'to'=>$to],'sales'=>$sales,'orders'=>$count,'cancelled'=>$cancelled,'average_order'=>$count?intdiv($sales,$count):0,'tax_collected'=>$taxCollected,'discounts'=>$discountsTotal,'cost_of_goods'=>$cost,'inventory_purchases'=>$inventoryPurchases,'gross_profit'=>$sales-$cost,'daily'=>array_map(static fn($d,$v)=>['date'=>$d,'sales'=>$v],array_keys($daily),array_values($daily)),'monthly'=>array_map(static fn($m,$v)=>['month'=>$m,'sales'=>$v],array_keys($monthly),array_values($monthly)),'payments'=>$byPayment,'products'=>array_slice(array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),0,100),'all_products'=>array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),'product_categories'=>array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byCategory),array_values($byCategory)),'inventory'=>['value'=>round($inventoryValue),'low_stock_count'=>count($lowStock)],'inventory_items'=>$allInventory,'low_stock'=>$lowStock,'top_customers'=>array_slice($customerRows,0,20),'all_customers'=>$customerRows]);
 }
 
 
