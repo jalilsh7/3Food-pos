@@ -130,3 +130,13 @@ v3/backend/
 - خطای شناخته‌شده با status/code/message امن نگاشت می‌شود؛ Throwable غیرمنتظره فقط class و request ID را در log ثبت می‌کند و پاسخ عمومی 500 می‌دهد.
 - `GET /api/v1/health` صرفاً liveness است و اتصال DB، آمادگی سرویس یا صحت schema را ادعا نمی‌کند.
 - این مرحله authentication، authorization، CORS، CSRF، rate limiting، body-size enforcement و endpoint دامنه را هنوز پیاده نکرده است؛ هیچ route تجاری/حساس نباید پیش از تکمیل middlewareهای امنیتی اضافه شود.
+
+
+## 13. دسترسی دیتابیس و مرز تراکنش — BE-01C
+- اتصال عملیاتی فقط از `PdoConnectionFactory` و configuration اعتبارسنجی‌شده ساخته می‌شود؛ DSN فقط host/port/database و charset utf8mb4 دارد و credential در DSN قرار نمی‌گیرد.
+- `pdo_mysql` الزامی است؛ PDO روی exception mode، associative fetch، native prepared statements و timeout محدود تنظیم می‌شود.
+- host فقط از مجموعه کاراکترهای DNS/IP مجاز تشکیل می‌شود تا DSN injection از طریق delimiter ممکن نباشد؛ نام DB نیز allowlist محدود دارد.
+- خطای اتصال با پیام عمومی به لایه بالاتر می‌رود؛ log فقط SQLSTATE را نگه می‌دارد و متن exception/credential افشا نمی‌شود.
+- `TransactionManager` مرز تراکنش یک use-case را مدیریت می‌کند؛ nested transaction را رد می‌کند؛ در exception rollback می‌کند و خطای rollback را بدون پوشاندن خطای اصلی log می‌کند.
+- Repositoryها باید prepared statement استفاده کنند؛ ورودی کاربر برای ساخت SQL identifier یا fragment قابل قبول نیست.
+- تست فعلی فقط DSN و guardهای پیکربندی را بررسی می‌کند؛ اتصال واقعی MySQL/MariaDB و رفتار commit/rollback هنوز با engine واقعی آزمایش نشده است.
