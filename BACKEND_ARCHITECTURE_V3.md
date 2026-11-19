@@ -261,3 +261,19 @@ v3/backend/
 - ایجاد دسته/محصول از `IdempotencyService` استفاده می‌کند؛ ثبت داده، audit و پاسخ رمز‌شده در transaction واحد انجام می‌شوند. قیمت و tax rate integer و در سمت سرور validate می‌شوند.
 - API فقط business-scoped است؛ کاتالوگ بین شعب یک کسب‌وکار مشترک می‌ماند. داده عملیاتی branch-level در ماژول سفارش/صندوق جدا scope می‌شود.
 - این slice فعلاً فقط category/product پایه را می‌خواند و ایجاد می‌کند؛ ویرایش/آرشیو، variant، option group، تصویر و مدیریت رسپی در بسته‌های بعدی ساخته می‌شوند. Migration 006 اجرا نشده است.
+
+
+## 17. BE-01F1 — Audit trail و Idempotency اتمیک
+
+- migration 004 جدول app_idempotency_keys را با scope actor/business/branch، endpoint code، key hash، request hash، lease، expiry و پاسخ رمز‌شده تعریف می‌کند.
+- IdempotencyService عملیات دامنه و ذخیره پاسخ را در یک transaction واحد اجرا می‌کند؛ پاسخ موفق با AES-256-GCM رمز می‌شود و در دیتابیس به‌صورت ciphertext/nonce/tag می‌ماند.
+- کلید خام Idempotency-Key در دیتابیس ذخیره نمی‌شود؛ fingerprint درخواست SHA-256 و scope شامل actor، business و branch است.
+- عملیات create در کاتالوگ، ساخت branch، ساخت user و مدیریت role از IdempotencyService استفاده می‌کنند؛ پاسخ تکراری بدون اجرای مجدد عملیات replay می‌شود.
+- پاسخ‌های non-2xx در جدول idempotency تکمیل نمی‌شوند؛ exception باعث rollback transaction و باقی‌نماندن رکورد نیمه‌کاره می‌شود.
+- migration 005 ستون business_id و branch_id و foreign keyهای audit را اضافه می‌کند؛ branch باید به همان business مربوط باشد.
+- AuditLogService snapshotها را از نظر کلیدهای محرمانه بررسی و اندازه JSON را محدود می‌کند؛ AuditLogRepository فقط append و read دارد و مسیر update/delete ارائه نمی‌دهد.
+- رخدادهای business، branch، user، role، login، logout و تغییر رمز ثبت می‌شوند؛ رخدادهای scoped با business_id/branch_id ذخیره می‌شوند.
+- GET /api/v1/audit-logs صفحه‌بندی cursor-based دارد؛ business-wide یا branch-filtered بر اساس مجوز و scope پاسخ می‌دهد.
+- Idempotency برای mutationها باید در service و داخل transaction دامنه استفاده شود؛ middleware جداگانه عمداً حذف شد تا claim و commit عملیات از هم جدا نشوند.
+- پاک‌سازی زمان‌بندی‌شده رکوردهای منقضی idempotency و سیاست نگهداری audit در بسته عملیات/maintenance تکمیل می‌شود.
+
