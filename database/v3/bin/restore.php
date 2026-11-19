@@ -10,7 +10,7 @@ try{
  $objects=(int)$pdo->query('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()')->fetchColumn();
  if($objects!==0)throw new RuntimeException("Restore stopped: destination database is not empty ({$objects} tables/views found). No objects were changed.");
  $gzip=gzopen($archive,'rb');if($gzip===false)throw new RuntimeException('Cannot open backup archive.');
- $readRecord=static function()use($gzip):?array{$line=gzgets($gzip);if($line===false)return null;$record=json_decode($line,true,512,JSON_THROW_ON_ERROR);if(!is_array($record)||!isset($record['type']))throw new RuntimeException('Backup archive contains an invalid record.');return $record;};
+ $readRecord=static function()use($gzip):?array{$line=gzgets($gzip);if($line===false)return null;$record=json_decode($line,true,512,JSON_THROW_ON_ERROR|JSON_BIGINT_AS_STRING);if(!is_array($record)||!isset($record['type']))throw new RuntimeException('Backup archive contains an invalid record.');return $record;};
  $header=$readRecord();
  if(!$header||($header['type']??'')!=='header'||($header['format']??'')!=='persiacoder-pos-v3-jsonl-gzip'||($header['format_version']??0)!==1)throw new RuntimeException('Unsupported or invalid V3 backup format.');
  $serverVersion=(string)$pdo->query('SELECT VERSION()')->fetchColumn();$destinationEngine=stripos($serverVersion,'mariadb')!==false?'mariadb':'mysql';
