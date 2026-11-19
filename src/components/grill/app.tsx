@@ -1467,6 +1467,9 @@ function ReportsScreen() {
   );
 }
 
+const EXPENSE_REPORT_INITIAL_TO = tehranDate();
+const EXPENSE_REPORT_INITIAL_FROM = tehranDate(Date.now() - 29 * 86400000);
+
 function ExpensesScreen(){
   const expenses=usePos((s)=>s.expenses);
   const addExpense=usePos((s)=>s.addExpense);
