@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
-  ChefHat, ClipboardList, LayoutDashboard, MessageSquare, Percent,
+  ChefHat, ChevronDown, ChevronUp, ClipboardList, LayoutDashboard, MessageSquare, Percent,
   Settings as SettingsIcon, ShoppingBag, Users, UtensilsCrossed, Warehouse, Truck, LogOut,
 } from "lucide-react";
 import { Btn, Card, Empty, Field, PageHeading, inputCls } from "./bits";
@@ -180,6 +180,8 @@ export function GrillApp() {
 
 function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; initialView: View; role: Role }) {
   const [view, setView] = useState<View>(initialView);
+  const [showAllNav, setShowAllNav] = useState(false);
+  const visibleNav = showAllNav ? allowed : allowed.slice(0, 5);
   const current = allowed.some((n) => n.id === view) ? view : allowed[0]?.id ?? "orders";
   return (
     <div className="pos-layout mx-auto grid w-full max-w-[1600px] min-w-0 gap-4 px-3 py-4 sm:px-5 lg:grid-cols-[248px_minmax(0,1fr)] lg:gap-6 lg:px-7 lg:py-7">
@@ -189,7 +191,7 @@ function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; ini
           <p className="mt-1 text-sm font-extrabold">دسترسی سریع</p>
         </div>
         <div className="pos-nav-list flex min-w-0 gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
-          {allowed.map((n) => {
+          {visibleNav.map((n) => {
             const Icon = n.icon;
             const on = current === n.id;
             return (
@@ -199,6 +201,16 @@ function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; ini
               </button>
             );
           })}
+          {allowed.length > 5 ? (
+            <button
+              type="button"
+              aria-expanded={showAllNav}
+              onClick={() => setShowAllNav((expanded) => !expanded)}
+              className="pos-nav-item inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl border border-dashed border-line px-4 py-3 text-sm font-semibold text-muted transition hover:border-leaf hover:text-ink"
+            >
+              {showAllNav ? <><ChevronUp size={17} /><span>نمایش کمتر</span></> : <><ChevronDown size={17} /><span>نمایش بیشتر</span></>}
+            </button>
+          ) : null}
         </div>
         <div className="mt-auto hidden rounded-2xl border border-line bg-surface/80 p-4 lg:block">
           <p className="text-xs font-bold text-ink">3Food POS</p>
