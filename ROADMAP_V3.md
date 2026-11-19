@@ -495,3 +495,13 @@
 - cookie نشست با HttpOnly، SameSite=Lax، Path=/ و Secure در حالت امن صادر و در logout منقضی می‌شود.
 - تست guardها برای CSRF، cookie و ترتیب middleware اضافه شد؛ هنوز runner اجرایی نداشته است.
 - هیچ login/logout یا endpoint تجاری به middleware وصل نشده؛ مرحله بعدی ساخت controller و routeهای login/logout/me با Origin/CORS و secure cookie policy است.
+
+
+### BE-01D4 — Auth HTTP endpoints
+- وضعیت: **کدنویسی انجام شد؛ پذیرش نهایی در مرحله تست جامع پروژه.**
+- Login/logout/me روی \`/api/v1/auth/*\` ثبت شدند.
+- cookie نشست HttpOnly و CSRF cookie قابل‌خواندن برای UI پیاده شد؛ مقدار خام CSRF در DB ذخیره نمی‌شود.
+- same-origin برای login/logout، CSRF سه‌طرفه برای logout، session middleware برای me/logout و session revocation پیاده شد.
+- محدودیت طول JSON body و بازه طول نشست اضافه شد.
+- مورد بعدی: RBAC واقعی، permission registry، deny-by-default و scope کسب‌وکار/شعبه قبل از هر API عملیاتی.
+
