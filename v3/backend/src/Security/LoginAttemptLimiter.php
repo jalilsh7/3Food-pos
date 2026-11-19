@@ -16,7 +16,11 @@ final readonly class LoginAttemptLimiter
         private PDO $connection,
         private TransactionManager $transactions,
         private string $applicationKey,
-    ) {}
+    ) {
+        if (strlen($this->applicationKey) < 32) {
+            throw new \\InvalidArgumentException('Application key must contain at least 32 bytes.');
+        }
+    }
 
     public function assertAllowed(string $username, string $ipAddress): void
     {
