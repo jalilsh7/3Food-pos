@@ -16,6 +16,8 @@ final readonly class Configuration
         public string $databaseUsername,
         public string $databasePassword,
         public string $applicationKey,
+        public string $privateStoragePath,
+        public int $mediaMaxBytes,
     ) {}
 
     public static function fromEnvironment(): self
@@ -39,6 +41,19 @@ final readonly class Configuration
             throw new RuntimeException('POS_V3_APP_KEY must contain at least 32 bytes.');
         }
         $portValue = Environment::string('POS_V3_DB_PORT', '3306');
+        $privateStoragePath = trim(Environment::string(
+            'POS_V3_PRIVATE_STORAGE_PATH',
+            dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'var' . DIRECTORY_SEPARATOR . 'private-media',
+        ));
+        $mediaMaxBytesValue = Environment::string('POS_V3_MEDIA_MAX_BYTES', '5242880');
+        if ($privateStoragePath === '' || strlen($privateStoragePath) > 512
+            || (!str_starts_with($privateStoragePath, DIRECTORY_SEPARATOR)
+                && preg_match('/^[A-Za-z]:[\\\\\\/]/', $privateStoragePath) !== 1)) {
+            throw new RuntimeException('POS_V3_PRIVATE_STORAGE_PATH must be an absolute path no longer than 512 bytes.');
+        }
+        if (!ctype_digit($mediaMaxBytesValue) || (int) $mediaMaxBytesValue < 1024 || (int) $mediaMaxBytesValue > 20971520) {
+            throw new RuntimeException('POS_V3_MEDIA_MAX_BYTES must be between 1024 and 20971520.');
+        }
 
         if (strlen($host) > 255 || !preg_match('/^[A-Za-z0-9.:-]+$/', $host)) {
             throw new RuntimeException('POS_V3_DB_HOST contains invalid characters.');
@@ -53,6 +68,6 @@ final readonly class Configuration
             throw new RuntimeException('POS_V3_DB_PORT must be an integer between 1 and 65535.');
         }
 
-        return new self($environment, $debug, $host, (int) $portValue, $databaseName, $username, $databasePassword, $applicationKey);
+        return new self($environment, $debug, $host, (int) $portValue, $databaseName, $username, $databasePassword, $applicationKey, $privateStoragePath, (int) $mediaMaxBytesValue);
     }
 }
