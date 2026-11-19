@@ -6,7 +6,6 @@ import {
   Search,
   ShoppingBag,
   Trash2,
-  Utensils,
   X,
 } from "lucide-react";
 import {
@@ -286,7 +285,6 @@ export function PosWorkspace() {
           </div>
 
           <Button
-            block
             variant="primary"
             disabled={!cart.length}
             onClick={() => setShowSummary((value) => !value)}
