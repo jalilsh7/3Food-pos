@@ -7,11 +7,14 @@ use Closure;
 
 final class Router
 {
-    /** @var list<array{method:string,pattern:string,names:list<string>,handler:Closure}> */
+    /** @var list<array{method:string,pattern:string,names:list<string>,handler:Closure,middleware:list<Closure>}> */
     private array $routes = [];
 
-    /** @param callable(Request, array<string, string>): Response $handler */
-    public function add(string $method, string $path, callable $handler): void
+    /**
+     * @param callable(Request, array<string, string>): Response $handler
+     * @param list<callable(Request, array<string, string>, callable): Response> $middleware
+     */
+    public function add(string $method, string $path, callable $handler, array $middleware = []): void
     {
         if ($path === '' || $path[0] !== '/' || str_contains($path, '?') || str_contains($path, '#')) {
             throw new \InvalidArgumentException('Route path must be an absolute path without query or fragment.');
@@ -30,6 +33,7 @@ final class Router
             'pattern' => '~^' . $pattern . '$~D',
             'names' => $names,
             'handler' => Closure::fromCallable($handler),
+            'middleware' => array_map(Closure::fromCallable(...), $middleware),
         ];
     }
 
@@ -50,7 +54,12 @@ final class Router
                 }
                 $parameters[$name] = $value;
             }
-            return ($route['handler'])($request, $parameters);
+            $next = static fn (Request $current): Response => ($route['handler'])($current, $parameters);
+            foreach (array_reverse($route['middleware']) as $middleware) {
+                $previous = $next;
+                $next = static fn (Request $current): Response => $middleware($current, $parameters, $previous);
+            }
+            return $next($request);
         }
 
         if ($pathMatched) {
