@@ -1139,3 +1139,12 @@
 - middleware عمومی غیراتمیک idempotency حذف شد؛ idempotency فقط در service و transaction دامنه انجام می‌شود.
 - تست‌ها و migration اجرا نشده‌اند؛ OpenSSL باید در preflight/runtime بررسی شود و پاک‌سازی دوره‌ای رکوردهای منقضی هنوز باقی است.
 
+
+
+## BE-01G2 — تنوع‌ها و افزودنی‌های کاتالوگ (2026-11-19)
+- وضعیت: **در حال انجام**؛ create/list و attach پایه اضافه شد؛ edit/archive و اتصال frontend باقی است.
+- Migration: `database/v3/migrations/007_catalog-variants-and-options.sql`؛ اجرا نشده.
+- API: `GET /api/v1/catalog/products/{productPublicId}`، `POST /api/v1/catalog/products/{productPublicId}/variants`، `POST /api/v1/catalog/option-groups` و `POST /api/v1/catalog/products/{productPublicId}/option-groups`.
+- تنوع‌ها دارای delta قیمت علامت‌دار هستند؛ گروه افزودنی از نوع single/multiple و min/max انتخاب پشتیبانی می‌کند؛ optionها delta قیمت دارند.
+- عملیات ایجاد با idempotency، audit، RBAC، CSRF و Origin محافظت می‌شوند.
+- تست و اجرای migration انجام نشده و به پایان توسعه موکول است.
