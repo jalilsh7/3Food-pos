@@ -1083,3 +1083,14 @@
 - فایل‌های جدید: BusinessRepository.php، BusinessSetupService.php، BusinessSetupController.php، InstallationOwnerMiddleware.php، RoleRepository.php، RoleManagementService.php و RoleManagementController.php.
 - migration 003 هنوز اجرا نشده؛ تست‌ها تا مرحله نهایی به تعویق افتاده‌اند.
 
+
+## BE-01E3 — تکمیل API مدیریت دسترسی (2026-11-20)
+- UserRepository اکنون فهرست کاربران business/branch، ساخت user و بررسی username را پشتیبانی می‌کند.
+- UserManagementService و UserManagementController ایجاد شدند؛ POST /api/v1/access/users و POST /api/v1/access/branches/users کاربر جدید را با password موقت تصادفی ایجاد می‌کنند. رمز خام فقط در response اولیه نمایش داده می‌شود و must_change_password فعال است.
+- GET /api/v1/access/users و GET /api/v1/access/branches/users فهرست محدود به scope را برمی‌گردانند؛ owner نصب نیز در فهرست دیده می‌شود.
+- BranchManagementService/Controller و GET/POST /api/v1/access/branches برای فهرست و ایجاد شعبه اضافه شدند.
+- RoleRepository اکنون permission catalog و persistence نقش سفارشی را پشتیبانی می‌کند؛ GET /api/v1/access/permissions، POST /api/v1/access/roles و PATCH /api/v1/access/roles/{roleCode} اضافه شدند.
+- RoleManagementService و Controller واگذاری permission را به permissionهای actor محدود می‌کنند؛ نقش system و owner قابل ویرایش نیستند و wildcard قابل واگذاری نیست.
+- endpointهای mutation با session، scope permission، CSRF و same-origin محافظت می‌شوند.
+- غیرفعال‌سازی کاربر/شعبه و audit trail هنوز در بسته‌های بعدی باقی‌اند؛ هیچ تست یا migration اجرا نشده است.
+
