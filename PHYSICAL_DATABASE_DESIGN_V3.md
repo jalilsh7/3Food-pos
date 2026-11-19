@@ -179,7 +179,7 @@ active_register_id ستون generated nullable است: برای وضعیت open 
 همه عملیات چندقلمی با ترتیب صعودی PK قفل می‌گیرند تا deadlock کاهش یابد؛ deadlock همچنان ممکن است و retry محدود فقط برای خطاهای قابل retry با idempotency انجام می‌شود.
 
 ## 5. نصب تمیز و مهاجرت
-- مسیر آینده: database/v3/schema.sql به‌عنوان baseline نصب تازه؛ database/v3/migrations/0001_... برای تغییرات بعد از اولین انتشار.
+- baseline نصب تازه در database/v3/schema.sql ثبت شده است؛ database/v3/migrations/0001_... برای تغییرات پس از انتشار baseline استفاده خواهد شد.
 - این مسیر از php-backend/schema.sql و migrationهای runtime فعلی جدا می‌ماند تا schema جدید تصادفاً روی دیتابیس موجود اجرا نشود.
 - app_schema_migrations ثبت version، checksum، applied_at و duration می‌کند؛ migration اجراشده با checksum متفاوت fail-fast می‌شود.
 - پیش از migration: بررسی اتصال، نسخه DB، charset، engine، فضای کافی، backup/restore و پیش‌نیازها.
@@ -227,4 +227,4 @@ active_register_id ستون generated nullable است: برای وضعیت open 
 - backup/restore تمام FKها و ledgerها را بدون فعال‌سازی ناخواسته دستگاه/درگاه بازیابی کند.
 - تست MySQL و MariaDB جدا اجرا و خروجی‌ها مستند شوند.
 
-این سند طراحی فیزیکی است، نه SQL اجرایی. عبور به DDL یک بسته جدا با بازبینی SQL و تست disposable است.
+این سند قرارداد طراحی فیزیکی است. baseline اولیه SQL در بسته DB-02 ساخته شده، اما تا زمان اجرای تست روی MySQL/MariaDB disposable و بازبینی نهایی، آماده نصب مشتری یا محیط اصلی محسوب نمی‌شود.
