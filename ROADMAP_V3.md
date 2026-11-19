@@ -547,3 +547,11 @@
 - رویدادهای ایجاد کسب‌وکار، شعبه، کاربر و تغییرات نقش در scope درست ثبت می‌شوند.
 - endpoint امن `GET /api/v1/audit-logs` با permission `audit.read`، scope business/branch و cursor pagination اضافه شد.
 - تست/CI و اجرای migration طبق دستور مالک به انتهای توسعه موکول است.
+
+
+### BE-01G1 — اولین vertical slice کاتالوگ
+- وضعیت: **API پایه پیاده‌سازی شد؛ تکمیل CRUD و امکانات تکمیلی باقی است.**
+- Migration 006 scope کسب‌وکار را به categories/products/variants/options/customers می‌افزاید و SKU را در سطح business یکتا می‌کند.
+- endpointهای فهرست/ایجاد دسته و محصول اضافه شدند؛ مجوزهای catalog.read/catalog.manage، CSRF، Origin، audit و idempotency اعمال می‌شوند.
+- مبلغ محصول و tax rate فقط integerهای اعتبارسنجی‌شده‌اند؛ کاتالوگ بین شعب یک کسب‌وکار مشترک است.
+- ویرایش/آرشیو، variant/options، تصاویر و recipe integration در بسته‌های بعدی.
