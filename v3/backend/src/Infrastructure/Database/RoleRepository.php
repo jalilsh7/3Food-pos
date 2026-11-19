@@ -98,6 +98,15 @@ final readonly class RoleRepository
         return $value === false ? null : (int) $value;
     }
 
+    public function roleCodeExists(string $code): bool
+    {
+        $statement = $this->connection->prepare(
+            'SELECT 1 FROM app_roles WHERE code = :role_code LIMIT 1'
+        );
+        $statement->execute(['role_code' => $code]);
+        return $statement->fetchColumn() !== false;
+    }
+
     public function isSystemRole(string $code): bool
     {
         $statement = $this->connection->prepare(
