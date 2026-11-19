@@ -318,8 +318,9 @@
 - توکن‌های طراحی در `src/tokens.css`: رنگ برند/سطوح/متن/وضعیت، شعاع گوشه‌ها، سایه و focus ring.
 - primitives در `src/shared/ui/primitives.tsx` و `src/shared/ui/index.ts`: Button، Surface، PageHeader، StatusBadge، Notice و EmptyState.
 - استایل componentها در `src/shared/ui/primitives.css` و سند قرارداد در `v3/frontend/DESIGN_SYSTEM.md` ثبت شد؛ README نیز به سند پیوند داده شد.
+- کنترل‌های فرم `TextField`، `SelectField`، `CheckboxField` و `FilterBar` در `src/shared/ui/form-controls.tsx` و جدول generic و typed در `src/shared/ui/data-table.tsx` اضافه شدند؛ CSS مستقل در `forms-table.css` و exportها در barrel ثبت شد.
 - `src/app/App.tsx` اکنون PageHeader، StatusBadge، Surface، EmptyState و Button مشترک را مصرف می‌کند؛ جست‌وجوی ناوبری و داده‌های نمایشی همچنان از backend مستقل نیستند.
 - بهبودهای دسترس‌پذیری پایه: type پیش‌فرض button برای جلوگیری از submit ناخواسته، focus-visible، aria-label، aria-current، aria-live و reduced-motion.
-- بررسی ایستای فایل‌های GitHub انجام شد؛ تست typecheck، unit، lint، build و browser acceptance اجرا نشده است. lockfile نیز هنوز وجود ندارد.
+- بررسی ایستای فایل‌های GitHub انجام شد؛ تست typecheck، unit، lint، build و browser acceptance اجرا نشده است. lockfile نیز هنوز وجود ندارد. بررسی ایستای exportها و فایل‌های TSX از GitHub انجام شده، اما جایگزین compiler نیست.
 - این workspace صرفاً prototype طراحی است و برای نصب/استفاده عملیاتی آماده نیست.
 - گام بعد: تکمیل primitiveهای فرم/فیلتر/جدول و حالات loading/error، سپس طراحی UX-03 فروش با قرارداد مستقل دامنه؛ تست فقط در runner فعال قابل تأیید است.
