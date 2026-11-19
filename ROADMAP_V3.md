@@ -311,14 +311,15 @@
 - گام بعد: UX-02 — استخراج پوسته و ناوبری نقش‌محور به اجزای مستقل، با حفظ رفتار و قراردادهای فعلی؛ پیش از آن باید تست‌ها و import graph همان بخش بررسی شوند.
 
 
-### UX-02 — پوسته مستقل رابط V3 (2026-11-19)
+### UX-02 — پوسته و Design System مستقل رابط V3 (2026-11-19)
 
-- وضعیت: **در حال انجام؛ اسکلت مستقل frontend ایجاد شده، پذیرش محلی باقی است.**
-- workspace مستقل در `v3/frontend/` ساخته شد و به root `src/` یا runtime V2 وابستگی/import ندارد.
-- فایل‌ها: `package.json`، `tsconfig.json`، `vite.config.ts`، `index.html`، `src/main.tsx`، `src/app/App.tsx`، `src/styles.css` و `README.md`.
-- UI اولیه شامل پوسته RTL، ناوبری گروه‌بندی‌شده برای عملیات/کاتالوگ/مدیریت، جست‌وجوی بخش‌ها، نمای کلی بدون آمار ساختگی و placeholderهای شفاف ماژول‌هاست.
-- هیچ احراز هویت، API، دیتابیس، عملیات فروش/پرداخت یا داده عملیاتی به این prototype متصل نیست؛ انتشار روی هاست مشتری ممنوع است.
-- فونت از CDN خارجی بارگیری نمی‌شود؛ فعلاً fallback سیستمی استفاده می‌شود. lockfile هنوز تولید نشده و باید پس از npm install در Windows ثبت شود.
-- typecheck، test، lint و build اجرا نشده‌اند؛ GitHub Actions همچنان مانع مستقل است و نتیجه سبز ادعا نمی‌شود.
-- برای حفظ استقلال، تغییر آزمایشی V2 برگشت داده شد؛ `src/components/grill/app.tsx` به blob قبلی برگشت و فایل‌های موقت `src/features/shell/*` حذف شدند.
-- گام بعد: اجرای `npm install`، `npm run typecheck` و `npm run build` در Windows؛ سپس رفع خطاهای واقعی و ادامه UX-02.
+- وضعیت: **در حال انجام؛ primitives و tokens ایجاد شده‌اند، تست اجرایی باقی است.**
+- workspace مستقل `v3/frontend/` حفظ شد؛ هیچ تغییر اجرایی در runtime V2 انجام نشده و هیچ import از root `src/` وجود ندارد.
+- توکن‌های طراحی در `src/tokens.css`: رنگ برند/سطوح/متن/وضعیت، شعاع گوشه‌ها، سایه و focus ring.
+- primitives در `src/shared/ui/primitives.tsx` و `src/shared/ui/index.ts`: Button، Surface، PageHeader، StatusBadge، Notice و EmptyState.
+- استایل componentها در `src/shared/ui/primitives.css` و سند قرارداد در `v3/frontend/DESIGN_SYSTEM.md` ثبت شد؛ README نیز به سند پیوند داده شد.
+- `src/app/App.tsx` اکنون PageHeader، StatusBadge، Surface، EmptyState و Button مشترک را مصرف می‌کند؛ جست‌وجوی ناوبری و داده‌های نمایشی همچنان از backend مستقل نیستند.
+- بهبودهای دسترس‌پذیری پایه: type پیش‌فرض button برای جلوگیری از submit ناخواسته، focus-visible، aria-label، aria-current، aria-live و reduced-motion.
+- بررسی ایستای فایل‌های GitHub انجام شد؛ تست typecheck، unit، lint، build و browser acceptance اجرا نشده است. lockfile نیز هنوز وجود ندارد.
+- این workspace صرفاً prototype طراحی است و برای نصب/استفاده عملیاتی آماده نیست.
+- گام بعد: تکمیل primitiveهای فرم/فیلتر/جدول و حالات loading/error، سپس طراحی UX-03 فروش با قرارداد مستقل دامنه؛ تست فقط در runner فعال قابل تأیید است.
