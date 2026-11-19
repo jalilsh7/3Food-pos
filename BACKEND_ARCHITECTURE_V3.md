@@ -328,3 +328,12 @@ v3/backend/
 - ساخت/بازکردن/بستن در IdempotencyService و transaction انجام و audit می‌شوند؛ هر lookup با business_id و branch_id محدود است.
 - بستن نشست برای سفارش completed با payment_status غیر paid مسدود است؛ پس از تکمیل ماژول پرداخت قابل استفاده خواهد بود.
 
+
+
+## BE-01G4 — مدیریت تنوع محصول و افزودنی‌ها
+- `PATCH /api/v1/catalog/variants/{variantPublicId}`: ویرایش نام، SKU، اختلاف قیمت و وضعیت فعال تنوع؛ SKU در محدوده همان محصول یکتا است.
+- `PATCH /api/v1/catalog/option-groups/{groupPublicId}`: ویرایش نام، نوع انتخاب single/multiple، حداقل/حداکثر انتخاب، مقدار پیش‌فرض اجباری و وضعیت فعال گروه.
+- `PATCH /api/v1/catalog/options/{optionPublicId}`: ویرایش نام، اختلاف قیمت و وضعیت فعال گزینه.
+- گزینه‌ای که غیرفعال‌کردنش تعداد گزینه‌های فعال را از min_select یا max_select گروه کمتر کند با پاسخ 409 رد می‌شود؛ ابتدا باید قواعد گروه اصلاح شوند.
+- همه writeها در business scope، با permission `catalog.manage`، session، CSRF، Origin، Idempotency-Key و Audit اجرا می‌شوند. حذف فیزیکی تنوع/گروه/گزینه در این APIها وجود ندارد.
+- جزئیات محصول، `is_required_default` گروه را نیز برمی‌گرداند تا فرم مدیریت مقدار ذخیره‌شده را بدون حدس نمایش دهد.
