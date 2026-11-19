@@ -37,6 +37,7 @@ function seed(): PosState {
       phone: "",
       taxPercent: 0,
       taxEnabled: true,
+      stockPolicy: "warn_and_allow",
       pointsPerToman: 100000,
       tomanPerPoint: 1000,
       paperWidth: 80,
