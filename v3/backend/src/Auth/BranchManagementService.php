@@ -69,7 +69,7 @@ final readonly class BranchManagementService
             $requestId,
             $ipAddress,
         ): void {
-            $this->businesses->createBranch($publicId, $scope->businessId, $code, $name, $timezone);
+            $branchId = $this->businesses->createBranch($publicId, $scope->businessId, $code, $name, $timezone);
             $this->audit->record(
                 $actor->userId,
                 'branch.created',
@@ -80,6 +80,8 @@ final readonly class BranchManagementService
                 null,
                 $requestId,
                 $ipAddress,
+                $scope->businessId,
+                $branchId,
             );
         });
 
