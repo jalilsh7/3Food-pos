@@ -683,3 +683,14 @@
 - FIN-01: Moving Weighted Average برای نسخه اول؛ چند صندوق و چند محل نگهداری در تک‌شعبه‌ای با سقف قابل تنظیم؛ رزرو مواد هنگام پذیرش POS و مصرف هنگام شروع آماده‌سازی؛ رسید خرید مستقیم بدون ماژول کامل خرید؛ عدم ورود تولید batch/pre-preparation به MVP؛ بستن شیفت با اختلاف از طریق بررسی معلق و تأیید مدیر.
 - اسناد مرجع: [ORDER_DATA_MODEL_V3.md](ORDER_DATA_MODEL_V3.md)، [FINANCE_INVENTORY_DATA_MODEL_V3.md](FINANCE_INVENTORY_DATA_MODEL_V3.md).
 - تصمیم‌ها طراحی معماری‌اند و هیچ DDL یا کد اجرایی را مجاز/منفذ نمی‌کنند.
+
+
+## ERD-01 — یکپارچه‌سازی روابط سفارش، پرداخت، صندوق و انبار
+- تاریخ: 2026-11-19
+- وضعیت: **ERD منطقی یکپارچه ثبت شد؛ طراحی فیزیکی و DDL در انتظار**
+- سند: [COMMERCIAL_CORE_ERD_V3.md](COMMERCIAL_CORE_ERD_V3.md).
+- روابط بین order/payment/refund/cash movement/settlement و stock document/ledger/reservation/recipe تعریف و invariantهای بین دامنه‌ها ثبت شد.
+- منبع حقیقت هر دامنه جدا نگه داشته شد تا payment با cash movement، settlement یا stock ledger دوباره‌شماری نشود.
+- قیود حذف، idempotency، هم‌زمانی، نشست باز صندوق/میز، رزرو مواد و snapshot رسپی مشخص شدند.
+- موارد دروازه DDL شامل قرارداد کلیدها، snapshot رسپی، terminal integration، expense/supplier payout، valuation در موجودی منفی و سازگاری نسخه واقعی MySQL/MariaDB باقی است.
+- هیچ schema اجرایی، API، UI، migration یا دیتابیس تغییر نکرده و تست اجرایی انجام نشده است.
