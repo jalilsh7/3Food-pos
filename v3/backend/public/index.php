@@ -222,6 +222,11 @@ try {
         [$sessionMiddleware, $makePermissionMiddleware('orders.update', true), $csrfMiddleware, $originMiddleware],
     );
 
+    $router->add('PATCH', '/api/v1/orders/{orderPublicId}/kitchen-status',
+        static fn (Request $request, array $parameters): Response => $getOrderController()->transitionKitchen($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('kitchen.update', true), $csrfMiddleware, $originMiddleware],
+    );
+
     $router->add('GET', '/api/v1/catalog/categories',
         static fn (Request $request): Response => $getCatalogController()->categories($request),
         [$sessionMiddleware, $makePermissionMiddleware('catalog.read', false)],
