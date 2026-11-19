@@ -1,0 +1,36 @@
+name: V3 Backend Validation
+
+on:
+  push:
+    branches:
+      - feature/3food-pos-next-release-v2
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    name: PHP ${{ matrix.php }} bootstrap checks
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - name: PHP syntax validation
+        run: |
+          php -l v3/backend/bootstrap.php
+          php -l v3/backend/src/Support/Environment.php
+          php -l v3/backend/src/Support/Configuration.php
+          php -l scripts/check-v3-backend-bootstrap.php
+      - name: Bootstrap configuration checks
+        run: php scripts/check-v3-backend-bootstrap.php
