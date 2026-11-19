@@ -386,3 +386,9 @@
 ### BE-01D1 — آماده‌سازی نشست و احراز هویت
 - جدول نشست سمت سرور در migration افزایشی تعریف شده و SessionRepository برای خواندن/لغو نشست ایجاد شده است.
 - UI هنوز login را به API متصل نمی‌کند؛ تا تکمیل login throttling، cookie امن، CSRF و RBAC هیچ route عملیاتی محافظت‌نشده منتشر نمی‌شود.
+
+
+### BE-01D2 — قرارداد ورود
+- سرویس ورود server-side ایجاد شده و فقط hash نشست و CSRF در DB ذخیره می‌شوند؛ password خام فقط در لحظه verification و rehash استفاده می‌شود.
+- محدودسازی تلاش ورود با HMAC از username/IP و secret سمت سرور انجام می‌شود.
+- هیچ login route یا cookie هنوز منتشر نشده؛ UI ورود تا تکمیل session/CSRF middleware و RBAC به API متصل نمی‌شود.
