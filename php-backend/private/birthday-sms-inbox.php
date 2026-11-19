@@ -68,7 +68,7 @@ function threefood_parse_payamak_inbox_response(string $raw): array {
 /** Convert Iranian mobile formats to a stable local 09xxxxxxxxx key. */
 function threefood_normalize_iran_mobile(string $phone): ?string {
     $phone = threefood_normalize_sms_digits($phone);
-    $phone = preg_replace('/[\\s()\\-]/u', '', $phone) ?? '';
+    $phone = preg_replace('/[\s()\-]/u', '', $phone) ?? '';
     if (str_starts_with($phone, '+98')) $phone = '0' . substr($phone, 3);
     elseif (str_starts_with($phone, '0098')) $phone = '0' . substr($phone, 4);
     elseif (str_starts_with($phone, '98') && strlen($phone) === 12) $phone = '0' . substr($phone, 2);
