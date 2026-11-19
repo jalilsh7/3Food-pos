@@ -51,6 +51,8 @@ final readonly class BusinessSetupController
             $payload['currency'] ?? $optional['currency'],
             $payload['branch_name'] ?? $optional['branch_name'],
             $payload['branch_code'] ?? $optional['branch_code'],
+            $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
         );
 
         return Response::success([
