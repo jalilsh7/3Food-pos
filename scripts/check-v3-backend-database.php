@@ -15,12 +15,12 @@ $assert = static function (bool $condition, string $message): void {
     if (!$condition) throw new RuntimeException($message);
 };
 
-$config = new Configuration('test', false, '127.0.0.1', 3307, 'pos_v3_test', 'pos_test', 'not-in-dsn');
+$config = new Configuration('test', false, '127.0.0.1', 3307, 'pos_v3_test', 'pos_test', 'not-in-dsn', str_repeat('k', 32));
 $dsn = PdoConnectionFactory::dsn($config);
 $assert($dsn === 'mysql:host=127.0.0.1;port=3307;dbname=pos_v3_test;charset=utf8mb4', 'Unexpected PDO DSN.');
 $assert(!str_contains($dsn, $config->databasePassword), 'Database password must never be part of the DSN.');
 
-$badHost = new Configuration('test', false, '127.0.0.1;dbname=other', 3306, 'pos_v3_test', 'pos_test', '');
+$badHost = new Configuration('test', false, '127.0.0.1;dbname=other', 3306, 'pos_v3_test', 'pos_test', '', str_repeat('k', 32));
 try {
     PdoConnectionFactory::dsn($badHost);
     throw new RuntimeException('Unsafe host must not be accepted.');
