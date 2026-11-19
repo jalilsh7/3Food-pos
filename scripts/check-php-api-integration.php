@@ -222,6 +222,9 @@ try {
     check($agentResult['status'] === 200 && ($agentResult['json']['status'] ?? '') === 'declined', 'authenticated agent submits an approved synthetic result');
     $terminalPaymentStatus = api('GET', '/api/v1/terminal-payments/' . rawurlencode($terminalPaymentId));
     check($terminalPaymentStatus['status'] === 200 && ($terminalPaymentStatus['json']['payment']['status'] ?? '') === 'declined', 'cashier can read final terminal payment state');
+    check((int)($terminalPaymentStatus['json']['payment']['amount'] ?? 0) === 125000 && ($terminalPaymentStatus['json']['payment']['trace_number'] ?? '') === 'CI-TRACE-001', 'terminal payment read returns amount and trace reference');
+    $missingTerminalPayment = api('GET', '/api/v1/terminal-payments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+    check($missingTerminalPayment['status'] === 404 && ($missingTerminalPayment['json']['error'] ?? '') === 'terminal_payment_not_found', 'terminal payment lookup hides unknown payment ids');
     $terminalPaymentReplay = api('POST', '/api/v1/terminal-payments', [
         'terminalId' => 'ci-terminal',
         'amount' => 125000,
@@ -331,6 +334,11 @@ try {
     $editBody['items'][0]['qty'] = 2;
     $editBody['totals'] = ['subtotal' => 2000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 2000];
     $editBody['note'] = 'CI edited order';
+    $switchPaymentBody = $editBody;
+    $switchPaymentBody['payment'] = 'card';
+    $switchPaymentBody['terminalPaymentId'] = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    $paymentMethodSwitch = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $switchPaymentBody, csrf_headers());
+    check($paymentMethodSwitch['status'] === 409 && ($paymentMethodSwitch['json']['error'] ?? '') === 'payment_method_change_requires_new_transaction', 'order edit cannot switch cash to card without a separately approved transaction');
     $edited = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $editBody, csrf_headers());
     check($edited['status'] === 200 && ($edited['json']['order']['id'] ?? '') === $orderId, 'manager edits existing order without changing its identity');
     $editedAgain = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $editBody, csrf_headers());
@@ -426,6 +434,8 @@ try {
     ], csrf_headers());
     check($cardOrder['status'] === 201, 'create card order after synthetic terminal approval');
     $cardOrderId = (int)($cardOrder['json']['order']['id'] ?? 0);
+    $cardOrderEdit = api('PATCH', '/api/v1/orders/' . rawurlencode((string)$cardOrderId), ['payment' => 'card'], csrf_headers());
+    check($cardOrderEdit['status'] === 409 && ($cardOrderEdit['json']['error'] ?? '') === 'card_order_edit_requires_reconciliation', 'approved card order cannot be edited before payment reconciliation');
     $paymentAttached = api('POST', '/api/v1/terminal-payments/' . rawurlencode($orderPaymentId) . '/attach-order', ['orderId' => $cardOrderId], csrf_headers());
     check($paymentAttached['status'] === 200 && (int)($paymentAttached['json']['order_id'] ?? 0) === $cardOrderId, 'approved payment attaches only to matching card order');
     $paymentLinkedRead = api('GET', '/api/v1/terminal-payments/' . rawurlencode($orderPaymentId));
