@@ -9,8 +9,10 @@ ALTER TABLE pos_categories
     REFERENCES pos_categories (business_id, id) ON DELETE RESTRICT;
 
 ALTER TABLE pos_products
+  DROP INDEX uq_products_sku,
   ADD COLUMN business_id BIGINT UNSIGNED NOT NULL AFTER id,
   ADD UNIQUE KEY uq_products_business_id_id (business_id, id),
+  ADD UNIQUE KEY uq_products_business_sku (business_id, sku),
   ADD KEY idx_products_business_category (business_id, category_id, is_active, name),
   ADD CONSTRAINT fk_products_business FOREIGN KEY (business_id) REFERENCES pos_businesses(id) ON DELETE RESTRICT,
   ADD CONSTRAINT fk_products_category_business FOREIGN KEY (business_id, category_id)
