@@ -206,6 +206,20 @@ try {
         return $catalogController;
     };
 
+
+    $mediaController = null;
+    $getMediaController = static function () use (&$mediaController, $getConnection, $configuration): MediaController {
+        if (!$mediaController instanceof MediaController) {
+            $mediaController = new MediaController(new MediaService(
+                $getConnection(),
+                $configuration->applicationKey,
+                new PrivateMediaStorage($configuration->privateStoragePath),
+                $configuration->mediaMaxBytes,
+            ));
+        }
+        return $mediaController;
+    };
+
     $router = new Router();
     $router->add('GET', '/api/v1/health', static fn (Request $request): Response =>
         Response::success(['status' => 'ok'])
@@ -373,6 +387,27 @@ try {
 
     $router->add('PATCH', '/api/v1/catalog/options/{optionPublicId}',
         static fn (Request $request, array $parameters): Response => $getCatalogController()->updateOption($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
+
+    $router->add('POST', '/api/v1/media',
+        static fn (Request $request): Response => $getMediaController()->upload($request),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('GET', '/api/v1/media/{mediaPublicId}',
+        static fn (Request $request, array $parameters): Response => $getMediaController()->show($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.read', false)],
+    );
+
+    $router->add('PUT', '/api/v1/catalog/products/{productPublicId}/image',
+        static fn (Request $request, array $parameters): Response => $getMediaController()->attachProductImage($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('PUT', '/api/v1/catalog/categories/{categoryPublicId}/image',
+        static fn (Request $request, array $parameters): Response => $getMediaController()->attachCategoryImage($request, $parameters),
         [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
     );
 
