@@ -57,6 +57,7 @@ jobs:
           php -l database/v3/bin/migrate.php
           php -l scripts/check-v3-database-schema.php
           php -l scripts/check-v3-install.php
+          php -l scripts/check-v3-migration.php
 
       - name: Install isolated V3 baseline into disposable database
         env:
@@ -89,5 +90,5 @@ jobs:
           printf "CREATE TABLE v3_ci_migration_probe (id INT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=InnoDB;" > database/v3/migrations/001_ci-smoke.sql
           php database/v3/bin/migrate.php
           php database/v3/bin/migrate.php
-          php -r '$p = new PDO("mysql:host=127.0.0.1;dbname=pos_v3_install_ci;charset=utf8mb4", "root", getenv("POS_V3_DB_PASSWORD"), [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]); if (!$p->query("SHOW TABLES LIKE \'v3_ci_migration_probe\'")->fetchColumn()) { throw new RuntimeException("Migration probe table missing"); } $n = (int) $p->query("SELECT COUNT(*) FROM app_schema_migrations WHERE version = \'001_ci-smoke\'")->fetchColumn(); if ($n !== 1) { throw new RuntimeException("Migration was not recorded exactly once"); } echo "Migration idempotency check passed.\\n";'
+          php scripts/check-v3-migration.php
           rm -f database/v3/migrations/001_ci-smoke.sql
