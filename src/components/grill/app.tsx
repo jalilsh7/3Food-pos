@@ -11,7 +11,7 @@ import {
 } from "@/lib/pos/model";
 import { lowStock, usePos } from "@/lib/pos/store";
 import { phpApi, type ApiUser, type ManagedUser, type AppearanceSettings } from "@/lib/api/php-client";
-import { useAppearance } from "@/lib/appearance";
+import { APPEARANCE_PRESETS, useAppearance } from "@/lib/appearance";
 
 
 async function saveCentralRecord<T extends { id: string | number }>(resource: string, item: T, commit: () => void) {
@@ -1847,6 +1847,20 @@ function AppearanceSettingsPanel(){
  async function logo(file?:File){if(!file)return;setLogoBusy(true);setNote("");try{await uploadLogo(file);setNote("لوگو بارگذاری شد؛ برای انتشار آن روی همه دستگاه‌ها «ذخیره ظاهر» را بزنید.");}catch(e){setNote(e instanceof Error?e.message:"بارگذاری لوگو انجام نشد.");}finally{setLogoBusy(false);}}
  return <Card className="space-y-4">
  <div><h3 className="font-semibold">طراحی ظاهری سراسری</h3><p className="mt-1 text-xs text-muted">تغییرات زنده پیش‌نمایش می‌شوند؛ پس از ذخیره برای همه کاربران و دستگاه‌ها اعمال خواهند شد.</p></div>
+ <div>
+  <p className="mb-2 text-sm font-semibold">ترکیب‌رنگ‌های آماده</p>
+  <p className="mb-3 text-xs text-muted">یکی از پنج پالت هماهنگ را انتخاب کنید؛ حالت روشن یا تیره جداگانه قابل تنظیم است.</p>
+  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+   {APPEARANCE_PRESETS.map(preset=>{
+    const selected=settings.primary.toLowerCase()===preset.primary.toLowerCase()&&settings.secondary.toLowerCase()===preset.secondary.toLowerCase();
+    return <button key={preset.id} type="button" aria-pressed={selected} onClick={()=>update({primary:preset.primary,secondary:preset.secondary})} className={`flex min-w-0 items-center gap-3 rounded-2xl border p-3 text-right transition ${selected?"border-chili bg-chili/5 ring-2 ring-chili/15":"border-line bg-surface hover:border-leaf"}`}>
+     <span className="flex shrink-0 gap-1.5"><span className="h-9 w-9 rounded-xl border border-black/10" style={{backgroundColor:preset.primary}}/><span className="mt-1 h-7 w-7 rounded-lg border border-black/10" style={{backgroundColor:preset.secondary}}/></span>
+     <span className="min-w-0 flex-1"><span className="block text-sm font-bold">{preset.name}</span><span className="mt-1 block text-[11px] leading-5 text-muted">{preset.description}</span></span>
+     {selected?<span className="shrink-0 text-xs font-bold text-leaf">انتخاب‌شده</span>:null}
+    </button>;
+   })}
+  </div>
+ </div>
  <div className="grid gap-3 sm:grid-cols-2">
  <Field label="رنگ اصلی"><div className="flex items-center gap-3"><input aria-label="رنگ اصلی" type="color" value={settings.primary} onChange={e=>update({primary:e.target.value})} className="h-11 w-16 cursor-pointer rounded-lg border border-line bg-surface p-1"/><span className="text-xs text-muted">{settings.primary}</span></div></Field>
  <Field label="رنگ مکمل"><div className="flex items-center gap-3"><input aria-label="رنگ مکمل" type="color" value={settings.secondary} onChange={e=>update({secondary:e.target.value})} className="h-11 w-16 cursor-pointer rounded-lg border border-line bg-surface p-1"/><span className="text-xs text-muted">{settings.secondary}</span></div></Field>
