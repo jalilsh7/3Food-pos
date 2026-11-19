@@ -7,6 +7,8 @@ use JsonException;
 
 final readonly class Request
 {
+    private const MAX_JSON_BODY_BYTES = 65536;
+
     /** @param array<string, string> $headers */
     public function __construct(
         public string $method,
@@ -22,7 +24,9 @@ final readonly class Request
         $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
         $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
         $path = parse_url($uri, PHP_URL_PATH);
-        if (!is_string($path) || $path === '' || $path[0] !== '/') $path = '/';
+        if (!is_string($path) || $path === '' || $path[0] !== '/') {
+            $path = '/';
+        }
 
         $headers = [];
         foreach ($_SERVER as $key => $value) {
@@ -40,8 +44,19 @@ final readonly class Request
             ? $candidate
             : bin2hex(random_bytes(16));
 
-        $body = file_get_contents('php://input');
-        return new self($method, $path, $headers, $body === false ? '' : $body, $requestId);
+        $body = file_get_contents('php://input', false, null, 0, self::MAX_JSON_BODY_BYTES + 1);
+        $attributes = [
+            'remote_ip' => is_string($_SERVER['REMOTE_ADDR'] ?? null) ? $_SERVER['REMOTE_ADDR'] : '',
+        ];
+
+        return new self(
+            $method,
+            $path,
+            $headers,
+            $body === false ? '' : $body,
+            $requestId,
+            $attributes,
+        );
     }
 
     public function header(string $name): ?string
@@ -64,15 +79,22 @@ final readonly class Request
     /** @return array<string, mixed> */
     public function json(): array
     {
-        if (trim($this->body) === '') return [];
+        if (strlen($this->body) > self::MAX_JSON_BODY_BYTES) {
+            throw new HttpException(413, 'request_body_too_large', 'The JSON request body exceeds the allowed size.');
+        }
+        if (trim($this->body) === '') {
+            return [];
+        }
+
         try {
             $decoded = json_decode($this->body, false, 64, JSON_THROW_ON_ERROR);
         } catch (JsonException) {
             throw new HttpException(400, 'invalid_json', 'Request body must contain valid JSON.');
         }
-        if (!$decoded instanceof \\stdClass) {
+        if (!$decoded instanceof \stdClass) {
             throw new HttpException(400, 'invalid_json_shape', 'JSON request body must be an object.');
         }
+
         return get_object_vars($decoded);
     }
 }
