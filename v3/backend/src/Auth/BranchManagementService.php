@@ -8,19 +8,19 @@ use PDO;
 use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\BusinessRepository;
-use PersiaCoder\PosV3\Infrastructure\Database\TransactionManager;
 use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class BranchManagementService
 {
     private BusinessRepository $businesses;
-    private TransactionManager $transactions;
+    private IdempotencyService $idempotency;
     private AuditLogService $audit;
 
-    public function __construct(PDO $connection)
+    public function __construct(PDO $connection, string $applicationKey)
     {
         $this->businesses = new BusinessRepository($connection);
-        $this->transactions = new TransactionManager($connection);
+        $this->idempotency = new IdempotencyService($connection, $applicationKey);
         $this->audit = new AuditLogService(new AuditLogRepository($connection));
     }
 
@@ -29,12 +29,14 @@ final readonly class BranchManagementService
         return $this->businesses->listBranches($scope->businessId);
     }
 
+    /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function create(
         AuthenticatedPrincipal $actor,
         BusinessScope $scope,
         string $name,
         string $code,
         ?string $timezone,
+        string $idempotencyKey,
         string $requestId,
         string $ipAddress,
     ): array {
@@ -58,40 +60,55 @@ final readonly class BranchManagementService
             throw new HttpException(422, 'invalid_timezone', 'The timezone is not recognized.');
         }
 
-        $publicId = self::uuidV4();
-        $this->transactions->run(function (PDO $connection) use (
-            $publicId,
-            $scope,
-            $code,
-            $name,
-            $timezone,
-            $actor,
-            $requestId,
-            $ipAddress,
-        ): void {
-            $branchId = $this->businesses->createBranch($publicId, $scope->businessId, $code, $name, $timezone);
-            $this->audit->record(
-                $actor->userId,
-                'branch.created',
-                'branch',
-                $publicId,
-                null,
-                ['business_id' => $scope->businessPublicId, 'code' => $code, 'name' => $name, 'timezone' => $timezone],
-                null,
-                $requestId,
-                $ipAddress,
-                $scope->businessId,
-                $branchId,
-            );
-        });
-
-        return [
-            'id' => $publicId,
+        $fingerprint = hash('sha256', json_encode([
             'name' => $name,
             'code' => $code,
             'timezone' => $timezone,
-            'is_active' => true,
-        ];
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+        return $this->idempotency->execute(
+            $actor->userId,
+            $scope,
+            'branches.create',
+            $idempotencyKey,
+            $fingerprint,
+            function (PDO $connection) use (
+                $scope,
+                $code,
+                $name,
+                $timezone,
+                $actor,
+                $requestId,
+                $ipAddress,
+            ): array {
+                $publicId = self::uuidV4();
+                $branchId = $this->businesses->createBranch($publicId, $scope->businessId, $code, $name, $timezone);
+                $this->audit->record(
+                    $actor->userId,
+                    'branch.created',
+                    'branch',
+                    $publicId,
+                    null,
+                    ['business_id' => $scope->businessPublicId, 'code' => $code, 'name' => $name, 'timezone' => $timezone],
+                    null,
+                    $requestId,
+                    $ipAddress,
+                    $scope->businessId,
+                    $branchId,
+                );
+
+                return [
+                    'status' => 201,
+                    'body' => ['data' => ['branch' => [
+                        'id' => $publicId,
+                        'name' => $name,
+                        'code' => $code,
+                        'timezone' => $timezone,
+                        'is_active' => true,
+                    ]], 'meta' => (object) []],
+                ];
+            },
+        );
     }
 
     private static function unicodeLength(string $value): int
