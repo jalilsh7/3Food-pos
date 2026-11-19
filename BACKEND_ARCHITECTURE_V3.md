@@ -317,3 +317,14 @@ v3/backend/
 - برای delivery، نام گیرنده، تلفن و address snapshot لازم است؛ delivery fee فعلاً صفر است و باید بعداً از تنظیمات/محاسبه سرور تعیین شود.
 - address و recipient فقط در snapshot fulfillment ذخیره می‌شوند و در audit snapshot ثبت نمی‌شوند.
 
+
+## 19. BE-02B — سالن، میز و نشست میز
+
+- DiningRepository و DiningService برای سالن‌ها، میزها و table sessionهای branch-scoped اضافه شدند.
+- GET /api/v1/dining فهرست سالن‌ها و میزها را با وضعیت available/occupied و session فعال برمی‌گرداند.
+- POST /api/v1/dining/areas و POST /api/v1/dining/areas/{areaPublicId}/tables برای مدیر تنظیمات سالن/میز می‌سازند.
+- POST /api/v1/dining/tables/{tablePublicId}/sessions با قفل ردیف میز، بررسی فعال‌بودن و unique active_table_id از بازشدن همزمان دو نشست جلوگیری می‌کند.
+- PATCH /api/v1/dining/sessions/{sessionPublicId}/close نشست را فقط وقتی می‌بندد که سفارش ناتمام وجود نداشته باشد و سفارش completed نیز پرداخت شده باشد.
+- ساخت/بازکردن/بستن در IdempotencyService و transaction انجام و audit می‌شوند؛ هر lookup با business_id و branch_id محدود است.
+- بستن نشست برای سفارش completed با payment_status غیر paid مسدود است؛ پس از تکمیل ماژول پرداخت قابل استفاده خواهد بود.
+
