@@ -24,10 +24,36 @@ final readonly class UserRepository
         return is_array($user) ? $user : null;
     }
 
+    /** @return array<string, mixed>|null */
+    public function findActiveById(int $userId): ?array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT id, password_hash, is_active
+             FROM app_users
+             WHERE id = :user_id
+             LIMIT 1'
+        );
+        $statement->execute(['user_id' => $userId]);
+        $user = $statement->fetch(PDO::FETCH_ASSOC);
+        return is_array($user) && (int) $user['is_active'] === 1 ? $user : null;
+    }
+
     public function updatePasswordHash(int $userId, string $passwordHash): void
     {
         $statement = $this->connection->prepare(
             'UPDATE app_users SET password_hash = :password_hash WHERE id = :user_id'
+        );
+        $statement->execute(['password_hash' => $passwordHash, 'user_id' => $userId]);
+    }
+
+    public function changePasswordAndRevokeSessions(int $userId, string $passwordHash): void
+    {
+        $statement = $this->connection->prepare(
+            'UPDATE app_users
+             SET password_hash = :password_hash,
+                 must_change_password = 0,
+                 session_version = session_version + 1
+             WHERE id = :user_id AND is_active = 1'
         );
         $statement->execute(['password_hash' => $passwordHash, 'user_id' => $userId]);
     }
