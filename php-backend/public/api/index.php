@@ -390,9 +390,9 @@ if ($method==='POST' && $path==='/terminal-payments') {
     $key=strtolower(trim((string)($body['idempotencyKey']??'')));
     if(!preg_match('/^[A-Za-z0-9_-]{1,100}$/D',$terminalId)||$amount===false||$amount<1||$amount>100000000000||!valid_uuid($key))
         json_response(['ok'=>false,'error'=>'invalid_terminal_payment','message'=>'مبلغ یا شناسه پرداخت معتبر نیست'],422);
-    $existing=$pdo->prepare('SELECT id,terminal_id,amount,status FROM pos_terminal_payments WHERE idempotency_key=? LIMIT 1');$existing->execute([$key]);$old=$existing->fetch();
+    $existing=$pdo->prepare('SELECT id,terminal_id,amount,status,created_by FROM pos_terminal_payments WHERE idempotency_key=? LIMIT 1');$existing->execute([$key]);$old=$existing->fetch();
     if(is_array($old)){
-        if($old['terminal_id']!==$terminalId||(int)$old['amount']!==$amount) json_response(['ok'=>false,'error'=>'terminal_payment_idempotency_conflict','message'=>'شناسه تکراری برای پرداخت دیگری استفاده شده است'],409);
+        if((int)$old['created_by']!==(int)$actor['id']||($old['terminal_id']!==$terminalId||(int)$old['amount']!==$amount)) json_response(['ok'=>false,'error'=>'terminal_payment_idempotency_conflict','message'=>'شناسه تکراری برای پرداخت دیگری استفاده شده است'],409);
         json_response(['ok'=>true,'payment'=>['id'=>$old['id'],'status'=>$old['status'],'amount'=>(int)$old['amount']]]);
     }
     $device=$pdo->prepare('SELECT t.id,t.driver_code,t.enabled,a.enabled AS agent_enabled,a.last_seen_at FROM pos_payment_terminals t JOIN app_terminal_agents a ON a.id=t.agent_id WHERE t.id=? LIMIT 1');$device->execute([$terminalId]);$terminal=$device->fetch();
