@@ -26,7 +26,7 @@ final readonly class RoleManagementController
         [$code, $name, $permissions] = $this->rolePayload($request, true);
         $principal = $this->principal($request);
         $scope = $this->scope($request);
-        $this->roles->createCustomRole($principal, $scope, $code, $name, $permissions);
+        $this->roles->createCustomRole($principal, $scope, $code, $name, $permissions, $request->requestId, (string) ($request->attribute('remote_ip') ?? ''));
         return Response::success(['created' => true, 'code' => $code], [], 201);
     }
 
@@ -35,7 +35,7 @@ final readonly class RoleManagementController
         [, $name, $permissions] = $this->rolePayload($request, false);
         $principal = $this->principal($request);
         $scope = $this->scope($request);
-        $this->roles->updateCustomRole($principal, $scope, $parameters['roleCode'], $name, $permissions);
+        $this->roles->updateCustomRole($principal, $scope, $parameters['roleCode'], $name, $permissions, $request->requestId, (string) ($request->attribute('remote_ip') ?? ''));
         return Response::success(['updated' => true, 'code' => $parameters['roleCode']]);
     }
 
@@ -44,7 +44,7 @@ final readonly class RoleManagementController
         $principal = $this->principal($request);
         $scope = $this->scope($request);
         $roleCode = $this->roleCode($request);
-        $this->roles->assignBusinessRole($principal, $parameters['userPublicId'], $roleCode, $scope);
+        $this->roles->assignBusinessRole($principal, $parameters['userPublicId'], $roleCode, $scope, $request->requestId, (string) ($request->attribute('remote_ip') ?? ''));
         return Response::success(['assigned' => true], [], 201);
     }
 
@@ -53,28 +53,36 @@ final readonly class RoleManagementController
         $principal = $this->principal($request);
         $scope = $this->scope($request);
         $roleCode = $this->roleCode($request);
-        $this->roles->assignBranchRole($principal, $parameters['userPublicId'], $roleCode, $scope);
+        $this->roles->assignBranchRole($principal, $parameters['userPublicId'], $roleCode, $scope, $request->requestId, (string) ($request->attribute('remote_ip') ?? ''));
         return Response::success(['assigned' => true], [], 201);
     }
 
     public function removeBusiness(Request $request, array $parameters): Response
     {
+        $principal = $this->principal($request);
         $scope = $this->scope($request);
         $removed = $this->roles->removeBusinessRole(
+            $principal,
             $parameters['userPublicId'],
             $parameters['roleCode'],
             $scope,
+            $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
         );
         return Response::success(['removed' => $removed]);
     }
 
     public function removeBranch(Request $request, array $parameters): Response
     {
+        $principal = $this->principal($request);
         $scope = $this->scope($request);
         $removed = $this->roles->removeBranchRole(
+            $principal,
             $parameters['userPublicId'],
             $parameters['roleCode'],
             $scope,
+            $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
         );
         return Response::success(['removed' => $removed]);
     }
