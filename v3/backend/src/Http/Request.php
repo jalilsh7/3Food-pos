@@ -58,6 +58,14 @@ final readonly class Request
             : bin2hex(random_bytes(16));
 
         $contentType = strtolower(trim($headers['content-type'] ?? ''));
+        if (str_starts_with($contentType, 'multipart/form-data')) {
+            $contentLength = $_SERVER['CONTENT_LENGTH'] ?? null;
+            $postLimit = self::iniBytes((string) ini_get('post_max_size'));
+            if (is_string($contentLength) && ctype_digit($contentLength)
+                && $postLimit > 0 && (int) $contentLength > $postLimit) {
+                throw new HttpException(413, 'request_body_too_large', 'The multipart request exceeds the PHP post_max_size limit.');
+            }
+        }
         $body = str_starts_with($contentType, 'application/json')
             ? file_get_contents('php://input', false, null, 0, self::MAX_JSON_BODY_BYTES + 1)
             : '';
@@ -144,4 +152,20 @@ final readonly class Request
 
         return get_object_vars($decoded);
     }
+
+    private static function iniBytes(string $value): int
+    {
+        $value = trim($value);
+        if ($value === '' || $value === '0') return 0;
+        if (!preg_match('/^(\\d+)\\s*([KMG])?$/i', $value, $matches)) return 0;
+        $bytes = (int) $matches[1];
+        $unit = strtoupper($matches[2] ?? '');
+        return match ($unit) {
+            'K' => $bytes * 1024,
+            'M' => $bytes * 1024 * 1024,
+            'G' => $bytes * 1024 * 1024 * 1024,
+            default => $bytes,
+        };
+    }
+
 }
