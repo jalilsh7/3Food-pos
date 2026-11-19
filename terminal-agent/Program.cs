@@ -47,13 +47,13 @@ while (!stop.IsCancellationRequested) {
             }
         }
         if (!new[] { "approved", "declined", "cancelled", "unknown" }.Contains(result.Status, StringComparer.Ordinal) ||
-            (result.Status == "approved" && string.IsNullOrWhiteSpace(result.ExternalTransactionId) &&
+            (result.Status == "approved" && (result.ConfirmedAmount != job.Amount || string.IsNullOrWhiteSpace(result.ExternalTransactionId)) &&
              string.IsNullOrWhiteSpace(result.TraceNumber) && string.IsNullOrWhiteSpace(result.RetrievalReferenceNumber))) {
             result = new TerminalResult { Status = "unknown", ResponseCode = "INVALID_DRIVER_RESULT",
                 ResponseMessage = "Driver result is incomplete or unsupported; manual reconciliation is required." };
         }
         var payload = new TerminalResultRequest {
-            Status = result.Status, Amount = job.Amount,
+            Status = result.Status, Amount = result.Status == "approved" ? result.ConfirmedAmount!.Value : job.Amount,
             ExternalTransactionId = Limit(result.ExternalTransactionId, 120),
             TraceNumber = Limit(result.TraceNumber, 80),
             RetrievalReferenceNumber = Limit(result.RetrievalReferenceNumber, 80),
