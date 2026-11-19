@@ -953,3 +953,11 @@
 - فعال‌سازی کانال آنلاین به‌تنهایی مجوز پذیرش سفارش نیست؛ storefront باید مستقل از تنظیمات نمایشی و بر اساس وضعیت عملیاتی/ساعات/ظرفیت سمت سرور تصمیم بگیرد.
 - TypeScript، build و browser tests اجرا نشده‌اند.
 
+### UX-11A — پیش‌نمایش منوی آنلاین و سبد خرید
+- وضعیت: **در حال انجام؛ prototype تعاملی ثبت شد، پذیرش فنی و اتصال Backend باقی است.**
+- مسیرها: `v3/frontend/src/features/storefront/StorefrontWorkspace.tsx`, `storefront.css`، navigation/route در `v3/frontend/src/app/App.tsx` و import استایل در `v3/frontend/src/styles.css`.
+- امکانات: منوی دسته‌بندی‌شده، جست‌وجو، محصولات در دسترس/ناموجود نمونه، روش دریافت، سبد و تعداد/جمع نمایشی.
+- ثبت سفارش عمداً فعال نیست. این prototype به storefront API، customer session، pricing service، inventory availability، delivery zones، opening-hours policy یا payment provider متصل نیست.
+- معماری عملیاتی باید مستقل از WooCommerce باشد؛ قیمت/تخفیف/هزینه ارسال/مالیات و اعتبار موجودی فقط در سرور محاسبه و snapshot شوند. اتصال WooCommerce اختیاری و جداگانه خواهد بود.
+- TypeScript، build، unit و browser tests اجرا نشده‌اند.
+
