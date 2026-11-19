@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   bootstrap:
-    name: PHP ${{ matrix.php }} bootstrap checks
+    name: PHP ${{ matrix.php }} backend checks
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -28,9 +28,8 @@ jobs:
           coverage: none
       - name: PHP syntax validation
         run: |
-          php -l v3/backend/bootstrap.php
-          php -l v3/backend/src/Support/Environment.php
-          php -l v3/backend/src/Support/Configuration.php
-          php -l scripts/check-v3-backend-bootstrap.php
+          find v3/backend scripts -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Bootstrap configuration checks
         run: php scripts/check-v3-backend-bootstrap.php
+      - name: HTTP kernel checks
+        run: php scripts/check-v3-backend-http.php
