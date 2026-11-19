@@ -539,3 +539,11 @@
 - پاسخ با AES-256-GCM و کلید مشتق‌شده از `POS_V3_APP_KEY` رمز می‌شود؛ ثبت اثر دامنه و پاسخ در یک transaction انجام‌پذیر است.
 - کلید تکراری با payload متفاوت رد می‌شود و payload یکسان پاسخ قبلی را replay می‌کند؛ قفل ردیف/unique index برای هم‌زمانی لحاظ شده است.
 - تست‌ها و CI طبق دستور مالک به پایان توسعه موکول شده‌اند؛ این بسته به‌معنی اجرای migration یا اتصال عملیاتی endpointها نیست.
+
+
+### BE-01F2 — Audit scope و API تاریخچه
+- وضعیت: **کدنویسی انجام شد؛ migration و تست نهایی باقی است.**
+- migration `005_add-audit-business-scope.sql` ستون‌های business_id/branch_id و FK مرکب سازگاری شعبه با کسب‌وکار را به audit اضافه می‌کند.
+- رویدادهای ایجاد کسب‌وکار، شعبه، کاربر و تغییرات نقش در scope درست ثبت می‌شوند.
+- endpoint امن `GET /api/v1/audit-logs` با permission `audit.read`، scope business/branch و cursor pagination اضافه شد.
+- تست/CI و اجرای migration طبق دستور مالک به انتهای توسعه موکول است.
