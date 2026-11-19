@@ -100,6 +100,33 @@ final readonly class AuthController
         ]);
     }
 
+    public function changePassword(Request $request): Response
+    {
+        $principal = $request->attribute('principal');
+        if (!$principal instanceof AuthenticatedPrincipal) {
+            throw new HttpException(401, 'authentication_required', 'Authentication is required.');
+        }
+
+        $contentType = strtolower(trim($request->header('content-type') ?? ''));
+        if (!preg_match('/^application\/json(?:\s*;|$)/', $contentType)) {
+            throw new HttpException(415, 'unsupported_media_type', 'Content-Type must be application/json.');
+        }
+
+        $payload = $request->json();
+        $currentPassword = $payload['current_password'] ?? null;
+        $newPassword = $payload['new_password'] ?? null;
+        if (!is_string($currentPassword) || !is_string($newPassword)) {
+            throw new HttpException(422, 'invalid_password_format', 'Current and new passwords are required.');
+        }
+
+        $this->authentication->changePassword($principal->userId, $currentPassword, $newPassword);
+
+        return Response::success(['password_changed' => true])->withHeader('Set-Cookie', [
+            SessionCookie::clear($this->secureCookies),
+            CsrfCookie::clear($this->secureCookies),
+        ]);
+    }
+
     private static function cookieValue(string $header, string $name): ?string
     {
         foreach (explode(';', $header) as $part) {
