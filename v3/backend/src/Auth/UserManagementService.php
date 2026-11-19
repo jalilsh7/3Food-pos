@@ -125,7 +125,6 @@ final readonly class UserManagementService
             $idempotencyKey,
             $fingerprint,
             function (PDO $connection) use (
-                $publicId = null,
                 $username,
                 $displayName,
                 $role,
