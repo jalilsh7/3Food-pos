@@ -524,12 +524,22 @@ function PosScreen() {
       throw new Error("یک پرداخت کارتخوان تأییدشده برای مبلغ قبلی در انتظار ثبت سفارش است؛ مبلغ سبد را تغییر ندهید و ابتدا سفارش را تعیین‌تکلیف کنید.");
     let pending=pendingTerminalPayment.current;
     if(!pending){
-      const available=terminalOptions.length?terminalOptions:(await phpApi.listAvailableTerminals()).items;
-      setTerminalOptions(available);
-      const terminal=available.find(t=>t.id===selectedTerminalId)??available.find(t=>t.is_default||t.isDefault)??available[0];
-      if(!terminal)throw new Error("کارتخوان آنلاین و دارای درایور تأییدشده پیدا نشد؛ تنظیمات کارتخوان را بررسی کنید.");
-      const created=await phpApi.createTerminalPayment({terminalId:terminal.id,amount,idempotencyKey:crypto.randomUUID()});
-      pending={id:created.payment.id,amount,terminalId:terminal.id};pendingTerminalPayment.current=pending;
+      const unresolved=(await phpApi.listPendingTerminalPayments()).items;
+      if(unresolved.length>1)throw new Error("چند تراکنش تعیین‌تکلیف‌نشده وجود دارد؛ مدیر باید ابتدا وضعیت آن‌ها را بررسی کند.");
+      if(unresolved.length===1){
+        const previous=unresolved[0];
+        if(previous.amount!==amount)throw new Error("یک تراکنش قبلی با مبلغ متفاوت در انتظار تعیین‌تکلیف است؛ پرداخت جدید مجاز نیست.");
+        if(previous.status==="unknown")throw new Error("نتیجه تراکنش قبلی نامشخص است؛ قبل از پرداخت مجدد، از بانک استعلام کنید.");
+        pending={id:previous.id,amount,terminalId:previous.terminal_id??""};
+        pendingTerminalPayment.current=pending;
+      }else{
+        const available=terminalOptions.length?terminalOptions:(await phpApi.listAvailableTerminals()).items;
+        setTerminalOptions(available);
+        const terminal=available.find(t=>t.id===selectedTerminalId)??available.find(t=>t.is_default||t.isDefault)??available[0];
+        if(!terminal)throw new Error("کارتخوان آنلاین و دارای درایور تأییدشده پیدا نشد؛ تنظیمات کارتخوان را بررسی کنید.");
+        const created=await phpApi.createTerminalPayment({terminalId:terminal.id,amount,idempotencyKey:crypto.randomUUID()});
+        pending={id:created.payment.id,amount,terminalId:terminal.id};pendingTerminalPayment.current=pending;
+      }
     }
     for(let attempt=0;attempt<60;attempt++){
       const result=await phpApi.getTerminalPayment(pending.id);
