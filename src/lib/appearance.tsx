@@ -1,6 +1,14 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { phpApi, type AppearanceSettings } from "@/lib/api/php-client";
 export const DEFAULT_APPEARANCE: AppearanceSettings = { primary:"#14532d",secondary:"#0f766e",mode:"light",fontFamily:"byekan",fontSize:15,cardRadius:16,buttonRadius:12,logoUrl:null };
+
+export const APPEARANCE_PRESETS = [
+ { id:"royal", name:"سبز سلطنتی", description:"اصیل، مطمئن و مناسب فضای رستورانی", primary:"#14532d", secondary:"#0f766e" },
+ { id:"ocean", name:"آبی اقیانوسی", description:"آرام، حرفه‌ای و شفاف", primary:"#1d4ed8", secondary:"#0891b2" },
+ { id:"violet", name:"بنفش مدرن", description:"خاص، خلاق و امروزی", primary:"#6d28d9", secondary:"#c026d3" },
+ { id:"teal", name:"فیروزه‌ای گرم", description:"تازه و پرانرژی با تأکید کهربایی", primary:"#0f766e", secondary:"#d97706" },
+ { id:"graphite", name:"زغالی لوکس", description:"مینیمال و شیک با جزئیات طلایی", primary:"#334155", secondary:"#b45309" },
+] as const;
 type AppearanceContextValue={settings:AppearanceSettings;update:(patch:Partial<AppearanceSettings>)=>void;save:()=>Promise<void>;reset:()=>Promise<void>;uploadLogo:(file:File)=>Promise<void>;loading:boolean};
 const AppearanceContext=createContext<AppearanceContextValue|null>(null);
 function safeColor(value:string,fallback:string){return /^#[0-9a-f]{6}$/i.test(value)?value:fallback;}
