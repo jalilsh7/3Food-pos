@@ -212,6 +212,11 @@ try {
         [$sessionMiddleware, $makePermissionMiddleware('orders.read', true)],
     );
 
+    $router->add('GET', '/api/v1/orders/{orderPublicId}',
+        static fn (Request $request, array $parameters): Response => $getOrderController()->show($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('orders.read', true)],
+    );
+
     $router->add('POST', '/api/v1/orders',
         static fn (Request $request): Response => $getOrderController()->create($request),
         [$sessionMiddleware, $makePermissionMiddleware('orders.create', true), $csrfMiddleware, $originMiddleware],
