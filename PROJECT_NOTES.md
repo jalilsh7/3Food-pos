@@ -1174,3 +1174,13 @@
 - تکمیل BE-02A: GET /api/v1/orders/{orderPublicId} جزئیات سفارش، item snapshots، option snapshots، fulfillment، customer/table session و status history را در scope همان branch می‌دهد.
 - fulfillment methodهای dine_in/takeaway/delivery اضافه شدند؛ table به dine_in و takeaway به takeaway نگاشت می‌شود؛ delivery نیازمند recipient_name، recipient_phone و delivery_address است. delivery fee در این مرحله صفر است.
 
+
+## BE-02B — سالن، میز و نشست (2026-11-20)
+- DiningRepository.php، DiningService.php و DiningController.php اضافه شدند.
+- GET /api/v1/dining فهرست branch-scoped سالن‌ها و میزها را با available/occupied و session فعال می‌دهد.
+- POST /api/v1/dining/areas و POST /api/v1/dining/areas/{areaPublicId}/tables با settings.manage سالن و میز ایجاد می‌کنند.
+- POST /api/v1/dining/tables/{tablePublicId}/sessions با orders.create نشست باز می‌کند؛ قفل میز و unique generated active_table_id مانع نشست فعال تکراری می‌شوند.
+- PATCH /api/v1/dining/sessions/{sessionPublicId}/close با orders.update نشست را می‌بندد؛ وجود سفارش ناتمام یا completed با payment_status غیر paid باعث 409 می‌شود.
+- عملیات با IdempotencyService و AuditLogService در transaction اجرا می‌شوند؛ هیچ جدول/سالن خارج از business/branch انتخاب نمی‌شود.
+- تست و migration اجرا نشده‌اند.
+
