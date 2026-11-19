@@ -414,3 +414,11 @@
 - Logout فقط با CSRF معتبر از \`POST /api/v1/auth/logout\` انجام می‌شود.
 - API auth پیاده شده اما UI هنوز به آن متصل نشده است؛ تا تکمیل RBAC و scope، endpointهای عملیاتی فرانت‌اند نباید فعال شوند.
 
+
+### BE-01E1 — قرارداد scope و permission رابط
+- درخواست‌های عملیاتی scoped باید X-Business-ID را با UUID عمومی کسب‌وکار ارسال کنند؛ درخواست branch-bound علاوه بر آن X-Branch-ID را ارسال می‌کند.
+- Backend branch را مستقل از business نمی‌پذیرد؛ شناسه شعبه باید متعلق به کسب‌وکار انتخاب‌شده و فعال باشد.
+- نقش‌ها از permission codeهای مستقل تشکیل می‌شوند؛ نمایش/مخفی‌کردن منو در UI صرفاً UX است و جایگزین PermissionMiddleware سمت سرور نیست.
+- پاسخ 403 به معنی نبود مجوز و 404 به معنی scope یا resource نامعتبر است؛ UI نباید با تغییر header یا route مجوز بیشتری فرض کند.
+- تا ساخت onboarding و API انتساب نقش، انتخاب business/branch در UI عملیاتی فعال نمی‌شود.
+
