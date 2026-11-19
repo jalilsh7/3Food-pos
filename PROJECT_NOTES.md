@@ -1049,3 +1049,15 @@
 - Router middleware pipeline با ترتیب ثبت‌شده دارد؛ Request برای attributeها immutable است.
 - `scripts/check-v3-backend-auth-guards.php` CSRF safe/unsafe، cookie flags و ترتیب middleware را پوشش می‌دهد؛ تست هنوز در runner اجرا نشده است.
 - routeها هنوز middleware را مصرف نمی‌کنند و login/logout endpoint منتشر نشده است؛ هیچ UI به API متصل نیست.
+
+
+## BE-01D4 — endpointهای احراز هویت و نشست (2026-11-20)
+- فایل‌های جدید: \`v3/backend/src/Auth/AuthController.php\`، \`CsrfCookie.php\` و \`v3/backend/src/Security/SameOriginGuard.php\`.
+- \`POST /api/v1/auth/login\`: فقط JSON، Origin/Referer هم‌مبدأ، login throttling، صدور cookie نشست HttpOnly و CSRF cookie غیر HttpOnly.
+- \`GET /api/v1/auth/me\`: session middleware؛ بازیابی/چرخش CSRF token از طریق cookie و hash سمت DB برای دوام پس از refresh.
+- \`POST /api/v1/auth/logout\`: session + CSRF + same-origin؛ revoke نشست و پاک‌کردن cookieها.
+- \`Response\` از چند Set-Cookie مستقل پشتیبانی می‌کند؛ \`Request\` بدنه JSON را به ۶۴ KiB محدود و remote IP را فقط از REMOTE_ADDR دریافت می‌کند.
+- session lifetime بین ۵ دقیقه تا ۲۴ ساعت محدود شد.
+- front controller اتصال DB را lazy نگه می‌دارد تا liveness health به DB وابسته نشود.
+- اجرای تست/CI و migration دیتابیس در این بسته انجام نشده و طبق تصمیم کاربر به انتهای پروژه منتقل شده است.
+
