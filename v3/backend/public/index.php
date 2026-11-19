@@ -4,6 +4,8 @@ declare(strict_types=1);
 use Closure;
 use PersiaCoder\PosV3\Catalog\CatalogController;
 use PersiaCoder\PosV3\Catalog\CatalogService;
+use PersiaCoder\PosV3\Orders\OrderController;
+use PersiaCoder\PosV3\Orders\OrderService;
 use PersiaCoder\PosV3\Auth\AuthController;
 use PersiaCoder\PosV3\Auth\AuditLogController;
 use PersiaCoder\PosV3\Auth\BusinessSetupController;
@@ -85,6 +87,21 @@ try {
             $setupController = new BusinessSetupController(new BusinessSetupService($getConnection()));
         }
         return $setupController;
+    };
+
+    $orderController = null;
+    $getOrderController = static function () use (&$orderController, $getConnection, $configuration): OrderController {
+        if (!$orderController instanceof OrderController) {
+            $permissionRepository = new PermissionRepository($getConnection());
+            $orderController = new OrderController(
+                new OrderService(
+                    $getConnection(),
+                    $configuration->applicationKey,
+                    new PermissionService($permissionRepository),
+                ),
+            );
+        }
+        return $orderController;
     };
 
     $roleController = null;
@@ -188,6 +205,21 @@ try {
     $router->add('POST', '/api/v1/auth/change-password',
         static fn (Request $request): Response => $getController()->changePassword($request),
         [$sessionMiddleware, $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('GET', '/api/v1/orders',
+        static fn (Request $request): Response => $getOrderController()->list($request),
+        [$sessionMiddleware, $makePermissionMiddleware('orders.read', true)],
+    );
+
+    $router->add('POST', '/api/v1/orders',
+        static fn (Request $request): Response => $getOrderController()->create($request),
+        [$sessionMiddleware, $makePermissionMiddleware('orders.create', true), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('PATCH', '/api/v1/orders/{orderPublicId}/status',
+        static fn (Request $request, array $parameters): Response => $getOrderController()->transition($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('orders.update', true), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('GET', '/api/v1/catalog/categories',
