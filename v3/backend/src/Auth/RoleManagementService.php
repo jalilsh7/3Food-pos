@@ -79,6 +79,8 @@ final readonly class RoleManagementService
                 null,
                 $requestId,
                 $ipAddress,
+                $scope->businessId,
+                null,
             );
         });
     }
@@ -129,6 +131,8 @@ final readonly class RoleManagementService
                 null,
                 $requestId,
                 $ipAddress,
+                $scope->businessId,
+                null,
             );
         });
     }
@@ -183,6 +187,8 @@ final readonly class RoleManagementService
                     null,
                     $requestId,
                     $ipAddress,
+                    $scope->businessId,
+                    $scope->branchId,
                 );
             }
             return $removed;
@@ -217,6 +223,8 @@ final readonly class RoleManagementService
                     null,
                     $requestId,
                     $ipAddress,
+                    $scope->businessId,
+                    $scope->branchId,
                 );
             }
             return $removed;
@@ -268,6 +276,8 @@ final readonly class RoleManagementService
                 null,
                 $requestId,
                 $ipAddress,
+                $scope->businessId,
+                $branchScoped ? $scope->branchId : null,
             );
         });
     }
