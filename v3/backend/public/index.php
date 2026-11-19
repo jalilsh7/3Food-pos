@@ -32,6 +32,7 @@ use PersiaCoder\PosV3\Security\CsrfMiddleware;
 use PersiaCoder\PosV3\Security\SameOriginGuard;
 use PersiaCoder\PosV3\Security\InstallationOwnerMiddleware;
 use PersiaCoder\PosV3\Security\PermissionMiddleware;
+use PersiaCoder\PosV3\Security\IdempotencyMiddleware;
 
 try {
     $configuration = require dirname(__DIR__) . '/bootstrap.php';
@@ -137,6 +138,17 @@ try {
         };
     };
 
+    $makeIdempotencyMiddleware = static function (string $endpointCode) use ($getConnection, $configuration): Closure {
+        return static function (Request $request, array $parameters, callable $next) use ($getConnection, $configuration, $endpointCode): Response {
+            $middleware = new IdempotencyMiddleware(
+                $getConnection(),
+                $configuration->applicationKey,
+                $endpointCode,
+            );
+            return $middleware($request, $parameters, $next);
+        };
+    };
+
     $ownerMiddleware = static function (Request $request, array $parameters, callable $next) use ($getConnection): Response {
         $middleware = new InstallationOwnerMiddleware(new BusinessRepository($getConnection()));
         return $middleware($request, $parameters, $next);
@@ -187,7 +199,7 @@ try {
 
     $router->add('POST', '/api/v1/access/branches',
         static fn (Request $request): Response => $getBranchController()->create($request),
-        [$sessionMiddleware, $makePermissionMiddleware('branches.manage', false), $csrfMiddleware, $originMiddleware],
+        [$sessionMiddleware, $makePermissionMiddleware('branches.manage', false), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('branches.create')],
     );
 
     $router->add('GET', '/api/v1/access/users',
@@ -202,12 +214,12 @@ try {
 
     $router->add('POST', '/api/v1/access/users',
         static fn (Request $request): Response => $getUserController()->createBusinessUser($request),
-        [$sessionMiddleware, $makePermissionMiddleware('users.manage', false), $csrfMiddleware, $originMiddleware],
+        [$sessionMiddleware, $makePermissionMiddleware('users.manage', false), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('users.create.business')],
     );
 
     $router->add('POST', '/api/v1/access/branches/users',
         static fn (Request $request): Response => $getUserController()->createBranchUser($request),
-        [$sessionMiddleware, $makePermissionMiddleware('users.manage', true), $csrfMiddleware, $originMiddleware],
+        [$sessionMiddleware, $makePermissionMiddleware('users.manage', true), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('users.create.branch')],
     );
 
     $router->add('GET', '/api/v1/access/permissions',
@@ -217,7 +229,7 @@ try {
 
     $router->add('POST', '/api/v1/access/roles',
         static fn (Request $request): Response => $getRoleController()->create($request),
-        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware],
+        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('roles.create-or-update')],
     );
 
     $router->add('PATCH', '/api/v1/access/roles/{roleCode}',
@@ -242,7 +254,7 @@ try {
 
     $router->add('POST', '/api/v1/access/users/{userPublicId}/branch-roles',
         static fn (Request $request, array $parameters): Response => $getRoleController()->assignBranch($request, $parameters),
-        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', true), $csrfMiddleware, $originMiddleware],
+        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', true), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('roles.branch-assignment')],
     );
 
     $router->add('DELETE', '/api/v1/access/users/{userPublicId}/branch-roles/{roleCode}',
