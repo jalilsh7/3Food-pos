@@ -253,7 +253,7 @@ export function PosWorkspace() {
           {cart.length ? (
             <div className="pos-cart-lines">
               {cart.map((line) => (
-                <div className="pos-cart-line" key={line.product.id}>
+                <div className="pos-cart-line" key={line.configurationKey + ":" + line.product.id}>
                   <span className="pos-cart-emoji" aria-hidden="true">{line.product.symbol}</span>
                   <div className="pos-cart-line-copy">
                     <strong>{line.product.name}</strong>
