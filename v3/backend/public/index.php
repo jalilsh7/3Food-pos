@@ -2,6 +2,8 @@
 declare(strict_types=1);
 
 use Closure;
+use PersiaCoder\PosV3\Catalog\CatalogController;
+use PersiaCoder\PosV3\Catalog\CatalogService;
 use PersiaCoder\PosV3\Auth\AuthController;
 use PersiaCoder\PosV3\Auth\AuditLogController;
 use PersiaCoder\PosV3\Auth\BusinessSetupController;
@@ -163,6 +165,16 @@ try {
         return $auditController;
     };
 
+    $catalogController = null;
+    $getCatalogController = static function () use (&$catalogController, $getConnection, $configuration): CatalogController {
+        if (!$catalogController instanceof CatalogController) {
+            $catalogController = new CatalogController(
+                new CatalogService($getConnection(), $configuration->applicationKey),
+            );
+        }
+        return $catalogController;
+    };
+
     $router = new Router();
     $router->add('GET', '/api/v1/health', static fn (Request $request): Response =>
         Response::success(['status' => 'ok'])
@@ -186,6 +198,26 @@ try {
     $router->add('POST', '/api/v1/auth/change-password',
         static fn (Request $request): Response => $getController()->changePassword($request),
         [$sessionMiddleware, $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('GET', '/api/v1/catalog/categories',
+        static fn (Request $request): Response => $getCatalogController()->categories($request),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.read', false)],
+    );
+
+    $router->add('POST', '/api/v1/catalog/categories',
+        static fn (Request $request): Response => $getCatalogController()->createCategory($request),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('GET', '/api/v1/catalog/products',
+        static fn (Request $request): Response => $getCatalogController()->products($request),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.read', false)],
+    );
+
+    $router->add('POST', '/api/v1/catalog/products',
+        static fn (Request $request): Response => $getCatalogController()->createProduct($request),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('GET', '/api/v1/audit-logs',
