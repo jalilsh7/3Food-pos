@@ -35,16 +35,18 @@ final readonly class BranchManagementController
         if (!$principal instanceof AuthenticatedPrincipal) {
             throw new HttpException(401, 'authentication_required', 'Authentication is required.');
         }
-        $branch = $this->branches->create(
+        $result = $this->branches->create(
             $principal,
             $this->scope($request),
             $payload['name'],
             $payload['code'],
             $timezone,
+            $request->header('idempotency-key') ?? '',
             $request->requestId,
             (string) ($request->attribute('remote_ip') ?? ''),
         );
-        return Response::success(['branch' => $branch], [], 201);
+        return Response::json($result['body'], $result['status'])
+            ->withHeader('Idempotency-Replayed', $result['replayed'] ? 'true' : 'false');
     }
 
     private function scope(Request $request): BusinessScope
