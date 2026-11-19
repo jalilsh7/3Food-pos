@@ -750,3 +750,11 @@
 - backup/restore و تست بازیابی واقعی انجام نشده است.
 - گام بعد: علت failure پیش از runner را از تنظیمات/دسترسی GitHub Actions روشن کن، تست MySQL/MariaDB را سبز کن، سپس backup/restore و preflight نصب را پیاده‌سازی و آزمایش کن.
 - وضعیت فاز ۲: در حال انجام؛ بسته فقط پس از تحقق معیارهای بالا تکمیل‌شده اعلام می‌شود.
+
+
+### تکمیل ابزارهای backup/restore در همان بسته DB-03
+- database/v3/bin/backup.php: تهیه snapshot سازگار InnoDB در transaction، خروجی JSONL+gzip، ذخیره با mode 0600 و جلوگیری از نوشتن در public web root.
+- database/v3/bin/restore.php: فقط مقصد خالی، محدودیت به همان خانواده موتور DB، بازسازی ساختار/داده، کنارگذاشتن generated columns در INSERT و بررسی تعداد ردیف‌ها و orphanهای FK.
+- workflow V3 اکنون backup را از DB نصب‌شده می‌گیرد، به DB خالی دیگری restore می‌کند و تست نصب/مهاجرت را دوباره روی نسخه بازیابی‌شده اجرا می‌کند.
+- هشدار عملیاتی: آرشیو backup رمزنگاری نشده است؛ باید خارج از web root و با رمزنگاری در لایه storage نگهداری شود. شکست وسط restore نیازمند ایجاد مجدد دیتابیس مقصد است.
+- تست end-to-end هنوز به علت fail شدن jobها پیش از تخصیص runner انجام نشده است؛ هیچ نتیجه سبزی ثبت نشده.
