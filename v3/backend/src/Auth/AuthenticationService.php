@@ -10,6 +10,8 @@ use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Infrastructure\Database\SessionRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\TransactionManager;
 use PersiaCoder\PosV3\Infrastructure\Database\UserRepository;
+use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
+use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\LoginAttemptLimiter;
 
 final readonly class AuthenticationService
@@ -19,6 +21,7 @@ final readonly class AuthenticationService
     private TransactionManager $transactions;
     private LoginAttemptLimiter $loginLimiter;
     private string $dummyPasswordHash;
+    private AuditLogService $audit;
 
     public function __construct(
         PDO $connection,
@@ -36,10 +39,11 @@ final readonly class AuthenticationService
         $this->sessions = new SessionRepository($connection);
         $this->transactions = new TransactionManager($connection);
         $this->loginLimiter = new LoginAttemptLimiter($connection, $this->transactions, $applicationKey);
+        $this->audit = new AuditLogService(new AuditLogRepository($connection));
         $this->dummyPasswordHash = password_hash('POS_V3_INVALID_LOGIN_DUMMY', PASSWORD_DEFAULT);
     }
 
-    public function login(string $username, string $password, string $ipAddress, string $userAgent): AuthenticatedSession
+    public function login(string $username, string $password, string $ipAddress, string $userAgent, string $requestId): AuthenticatedSession
     {
         $username = trim($username);
         if ($username === '' || strlen($username) > 64 || $password === '' || strlen($password) > 4096) {
@@ -76,6 +80,8 @@ final readonly class AuthenticationService
             $expiresAt,
             $safeIp,
             $userAgentHash,
+            $requestId,
+            $safeIp,
         ): void {
             if (password_needs_rehash((string) $user['password_hash'], PASSWORD_DEFAULT)) {
                 $newHash = password_hash($password, PASSWORD_DEFAULT);
@@ -90,6 +96,17 @@ final readonly class AuthenticationService
                 $expiresAt,
                 $safeIp,
                 $userAgentHash,
+            );
+            $this->audit->record(
+                $userId,
+                'auth.login_succeeded',
+                'user',
+                (string) $user['public_id'],
+                null,
+                ['username' => (string) $user['username']],
+                null,
+                $requestId,
+                (string) ($safeIp ?? ''),
             );
         });
 
@@ -106,7 +123,7 @@ final readonly class AuthenticationService
         );
     }
 
-    public function changePassword(int $userId, string $currentPassword, string $newPassword): void
+    public function changePassword(int $userId, string $currentPassword, string $newPassword, string $requestId, string $ipAddress): void
     {
         if ($currentPassword === '' || strlen($currentPassword) > 4096
             || strlen($newPassword) < 12 || strlen($newPassword) > 128) {
@@ -122,8 +139,19 @@ final readonly class AuthenticationService
         }
 
         $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
-        $this->transactions->run(function (PDO $connection) use ($userId, $newHash): void {
+        $this->transactions->run(function (PDO $connection) use ($userId, $newHash, $requestId, $ipAddress): void {
             $this->users->changePasswordAndRevokeSessions($userId, $newHash);
+            $this->audit->record(
+                $userId,
+                'auth.password_changed',
+                'user',
+                (string) $userId,
+                null,
+                ['must_change_password' => false, 'sessions_revoked' => true],
+                null,
+                $requestId,
+                $ipAddress,
+            );
         });
     }
 
