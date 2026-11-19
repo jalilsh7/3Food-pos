@@ -38,6 +38,71 @@ final readonly class UserRepository
         return is_array($user) && (int) $user['is_active'] === 1 ? $user : null;
     }
 
+    public function listBusinessUsers(int $businessId, ?int $branchId = null): array
+    {
+        $branchFilter = $branchId === null ? '' : ' OR EXISTS (
+            SELECT 1 FROM app_user_branch_roles ubr
+            WHERE ubr.user_id = u.id AND ubr.branch_id = :branch_id
+        )';
+        $statement = $this->connection->prepare(
+            'SELECT u.public_id, u.username, u.display_name, u.is_active,
+                    u.must_change_password, u.last_login_at
+             FROM app_users u
+             WHERE EXISTS (
+                 SELECT 1 FROM app_user_business_roles ubr
+                 WHERE ubr.user_id = u.id AND ubr.business_id = :business_id
+             )' . $branchFilter . '
+             ORDER BY u.display_name ASC, u.username ASC'
+        );
+        $parameters = ['business_id' => $businessId];
+        if ($branchId !== null) {
+            $parameters['branch_id'] = $branchId;
+        }
+        $statement->execute($parameters);
+
+        return array_map(
+            static fn (array $row): array => [
+                'id' => (string) $row['public_id'],
+                'username' => (string) $row['username'],
+                'display_name' => (string) $row['display_name'],
+                'is_active' => (int) $row['is_active'] === 1,
+                'must_change_password' => (int) $row['must_change_password'] === 1,
+                'last_login_at' => $row['last_login_at'] === null ? null : (string) $row['last_login_at'],
+            ],
+            $statement->fetchAll(PDO::FETCH_ASSOC),
+        );
+    }
+
+    public function listBranchUsers(int $businessId, int $branchId): array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT u.public_id, u.username, u.display_name, u.is_active,
+                    u.must_change_password, u.last_login_at
+             FROM app_users u
+             WHERE EXISTS (
+                 SELECT 1 FROM app_user_business_roles ubr
+                 WHERE ubr.user_id = u.id AND ubr.business_id = :business_id
+             ) OR EXISTS (
+                 SELECT 1 FROM app_user_branch_roles ubr
+                 WHERE ubr.user_id = u.id AND ubr.branch_id = :branch_id
+             )
+             ORDER BY u.display_name ASC, u.username ASC'
+        );
+        $statement->execute(['business_id' => $businessId, 'branch_id' => $branchId]);
+
+        return array_map(
+            static fn (array $row): array => [
+                'id' => (string) $row['public_id'],
+                'username' => (string) $row['username'],
+                'display_name' => (string) $row['display_name'],
+                'is_active' => (int) $row['is_active'] === 1,
+                'must_change_password' => (int) $row['must_change_password'] === 1,
+                'last_login_at' => $row['last_login_at'] === null ? null : (string) $row['last_login_at'],
+            ],
+            $statement->fetchAll(PDO::FETCH_ASSOC),
+        );
+    }
+
     public function usernameExists(string $username): bool
     {
         $statement = $this->connection->prepare(
