@@ -38,12 +38,8 @@ final readonly class UserRepository
         return is_array($user) && (int) $user['is_active'] === 1 ? $user : null;
     }
 
-    public function listBusinessUsers(int $businessId, ?int $branchId = null): array
+    public function listBusinessUsers(int $businessId): array
     {
-        $branchFilter = $branchId === null ? '' : ' OR EXISTS (
-            SELECT 1 FROM app_user_branch_roles ubr
-            WHERE ubr.user_id = u.id AND ubr.branch_id = :branch_id
-        )';
         $statement = $this->connection->prepare(
             'SELECT u.public_id, u.username, u.display_name, u.is_active,
                     u.must_change_password, u.last_login_at
@@ -51,14 +47,18 @@ final readonly class UserRepository
              WHERE EXISTS (
                  SELECT 1 FROM app_user_business_roles ubr
                  WHERE ubr.user_id = u.id AND ubr.business_id = :business_id
-             )' . $branchFilter . '
+             ) OR EXISTS (
+                 SELECT 1
+                 FROM app_user_branch_roles ubr
+                 INNER JOIN pos_branches b ON b.id = ubr.branch_id
+                 WHERE ubr.user_id = u.id AND b.business_id = :branch_business_id
+             )
              ORDER BY u.display_name ASC, u.username ASC'
         );
-        $parameters = ['business_id' => $businessId];
-        if ($branchId !== null) {
-            $parameters['branch_id'] = $branchId;
-        }
-        $statement->execute($parameters);
+        $statement->execute([
+            'business_id' => $businessId,
+            'branch_business_id' => $businessId,
+        ]);
 
         return array_map(
             static fn (array $row): array => [
