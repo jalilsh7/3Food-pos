@@ -24,9 +24,15 @@ final readonly class OrderRepository
     public function findOpenTableSessionId(int $businessId, int $branchId, string $publicId): ?int
     {
         $statement = $this->connection->prepare(
-            "SELECT id FROM pos_table_sessions
-             WHERE business_id = :business_id AND branch_id = :branch_id
-               AND public_id = :public_id AND status = 'open'
+            "SELECT ts.id
+             FROM pos_table_sessions ts
+             INNER JOIN pos_dining_tables dt
+               ON dt.id = ts.table_id
+              AND dt.business_id = ts.business_id
+              AND dt.branch_id = ts.branch_id
+             WHERE ts.business_id = :business_id AND ts.branch_id = :branch_id
+               AND ts.public_id = :public_id AND ts.status = 'open'
+               AND dt.is_active = 1
              LIMIT 1 FOR UPDATE"
         );
         $statement->execute([
