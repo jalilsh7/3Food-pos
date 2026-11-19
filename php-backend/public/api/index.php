@@ -2320,8 +2320,14 @@ if ($method === 'POST' && $path === '/sms/birthday-sync') {
                     $inbox['status'] = count($matches) === 0 ? 'customer_not_found' : 'ambiguous_customer';
                     $unmatched++;
                 } else {
-                    [$customerId, $customer] = $matches[0];
-                    if (trim((string)($customer['birthday'] ?? '')) !== '') {
+                    [$customerId] = $matches[0];
+                    // Re-read the locked row for each reply so a second SMS in
+                    // this same batch cannot overwrite a birthday saved earlier.
+                    $currentCustomerQuery = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'customers' AND id = ? FOR UPDATE");
+                    $currentCustomerQuery->execute([(string)$customerId]);
+                    $currentCustomerRaw = $currentCustomerQuery->fetchColumn();
+                    $customer = is_string($currentCustomerRaw) ? json_decode($currentCustomerRaw, true) : null;
+                    if (!is_array($customer) || trim((string)($customer['birthday'] ?? '')) !== '') {
                         $inbox['status'] = 'birthday_already_set';
                         $ignored++;
                     } else {
