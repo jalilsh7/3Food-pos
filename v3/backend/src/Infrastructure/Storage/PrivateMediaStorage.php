@@ -21,7 +21,9 @@ final readonly class PrivateMediaStorage
         if (!is_dir($configuredPath) && !@mkdir($configuredPath, 0700, true) && !is_dir($configuredPath)) {
             throw new RuntimeException('Private media storage directory could not be created.');
         }
-        @chmod($configuredPath, 0700);
+        if (!@chmod($configuredPath, 0700)) {
+            throw new RuntimeException('Private media storage permissions could not be secured.');
+        }
         $root = realpath($configuredPath);
         if (!is_string($root) || $root === DIRECTORY_SEPARATOR || !is_dir($root) || !is_writable($root)) {
             throw new RuntimeException('Private media storage directory is not accessible.');
@@ -53,12 +55,17 @@ final readonly class PrivateMediaStorage
         if (!is_dir($directory) && !@mkdir($directory, 0700, true) && !is_dir($directory)) {
             throw new RuntimeException('The media storage directory could not be created.');
         }
-        @chmod($directory, 0700);
+        if (!@chmod($directory, 0700)) {
+            throw new RuntimeException('The media directory permissions could not be secured.');
+        }
         $destination = $this->root . DIRECTORY_SEPARATOR . $relative;
         if (file_exists($destination) || is_link($destination) || !move_uploaded_file($temporaryPath, $destination)) {
             throw new RuntimeException('The uploaded media file could not be stored.');
         }
-        @chmod($destination, 0600);
+        if (!@chmod($destination, 0600)) {
+            @unlink($destination);
+            throw new RuntimeException('The media file permissions could not be secured.');
+        }
         return str_replace(DIRECTORY_SEPARATOR, '/', $relative);
     }
 
