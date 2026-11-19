@@ -1115,3 +1115,13 @@
 - فایل‌های اصلی: AuditLogRepository، AuditLogService، AuditLogController، Request، public/index.php و serviceهای business/user/role/branch.
 - query parser محدود به ۴۰۹۶ بایت و ۲۰ پارامتر است؛ audit controller lazy-load می‌شود.
 - تست و migration execution انجام نشده‌اند؛ تست‌ها طبق دستور مالک برای انتهای پروژه نگه داشته می‌شوند.
+
+
+## BE-01G1 — ثبت اولین vertical slice کاتالوگ (2026-11-19)
+- وضعیت: **در حال انجام**؛ API پایه فهرست/ایجاد category و product اضافه شده، CRUD کامل و UI integration باقی است.
+- Migration: `database/v3/migrations/006_scope-catalog-and-customers.sql`؛ هنوز اجرا نشده.
+- فایل‌ها: `v3/backend/src/Catalog/CatalogService.php`، `CatalogController.php`، `Infrastructure/Database/CatalogRepository.php` و routeهای `public/index.php`.
+- endpointها: GET/POST `/api/v1/catalog/categories` و GET/POST `/api/v1/catalog/products`.
+- business scope اجباری، RBAC با catalog.read/catalog.manage، CSRF/Origin برای commandها، audit در همان transaction و idempotency با پاسخ رمز‌شده.
+- Migration کاتالوگ و مشتری را business-scoped می‌کند؛ دسته public UUID می‌گیرد و SKU در هر business یکتا می‌شود.
+- UI هنوز به API وصل نشده؛ migration و تست‌ها اجرا نشده‌اند و به پایان توسعه موکول هستند.
