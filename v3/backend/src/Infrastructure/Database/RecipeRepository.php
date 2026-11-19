@@ -33,6 +33,18 @@ final readonly class RecipeRepository
         return $value === false ? null : (int) $value;
     }
 
+    public function findVariantIdForRead(int $businessId, int $productId, string $publicId): ?int
+    {
+        $s = $this->connection->prepare(
+            'SELECT id FROM pos_product_variants
+             WHERE business_id = :business_id AND product_id = :product_id
+               AND public_id = :public_id LIMIT 1'
+        );
+        $s->execute(['business_id' => $businessId, 'product_id' => $productId, 'public_id' => $publicId]);
+        $value = $s->fetchColumn();
+        return $value === false ? null : (int) $value;
+    }
+
     public function findStockItem(int $businessId, string $publicId): ?array
     {
         $s = $this->connection->prepare(
@@ -167,6 +179,21 @@ final readonly class RecipeRepository
         return $row ?: null;
     }
 
+    public function findVersionForUpdate(int $businessId, string $publicId): ?array
+    {
+        $s = $this->connection->prepare(
+            'SELECT rv.id, rv.public_id, rv.recipe_id, rv.version_no, rv.status,
+                    r.public_id AS recipe_public_id, r.name AS recipe_name
+             FROM pos_recipe_versions rv
+             INNER JOIN pos_recipes r ON r.id = rv.recipe_id AND r.business_id = rv.business_id
+             WHERE rv.business_id = :business_id AND rv.public_id = :public_id
+             LIMIT 1 FOR UPDATE'
+        );
+        $s->execute(['business_id' => $businessId, 'public_id' => $publicId]);
+        $row = $s->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
     public function retireActiveVersions(int $businessId, int $recipeId): void
     {
         $s = $this->connection->prepare(
@@ -176,7 +203,7 @@ final readonly class RecipeRepository
         $s->execute(['business_id' => $businessId, 'recipe_id' => $recipeId]);
     }
 
-    public function activateVersion(int $businessId, int $versionId): void
+    public function activateVersion(int $businessId, int $versionId): bool
     {
         $s = $this->connection->prepare(
             "UPDATE pos_recipe_versions
@@ -184,6 +211,7 @@ final readonly class RecipeRepository
              WHERE business_id = :business_id AND id = :id AND status = 'draft'"
         );
         $s->execute(['business_id' => $businessId, 'id' => $versionId]);
+        return $s->rowCount() === 1;
     }
 
     public function activateRecipe(int $businessId, int $recipeId): void
@@ -219,7 +247,7 @@ final readonly class RecipeRepository
              LEFT JOIN pos_stock_items si ON si.id = rl.stock_item_id AND si.business_id = rl.business_id
              LEFT JOIN pos_units u ON u.id = rl.unit_id
              WHERE rv.business_id = :business_id AND rv.recipe_id = :recipe_id
-             ORDER BY rv.version_no DESC, rl.id ASC'
+             ORDER BY rv.version_no DESC, rl.id ASC LIMIT 5000'
         );
         $lines->execute(['business_id' => $businessId, 'recipe_id' => (int) $recipe['id']]);
         $versions = [];
