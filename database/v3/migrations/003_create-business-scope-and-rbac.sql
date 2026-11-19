@@ -11,7 +11,8 @@ CREATE TABLE pos_businesses (
   PRIMARY KEY (id),
   UNIQUE KEY uq_pos_businesses_public_id (public_id),
   UNIQUE KEY uq_pos_businesses_code (code),
-  CONSTRAINT chk_pos_businesses_active CHECK (is_active IN (0,1))
+  CONSTRAINT chk_pos_businesses_active CHECK (is_active IN (0,1)),
+  CONSTRAINT chk_pos_businesses_currency CHECK (currency = 'IRT')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE app_business_setup_state (
