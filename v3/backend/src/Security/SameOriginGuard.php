@@ -33,12 +33,12 @@ final readonly class SameOriginGuard
         $sourceHost = strtolower((string) $sourceParts['host']);
         $requestHost = strtolower((string) ($hostParts['host'] ?? ''));
         $sourcePort = (int) ($sourceParts['port'] ?? ($scheme === 'https' ? 443 : 80));
-        $requestPort = (int) ($hostParts['port'] ?? 443);
 
         $secureScheme = $scheme === 'https';
         $localHttp = $this->allowInsecureLocalhost
             && $scheme === 'http'
             && in_array($sourceHost, ['localhost', '127.0.0.1', '::1'], true);
+        $requestPort = (int) ($hostParts['port'] ?? ($localHttp ? 80 : 443));
 
         if ((!$secureScheme && !$localHttp)
             || $sourceHost !== $requestHost
