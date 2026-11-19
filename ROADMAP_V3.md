@@ -452,3 +452,13 @@
 - تست `scripts/check-v3-backend-http.php` اضافه و workflow PHP 8.2/8.3/8.4 برای lint، bootstrap و HTTP checks توسعه یافت.
 - Auth/RBAC/CSRF/CORS/rate limit/body-size limit و API دامنه هنوز اجرا نشده‌اند؛ قبل از route حساس باید middlewareهای امنیتی پیاده شوند.
 - گام بعد: BE-01C اتصال PDO امن و TransactionManager؛ سپس middleware pipeline پیش از endpointهای حساس.
+
+
+### BE-01C — PDO factory و مدیریت تراکنش (2026-11-20)
+- وضعیت: **کد پایه ثبت شد؛ تست engine واقعی و پذیرش rollback/commit باقی است.**
+- `PdoConnectionFactory` برای PDO MySQL با utf8mb4، native prepares، exception mode و timeout پنج‌ثانیه‌ای ایجاد شد.
+- DSN از host/port/database ساخته می‌شود؛ رمز در DSN نیست؛ host allowlist شد تا delimiter injection مسدود شود.
+- `TransactionManager` مرز تراکنش use-case، رد nested transaction، commit و rollback روی Throwable را مدیریت می‌کند.
+- `scripts/check-v3-backend-database.php` تست ساخت DSN و guard host اضافه شد؛ workflow نیز این check را اجرا خواهد کرد.
+- اتصال واقعی MySQL/MariaDB، transaction integration و concurrency هنوز اجرا نشده‌اند.
+- گام بعد: BE-01D session/authentication با store دیتابیسی و CSRF؛ پیش از آن middleware pipeline باید شکل بگیرد.
