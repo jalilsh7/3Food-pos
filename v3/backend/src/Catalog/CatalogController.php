@@ -133,4 +133,35 @@ final readonly class CatalogController
     public function createOptionGroup(Request $r): Response { return $this->idempotentResponse($this->catalog->createOptionGroup($this->principal($r),$this->scope($r),$this->jsonPayload($r),$r->header('idempotency-key')??'',$r->requestId,(string)($r->attribute('remote_ip')??''))); }
     public function attachOptionGroup(Request $r, array $p): Response { return $this->idempotentResponse($this->catalog->attachOptionGroup($this->principal($r),$this->scope($r),(string)($p['productPublicId']??''),$this->jsonPayload($r),$r->header('idempotency-key')??'',$r->requestId,(string)($r->attribute('remote_ip')??''))); }
 
+
+    public function updateVariant(Request $request, array $parameters): Response
+    {
+        return $this->idempotentResponse($this->catalog->updateVariant(
+            $this->principal($request), $this->scope($request),
+            (string) ($parameters['variantPublicId'] ?? ''), $this->jsonPayload($request),
+            $request->header('idempotency-key') ?? '', $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
+        ));
+    }
+
+    public function updateOptionGroup(Request $request, array $parameters): Response
+    {
+        return $this->idempotentResponse($this->catalog->updateOptionGroup(
+            $this->principal($request), $this->scope($request),
+            (string) ($parameters['groupPublicId'] ?? ''), $this->jsonPayload($request),
+            $request->header('idempotency-key') ?? '', $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
+        ));
+    }
+
+    public function updateOption(Request $request, array $parameters): Response
+    {
+        return $this->idempotentResponse($this->catalog->updateOption(
+            $this->principal($request), $this->scope($request),
+            (string) ($parameters['optionPublicId'] ?? ''), $this->jsonPayload($request),
+            $request->header('idempotency-key') ?? '', $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
+        ));
+    }
+
 }
