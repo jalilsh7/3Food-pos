@@ -14,6 +14,18 @@ CREATE TABLE pos_businesses (
   CONSTRAINT chk_pos_businesses_active CHECK (is_active IN (0,1))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE app_business_setup_state (
+  id TINYINT UNSIGNED NOT NULL,
+  initial_business_id BIGINT UNSIGNED NULL,
+  initialized_at DATETIME(3) NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_app_business_setup_state_business (initial_business_id),
+  CONSTRAINT fk_app_business_setup_state_business FOREIGN KEY (initial_business_id) REFERENCES pos_businesses(id) ON DELETE RESTRICT,
+  CONSTRAINT chk_app_business_setup_state_singleton CHECK (id = 1)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO app_business_setup_state (id, initial_business_id, initialized_at) VALUES (1, NULL, NULL);
+
 CREATE TABLE pos_branches (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   public_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
