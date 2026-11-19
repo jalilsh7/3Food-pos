@@ -120,6 +120,7 @@ try {
             $userController = new UserManagementController(
                 new UserManagementService(
                     $getConnection(),
+                    $configuration->applicationKey,
                     new PermissionService($repository),
                 ),
             );
@@ -247,12 +248,12 @@ try {
 
     $router->add('POST', '/api/v1/access/users',
         static fn (Request $request): Response => $getUserController()->createBusinessUser($request),
-        [$sessionMiddleware, $makePermissionMiddleware('users.manage', false), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('users.create.business')],
+        [$sessionMiddleware, $makePermissionMiddleware('users.manage', false), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('POST', '/api/v1/access/branches/users',
         static fn (Request $request): Response => $getUserController()->createBranchUser($request),
-        [$sessionMiddleware, $makePermissionMiddleware('users.manage', true), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('users.create.branch')],
+        [$sessionMiddleware, $makePermissionMiddleware('users.manage', true), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('GET', '/api/v1/access/permissions',
