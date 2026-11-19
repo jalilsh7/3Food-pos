@@ -3,7 +3,7 @@
 - تاریخ: 2026-11-19
 - وضعیت: طراحی منطقی به‌همراه تصمیم‌های فنی پیشنهادی؛ هنوز schema اجرایی و مورد تأیید مالک نیست.
 - مرجع چرخه عملیاتی: `ORDER_LIFECYCLE_STOREFRONT_V3.md`
-- مرجع مالی: `PAYMENT_LEDGER_V3.md`
+- مرجع مالی: `PAYMENT_LEDGER_V3.md` و `FINANCE_INVENTORY_DATA_MODEL_V3.md`
 - هدف نصب: دیتابیس تازه MySQL/InnoDB؛ بدون انتقال داده V2.
 
 ## 1. یافته از schema فعلی
