@@ -55,6 +55,7 @@ function seed(): PosState {
       smsUser: "",
       smsKey: "",
       smsFrom: "",
+      birthdaySmsPrompt: "برای ثبت تاریخ تولد در باشگاه مشتریان، لطفاً پاسخ دهید: تولد ۱۳۷۰/۰۵/۱۲",
       role: "manager",
     },
     nextOrder: 1,
