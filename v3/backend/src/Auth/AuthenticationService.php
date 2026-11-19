@@ -41,9 +41,6 @@ final readonly class AuthenticationService
         if ($username === '' || strlen($username) > 64 || $password === '' || strlen($password) > 4096) {
             throw new HttpException(422, 'invalid_credentials_format', 'Username or password format is invalid.');
         }
-        if ($this->sessionLifetimeSeconds < 300 || $this->sessionLifetimeSeconds > 86400) {
-            throw new \LogicException('Session lifetime must be between five minutes and 24 hours.');
-        }
 
         $this->loginLimiter->assertAllowed($username, $ipAddress);
         $user = $this->users->findByUsername($username);
