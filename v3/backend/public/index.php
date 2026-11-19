@@ -464,6 +464,16 @@ try {
         [$sessionMiddleware, $makePermissionMiddleware('inventory.read', true)],
     );
 
+    $router->add('GET', '/api/v1/inventory/balances',
+        static fn (Request $request): Response => $getInventoryController()->balances($request),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.read', true)],
+    );
+
+    $router->add('GET', '/api/v1/inventory/ledger',
+        static fn (Request $request): Response => $getInventoryController()->ledger($request),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.read', true)],
+    );
+
     $router->add('POST', '/api/v1/inventory/locations',
         static fn (Request $request): Response => $getInventoryController()->createLocation($request),
         [$sessionMiddleware, $makePermissionMiddleware('inventory.manage', true), $csrfMiddleware, $originMiddleware],
