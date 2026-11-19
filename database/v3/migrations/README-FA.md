@@ -19,3 +19,11 @@ Baseline با php database/v3/bin/install.php فقط روی دیتابیس خا�
 
 ## محدودیت تراکنش
 MySQL/MariaDB برای بسیاری از دستورات DDL implicit commit انجام می‌دهند. قفل runner از اجرای هم‌زمان جلوگیری می‌کند، اما شکست وسط یک migration لزوماً rollback کامل ندارد. هر migration باید کوچک، قابل بازبینی و دارای روش recovery مستند باشد؛ پس از شکست جزئی، runner را کورکورانه تکرار نکنید.
+
+
+## Migration 001 — نشست‌های کاربری
+- فایل `001_create-user-sessions.sql` جدول افزایشی `app_user_sessions` را ایجاد می‌کند.
+- فقط hash شناسه نشست و hash توکن CSRF ذخیره می‌شوند؛ مقدار خام token در دیتابیس قرار نمی‌گیرد.
+- نشست به کاربر FK دارد، session_version را snapshot می‌کند، expiry و revoke دارد و برای جست‌وجوی نشست فعال/پاکسازی انقضا index دارد.
+- این migration فقط در repository ثبت شده و روی هیچ دیتابیسی اجرا نشده است.
+- پس از انتشار، فایل immutable است؛ اصلاحات بعدی باید با migration جدید انجام شوند.
