@@ -706,7 +706,7 @@ try {
             'idempotencyKey' => sprintf('44444444-4444-4444-8444-%012d', $suffix),
             'items' => [['key' => 'ci-concurrent-' . $suffix, 'productId' => 'ci-product', 'qty' => 3, 'unitPrice' => 1000, 'optionIds' => []]],
             'customer' => ['id' => 'ci-customer'],
-            'totals' => ['subtotal' => 3000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 3000],
+            'totals' => ['subtotal' => 3000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 270, 'total' => 3270],
             'note' => 'Concurrent stock safety test',
         ];
     }
