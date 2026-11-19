@@ -607,3 +607,9 @@
 - قواعد SKU یکتا در محصول و min/max بر اساس تعداد گزینه‌های فعال سمت سرور اعتبارسنجی می‌شود.
 - migration جدید نیاز نبود؛ migration 007 ستون‌های public UUID و is_required_default را فراهم کرده است.
 - گام بعدی: طراحی و پیاده‌سازی رسانه/تصاویر امن با storage abstraction قابل پیکربندی برای هاست cPanel/PHP؛ سپس تکمیل اتصال recipe/inventory.
+
+
+### BE-01G5 — زیرساخت تصاویر امن
+- وضعیت: **storage abstraction، upload، نمایش خصوصی و اتصال/جداکردن تصویر ثبت شد؛ migration 010 اجرا نشده است.**
+- فایل‌ها با UUID در filesystem خصوصی خارج از public root ذخیره می‌شوند؛ metadata و روابط محصول/دسته‌بندی در دیتابیس نگهداری می‌شوند.
+- گام بعدی: تکمیل recipe و inventory linkage و سپس اتصال UI کاتالوگ به APIهای مدیریت.
