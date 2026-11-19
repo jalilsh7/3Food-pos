@@ -28,6 +28,10 @@ final readonly class AuthenticationService
         if (strlen($applicationKey) < 32) {
             throw new \InvalidArgumentException('Application key must contain at least 32 bytes.');
         }
+        if ($this->sessionLifetimeSeconds < 300 || $this->sessionLifetimeSeconds > 86400) {
+            throw new \InvalidArgumentException('Session lifetime must be between 300 and 86400 seconds.');
+        }
+
         $this->users = new UserRepository($connection);
         $this->sessions = new SessionRepository($connection);
         $this->transactions = new TransactionManager($connection);
