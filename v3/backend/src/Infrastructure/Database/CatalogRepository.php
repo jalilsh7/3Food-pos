@@ -198,8 +198,10 @@ final readonly class CatalogRepository
     public function findCategoryDetails(int $businessId, string $publicId): ?array
     {
         $s = $this->connection->prepare(
-            'SELECT id, public_id, parent_id, name, sort_order, is_active
-             FROM pos_categories WHERE business_id = :business_id AND public_id = :public_id LIMIT 1'
+            'SELECT c.id, c.public_id, c.parent_id, p.public_id AS parent_public_id, c.name, c.sort_order, c.is_active
+             FROM pos_categories c
+             LEFT JOIN pos_categories p ON p.id = c.parent_id AND p.business_id = c.business_id
+             WHERE c.business_id = :business_id AND c.public_id = :public_id LIMIT 1'
         );
         $s->execute(['business_id' => $businessId, 'public_id' => $publicId]);
         $row = $s->fetch(PDO::FETCH_ASSOC);
