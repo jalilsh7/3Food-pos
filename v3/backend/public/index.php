@@ -360,6 +360,22 @@ try {
         [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
     );
 
+
+    $router->add('PATCH', '/api/v1/catalog/variants/{variantPublicId}',
+        static fn (Request $request, array $parameters): Response => $getCatalogController()->updateVariant($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('PATCH', '/api/v1/catalog/option-groups/{groupPublicId}',
+        static fn (Request $request, array $parameters): Response => $getCatalogController()->updateOptionGroup($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('PATCH', '/api/v1/catalog/options/{optionPublicId}',
+        static fn (Request $request, array $parameters): Response => $getCatalogController()->updateOption($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
     $router->add('GET', '/api/v1/audit-logs',
         static fn (Request $request): Response => $getAuditController()->list($request),
         [$sessionMiddleware, $makePermissionMiddleware('audit.read', false, true)],
