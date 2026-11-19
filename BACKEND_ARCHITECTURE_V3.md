@@ -232,3 +232,14 @@ v3/backend/
 - مدیریت نقش و user با PermissionMiddleware، scope و CSRF/same-origin در mutationها محافظت شده‌اند.
 - فعلاً غیرفعال‌سازی کاربر/شعبه، حذف role، تاریخچه تغییر نقش و audit eventها در بسته Audit/Administration تکمیل می‌شوند.
 
+
+
+## 14. وضعیت پیاده‌سازی واقعی Backend تا BE-01F1
+- برخلاف وضعیت اولیه بخش‌های بالا، bootstrap HTTP، PDO/transaction، authentication/session/CSRF، login throttling، RBAC و business/branch scope اکنون در `v3/backend/src/` پیاده‌سازی شده‌اند؛ مسیرهای واقعی ثبت‌شده در `v3/backend/public/index.php` مرجع اجرا هستند.
+- Migrationهای افزایشی 001 تا 003 برای session، login throttling و business/RBAC ثبت شده‌اند؛ migrationها هنوز روی دیتابیس مشتری اجرا نشده‌اند.
+- BE-01F1 زیرساخت idempotency تراکنشی را اضافه می‌کند: کلید خام ذخیره نمی‌شود، fingerprint درخواست با SHA-256 نگهداری می‌شود، scope به actor/business/branch/endpoint محدود است و پاسخ ذخیره‌شده با AES-256-GCM و کلید مشتق‌شده از `POS_V3_APP_KEY` رمز می‌شود.
+- `IdempotencyService::execute()` callback دامنه را با همان PDO داخل یک transaction اجرا می‌کند و پاسخ رمز‌شده را در همان transaction نهایی می‌کند؛ برای اتصال هر command، تمام writeهای دامنه باید از connection ارسالی callback استفاده کنند.
+- استفاده مجدد از کلید با fingerprint متفاوت 409 می‌دهد؛ درخواست تکراری با fingerprint یکسان پاسخ موفق قبلی را replay می‌کند؛ درخواست هم‌زمان با unique key و row lock serialize می‌شود. retention پیش‌فرض ۲۴ ساعت و قابل تنظیم بین ۶۰ ثانیه تا ۷ روز است.
+- Migration جدید `004_create-idempotency-keys.sql` فقط تعریف شده و اجرا نشده است. هنوز هیچ endpoint عملیاتی به IdempotencyService متصل نیست؛ اتصال باید هم‌زمان با vertical slice همان عملیات انجام شود.
+- پاسخ‌های idempotency شامل داده‌های محرمانه احتمالی نیز به‌صورت رمز‌شده ذخیره می‌شوند؛ کلید رمزگشایی از secret محیطی ساخته می‌شود و secret یا token خام در جدول قرار نمی‌گیرد.
+- تست، lint، build و اجرای migration در این بسته عمداً انجام نشده‌اند؛ طبق دستور مالک، تست‌ها به مرحله نهایی پروژه موکول شده‌اند.
