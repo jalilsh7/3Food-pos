@@ -465,3 +465,14 @@
 - commandها علاوه بر CSRF باید `Idempotency-Key` یکتا داشته باشند؛ retry همان command باید همان کلید و payload را حفظ کند.
 - مبلغ در واحد صحیح تومان/IRT ذخیره می‌شود؛ UI نباید قیمت اعشاری یا مبلغ محاسبه‌شده client را authoritative فرض کند.
 - فقط ایجاد/فهرست پایه فعال است؛ UI prototype هنوز به این endpointها متصل نشده است.
+
+
+### BE-01F1 — قرارداد Audit و Idempotency
+- تمام mutationهای حساس که retry شبکه‌ای ممکن است تکرارشان کند باید Idempotency-Key تصادفی ۱۶ تا ۱۲۸ کاراکتری ارسال کنند؛ کد endpoint و scope business/branch در Backend تعیین می‌شود.
+- UI در retry همان کلید را نگه می‌دارد؛ برای درخواست جدید کلید تازه می‌سازد. استفاده از کلید قبلی با payload متفاوت پاسخ 409 می‌دهد.
+- پاسخ replay شده header برابر Idempotency-Replayed: true دارد؛ UI باید نتیجه را مانند پاسخ اولیه مصرف کند و عملیات را دوباره نمایش/ثبت نکند.
+- ساخت user پاسخ دارای رمز موقت است؛ Backend پاسخ idempotent را رمز‌شده در DB نگه می‌دارد. UI فقط همان پاسخ را یک‌بار به مدیر نشان دهد و در localStorage/sessionStorage ذخیره نکند.
+- GET /api/v1/audit-logs با before_id و limit (۱ تا ۱۰۰) صفحه‌بندی می‌شود؛ UI باید cursor را از meta.next_before_id بگیرد.
+- برای audit در سطح business، X-Business-ID ارسال شود؛ برای فیلتر branch، X-Branch-ID نیز ارسال شود. مجوز audit.read در Backend بررسی می‌شود.
+- audit log فقط خواندنی است؛ UI نباید گزینه ویرایش یا حذف رخداد ارائه کند.
+
