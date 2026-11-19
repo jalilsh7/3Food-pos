@@ -44,3 +44,10 @@ MySQL/MariaDB برای بسیاری از دستورات DDL implicit commit ان
 ## Migration 005 — business/branch audit scope
 - فایل `005_add-audit-business-scope.sql` فیلدهای business_id و branch_id را به audit اضافه می‌کند.
 - FK مرکب تضمین می‌کند branch متعلق به business ثبت‌شده باشد. migration فقط ثبت شده و اجرا نشده است.
+
+
+## Migration 006 — business scope برای کاتالوگ و مشتری
+- فایل `006_scope-catalog-and-customers.sql` جدول‌های دسته، محصول، تنوع، گروه/گزینه و مشتری را به کسب‌وکار متصل می‌کند.
+- دسته‌ها public UUID می‌گیرند؛ FK مرکب مانع اتصال محصول/تنوع/گزینه به رکورد کسب‌وکار دیگر می‌شود.
+- SKU محصول در محدوده business یکتا می‌شود و قید unique سراسری قبلی جایگزین می‌شود.
+- این migration برای دیتابیس تازه و پیش از ایجاد داده عملیاتی طراحی شده است؛ فقط ثبت شده و اجرا نشده است.
