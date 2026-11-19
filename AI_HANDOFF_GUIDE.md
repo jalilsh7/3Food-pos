@@ -136,7 +136,7 @@ Important: the source tree and docs have evolved quickly. A stale document headi
 ## 8. Known issues, caveats and current verification baseline
 
 - Historical GitHub Actions run `44633009762` (2026-11-19) started real Ubuntu runners and failed PHP lint on `v3/backend/src/Infrastructure/Database/UserRepository.php` with a parse error near the owner-role query. The current branch version was freshly fetched on 2026-11-20 and the SQL string appears syntactically closed; this historical failure must be rechecked by a new workflow run, not treated as a current confirmed defect or as a pass.
-- The current `UserRepository.php` blob SHA observed during handoff inspection: `13ec93001082e407fea06fb21764c30b4d00e23f`.
+- Root cause confirmed: both owner-role SQL literals used unescaped single quotes inside a single-quoted PHP SQL string. Both occurrences were escaped in commit `330aaa01c0171fac072d3a301b6993552a6d70ed`; verify the new CI run before marking the defect closed.
 - Frontend `package.json` exists, but the inspected tree did not expose `v3/frontend/package-lock.json`; verify whether a lockfile exists elsewhere before claiming reproducible npm installs.
 - `v3/backend/composer.json` was not found at the inspected path. Verify the current backend dependency/bootstrap strategy; do not invent Composer dependencies or a lockfile.
 - The inspected frontend package scripts include `typecheck` and `build`; do not assume they passed.
