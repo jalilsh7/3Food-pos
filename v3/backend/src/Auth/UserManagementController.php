@@ -78,6 +78,7 @@ final readonly class UserManagementController
                 $payload['username'],
                 $payload['display_name'],
                 $payload['role_code'],
+                $request->header('idempotency-key') ?? '',
                 $request->requestId,
                 (string) ($request->attribute('remote_ip') ?? ''),
             );
