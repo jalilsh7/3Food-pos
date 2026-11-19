@@ -937,3 +937,11 @@
 - تمام داده‌های seed ساختگی‌اند و نباید به عنوان اطلاعات مشتری یا گزارش مالی واقعی استفاده شوند.
 - هیچ API/DB/auth/loyalty provider متصل نیست؛ TypeScript، build و browser tests اجرا نشده‌اند.
 
+### UX-09A — شیفت صندوق و گردش‌های نقدی
+- وضعیت: **در حال انجام؛ prototype تعاملی ثبت شد، پذیرش فنی و اتصال Backend باقی است.**
+- مسیرها: `v3/frontend/src/features/finance/FinanceWorkspace.tsx`, `finance.css`، route در `v3/frontend/src/app/App.tsx` و import استایل در `v3/frontend/src/styles.css`.
+- قابلیت‌ها: وضعیت شیفت، موجودی افتتاحیه نمونه، دریافت/پرداخت نقدی، موجودی مورد انتظار، گردش‌ها و پیش‌نمایش بستن شیفت.
+- محدودیت مهم: محاسبات فقط برای نمایش و در state محلی است؛ هیچ transaction، ledger entry، cash reconciliation یا close event واقعی ایجاد نمی‌شود. جلوگیری محلی از خروج بیش از موجودی جایگزین کنترل اتمیک سرور نیست.
+- نسخه عملیاتی باید ledger append-only، currency/rounding policy، مجوز نقش، idempotency، تراکنش دیتابیس، audit، شمارش واقعی وجه، کسری/اضافی و ثبت قطعی بستن شیفت را سمت Backend پیاده کند. پرداخت کارتخوان/درگاه در این بسته پیاده نشده است.
+- TypeScript، build، تست مرورگر و DB engine tests اجرا نشده‌اند.
+
