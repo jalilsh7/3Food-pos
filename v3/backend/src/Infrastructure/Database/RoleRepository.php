@@ -98,6 +98,15 @@ final readonly class RoleRepository
         return $value === false ? null : (int) $value;
     }
 
+    public function isSystemRole(string $code): bool
+    {
+        $statement = $this->connection->prepare(
+            'SELECT is_system FROM app_roles WHERE code = :role_code AND is_active = 1 LIMIT 1'
+        );
+        $statement->execute(['role_code' => $code]);
+        return (int) $statement->fetchColumn() === 1;
+    }
+
     public function findPermissionIdsByCodes(array $codes): array
     {
         if ($codes === []) {
