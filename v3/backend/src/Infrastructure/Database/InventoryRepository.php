@@ -223,4 +223,116 @@ final readonly class InventoryRepository
         $s->execute(['business_id' => $businessId, 'branch_id' => $branchId, 'location_id' => $locationId]);
         return $s->fetchColumn() !== false;
     }
+
+    /** @return list<array<string,mixed>> */
+    public function listBalances(
+        int $businessId, int $branchId, ?int $stockItemId, ?int $locationId, int $limit,
+    ): array {
+        $sql = 'SELECT si.public_id AS stock_item_id, si.code AS stock_item_code,
+                       si.name AS stock_item_name, u.code AS base_unit_code,
+                       sl.public_id AS location_id, sl.code AS location_code,
+                       sl.name AS location_name, b.quantity_on_hand,
+                       b.quantity_reserved, (b.quantity_on_hand - b.quantity_reserved) AS quantity_available,
+                       b.updated_at
+                FROM pos_stock_balances b
+                INNER JOIN pos_stock_items si
+                  ON si.id = b.stock_item_id AND si.business_id = b.business_id
+                INNER JOIN pos_stock_locations sl
+                  ON sl.id = b.location_id AND sl.business_id = b.business_id AND sl.branch_id = b.branch_id
+                INNER JOIN pos_units u ON u.id = si.base_unit_id
+                WHERE b.business_id = :business_id AND b.branch_id = :branch_id';
+        $params = ['business_id' => $businessId, 'branch_id' => $branchId];
+        if ($stockItemId !== null) {
+            $sql .= ' AND b.stock_item_id = :stock_item_id';
+            $params['stock_item_id'] = $stockItemId;
+        }
+        if ($locationId !== null) {
+            $sql .= ' AND b.location_id = :location_id';
+            $params['location_id'] = $locationId;
+        }
+        $sql .= ' ORDER BY si.name ASC, sl.name ASC, b.stock_item_id ASC LIMIT :limit';
+        $statement = $this->connection->prepare($sql);
+        foreach ($params as $key => $value) {
+            $statement->bindValue(':' . $key, $value, PDO::PARAM_INT);
+        }
+        $statement->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $statement->execute();
+
+        return array_map(static fn (array $row): array => [
+            'stock_item_id' => (string) $row['stock_item_id'],
+            'stock_item_code' => (string) $row['stock_item_code'],
+            'stock_item_name' => (string) $row['stock_item_name'],
+            'base_unit_code' => (string) $row['base_unit_code'],
+            'location_id' => (string) $row['location_id'],
+            'location_code' => (string) $row['location_code'],
+            'location_name' => (string) $row['location_name'],
+            'quantity_on_hand' => (string) $row['quantity_on_hand'],
+            'quantity_reserved' => (string) $row['quantity_reserved'],
+            'quantity_available' => (string) $row['quantity_available'],
+            'updated_at' => (string) $row['updated_at'],
+        ], $statement->fetchAll(PDO::FETCH_ASSOC));
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function listLedger(
+        int $businessId, int $branchId, ?int $stockItemId, ?int $locationId,
+        ?int $beforeId, int $limit,
+    ): array {
+        $sql = 'SELECT l.id AS ledger_id, l.movement_type, l.quantity_delta,
+                       u.code AS base_unit_code, si.public_id AS stock_item_id,
+                       si.code AS stock_item_code, si.name AS stock_item_name,
+                       sl.public_id AS location_id, sl.code AS location_code,
+                       sl.name AS location_name, d.public_id AS document_id,
+                       d.document_no, d.document_type, dl.note, l.created_at
+                FROM pos_stock_ledger l
+                INNER JOIN pos_stock_items si
+                  ON si.id = l.stock_item_id AND si.business_id = l.business_id
+                INNER JOIN pos_stock_locations sl
+                  ON sl.id = l.location_id AND sl.business_id = l.business_id AND sl.branch_id = l.branch_id
+                INNER JOIN pos_units u ON u.id = l.base_unit_id
+                LEFT JOIN pos_stock_document_lines dl
+                  ON dl.id = l.document_line_id AND dl.business_id = l.business_id AND dl.branch_id = l.branch_id
+                LEFT JOIN pos_stock_documents d
+                  ON d.id = dl.document_id AND d.business_id = l.business_id AND d.branch_id = l.branch_id
+                WHERE l.business_id = :business_id AND l.branch_id = :branch_id';
+        $params = ['business_id' => $businessId, 'branch_id' => $branchId];
+        if ($stockItemId !== null) {
+            $sql .= ' AND l.stock_item_id = :stock_item_id';
+            $params['stock_item_id'] = $stockItemId;
+        }
+        if ($locationId !== null) {
+            $sql .= ' AND l.location_id = :location_id';
+            $params['location_id'] = $locationId;
+        }
+        if ($beforeId !== null) {
+            $sql .= ' AND l.id < :before_id';
+            $params['before_id'] = $beforeId;
+        }
+        $sql .= ' ORDER BY l.id DESC LIMIT :limit';
+        $statement = $this->connection->prepare($sql);
+        foreach ($params as $key => $value) {
+            $statement->bindValue(':' . $key, $value, PDO::PARAM_INT);
+        }
+        $statement->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $statement->execute();
+
+        return array_map(static fn (array $row): array => [
+            'ledger_id' => (int) $row['ledger_id'],
+            'movement_type' => (string) $row['movement_type'],
+            'quantity_delta' => (string) $row['quantity_delta'],
+            'base_unit_code' => (string) $row['base_unit_code'],
+            'stock_item_id' => (string) $row['stock_item_id'],
+            'stock_item_code' => (string) $row['stock_item_code'],
+            'stock_item_name' => (string) $row['stock_item_name'],
+            'location_id' => (string) $row['location_id'],
+            'location_code' => (string) $row['location_code'],
+            'location_name' => (string) $row['location_name'],
+            'document_id' => $row['document_id'] === null ? null : (string) $row['document_id'],
+            'document_no' => $row['document_no'] === null ? null : (string) $row['document_no'],
+            'document_type' => $row['document_type'] === null ? null : (string) $row['document_type'],
+            'note' => $row['note'] === null ? null : (string) $row['note'],
+            'created_at' => (string) $row['created_at'],
+        ], $statement->fetchAll(PDO::FETCH_ASSOC));
+    }
+
 }
