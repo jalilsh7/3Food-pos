@@ -986,3 +986,16 @@
 - رمز DB می‌تواند خالی باشد اما متغیر باید صریحاً تنظیم شده باشد؛ مقدار هیچ secret در خطا چاپ نمی‌شود. debug فقط در development/test مجاز است.
 - bootstrap هیچ اتصال DB، session، HTTP route یا side effect ندارد؛ DB factory و HTTP kernel در بسته‌های بعدی می‌آیند.
 - GitHub fetch پس از ثبت، محتوای هر پنج فایل را تأیید کرد. تا زمان بررسی run، lint/test را اجراشده یا PASS اعلام نمی‌کنیم.
+
+
+## BE-01B — هسته HTTP و قرارداد API (2026-11-20)
+- فایل‌های جدید: `v3/backend/src/Http/Request.php`، `Response.php`، `HttpException.php`، `Router.php`، `Kernel.php` و `v3/backend/public/index.php`.
+- `Request`: متد، مسیر، headerها، body و request ID؛ request ID ورودی فقط با الگوی محدود پذیرفته می‌شود و در غیر این صورت random ID ساخته می‌شود. JSON object parse می‌شود؛ malformed JSON و JSON array با 400 رد می‌شوند؛ object خالی مجاز است.
+- `Router`: routeهای صریح و پارامترهای path؛ path ناشناخته 404 و method ناسازگار 405.
+- `Response`: JSON UTF-8 با envelope ثابت؛ headerهای no-store و nosniff؛ `X-Request-ID` در پاسخ.
+- `Kernel`: خطاهای HTTP کنترل‌شده را map می‌کند؛ exception ناشناخته پاسخ عمومی 500 دارد و جزئیات exception به client افشا نمی‌شود.
+- `GET /api/v1/health` فقط liveness است؛ هیچ اتصال DB یا readiness را بررسی نمی‌کند.
+- `scripts/check-v3-backend-http.php` سناریوهای success, route parameter, 404, 405, malformed JSON, JSON shape و عدم افشای exception را پوشش می‌دهد.
+- workflow `.github/workflows/v3-backend-validation.yml` اکنون همه PHPهای backend/scripts را lint و دو check script را اجرا می‌کند.
+- تست‌ها فقط به GitHub اضافه شده‌اند؛ تا مشاهده runner و step conclusion، هیچ‌کدام را اجراشده/PASS نمی‌دانیم.
+- محدودیت‌های باز: body-size enforcement، CORS، CSRF، authentication، RBAC، rate limiting و middleware pipeline. تا تکمیل این موارد هیچ endpoint حساس اضافه نشود.
