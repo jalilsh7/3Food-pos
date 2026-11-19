@@ -313,9 +313,12 @@
 
 ### UX-02 — پوسته مستقل رابط V3 (2026-11-19)
 
-- وضعیت: **در انتظار؛ workspace مستقل frontend V3 هنوز ایجاد نشده است.**
-- ممیزی معماری روشن کرد `src/components/grill/app.tsx` و `src/main.tsx` متعلق به runtime V2 هستند؛ V3 نباید آن‌ها را تغییر دهد یا import کند.
-- تغییر آزمایشی shell در V2 برگشت داده شد: `src/components/grill/app.tsx` به blob پیشین بازگردانده شد و سه فایل موقت `src/features/shell/*` حذف شدند. هیچ تغییر اجرایی V2 در وضعیت نهایی این بسته باقی نمانده است.
-- سند `POS_V3_UX_ARCHITECTURE.md` اصلاح شد: مسیر هدف مستقل `v3/frontend/` با package/build/entrypoint جداگانه تعریف شد؛ `v3/backend/` نیز به‌عنوان مسیر پیشنهادی runtime مستقل PHP ثبت شد و نیازمند تثبیت قرارداد backend است.
-- تست اجرایی برای تغییر آزمایشی اجرا نشد؛ چون تغییرات پیش از پذیرش برگشت داده شدند، هیچ ادعای PASS یا تکمیل UX-02 وجود ندارد.
-- گام بعد: طراحی skeleton مستقل V3 شامل manifest/build tooling، entrypoint، router و مرز API؛ بدون وابستگی به root V2. پس از ایجاد، تست محلی و build مستقل لازم است.
+- وضعیت: **در حال انجام؛ اسکلت مستقل frontend ایجاد شده، پذیرش محلی باقی است.**
+- workspace مستقل در `v3/frontend/` ساخته شد و به root `src/` یا runtime V2 وابستگی/import ندارد.
+- فایل‌ها: `package.json`، `tsconfig.json`، `vite.config.ts`، `index.html`، `src/main.tsx`، `src/app/App.tsx`، `src/styles.css` و `README.md`.
+- UI اولیه شامل پوسته RTL، ناوبری گروه‌بندی‌شده برای عملیات/کاتالوگ/مدیریت، جست‌وجوی بخش‌ها، نمای کلی بدون آمار ساختگی و placeholderهای شفاف ماژول‌هاست.
+- هیچ احراز هویت، API، دیتابیس، عملیات فروش/پرداخت یا داده عملیاتی به این prototype متصل نیست؛ انتشار روی هاست مشتری ممنوع است.
+- فونت از CDN خارجی بارگیری نمی‌شود؛ فعلاً fallback سیستمی استفاده می‌شود. lockfile هنوز تولید نشده و باید پس از npm install در Windows ثبت شود.
+- typecheck، test، lint و build اجرا نشده‌اند؛ GitHub Actions همچنان مانع مستقل است و نتیجه سبز ادعا نمی‌شود.
+- برای حفظ استقلال، تغییر آزمایشی V2 برگشت داده شد؛ `src/components/grill/app.tsx` به blob قبلی برگشت و فایل‌های موقت `src/features/shell/*` حذف شدند.
+- گام بعد: اجرای `npm install`، `npm run typecheck` و `npm run build` در Windows؛ سپس رفع خطاهای واقعی و ادامه UX-02.
