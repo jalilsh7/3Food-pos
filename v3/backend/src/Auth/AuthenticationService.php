@@ -81,7 +81,6 @@ final readonly class AuthenticationService
             $safeIp,
             $userAgentHash,
             $requestId,
-            $safeIp,
         ): void {
             if (password_needs_rehash((string) $user['password_hash'], PASSWORD_DEFAULT)) {
                 $newHash = password_hash($password, PASSWORD_DEFAULT);
