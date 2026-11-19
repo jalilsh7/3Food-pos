@@ -638,3 +638,10 @@
 - تست regression scope به workflow Backend افزوده شد.
 - وضعیت: **کدنویسی ثبت شد؛ نتیجه CI در انتظار**.
 - بسته بعدی: اسناد رسید خرید، انتقال، تعدیل، ضایعات و برگشت با ledger تراکنشی.
+
+ 
+### 5.9 — اتصال API رسپی
+- سه endpoint مشاهده رسپی محصول، ساخت نسخه draft و فعال‌سازی نسخه به front controller متصل شدند.
+- write routes با catalog.manage، CSRF، Origin و Idempotency-Key محافظت می‌شوند.
+- تست قرارداد route/security به CI Backend افزوده شد.
+- وضعیت: **کدنویسی ثبت شد؛ نتیجه CI در انتظار**.
