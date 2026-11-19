@@ -24,67 +24,89 @@ final readonly class RoleManagementController
     public function create(Request $request): Response
     {
         [$code, $name, $permissions] = $this->rolePayload($request, true);
-        $principal = $this->principal($request);
-        $scope = $this->scope($request);
-        $this->roles->createCustomRole($principal, $scope, $code, $name, $permissions, $request->requestId, (string) ($request->attribute('remote_ip') ?? ''));
-        return Response::success(['created' => true, 'code' => $code], [], 201);
+        $result = $this->roles->createCustomRole(
+            $this->principal($request),
+            $this->scope($request),
+            $code,
+            $name,
+            $permissions,
+            $request->header('idempotency-key') ?? '',
+            $request->requestId,
+            $this->ipAddress($request),
+        );
+        return $this->idempotentResponse($result);
     }
 
     public function update(Request $request, array $parameters): Response
     {
         [, $name, $permissions] = $this->rolePayload($request, false);
-        $principal = $this->principal($request);
-        $scope = $this->scope($request);
-        $this->roles->updateCustomRole($principal, $scope, $parameters['roleCode'], $name, $permissions, $request->requestId, (string) ($request->attribute('remote_ip') ?? ''));
-        return Response::success(['updated' => true, 'code' => $parameters['roleCode']]);
+        $result = $this->roles->updateCustomRole(
+            $this->principal($request),
+            $this->scope($request),
+            $parameters['roleCode'],
+            $name,
+            $permissions,
+            $request->header('idempotency-key') ?? '',
+            $request->requestId,
+            $this->ipAddress($request),
+        );
+        return $this->idempotentResponse($result);
     }
 
     public function assignBusiness(Request $request, array $parameters): Response
     {
-        $principal = $this->principal($request);
-        $scope = $this->scope($request);
-        $roleCode = $this->roleCode($request);
-        $this->roles->assignBusinessRole($principal, $parameters['userPublicId'], $roleCode, $scope, $request->requestId, (string) ($request->attribute('remote_ip') ?? ''));
-        return Response::success(['assigned' => true], [], 201);
+        $result = $this->roles->assignBusinessRole(
+            $this->principal($request),
+            $parameters['userPublicId'],
+            $this->roleCode($request),
+            $this->scope($request),
+            $request->header('idempotency-key') ?? '',
+            $request->requestId,
+            $this->ipAddress($request),
+        );
+        return $this->idempotentResponse($result);
     }
 
     public function assignBranch(Request $request, array $parameters): Response
     {
-        $principal = $this->principal($request);
-        $scope = $this->scope($request);
-        $roleCode = $this->roleCode($request);
-        $this->roles->assignBranchRole($principal, $parameters['userPublicId'], $roleCode, $scope, $request->requestId, (string) ($request->attribute('remote_ip') ?? ''));
-        return Response::success(['assigned' => true], [], 201);
+        $result = $this->roles->assignBranchRole(
+            $this->principal($request),
+            $parameters['userPublicId'],
+            $this->roleCode($request),
+            $this->scope($request),
+            $request->header('idempotency-key') ?? '',
+            $request->requestId,
+            $this->ipAddress($request),
+        );
+        return $this->idempotentResponse($result);
     }
 
     public function removeBusiness(Request $request, array $parameters): Response
     {
-        $principal = $this->principal($request);
-        $scope = $this->scope($request);
-        $removed = $this->roles->removeBusinessRole(
-            $principal,
+        $result = $this->roles->removeBusinessRole(
+            $this->principal($request),
             $parameters['userPublicId'],
             $parameters['roleCode'],
-            $scope,
+            $this->scope($request),
+            $request->header('idempotency-key') ?? '',
             $request->requestId,
-            (string) ($request->attribute('remote_ip') ?? ''),
+            $this->ipAddress($request),
         );
-        return Response::success(['removed' => $removed]);
+        return $this->idempotentResponse($result);
     }
 
     public function removeBranch(Request $request, array $parameters): Response
     {
-        $principal = $this->principal($request);
-        $scope = $this->scope($request);
-        $removed = $this->roles->removeBranchRole(
-            $principal,
+        $result = $this->roles->removeBranchRole(
+            $this->principal($request),
             $parameters['userPublicId'],
             $parameters['roleCode'],
-            $scope,
+            $this->scope($request),
+            $request->header('idempotency-key') ?? '',
             $request->requestId,
-            (string) ($request->attribute('remote_ip') ?? ''),
+            $this->ipAddress($request),
         );
-        return Response::success(['removed' => $removed]);
+        return $this->idempotentResponse($result);
     }
 
     private function rolePayload(Request $request, bool $includeCode): array
@@ -133,5 +155,16 @@ final readonly class RoleManagementController
             throw new HttpException(400, 'business_context_required', 'A valid business scope is required.');
         }
         return $scope;
+    }
+
+    private function ipAddress(Request $request): string
+    {
+        return (string) ($request->attribute('remote_ip') ?? '');
+    }
+
+    private function idempotentResponse(array $result): Response
+    {
+        return Response::json($result['body'], $result['status'])
+            ->withHeader('Idempotency-Replayed', $result['replayed'] ? 'true' : 'false');
     }
 }
