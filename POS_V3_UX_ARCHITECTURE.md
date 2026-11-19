@@ -392,3 +392,8 @@
 - سرویس ورود server-side ایجاد شده و فقط hash نشست و CSRF در DB ذخیره می‌شوند؛ password خام فقط در لحظه verification و rehash استفاده می‌شود.
 - محدودسازی تلاش ورود با HMAC از username/IP و secret سمت سرور انجام می‌شود.
 - هیچ login route یا cookie هنوز منتشر نشده؛ UI ورود تا تکمیل session/CSRF middleware و RBAC به API متصل نمی‌شود.
+
+
+### BE-01D2 — سیاست محدودسازی ورود
+- محدودسازی ورود در سرور با bucket مستقل حساب و IP اجرا می‌شود؛ پنج شکست برای حساب یا سی شکست از IP در پنجره ۱۵ دقیقه‌ای، سپس block پانزده‌دقیقه‌ای.
+- secret موردنیاز `POS_V3_APP_KEY` فقط در محیط Backend نگهداری می‌شود و هرگز در bundle یا state فرانت‌اند قرار نمی‌گیرد.
