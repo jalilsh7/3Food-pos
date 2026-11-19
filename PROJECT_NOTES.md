@@ -972,3 +972,17 @@
 - این بسته فقط سند معماری را ایجاد کرده است؛ هیچ کد PHP، endpoint، احراز هویت، نشست یا اتصال UI ایجاد نشده است.
 - تست PHP lint، unit، integration و DB در این بسته اجرا نشده‌اند؛ CI runner همچنان مانع شناخته‌شده است.
 - بسته‌های بعدی: BE-01A bootstrap/config؛ BE-01B HTTP؛ BE-01C PDO/transaction؛ BE-01D auth/session؛ BE-01E RBAC؛ BE-01F audit/idempotency؛ BE-01G اولین vertical slice.
+
+
+## BE-01A — bootstrap و پیکربندی امن Backend (2026-11-20)
+- وضعیت: **کد پایه در شاخه توسعه ثبت شد؛ تست اجرایی و HTTP runtime هنوز پذیرفته نشده است.**
+- فایل‌های جدید:
+  - `v3/backend/bootstrap.php`: کنترل PHP 8.2+، autoload محدود به namespace `PersiaCoder\\PosV3\\` و بارگذاری config.
+  - `v3/backend/src/Support/Environment.php`: خواندن متغیرهای environment با کنترل required/boolean.
+  - `v3/backend/src/Support/Configuration.php`: configuration immutable و validation محیط، debug، DB host/port/name/user/password.
+  - `scripts/check-v3-backend-bootstrap.php`: سناریوهای پیکربندی معتبر و نامعتبر.
+  - `.github/workflows/v3-backend-validation.yml`: lint و bootstrap checks روی PHP 8.2، 8.3 و 8.4.
+- متغیرهای موردنیاز: `POS_V3_APP_ENV`، `POS_V3_DB_HOST`، `POS_V3_DB_NAME`، `POS_V3_DB_USER`، `POS_V3_DB_PASSWORD`؛ `POS_V3_DB_PORT` پیش‌فرض 3306 و `POS_V3_APP_DEBUG` پیش‌فرض false است.
+- رمز DB می‌تواند خالی باشد اما متغیر باید صریحاً تنظیم شده باشد؛ مقدار هیچ secret در خطا چاپ نمی‌شود. debug فقط در development/test مجاز است.
+- bootstrap هیچ اتصال DB، session، HTTP route یا side effect ندارد؛ DB factory و HTTP kernel در بسته‌های بعدی می‌آیند.
+- GitHub fetch پس از ثبت، محتوای هر پنج فایل را تأیید کرد. تا زمان بررسی run، lint/test را اجراشده یا PASS اعلام نمی‌کنیم.
