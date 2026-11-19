@@ -158,7 +158,7 @@ final readonly class MediaService
                     $before === null ? null : ['media_id' => (string) $before['public_id']],
                     $after, null, $requestId, $ip, $scope->businessId,
                 );
-                return ['status' => 200, 'body' => ['data' => ['product_id' => $productPublicId] + $after], 'meta' => (object) []];
+                return ['status' => 200, 'body' => ['data' => ['product_id' => $productPublicId] + $after, 'meta' => (object) []]];
             },
         );
     }
@@ -188,7 +188,7 @@ final readonly class MediaService
                     $before === null ? null : ['media_id' => (string) $before['public_id']],
                     $after, null, $requestId, $ip, $scope->businessId,
                 );
-                return ['status' => 200, 'body' => ['data' => ['category_id' => $categoryPublicId] + $after], 'meta' => (object) []];
+                return ['status' => 200, 'body' => ['data' => ['category_id' => $categoryPublicId] + $after, 'meta' => (object) []]];
             },
         );
     }
