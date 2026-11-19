@@ -462,3 +462,6 @@
 - `scripts/check-v3-backend-database.php` تست ساخت DSN و guard host اضافه شد؛ workflow نیز این check را اجرا خواهد کرد.
 - اتصال واقعی MySQL/MariaDB، transaction integration و concurrency هنوز اجرا نشده‌اند.
 - گام بعد: BE-01D session/authentication با store دیتابیسی و CSRF؛ پیش از آن middleware pipeline باید شکل بگیرد.
+
+
+- اصلاح تکمیلی BE-01C: fallback خطای bootstrap در front controller مستقل از autoload شد و پاسخ عمومی 503 می‌دهد.
