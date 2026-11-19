@@ -206,8 +206,11 @@ function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; ini
       const reserved = (heading?.getBoundingClientRect().height ?? 0)
         + (footer?.getBoundingClientRect().height ?? 0) + 16;
       const available = Math.max(0, nav.getBoundingClientRect().height - reserved);
-      const count = Math.max(1, Math.floor((available + gap) / (itemHeight + gap)));
-      setVisibleNavCount(Math.min(allowed.length, count));
+      const slots = Math.max(1, Math.floor((available + gap) / (itemHeight + gap)));
+      // Reserve one slot for the expand/collapse control whenever some items
+      // need to remain hidden.
+      const count = allowed.length > slots ? Math.max(1, slots - 1) : allowed.length;
+      setVisibleNavCount(count);
     };
     measure();
     const observer = new ResizeObserver(measure);
