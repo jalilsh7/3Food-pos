@@ -422,3 +422,12 @@
 - پاسخ 403 به معنی نبود مجوز و 404 به معنی scope یا resource نامعتبر است؛ UI نباید با تغییر header یا route مجوز بیشتری فرض کند.
 - تا ساخت onboarding و API انتساب نقش، انتخاب business/branch در UI عملیاتی فعال نمی‌شود.
 
+
+### BE-01E2 — onboarding، تغییر رمز و مدیریت نقش
+- ورود اولیه با must_change_password=true باید کاربر را به جریان تغییر رمز هدایت کند؛ درخواست POST /api/v1/auth/change-password شامل current_password و new_password است و پس از موفقیت نشست فعلی نیز باطل می‌شود، بنابراین کاربر دوباره login می‌کند.
+- پس از ورود مجدد، owner می‌تواند POST /api/v1/setup/business را برای ایجاد اولین کسب‌وکار و شعبه اصلی فراخوانی کند؛ فیلدهای name و code اجباری‌اند و timezone، currency، branch_name و branch_code اختیاری هستند.
+- GET /api/v1/access/roles فهرست نقش‌های فعال و permission codeهای آن‌ها را می‌دهد.
+- انتساب نقش در سطح business از مسیر /api/v1/access/users/{userPublicId}/business-roles و در سطح branch از مسیر /api/v1/access/users/{userPublicId}/branch-roles انجام می‌شود؛ حذف انتساب با DELETE روی همان مسیر و افزودن roleCode در انتهاست.
+- UI فقط نقش‌هایی را پیشنهاد دهد که Backend مجاز می‌داند؛ Backend تمام permissionهای نقش هدف را با permissionهای actor مقایسه می‌کند.
+- پس از setup، UI باید business_id و branch_id عمومی برگشتی را برای headerهای X-Business-ID و X-Branch-ID نگه دارد؛ این شناسه‌ها secret نیستند و مجوز را ایجاد نمی‌کنند.
+
