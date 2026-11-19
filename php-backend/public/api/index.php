@@ -243,6 +243,21 @@ function require_terminal_agent(PDO $pdo): array {
     return $agent;
 }
 
+
+function is_private_terminal_ip(string $ip): bool {
+    $packed=@inet_pton($ip);
+    if($packed===false)return false;
+    if(strlen($packed)===4){
+        $a=ord($packed[0]);$b=ord($packed[1]);
+        return $a===10||($a===172&&$b>=16&&$b<=31)||($a===192&&$b===168)||($a===169&&$b===254);
+    }
+    if(strlen($packed)===16){
+        $a=ord($packed[0]);$b=ord($packed[1]);
+        return (($a&0xfe)===0xfc)||($a===0xfe&&($b&0xc0)===0x80);
+    }
+    return false;
+}
+
 function valid_uuid(string $value): bool {
     return preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iD',$value)===1;
 }
@@ -358,7 +373,7 @@ if ($method==='POST' && $path==='/terminals') {
     $model=trim((string)($body['modelName']??'')); $enabled=($body['enabled']??true)===true?1:0; $isDefault=($body['isDefault']??false)===true?1:0;
     if(!preg_match('/^[A-Za-z0-9_-]{1,100}$/D',$id)||!valid_uuid($agentId)||!preg_match('/^[A-Za-z0-9_-]{1,100}$/D',$localKey)||
        $name===''||utf8_length($name)>120||$provider===''||strlen($provider)>64||$driver===''||strlen($driver)>80||
-       !in_array($connection,['lan','wifi'],true)||filter_var($host,FILTER_VALIDATE_IP)===false||$port===false||$port<1||$port>65535||utf8_length($model)>120) {
+       !in_array($connection,['lan','wifi'],true)||(filter_var($host,FILTER_VALIDATE_IP)===false||!is_private_terminal_ip($host))||$port===false||$port<1||$port>65535||utf8_length($model)>120) {
         json_response(['ok'=>false,'error'=>'invalid_terminal','message'=>'مشخصات کارتخوان معتبر نیست'],422);
     }
     $agentStmt=$pdo->prepare('SELECT id FROM app_terminal_agents WHERE id=? AND enabled=1 LIMIT 1');$agentStmt->execute([$agentId]);
@@ -1041,7 +1056,7 @@ if ($method === 'POST' && $path === '/backup/restore') {
         foreach($backup['payment_terminals'] as $terminal){
             if(!is_array($terminal)||!is_string($terminal['id']??null)||!preg_match('/^[A-Za-z0-9_-]{1,100}$/D',$terminal['id'])||
                 !isset($agentIds[(string)($terminal['agent_id']??'')])||!preg_match('/^[A-Za-z0-9_-]{1,100}$/D',(string)($terminal['local_terminal_key']??''))||
-                !in_array($terminal['connection_type']??'', ['lan','wifi'],true)||filter_var($terminal['host']??'',FILTER_VALIDATE_IP)===false||
+                !in_array($terminal['connection_type']??'', ['lan','wifi'],true)||(filter_var($terminal['host']??'',FILTER_VALIDATE_IP)===false||!is_private_terminal_ip((string)$terminal['host']))||
                 !is_numeric($terminal['port']??null)||(int)$terminal['port']<1||(int)$terminal['port']>65535) throw new InvalidArgumentException('Invalid payment terminal backup');
             $terminalIds[$terminal['id']]=true;
             $insertTerminal->execute([$terminal['id'],$terminal['agent_id'],$terminal['local_terminal_key'],substr((string)($terminal['name']??''),0,120),substr((string)($terminal['provider_code']??'unknown'),0,64),isset($terminal['model_name'])?substr((string)$terminal['model_name'],0,120):null,substr((string)($terminal['driver_code']??'unconfigured'),0,80),$terminal['connection_type'],$terminal['host'],(int)$terminal['port'],(int)$actor['id'],$terminal['created_at']??gmdate('Y-m-d H:i:s'),$terminal['updated_at']??gmdate('Y-m-d H:i:s')]);
