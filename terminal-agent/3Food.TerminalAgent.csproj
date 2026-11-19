@@ -9,5 +9,6 @@
     <Version>0.1.0</Version>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
+    <None Update="terminal-agent.example.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </PropertyGroup>
 </Project>
