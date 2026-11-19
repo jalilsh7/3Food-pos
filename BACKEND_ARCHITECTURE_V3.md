@@ -286,3 +286,10 @@ v3/backend/
 - گروه گزینه در سطح business ساخته و سپس به محصول متصل می‌شود؛ reuse گروه در چند محصول همان کسب‌وکار ممکن است.
 - جزئیات محصول تنوع‌ها و گروه‌های متصل را با گزینه‌ها برمی‌گرداند. commandها idempotent، audit شده و تحت CSRF/Origin/RBAC هستند.
 - Migration 007 اجرا نشده و تست‌ها به پایان توسعه موکول‌اند.
+
+
+## BE-01G3 — مدیریت چرخه عمر محصولات و دسته‌بندی‌ها
+- ویرایش دسته‌بندی با `PATCH /api/v1/catalog/categories/{categoryPublicId}`؛ فیلدهای قابل تغییر `name`، `parent_id`، `sort_order` و `is_active` هستند. دسته‌بندی فقط غیرفعال می‌شود و حذف فیزیکی ندارد.
+- ویرایش محصول با `PATCH /api/v1/catalog/products/{productPublicId}`؛ فیلدهای `name`، `sku`، `product_type`، `base_price_amount`، `tax_rate_bps`، `category_id` و `is_active` با اعتبارسنجی سمت سرور کنترل می‌شوند.
+- آرشیو محصول با `DELETE /api/v1/catalog/products/{productPublicId}` به‌صورت soft archive انجام می‌شود: `archived_at` ثبت و `is_active=0` می‌شود؛ ردیف برای حفظ ارجاعات سفارش‌های تاریخی نگه داشته می‌شود.
+- همه commandها به business scope، permission `catalog.manage`، session، CSRF، Origin، Idempotency-Key و audit log مقیدند. هیچ mutation در دیتابیس اجرا نشده است.
