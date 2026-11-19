@@ -37,4 +37,12 @@ $assert(str_contains($migration, 'REFERENCES app_users(id)'), 'Session user fore
 $assert(str_contains($migration, 'expires_at > created_at'), 'Session expiry constraint missing.');
 $assert(!preg_match('/\\b(DROP|TRUNCATE|ALTER)\\b/i', $migration), 'Session migration must remain additive.');
 
+$loginMigrationPath = $root . '/database/v3/migrations/002_create-auth-login-attempts.sql';
+$loginMigration = file_get_contents($loginMigrationPath);
+if (!is_string($loginMigration)) throw new RuntimeException('Login throttling migration file is missing.');
+$assert(str_contains($loginMigration, 'CREATE TABLE app_auth_login_attempts'), 'Login throttling table migration missing.');
+$assert(str_contains($loginMigration, 'identifier_hash CHAR(64)'), 'Login throttling identifier must be hashed.');
+$assert(str_contains($loginMigration, 'blocked_until DATETIME(3)'), 'Login throttling block expiry missing.');
+$assert(!preg_match('/\\b(DROP|TRUNCATE|ALTER)\\b/i', $loginMigration), 'Login throttling migration must remain additive.');
+
 echo "V3 backend database configuration checks passed.\n";
