@@ -100,3 +100,41 @@ workflow جداگانه v3-database-validation.yml برای MySQL 8.4 و MariaDB
 - قابل‌خواندن بودن baseline و محاسبه checksum آن.
 
 اگر هر بررسی شکست بخورد، فرمان با exit code غیرصفر متوقف می‌شود و جزئیات را بدون چاپ رمز عبور نشان می‌دهد. موفقیت preflight به‌تنهایی تضمین‌کننده مجوزهای کامل DDL، تنظیمات وب‌سرور، مسیرهای writable یا آمادگی عملیاتی cPanel نیست؛ این موارد باید در مرحله installer گرافیکی و پذیرش staging بررسی شوند. این فرمان را روی دیتابیس حاوی داده اجرا نکنید و خروجی PASS را معادل نصب موفق تلقی نکنید.
+
+
+## اجرای تست مستقل روی Windows (بدون Docker و بدون GitHub Actions)
+
+برای بررسی‌های محلی، PowerShell 5.1 یا جدیدتر، PHP CLI نسخه 8.2+ با افزونه‌های PDO، PDO MySQL، JSON و Zlib و Python 3 لازم است. برای تست‌های دیتابیسی، MySQL 8.0.16+ یا MariaDB 10.6+ باید به‌صورت سرویس محلی نصب و اجرا شده باشد؛ Docker لازم نیست.
+
+از ریشه مخزن در PowerShell اجرا کنید:
+
+    Set-ExecutionPolicy -Scope Process Bypass
+    .\scripts\run-v3-local-ci.ps1
+
+این حالت PHP lint همه ابزارهای V3 و checkerها، تست SQL parser و compile اسکریپت Python را اجرا می‌کند و هیچ دیتابیسی را تغییر نمی‌دهد.
+
+برای اجرای بررسی دیتابیس، ابتدا دو دیتابیس آزمایشی مستقل و disposable بسازید:
+- دیتابیس اول باید baseline کامل ۶۱ جدولی V3 را داشته باشد و فقط برای MYSQL_TEST_* استفاده شود.
+- دیتابیس دوم باید کاملاً خالی باشد و فقط برای POS_V3_* و Preflight استفاده شود.
+- هرگز نام دیتابیس عملیاتی، V2 یا دیتابیس دارای اطلاعات مشتری را تنظیم نکنید.
+
+سپس متغیرهای MYSQL_TEST_HOST, MYSQL_TEST_PORT, MYSQL_TEST_DATABASE, MYSQL_TEST_USERNAME, MYSQL_TEST_PASSWORD و POS_V3_DB_HOST, POS_V3_DB_PORT, POS_V3_DB_NAME, POS_V3_DB_USER, POS_V3_DB_PASSWORD را در نشست PowerShell تنظیم کنید و اجرا کنید:
+
+    $env:MYSQL_TEST_HOST = '127.0.0.1'
+    $env:MYSQL_TEST_PORT = '3306'
+    $env:MYSQL_TEST_DATABASE = 'pos_v3_schema_ci'
+    $env:MYSQL_TEST_USERNAME = 'pos_v3_test'
+    $env:MYSQL_TEST_PASSWORD = '...'
+    $env:POS_V3_DB_HOST = '127.0.0.1'
+    $env:POS_V3_DB_PORT = '3306'
+    $env:POS_V3_DB_NAME = 'pos_v3_empty_ci'
+    $env:POS_V3_DB_USER = 'pos_v3_test'
+    $env:POS_V3_DB_PASSWORD = '...'
+    $env:POS_V3_ADMIN_USERNAME = 'ci-owner'
+    $env:POS_V3_ADMIN_PASSWORD = 'یک-رمز-آزمایشی-حداقل-۱۴-کاراکتری'
+    $env:POS_V3_ADMIN_NAME = 'Local CI Owner'
+    .\scripts\run-v3-local-ci.ps1 -WithDatabase
+
+حالت دیتابیسی فقط Preflight را روی دیتابیس خالی و checker قیود را روی دیتابیس schema از پیش آماده‌شده اجرا می‌کند. برای جلوگیری از حذف یا بازنویسی داده، Installer، migration و restore به‌صورت خودکار اجرا نمی‌شوند و باید در دیتابیس disposable جداگانه و با فرمان‌های CLI مستندشده آزمایش شوند.
+
+این مسیر مستقل از GitHub Actions است؛ خروجی PASS فقط همان بررسی‌هایی را تأیید می‌کند که واقعاً روی سیستم محلی اجرا شده‌اند. نتیجه محلی به‌طور خودکار در GitHub ثبت یا منتشر نمی‌شود.
