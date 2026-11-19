@@ -35,7 +35,13 @@ final readonly class AuditLogService
         $afterJson = $after === null ? null : self::encodeSafeSnapshot($after);
         $safeRequestId = preg_match('/^[A-Za-z0-9._-]{8,36}$/', $requestId) ? $requestId : null;
         $safeIp = filter_var($ipAddress, FILTER_VALIDATE_IP) ? $ipAddress : null;
-        $safeReason = $reason === null ? null : mb_substr($reason, 0, 500);
+        $safeReason = null;
+        if ($reason !== null) {
+            $reasonCount = preg_match_all('/./us', $reason, $reasonCharacters);
+            $safeReason = $reasonCount === false
+                ? null
+                : implode('', array_slice($reasonCharacters[0], 0, 500));
+        }
 
         $this->repository->append(
             $actorUserId,
