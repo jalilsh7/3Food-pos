@@ -3,6 +3,7 @@
 @import "./shared/ui/forms-table.css";
 @import "./features/pos/pos.css";
 @import "./features/orders/orders.css";
+@import "./features/customers/customers.css";
 
 * { box-sizing: border-box; }
 html { direction: rtl; min-width: 320px; background: var(--canvas); }
