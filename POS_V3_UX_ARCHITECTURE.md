@@ -196,7 +196,7 @@
 | بسته | خروجی | وضعیت آغاز |
 |---|---|---|
 | UX-01 | این سند: معماری UX، IA و نقشه اجرا | ثبت‌شده |
-| UX-02 | ایجاد پوسته و ناوبری مستقل در `v3/frontend/` | در حال انجام |
+| UX-02 | پوسته مستقل و Design System پایه در `v3/frontend/` | در حال انجام |
 | UX-03 | بازطراحی صفحه فروش و سبد چندقلمی | در انتظار |
 | UX-04 | مرکز سفارش واحد با فیلتر کانال و وضعیت‌های مستقل | در انتظار |
 | UX-05 | صفحه آشپزخانه و گردش آماده‌سازی | در انتظار |
@@ -226,19 +226,20 @@
 
 
 
-### وضعیت اجرایی UX-02 — workspace مستقل V3 (2026-11-19)
+### وضعیت اجرایی UX-02 — پوسته و Design System مستقل V3 (2026-11-19)
 
-- وضعیت: **در حال انجام؛ اسکلت رابط ثبت شده، اجرای محلی و build هنوز تأیید نشده است.**
-- workspace مستقل در `v3/frontend/` ایجاد شد؛ فایل‌های پایه:
-  - `package.json` با وابستگی‌های مستقل و نسخه‌های ثابت.
-  - `tsconfig.json` و `vite.config.ts`.
-  - `index.html` و `src/main.tsx`.
-  - `src/app/App.tsx` با ناوبری گروه‌بندی‌شده و responsive، جست‌وجوی بخش‌ها، نمای کلی بدون داده جعلی و placeholderهای شفاف.
-  - `src/styles.css` با RTL، طراحی responsive و reduced-motion.
-  - `README.md` با دستورهای نصب/اجرا و محدودیت‌های فعلی.
-- هیچ فایل V2 از root `src/` import نشده و workspace جدید به API، احراز هویت یا دیتابیس وصل نیست.
-- وابستگی فونت CDN حذف شد؛ تا زمان افزودن فونت محلی مجاز، fallback سیستمی استفاده می‌شود.
-- فایل‌های تغییر آزمایشی V2 حذف و `src/components/grill/app.tsx` به blob پیشین بازگردانده شد؛ استقلال runtime رعایت شده است.
-- هنوز lockfile تولید نشده؛ باید پس از `npm install` محلی commit شود.
-- typecheck، تست، lint و build اجرا نشده‌اند؛ این اسکلت prototype عملیاتی نیست و نباید روی هاست مشتری نصب شود.
-- گام بعد: اجرای نصب dependency و typecheck/build در Windows مالک؛ سپس رفع خطاهای واقعی و ادامه design system و route/module shell.
+- وضعیت: **در حال انجام؛ پایه‌های UI و componentهای مشترک ثبت شده‌اند، پذیرش فنی/مرورگری باقی است.**
+- workspace مستقل `v3/frontend/` دارای package/config/entrypoint و پوسته RTL است؛ هیچ import از root `src/` یا runtime V2 ندارد.
+- Design tokens در `src/tokens.css` تعریف شدند: رنگ برند، سطوح، متن، رنگ‌های معنایی، radius، shadow و focus ring. aliasهای فعلی برای سازگاری CSS پوسته نگه داشته شده‌اند.
+- primitives مشترک در `src/shared/ui/primitives.tsx` و barrel در `src/shared/ui/index.ts`:
+  - `Button` با variant و size مشخص و type پیش‌فرض button.
+  - `Surface` با semantics از نوع section و padding قابل تنظیم.
+  - `PageHeader`، `StatusBadge`، `Notice` و `EmptyState`.
+- stylesheet مستقل componentها در `src/shared/ui/primitives.css` ایجاد شد و از طریق `src/styles.css` به tokens و shell متصل است.
+- `src/app/App.tsx` برای استفاده از primitives مشترک بازآرایی شد؛ کارت‌های نمای کلی و placeholder صفحات از componentهای پایه استفاده می‌کنند. جست‌وجوی بخش‌ها همچنان محلی و نمایشی است و به داده عملیاتی وصل نیست.
+- فوکوس قابل مشاهده، aria-label کنترل پاک‌کردن جست‌وجو، aria-current ناوبری، aria-live حالت خالی و reduced-motion در CSS لحاظ شده‌اند.
+- راهنمای قرارداد componentها در `v3/frontend/DESIGN_SYSTEM.md` ایجاد و از README لینک شد.
+- وابستگی فونت خارجی وجود ندارد؛ fallback سیستمی فعال است. lockfile هنوز تولید نشده است.
+- بررسی ایستای GitHub: فایل‌های جدید/ویرایش‌شده مجدداً fetch شدند؛ importهای V2 در workspace دیده نشدند، wrapperهای Surface از نظر تعداد باز/بسته کنترل شدند و selectorهای placeholder حذف شدند.
+- typecheck، unit test، lint، build و browser acceptance اجرا نشده‌اند؛ به علت محدودیت runner/عدم اجرای محلی، این بسته هنوز از نظر اجرایی پذیرفته نشده است.
+- گام بعد: تکمیل تست‌پذیری UI و الگوهای فرم/جدول/فیلتر، سپس UX-03 صفحه فروش؛ اتصال به API فقط پس از تثبیت قرارداد مستقل backend.
