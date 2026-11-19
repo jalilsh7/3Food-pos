@@ -18,7 +18,7 @@ final class PosV3DatabaseTools {
    $char=$sql[$i]; $next=$i+1<$length?$sql[$i+1]:'';
    if($lineComment){if($char==="\n"){$lineComment=false;$buffer.="\n";}continue;}
    if($blockComment){if($char==='*'&&$next==='/'){$blockComment=false;$i++;$buffer.=' ';}continue;}
-   if($quote!==null){$buffer.=$char;if($char==='\\\\'&&$quote!==chr(96)&&$i+1<$length){$buffer.=$sql[++$i];continue;}if($char===$quote){if($next===$quote)$buffer.=$sql[++$i];else $quote=null;}continue;}
+   if($quote!==null){$buffer.=$char;if($char==='\\'&&$quote!==chr(96)&&$i+1<$length){$buffer.=$sql[++$i];continue;}if($char===$quote){if($next===$quote)$buffer.=$sql[++$i];else $quote=null;}continue;}
    if($char==='/'&&$next==='*'){$blockComment=true;$i++;continue;}
    if($char==='#'||($char==='-'&&$next==='-'&&($i+2>=$length||ctype_space($sql[$i+2])))){$lineComment=true;if($char==='-')$i++;continue;}
    if($char==="'"||$char==='"'||ord($char)===96){$quote=$char;$buffer.=$char;continue;}
