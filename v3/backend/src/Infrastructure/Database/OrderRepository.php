@@ -295,6 +295,121 @@ final readonly class OrderRepository
         ]);
     }
 
+    /** @return array<string,mixed>|null */
+    public function findOrder(int $businessId, int $branchId, string $publicId): ?array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT o.id, o.public_id, o.order_number, o.source_channel, o.order_status,
+                    o.payment_status, o.currency_code, o.subtotal_amount, o.discount_amount,
+                    o.tax_amount, o.delivery_fee_amount, o.total_amount, o.created_at, o.accepted_at,
+                    c.public_id AS customer_public_id, c.name AS customer_name,
+                    ts.public_id AS table_session_public_id,
+                    f.method AS fulfillment_method, f.recipient_name_snapshot,
+                    f.recipient_phone_snapshot, f.address_snapshot, f.delivery_fee_amount AS fulfillment_fee
+             FROM pos_orders o
+             LEFT JOIN pos_customers c ON c.id = o.customer_id AND c.business_id = o.business_id
+             LEFT JOIN pos_table_sessions ts ON ts.id = o.table_session_id
+                AND ts.business_id = o.business_id AND ts.branch_id = o.branch_id
+             LEFT JOIN pos_order_fulfillments f ON f.order_id = o.id
+                AND f.business_id = o.business_id AND f.branch_id = o.branch_id
+             WHERE o.business_id = :business_id AND o.branch_id = :branch_id AND o.public_id = :public_id
+             LIMIT 1'
+        );
+        $statement->execute([
+            'business_id' => $businessId,
+            'branch_id' => $branchId,
+            'public_id' => $publicId,
+        ]);
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
+        return is_array($row) ? $row : null;
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function listOrderItemsWithOptions(int $businessId, int $branchId, int $orderId): array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT oi.id, oi.product_name_snapshot, oi.variant_name_snapshot, oi.sku_snapshot,
+                    oi.quantity, oi.unit_price_amount, oi.discount_amount, oi.tax_rate_bps,
+                    oi.tax_amount, oi.line_total_amount,
+                    oio.group_name_snapshot, oio.option_name_snapshot,
+                    oio.price_delta_amount, oio.quantity AS option_quantity
+             FROM pos_order_items oi
+             LEFT JOIN pos_order_item_options oio
+               ON oio.order_item_id = oi.id
+              AND oio.business_id = oi.business_id
+              AND oio.branch_id = oi.branch_id
+             WHERE oi.business_id = :business_id
+               AND oi.branch_id = :branch_id
+               AND oi.order_id = :order_id
+             ORDER BY oi.id ASC, oio.id ASC'
+        );
+        $statement->execute([
+            'business_id' => $businessId,
+            'branch_id' => $branchId,
+            'order_id' => $orderId,
+        ]);
+
+        $items = [];
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $itemId = (int) $row['id'];
+            if (!isset($items[$itemId])) {
+                $items[$itemId] = [
+                    'name' => (string) $row['product_name_snapshot'],
+                    'variant_name' => $row['variant_name_snapshot'] === null ? null : (string) $row['variant_name_snapshot'],
+                    'sku' => $row['sku_snapshot'] === null ? null : (string) $row['sku_snapshot'],
+                    'quantity' => (string) $row['quantity'],
+                    'unit_price_amount' => (int) $row['unit_price_amount'],
+                    'discount_amount' => (int) $row['discount_amount'],
+                    'tax_rate_bps' => (int) $row['tax_rate_bps'],
+                    'tax_amount' => (int) $row['tax_amount'],
+                    'line_total_amount' => (int) $row['line_total_amount'],
+                    'options' => [],
+                ];
+            }
+            if (is_string($row['option_name_snapshot'])) {
+                $items[$itemId]['options'][] = [
+                    'group_name' => (string) $row['group_name_snapshot'],
+                    'name' => (string) $row['option_name_snapshot'],
+                    'price_delta_amount' => (int) $row['price_delta_amount'],
+                    'quantity' => (string) $row['option_quantity'],
+                ];
+            }
+        }
+        return array_values($items);
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function listStatusEvents(int $businessId, int $branchId, int $orderId): array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT e.from_status, e.to_status, e.reason_code, e.reason_text, e.source_channel,
+                    e.created_at, u.public_id AS actor_public_id, u.display_name AS actor_name
+             FROM pos_order_status_events e
+             LEFT JOIN app_users u ON u.id = e.actor_user_id
+             WHERE e.business_id = :business_id
+               AND e.branch_id = :branch_id
+               AND e.order_id = :order_id
+             ORDER BY e.id ASC'
+        );
+        $statement->execute([
+            'business_id' => $businessId,
+            'branch_id' => $branchId,
+            'order_id' => $orderId,
+        ]);
+        return array_map(static fn (array $row): array => [
+            'from_status' => $row['from_status'] === null ? null : (string) $row['from_status'],
+            'to_status' => (string) $row['to_status'],
+            'reason_code' => $row['reason_code'] === null ? null : (string) $row['reason_code'],
+            'reason_text' => $row['reason_text'] === null ? null : (string) $row['reason_text'],
+            'source_channel' => (string) $row['source_channel'],
+            'created_at' => (string) $row['created_at'],
+            'actor' => $row['actor_public_id'] === null ? null : [
+                'id' => (string) $row['actor_public_id'],
+                'name' => $row['actor_name'] === null ? null : (string) $row['actor_name'],
+            ],
+        ], $statement->fetchAll(PDO::FETCH_ASSOC));
+    }
+
     /** @return list<array<string,mixed>> */
     public function listOrders(int $businessId, int $branchId, ?string $status, ?string $channel, int $limit): array
     {
