@@ -172,6 +172,12 @@ try {
     check(strlen($agentToken) === 64 && valid_uuid_for_test($agentId), 'agent token and UUID are generated');
     $agentList = api('GET', '/api/v1/terminal-agents');
     check($agentList['status'] === 200 && !str_contains(json_encode($agentList['json']), $agentToken), 'agent list never exposes raw token');
+    $publicTerminalHost = api('POST', '/api/v1/terminals', [
+        'id' => 'ci-public-terminal', 'agentId' => $agentId, 'localTerminalKey' => 'ci-public',
+        'name' => 'Rejected Public IP', 'providerCode' => 'ci_test', 'driverCode' => 'ci_stub',
+        'connectionType' => 'lan', 'host' => '8.8.8.8', 'port' => 5000, 'enabled' => true, 'isDefault' => false,
+    ], csrf_headers());
+    check($publicTerminalHost['status'] === 422, 'terminal API rejects public IP addresses');
     $terminalSaved = api('POST', '/api/v1/terminals', [
         'id' => 'ci-terminal',
         'agentId' => $agentId,
