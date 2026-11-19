@@ -865,3 +865,11 @@
 - پیش‌نیاز handoff: lockfile معتبر، CI قابل اجرا یا گزارش صریح تست‌های انجام‌نشده، build قابل تکرار، راهنمای نصب/staging، فهرست env/secrets بدون مقدار واقعی، backup/restore plan و checklist پذیرش.
 - مقصد باید با دسترسی مجاز کاربر ساخته/انتخاب شود؛ تا زمان ارائه نام حساب/مخزن مقصد، هیچ repository انتقال داده یا public نمی‌شود.
 - secretها، credentials، کلید HMAC و اطلاعات مشتری نباید commit شوند. بین transfer مالکیت، fork و mirror با توجه به نیاز تست و مجوزهای حساب مقصد انتخاب خواهد شد.
+
+
+## CI-FE-01 — workflow مستقل اعتبارسنجی frontend (2026-11-19)
+- فایل: `.github/workflows/v3-frontend-validation.yml`.
+- روی push شاخه توسعه، pull request و workflow_dispatch اجرا می‌شود؛ Node.js 22، npm install، typecheck و production build را هدف می‌گیرد.
+- چون package-lock.json هنوز وجود ندارد، npm cache در setup-node عمداً فعال نشده است تا workflow پیش از install به‌علت lockfile غایب fail نکند.
+- اولین run: `44609415972`؛ job با failure تمام شد اما هیچ step اجرا نشده و log قابل دریافت نبود. بنابراین npm install/typecheck/build اجرا نشده‌اند و از این run نمی‌توان خطای سورس یا build نتیجه گرفت.
+- علت دقیق runner failure از این run قابل اثبات نیست؛ با الگوی CI-INFRA-01/Issue #6 هم‌خوانی دارد. workflow آماده است، ولی frontend هنوز build-verified نیست.
