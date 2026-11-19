@@ -449,6 +449,9 @@ function PosScreen() {
   const [code, setCode] = useState("");
   const [points, setPoints] = useState(0);
   const [pay, setPay] = useState<Order["payment"]>("cash");
+  const [terminalOptions,setTerminalOptions]=useState<PaymentTerminal[]>([]);
+  const [selectedTerminalId,setSelectedTerminalId]=useState("");
+  const pendingTerminalPayment=useRef<{id:string;amount:number;terminalId:string}|null>(null);
   const [sendInvoiceSms, setSendInvoiceSms] = useState<boolean | null>(null);
   const shouldSendInvoiceSms = sendInvoiceSms ?? settings.invoiceSmsEnabledDefault ?? false;
   const [msg, setMsg] = useState("");
@@ -460,6 +463,7 @@ function PosScreen() {
   const [note, setNote] = useState("");
   const [stockWarningMutedUntil, setStockWarningMutedUntil] = useState(0);
   const [stockClock, setStockClock] = useState(INITIAL_RENDER_TIME);
+  useEffect(()=>{let active=true;void phpApi.listAvailableTerminals().then(result=>{if(!active)return;setTerminalOptions(result.items);const preferred=result.items.find(t=>t.is_default||t.isDefault)??result.items[0];if(preferred)setSelectedTerminalId(preferred.id);}).catch(()=>{if(active)setTerminalOptions([]);});return()=>{active=false;};},[]);
   useEffect(() => {
     queueMicrotask(() => {
       try {
@@ -514,6 +518,31 @@ function PosScreen() {
     });
   }
 
+
+  async function waitForTerminalApproval(amount:number):Promise<string> {
+    if(pendingTerminalPayment.current&&pendingTerminalPayment.current.amount!==amount)
+      throw new Error("یک پرداخت کارتخوان تأییدشده برای مبلغ قبلی در انتظار ثبت سفارش است؛ مبلغ سبد را تغییر ندهید و ابتدا سفارش را تعیین‌تکلیف کنید.");
+    let pending=pendingTerminalPayment.current;
+    if(!pending){
+      const available=terminalOptions.length?terminalOptions:(await phpApi.listAvailableTerminals()).items;
+      setTerminalOptions(available);
+      const terminal=available.find(t=>t.id===selectedTerminalId)??available.find(t=>t.is_default||t.isDefault)??available[0];
+      if(!terminal)throw new Error("کارتخوان آنلاین و دارای درایور تأییدشده پیدا نشد؛ تنظیمات کارتخوان را بررسی کنید.");
+      const created=await phpApi.createTerminalPayment({terminalId:terminal.id,amount,idempotencyKey:crypto.randomUUID()});
+      pending={id:created.payment.id,amount,terminalId:terminal.id};pendingTerminalPayment.current=pending;
+    }
+    for(let attempt=0;attempt<60;attempt++){
+      const result=await phpApi.getTerminalPayment(pending.id);
+      const status=result.payment.status;
+      if(status==="approved")return pending.id;
+      if(status==="declined")throw new Error("بانک تراکنش را رد کرد. مبلغی به‌عنوان پرداخت موفق ثبت نشد.");
+      if(status==="cancelled")throw new Error("تراکنش کارتخوان لغو شد.");
+      if(status==="unknown"||status==="expired")throw new Error("نتیجه تراکنش قطعی نیست. قبل از تلاش مجدد، وضعیت را از کارتخوان یا بانک استعلام کنید.");
+      await new Promise<void>(resolve=>window.setTimeout(resolve,1500));
+    }
+    throw new Error("پاسخ کارتخوان در زمان مقرر نرسید. وضعیت تراکنش را بررسی کنید و پرداخت جدیدی ایجاد نکنید.");
+  }
+
   async function checkout() {
     if (submitting || !cart.length) return;
     if (code.trim() && q.codeError) { setMsg(q.codeError); return; }
@@ -521,6 +550,7 @@ function PosScreen() {
     setSubmitting(true);
     setMsg("");
     try {
+      if(pendingTerminalPayment.current&&pay!=="card")throw new Error("یک پرداخت کارتخوان تعیین‌تکلیف‌نشده وجود دارد؛ ابتدا همان سفارش را تکمیل کنید.");
       // Every identified buyer joins the shared customer club before the order is created.
       // The phone is the stable lookup key; the server then updates points and purchase totals.
       let checkoutCustomer = customer;
@@ -552,6 +582,7 @@ function PosScreen() {
           checkoutCustomer = createdCustomer;
         }
       }
+      const terminalPaymentId = pay==="card" ? await waitForTerminalApproval(q.total) : null;
       const idempotencyKey = pendingIdempotencyKey.current ?? crypto.randomUUID();
       pendingIdempotencyKey.current = idempotencyKey;
       const server = await phpApi.createOrder<{ id: string; orderNumber: number; createdAt: string }>({
@@ -581,6 +612,7 @@ function PosScreen() {
         guestPhone: normalizeIranPhone(phone),
         payment: pay,
       });
+      if(terminalPaymentId) await phpApi.attachTerminalPayment(terminalPaymentId,Number(server.order.id));
       const res = placeOrder({
         lines: cart, customer: checkoutCustomer, code, pointsToUse: points, taxEnabled: settings.taxEnabled !== false, payment: pay,
         guestName, guestPhone: phone.trim(),
@@ -591,6 +623,7 @@ function PosScreen() {
         return;
       }
       pendingIdempotencyKey.current = null;
+      pendingTerminalPayment.current = null;
       setMsg(`سفارش ${res.order.number.toLocaleString("fa-IR")} ثبت شد`);
       setCart([]); setPhone(""); setGuestName("مشتری عزیز"); setCode(""); setPoints(0); setSendInvoiceSms(null); setPrinted(res.order);
       const fresh = usePos.getState().customers.find((c) => c.id === res.order.customerId);
@@ -675,8 +708,9 @@ function PosScreen() {
           {q.pointsError ? <p className="text-sm text-warn">{q.pointsError}</p> : null}
           <div className="flex gap-2">
             {(["cash", "card", "online"] as const).map((p) => (
-              <button key={p} onClick={() => setPay(p)} className={`flex-1 rounded-xl py-3 text-sm ${pay === p ? "bg-ink text-bg" : "border border-line"}`}>{p === "cash" ? "نقد" : p === "card" ? "کارت" : "آنلاین"}</button>
+              <button key={p} onClick={() => setPay(p)} className={`flex-1 rounded-xl py-3 text-sm ${pay === p ? "bg-ink text-bg" : "border border-line"}`}>{p === "cash" ? "نقد" : p === "card" ? "کارتخوان" : "آنلاین"}</button>
             ))}
+            {pay==="card"?<div className="mt-2 w-full"><Field label="کارتخوان"><select className={inputCls} value={selectedTerminalId} onChange={e=>setSelectedTerminalId(e.target.value)}><option value="">انتخاب کارتخوان آنلاین</option>{terminalOptions.map(t=><option key={t.id} value={t.id}>{t.name} · {t.provider_code??"شرکت نامشخص"}</option>)}</select></Field><p className="mt-1 text-xs text-muted">مبلغ نهایی سفارش ({money(q.total)}) پس از تأیید به کارتخوان ارسال می‌شود.</p></div>:null}
           </div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={shouldSendInvoiceSms} onChange={e=>setSendInvoiceSms(e.target.checked)}/>ارسال پیامک ریز فاکتور برای مشتری</label>
           <p className="flex justify-between text-sm"><span>جمع</span><span>{money(q.subtotal)}</span></p>
