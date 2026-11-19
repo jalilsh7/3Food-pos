@@ -817,3 +817,18 @@
 - ممیزی ایستای `src/components/grill/app.tsx`: فایل حدود ۲۱۴۰ خط و ۱۶۰KB است؛ پوسته، NAV و چندین صفحه در یک فایل قرار دارند. بازآرایی باید مرحله‌ای باشد و ابتدا shell/nav جدا شود؛ منطق و قرارداد phpApi در این بسته تغییر نکرد.
 - فایل‌های اجرایی، schema، migration، API، دیتابیس و production تغییر نکردند. هیچ تست اجرایی/CI/build برای این بسته اجرا یا ادعا نشده است؛ خروجی آن سند معماری است.
 - گام بعد: UX-02 — استخراج shell/navigation و اجزای پایه بدون تغییر رفتار؛ پس از بررسی دقیق importها، تست‌ها و کنترل مجوزهای فعلی.
+
+
+## UX-02 — جداسازی اولیه پوسته و ناوبری (2026-11-19)
+
+- وضعیت: **در حال انجام؛ تست‌های پذیرش باقی است.**
+- فایل‌های جدید:
+  - `src/features/shell/navigation.tsx`: نوع View، مدل NAV و برچسب نقش‌ها.
+  - `src/features/shell/pos-topbar.tsx`: نوار بالایی و اطلاعات کاربر/خروج امن.
+  - `src/features/shell/pos-navigation.tsx`: ناوبری واکنش‌گرا با حفظ کلاس‌ها و انتخاب صفحه فعلی.
+- `src/components/grill/app.tsx` به مصرف componentهای جدید تغییر کرد؛ منطق احراز هویت، API، نقش‌های مجاز و محتوای صفحات در این بسته عمداً بازنویسی نشد.
+- بررسی ایستای بعد از commit: هر سه فایل جدید fetch شدند؛ app.tsx دارای import و استفاده از PosTopbar/PosNavigation است و markup قبلی header/nav در آن باقی نمانده است.
+- Commit تغییر app.tsx: `4aac4d0d7f4d12f626969113a90a08921a7754e2`؛ HEAD در زمان بررسی همین commit بود. اسناد roadmap و UX نیز بعداً در commitهای جدا به‌روزرسانی شدند.
+- هیچ typecheck، unit test، lint، build یا browser test اجرا نشده است؛ بنابراین UX-02 هنوز تکمیل/تأییدشده نیست.
+- ریسک باز: ناسازگاری احتمالی import/type یا تفاوت رندر تا زمان اجرای npm checks و مشاهده مرورگر.
+- گام بعد: اجرای `npm ci`، `npm run typecheck`، `npm test`، `npm run lint` و `npm run build:cpanel` در محیط Windows مالک یا runner معتبر؛ سپس رفع خروجی واقعی.
