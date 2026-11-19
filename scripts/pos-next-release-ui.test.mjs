@@ -128,3 +128,18 @@ test("expenses have a dedicated manager navigation page", () => {
   assert.match(app, /id: "expenses", label: "هزینه‌ها"/);
   assert.match(app, /current === "expenses" \? <ExpensesScreen \/>/);
 });
+
+
+test("online payment remains disabled until gateway confirmation", () => {
+  assert.match(app, /\(\["cash", "card"\] as const\)\.map\(\(p\)/);
+  assert.match(app, /disabled title="پس از اتصال درگاه بانکی فعال می‌شود"[^>]*>آنلاین \(به‌زودی\)<\/button>/);
+  assert.match(phpApi, /online_payment_unavailable/);
+});
+
+test("paid card and legacy online orders cannot be edited or cancelled without reconciliation", () => {
+  assert.match(app, /o\.payment === "cash"/);
+  assert.match(app, /editing\.payment !== "cash"/);
+  assert.match(phpApi, /in_array\(\$storedPaymentMethod, \['card','online'\], true\)/);
+  assert.match(phpApi, /\$status === 'cancelled' && in_array\(\$currentPaymentMethod, \['card','online'\], true\)/);
+  assert.match(phpApi, /payment_reconciliation_required/);
+});
