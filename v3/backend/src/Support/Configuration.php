@@ -48,7 +48,7 @@ final readonly class Configuration
         $mediaMaxBytesValue = Environment::string('POS_V3_MEDIA_MAX_BYTES', '5242880');
         if ($privateStoragePath === '' || strlen($privateStoragePath) > 512
             || (!str_starts_with($privateStoragePath, DIRECTORY_SEPARATOR)
-                && preg_match('/^[A-Za-z]:[\\\\\\/]/', $privateStoragePath) !== 1)) {
+                && !str_starts_with($privateStoragePath, DIRECTORY_SEPARATOR)) {
             throw new RuntimeException('POS_V3_PRIVATE_STORAGE_PATH must be an absolute path no longer than 512 bytes.');
         }
         if (!ctype_digit($mediaMaxBytesValue) || (int) $mediaMaxBytesValue < 1024 || (int) $mediaMaxBytesValue > 20971520) {
