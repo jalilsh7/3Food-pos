@@ -48,5 +48,5 @@ try{
  echo "Backup completed: {$finalPath}\nTables: ".count($tables)."; format: JSONL + gzip; permissions: 0600\n";
 }catch(Throwable $error){
  try{$pdo->exec('ROLLBACK');}catch(Throwable){}
- if($gzip!==null)gzclose($gzip);if(is_file($tempPath))unlink($tempPath);throw $error;
+ if(is_resource($gzip))gzclose($gzip);if(is_file($tempPath))unlink($tempPath);throw $error;
 }finally{PosV3DatabaseTools::releaseLock($pdo,$lock);}
