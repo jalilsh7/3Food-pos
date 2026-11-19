@@ -53,13 +53,13 @@ final readonly class Request
     {
         if (trim($this->body) === '') return [];
         try {
-            $decoded = json_decode($this->body, true, 64, JSON_THROW_ON_ERROR);
+            $decoded = json_decode($this->body, false, 64, JSON_THROW_ON_ERROR);
         } catch (JsonException) {
             throw new HttpException(400, 'invalid_json', 'Request body must contain valid JSON.');
         }
-        if (!is_array($decoded) || array_is_list($decoded)) {
+        if (!$decoded instanceof \\stdClass) {
             throw new HttpException(400, 'invalid_json_shape', 'JSON request body must be an object.');
         }
-        return $decoded;
+        return get_object_vars($decoded);
     }
 }
