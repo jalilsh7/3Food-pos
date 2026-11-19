@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Auth;
 
-use DateTimeImmutable;
 use PDO;
 use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Http\Request;
@@ -15,7 +14,7 @@ final readonly class AuthController
     private SessionRepository $sessions;
 
     public function __construct(
-        private PDO $connection,
+        PDO $connection,
         private AuthenticationService $authentication,
         private bool $secureCookies = true,
     ) {
@@ -40,7 +39,7 @@ final readonly class AuthController
         $userAgent = $request->header('user-agent') ?? '';
         $session = $this->authentication->login($username, $password, $ipAddress, $userAgent);
 
-        $response = Response::success([
+        return Response::success([
             'user' => [
                 'id' => $session->userPublicId,
                 'username' => $session->username,
@@ -49,8 +48,7 @@ final readonly class AuthController
             ],
             'csrf_token' => $session->csrfToken,
             'expires_at' => $session->expiresAt->format(DATE_ATOM),
-        ]);
-        return $response->withHeader('Set-Cookie', [
+        ])->withHeader('Set-Cookie', [
             SessionCookie::issue($session->sessionToken, $session->expiresAt, $this->secureCookies),
             CsrfCookie::issue($session->csrfToken, $session->expiresAt, $this->secureCookies),
         ]);
@@ -63,15 +61,12 @@ final readonly class AuthController
             throw new HttpException(401, 'authentication_required', 'Authentication is required.');
         }
 
-        $cookieHeader = $request->header('cookie') ?? '';
-        $csrfToken = CsrfCookie::read($cookieHeader);
+        $csrfToken = CsrfCookie::read($request->header('cookie') ?? '');
         $setCookie = null;
-
         if ($csrfToken === null || !hash_equals($principal->csrfTokenHash, hash('sha256', $csrfToken))) {
             $csrfToken = self::randomToken();
             $this->sessions->replaceCsrfTokenHash($principal->sessionId, hash('sha256', $csrfToken));
-            $expiresAt = new DateTimeImmutable('+8 hours');
-            $setCookie = CsrfCookie::issue($csrfToken, $expiresAt, $this->secureCookies);
+            $setCookie = CsrfCookie::issue($csrfToken, $principal->expiresAt, $this->secureCookies);
         }
 
         $response = Response::success([
@@ -99,11 +94,10 @@ final readonly class AuthController
             $this->sessions->revokeByTokenHash(hash('sha256', $sessionToken));
         }
 
-        return Response::success(['logged_out' => true])
-            ->withHeader('Set-Cookie', [
-                SessionCookie::clear($this->secureCookies),
-                CsrfCookie::clear($this->secureCookies),
-            ]);
+        return Response::success(['logged_out' => true])->withHeader('Set-Cookie', [
+            SessionCookie::clear($this->secureCookies),
+            CsrfCookie::clear($this->secureCookies),
+        ]);
     }
 
     private static function cookieValue(string $header, string $name): ?string
@@ -114,7 +108,6 @@ final readonly class AuthController
                 return trim($pair[1]);
             }
         }
-
         return null;
     }
 
