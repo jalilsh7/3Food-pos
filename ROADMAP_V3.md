@@ -34,7 +34,7 @@
 - 2.2 migration: ابزار CLI با checksum SHA-256، قفل advisory و جلوگیری از تغییر migration اعمال‌شده اضافه شده؛ هنوز به runtime/deployment V3 متصل نشده و migration افزایشی محصولی منتشر نشده است.
 - 2.3 نصب تمیز: CLI installer با توقف روی دیتابیس غیرخالی، ثبت checksum baseline، ساخت حساب owner با password_hash و اجبار تغییر رمز اولیه اضافه شده؛ installer گرافیکی و preflight هنوز باقی است.
 - تست DB: workflow مجزا برای MySQL 8.4 و MariaDB 10.6 و تست قیود CHECK/FK/unique ثبت شده است. اجرای اولیه jobها پیش از شروع stepها fail شده و runner تخصیص نگرفته؛ هیچ تست موفق engine ادعا نمی‌شود.
-- 2.4 backup/restore: هنوز پیاده‌سازی و آزمایش نشده است.
+- 2.4 backup/restore: ابزار CLI تهیه backup فشرده و restore روی دیتابیس خالی اضافه شده؛ کنترل تعداد ردیف‌ها و orphanهای FK در restore وجود دارد. آزمایش واقعی بازیابی هنوز به CI سبز و staging نیاز دارد.
 - runtime فعلی V2 و php-backend/schema.sql دست‌نخورده‌اند؛ ابزارهای V3 در database/v3/bin مستقل هستند.
 - وضعیت فاز ۲: **در حال انجام** تا زمانی که CI هر دو engine سبز شود، backup/restore بازیابی واقعی را بگذراند و preflight/installer نهایی پذیرفته شود.
 
