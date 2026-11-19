@@ -265,6 +265,22 @@ try {
         [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
     );
 
+
+    $router->add('PATCH', '/api/v1/catalog/categories/{categoryPublicId}',
+        static fn (Request $request, array $parameters): Response => $getCatalogController()->updateCategory($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('PATCH', '/api/v1/catalog/products/{productPublicId}',
+        static fn (Request $request, array $parameters): Response => $getCatalogController()->updateProduct($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('DELETE', '/api/v1/catalog/products/{productPublicId}',
+        static fn (Request $request, array $parameters): Response => $getCatalogController()->archiveProduct($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
     $router->add('GET', '/api/v1/audit-logs',
         static fn (Request $request): Response => $getAuditController()->list($request),
         [$sessionMiddleware, $makePermissionMiddleware('audit.read', false, true)],
