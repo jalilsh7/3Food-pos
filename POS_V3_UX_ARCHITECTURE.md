@@ -441,3 +441,11 @@
 - POST /api/v1/access/roles نقش سفارشی با code، name و permissions می‌سازد؛ PATCH /api/v1/access/roles/{roleCode} نقش سفارشی را ویرایش می‌کند. نقش‌های system فقط خواندنی‌اند.
 - UI نباید خودش نقش/permission را معتبر فرض کند؛ خطاهای 403 و 422 از Backend مرجع نهایی هستند.
 
+
+
+## BE-01F1 — قرارداد درخواست‌های تکرارناپذیر
+- برای commandهای تغییردهنده و حساس، Frontend باید header یکتای `Idempotency-Key` (۱۶ تا ۱۲۸ کاراکتر از مجموعه مجاز) تولید کند و در retry همان کلید را با همان payload بفرستد.
+- کلید جدید فقط برای command جدید ساخته شود؛ retry شبکه نباید کلید تازه تولید کند.
+- Backend کلید را به actor/business/branch/endpoint محدود می‌کند؛ payload متفاوت با همان کلید 409 می‌گیرد و payload یکسان پاسخ قبلی را دریافت می‌کند.
+- UI باید 409 با کد `idempotency_key_reused` را خطای تعارض درخواست بداند و از تکرار کورکورانه عملیات جلوگیری کند.
+- این قرارداد هنوز به endpointهای عملیاتی وصل نشده و هیچ صفحه prototype به API متصل نیست.
