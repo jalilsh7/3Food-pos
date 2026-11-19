@@ -35,3 +35,39 @@
 
 ## محدودیت‌های این بسته
 این schema یک قرارداد اولیه اجرایی است اما هنوز به runtime PHP متصل نشده است. API، repository layer، installer، migration runner و UI در بسته‌های بعدی ساخته خواهند شد. اجرای مستقیم روی محیط اصلی ممنوع است.
+
+
+## ابزار نصب و migration در V3
+
+ابزارهای CLI مستقل از runtime فعلی V2 در مسیر database/v3/bin قرار دارند:
+
+- install.php: فقط روی دیتابیس خالی اجرا می‌شود؛ وجود هر جدول یا view باعث توقف قبل از تغییر می‌شود.
+- migrate.php: migrationهای افزایشی را به ترتیب نام فایل اجرا می‌کند؛ checksum هر نسخه در app_schema_migrations ثبت می‌شود.
+- bootstrap.php: اتصال PDO، parser فایل SQL و قفل advisory مشترک.
+
+نمونه تنظیم متغیرها (مقادیر واقعی را در shell امن خود وارد کنید و در مخزن commit نکنید):
+
+- POS_V3_DB_HOST، POS_V3_DB_PORT، POS_V3_DB_NAME، POS_V3_DB_USER، POS_V3_DB_PASSWORD
+- POS_V3_ADMIN_USERNAME، POS_V3_ADMIN_PASSWORD، POS_V3_ADMIN_NAME
+
+رمز اولیه مدیر باید حداقل ۱۴ کاراکتر باشد؛ رمز به صورت hash ذخیره می‌شود و تغییر رمز در اولین ورود اجباری است. اجرای installer از HTTP مسدود است و فعلاً فقط CLI دارد.
+
+دستورات از ریشه مخزن:
+    php database/v3/bin/install.php
+    php database/v3/bin/migrate.php
+
+Baseline پس از نصب immutable است. تغییرات بعدی فقط با migration جدید انجام می‌شوند. قفل GET_LOCK اجرای هم‌زمان installer/migration را serialize می‌کند. از آنجا که DDL در MySQL/MariaDB اغلب implicit commit دارد، شکست وسط اجرای baseline یا migration می‌تواند دیتابیس نیمه‌ساخته باقی بگذارد؛ recovery باید روی دیتابیس disposable با ساخت مجدد دیتابیس انجام شود و هرگز نباید اسکریپت برای پاک‌سازی خودکار دیتابیس مشتری طراحی شود.
+
+## وضعیت اعتبارسنجی
+
+workflow جداگانه v3-database-validation.yml برای MySQL 8.4 و MariaDB 10.6 ایجاد شده است. این workflow نصب baseline، کنترل metadata و CHECK/FK/unique، نصب مدیر اولیه و اجرای دوباره migration runner را در دیتابیس‌های disposable آزمایش می‌کند.
+
+در زمان ثبت این یادداشت، GitHub Actions jobها قبل از اجرای stepها fail شده‌اند و runner_id صفر بوده است؛ بنابراین نتیجه واقعی engine هنوز تأیید نشده است. تست محلی MySQL/MariaDB نیز در محیط توسعه در دسترس نبود.
+
+## موارد باقی‌مانده فاز ۲
+
+- اجرای موفق CI روی هر دو engine و رفع هر خطای واقعی schema/parser.
+- backup/restore امن و آزمایش بازیابی واقعی در دیتابیس خالی.
+- preflight سازگاری نسخه PHP/MySQL و مجوزهای دیتابیس.
+- installer گرافیکی امن و اتصال آن به runtime V3؛ ابزار فعلی CLI است و هنوز به API/محصول متصل نشده است.
+- پذیرش نهایی نصب تازه، نصب مجدد، شکست نیمه‌کاره و recovery.
