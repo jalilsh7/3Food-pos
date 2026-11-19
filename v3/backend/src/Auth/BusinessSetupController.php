@@ -33,7 +33,7 @@ final readonly class BusinessSetupController
 
         $optional = [
             'timezone' => 'UTC',
-            'currency' => 'IRR',
+            'currency' => 'IRT',
             'branch_name' => 'شعبه اصلی',
             'branch_code' => 'main',
         ];
