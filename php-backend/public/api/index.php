@@ -1386,6 +1386,7 @@ if ($method === 'POST' && $path === '/orders') {
         'guestName' => $body['guestName'] ?? null,
         'guestPhone' => $body['guestPhone'] ?? null,
         'payment' => $body['payment'] ?? 'cash',
+        'terminalPaymentId' => $body['terminalPaymentId'] ?? null,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
     if ($idempotencyKey !== null) {
         $existingStmt = $pdo->prepare('SELECT id, order_number, status, items, totals, request_hash, created_at FROM pos_orders WHERE idempotency_key = ? LIMIT 1');
@@ -1484,7 +1485,9 @@ if ($method === 'POST' && $path === '/orders') {
     $guestName = $customerId === '' ? trim((string)($body['guestName'] ?? 'مشتری')) : null;
     $guestPhone = $customerId === '' ? trim((string)($body['guestPhone'] ?? '')) : null;
     $payment = (string)($body['payment'] ?? 'cash');
-    if (!in_array($payment, ['cash','card','online'], true) || utf8_length($guestName ?? '') > 160 || strlen($guestPhone ?? '') > 30) {
+    $terminalPaymentId = trim((string)($body['terminalPaymentId'] ?? ''));
+    if (!in_array($payment, ['cash','card','online'], true) || utf8_length($guestName ?? '') > 160 || strlen($guestPhone ?? '') > 30 ||
+        ($payment === 'card' && !valid_uuid($terminalPaymentId)) || ($payment !== 'card' && $terminalPaymentId !== '')) {
         json_response(['ok' => false, 'error' => 'invalid_order_details', 'message' => 'اطلاعات مشتری یا روش پرداخت معتبر نیست'], 422);
     }
     $discountCode = strtoupper(trim((string)($body['discountCode'] ?? '')));
@@ -1592,6 +1595,14 @@ if ($method === 'POST' && $path === '/orders') {
     try {
         $pdo->beginTransaction();
 
+        if($payment==='card'){
+            $terminalPaymentLock=$pdo->prepare("SELECT id FROM pos_terminal_payments WHERE id=? AND created_by=? AND amount=? AND status='approved' AND order_id IS NULL FOR UPDATE");
+            $terminalPaymentLock->execute([$terminalPaymentId,(int)$actor['id'],(int)$totals['total']]);
+            if(!$terminalPaymentLock->fetchColumn()){
+                $pdo->rollBack();
+                json_response(['ok'=>false,'error'=>'terminal_payment_not_approved','message'=>'برای ثبت پرداخت کارتی، تأیید معتبر کارتخوان با همین مبلغ الزامی است'],409);
+            }
+        }
         // Lock product rows and ensure price, recipe and options did not change after quoting.
         $productLock = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'products' AND id = ? FOR UPDATE");
         foreach ($productSnapshots as $productId => $snapshotHash) {
@@ -1733,6 +1744,11 @@ if ($method === 'POST' && $path === '/orders') {
             (int)$actor['id'],
         ]);
         $id = (int)$pdo->lastInsertId();
+        if($payment==='card'){
+            $linkPayment=$pdo->prepare('UPDATE pos_terminal_payments SET order_id=? WHERE id=? AND order_id IS NULL');
+            $linkPayment->execute([$id,$terminalPaymentId]);
+            if($linkPayment->rowCount()!==1) throw new RuntimeException('Approved terminal payment could not be linked to the order');
+        }
         if ($discountCode !== '' && $discountRecordId !== null) {
             $redemptionInsert = $pdo->prepare('INSERT INTO pos_discount_redemptions (order_id, discount_id, code, customer_id) VALUES (?, ?, ?, ?)');
             $redemptionInsert->execute([$id, $discountRecordId, $discountCode, $customerId !== '' ? $customerId : null]);
