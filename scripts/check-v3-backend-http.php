@@ -39,12 +39,19 @@ $assert($missing->status === 404 && str_contains($missing->body, '"code":"not_fo
 $method = $kernel->handle(new Request('POST', '/api/v1/health', [], '', 'test-request-0004'));
 $assert($method->status === 405 && str_contains($method->body, '"code":"method_not_allowed"'), '405 mapping failed.');
 
-$invalidJson = $kernel->handle(new Request('POST', '/api/v1/health', [], '{invalid', 'test-request-0005'));
 try {
     (new Request('POST', '/api/v1/health', [], '{invalid', 'test-request-0005'))->json();
     throw new RuntimeException('Invalid JSON must throw an HTTP exception.');
 } catch (HttpException $exception) {
     $assert($exception->status === 400 && $exception->errorCode === 'invalid_json', 'Invalid JSON error mapping failed.');
+}
+$emptyObject = (new Request('POST', '/api/v1/orders', ['content-type' => 'application/json'], '{}', 'test-request-0007'))->json();
+$assert($emptyObject === [], 'An empty JSON object must be accepted.');
+try {
+    (new Request('POST', '/api/v1/orders', [], '[]', 'test-request-0008'))->json();
+    throw new RuntimeException('A JSON array must not be accepted as an object body.');
+} catch (HttpException $exception) {
+    $assert($exception->errorCode === 'invalid_json_shape', 'JSON array shape validation failed.');
 }
 
 $router->add('GET', '/api/v1/failure', static function (): Response {
