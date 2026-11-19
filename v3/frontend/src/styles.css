@@ -1,18 +1,5 @@
-:root {
-  font-family: Tahoma, Arial, sans-serif;
-  color: #172a27;
-  background: #f3f6f4;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  --brand: #123a35;
-  --brand-soft: #e6efec;
-  --ink: #172a27;
-  --muted: #71817c;
-  --line: #e3eae6;
-  --surface: #ffffff;
-  --canvas: #f3f6f4;
-}
+@import "./tokens.css";
+@import "./shared/ui/primitives.css";
 
 * { box-sizing: border-box; }
 html { direction: rtl; min-width: 320px; background: var(--canvas); }
