@@ -188,9 +188,9 @@ final readonly class CatalogRepository
         $v=$this->connection->prepare('SELECT public_id,name,sku,price_delta_amount,is_active FROM pos_product_variants WHERE business_id=:business_id AND product_id=:product_id ORDER BY id');
         $v->execute(['business_id'=>$businessId,'product_id'=>$productId]);
         $variants=array_map(static fn(array $x):array=>['id'=>(string)$x['public_id'],'name'=>(string)$x['name'],'sku'=>$x['sku']===null?null:(string)$x['sku'],'price_delta_amount'=>(int)$x['price_delta_amount'],'is_active'=>(bool)$x['is_active']],$v->fetchAll(PDO::FETCH_ASSOC));
-        $g=$this->connection->prepare('SELECT g.public_id,g.name,g.selection_type,g.min_select,g.max_select,pg.sort_order,pg.is_required,o.public_id AS option_public_id,o.name AS option_name,o.price_delta_amount,o.is_active AS option_active FROM pos_product_option_groups pg INNER JOIN pos_option_groups g ON g.id=pg.option_group_id AND g.business_id=pg.business_id LEFT JOIN pos_options o ON o.group_id=g.id AND o.business_id=g.business_id WHERE pg.business_id=:business_id AND pg.product_id=:product_id AND g.is_active=1 ORDER BY pg.sort_order,g.id,o.id');
+        $g=$this->connection->prepare('SELECT g.public_id,g.name,g.selection_type,g.min_select,g.max_select,g.is_required_default,pg.sort_order,pg.is_required,o.public_id AS option_public_id,o.name AS option_name,o.price_delta_amount,o.is_active AS option_active FROM pos_product_option_groups pg INNER JOIN pos_option_groups g ON g.id=pg.option_group_id AND g.business_id=pg.business_id LEFT JOIN pos_options o ON o.group_id=g.id AND o.business_id=g.business_id WHERE pg.business_id=:business_id AND pg.product_id=:product_id AND g.is_active=1 ORDER BY pg.sort_order,g.id,o.id');
         $g->execute(['business_id'=>$businessId,'product_id'=>$productId]);$groups=[];
-        foreach($g->fetchAll(PDO::FETCH_ASSOC) as $x){$id=(string)$x['public_id'];if(!isset($groups[$id]))$groups[$id]=['id'=>$id,'name'=>(string)$x['name'],'selection_type'=>(string)$x['selection_type'],'min_select'=>(int)$x['min_select'],'max_select'=>(int)$x['max_select'],'is_required'=>(bool)$x['is_required'],'sort_order'=>(int)$x['sort_order'],'options'=>[]];if($x['option_public_id']!==null)$groups[$id]['options'][]=['id'=>(string)$x['option_public_id'],'name'=>(string)$x['option_name'],'price_delta_amount'=>(int)$x['price_delta_amount'],'is_active'=>(bool)$x['option_active']];}
+        foreach($g->fetchAll(PDO::FETCH_ASSOC) as $x){$id=(string)$x['public_id'];if(!isset($groups[$id]))$groups[$id]=['id'=>$id,'name'=>(string)$x['name'],'selection_type'=>(string)$x['selection_type'],'min_select'=>(int)$x['min_select'],'max_select'=>(int)$x['max_select'],'is_required_default'=>(bool)$x['is_required_default'],'is_required'=>(bool)$x['is_required'],'sort_order'=>(int)$x['sort_order'],'options'=>[]];if($x['option_public_id']!==null)$groups[$id]['options'][]=['id'=>(string)$x['option_public_id'],'name'=>(string)$x['option_name'],'price_delta_amount'=>(int)$x['price_delta_amount'],'is_active'=>(bool)$x['option_active']];}
         return ['id'=>(string)$row['public_id'],'name'=>(string)$row['name'],'sku'=>$row['sku']===null?null:(string)$row['sku'],'product_type'=>(string)$row['product_type'],'base_price_amount'=>(int)$row['base_price_amount'],'tax_rate_bps'=>(int)$row['tax_rate_bps'],'is_active'=>(bool)$row['is_active'],'variants'=>$variants,'option_groups'=>array_values($groups)];
     }
 
@@ -270,5 +270,117 @@ final readonly class CatalogRepository
         );
         $s->execute(['business_id' => $businessId, 'id' => $productId]);
     }
+
+
+    public function findVariantDetails(int $businessId, string $publicId): ?array
+    {
+        $s = $this->connection->prepare(
+            'SELECT v.id, v.product_id, v.name, v.sku, v.price_delta_amount, v.is_active
+             FROM pos_product_variants v
+             INNER JOIN pos_products p ON p.id = v.product_id AND p.business_id = v.business_id
+             WHERE v.business_id = :business_id AND v.public_id = :public_id AND p.archived_at IS NULL
+             LIMIT 1'
+        );
+        $s->execute(['business_id' => $businessId, 'public_id' => $publicId]);
+        $row = $s->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function variantSkuExists(int $businessId, int $productId, string $sku, int $exceptVariantId): bool
+    {
+        $s = $this->connection->prepare(
+            'SELECT 1 FROM pos_product_variants
+             WHERE business_id = :business_id AND product_id = :product_id
+               AND sku = :sku AND id <> :except_id LIMIT 1'
+        );
+        $s->execute([
+            'business_id' => $businessId, 'product_id' => $productId,
+            'sku' => $sku, 'except_id' => $exceptVariantId,
+        ]);
+        return $s->fetchColumn() !== false;
+    }
+
+    public function updateVariant(
+        int $businessId, int $variantId, string $name, ?string $sku, int $priceDelta, bool $isActive,
+    ): void {
+        $s = $this->connection->prepare(
+            'UPDATE pos_product_variants
+             SET name = :name, sku = :sku, price_delta_amount = :price_delta, is_active = :is_active
+             WHERE business_id = :business_id AND id = :id'
+        );
+        $s->execute([
+            'name' => $name, 'sku' => $sku, 'price_delta' => $priceDelta,
+            'is_active' => $isActive ? 1 : 0, 'business_id' => $businessId, 'id' => $variantId,
+        ]);
+    }
+
+    public function findOptionGroupDetails(int $businessId, string $publicId): ?array
+    {
+        $s = $this->connection->prepare(
+            'SELECT id, public_id, name, selection_type, min_select, max_select,
+                    is_required_default, is_active
+             FROM pos_option_groups
+             WHERE business_id = :business_id AND public_id = :public_id LIMIT 1'
+        );
+        $s->execute(['business_id' => $businessId, 'public_id' => $publicId]);
+        $row = $s->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function countActiveOptions(int $businessId, int $groupId): int
+    {
+        $s = $this->connection->prepare(
+            'SELECT COUNT(*) FROM pos_options
+             WHERE business_id = :business_id AND group_id = :group_id AND is_active = 1'
+        );
+        $s->execute(['business_id' => $businessId, 'group_id' => $groupId]);
+        return (int) $s->fetchColumn();
+    }
+
+    public function updateOptionGroup(
+        int $businessId, int $groupId, string $name, string $selectionType,
+        int $minSelect, int $maxSelect, bool $requiredDefault, bool $isActive,
+    ): void {
+        $s = $this->connection->prepare(
+            'UPDATE pos_option_groups
+             SET name = :name, selection_type = :selection_type, min_select = :min_select,
+                 max_select = :max_select, is_required_default = :required_default, is_active = :is_active
+             WHERE business_id = :business_id AND id = :id'
+        );
+        $s->execute([
+            'name' => $name, 'selection_type' => $selectionType, 'min_select' => $minSelect,
+            'max_select' => $maxSelect, 'required_default' => $requiredDefault ? 1 : 0,
+            'is_active' => $isActive ? 1 : 0, 'business_id' => $businessId, 'id' => $groupId,
+        ]);
+    }
+
+    public function findOptionDetails(int $businessId, string $publicId): ?array
+    {
+        $s = $this->connection->prepare(
+            'SELECT o.id, o.group_id, o.name, o.price_delta_amount, o.is_active,
+                    g.public_id AS group_public_id, g.min_select, g.max_select, g.selection_type
+             FROM pos_options o
+             INNER JOIN pos_option_groups g ON g.id = o.group_id AND g.business_id = o.business_id
+             WHERE o.business_id = :business_id AND o.public_id = :public_id LIMIT 1'
+        );
+        $s->execute(['business_id' => $businessId, 'public_id' => $publicId]);
+        $row = $s->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function updateOption(
+        int $businessId, int $optionId, string $name, int $priceDelta, bool $isActive,
+    ): void {
+        $s = $this->connection->prepare(
+            'UPDATE pos_options
+             SET name = :name, price_delta_amount = :price_delta, is_active = :is_active
+             WHERE business_id = :business_id AND id = :id'
+        );
+        $s->execute([
+            'name' => $name, 'price_delta' => $priceDelta, 'is_active' => $isActive ? 1 : 0,
+            'business_id' => $businessId, 'id' => $optionId,
+        ]);
+    }
+
 
 }
