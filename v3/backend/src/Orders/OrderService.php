@@ -442,6 +442,10 @@ final readonly class OrderService
                     throw new HttpException(404, 'order_not_found', 'The order was not found in this branch.');
                 }
                 $currentStatus = (string) $order['order_status'];
+                if (in_array($targetStatus, ['cancelled', 'rejected'], true)
+                    && in_array((string) $order['payment_status'], ['paid', 'partially_paid'], true)) {
+                    throw new HttpException(409, 'refund_required_before_cancellation', 'A paid order must go through the refund workflow before it can be cancelled or rejected.');
+                }
                 $allowed = self::transitions()[$currentStatus] ?? [];
                 if (!in_array($targetStatus, $allowed, true)) {
                     throw new HttpException(409, 'order_status_transition_invalid', 'The requested order status transition is not allowed.');
