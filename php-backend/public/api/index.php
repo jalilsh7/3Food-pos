@@ -1560,7 +1560,10 @@ if ($method === 'POST' && $path === '/orders') {
     $guestPhone = $customerId === '' ? trim((string)($body['guestPhone'] ?? '')) : null;
     $payment = (string)($body['payment'] ?? 'cash');
     $terminalPaymentId = trim((string)($body['terminalPaymentId'] ?? ''));
-    if (!in_array($payment, ['cash','card','online'], true) || utf8_length($guestName ?? '') > 160 || strlen($guestPhone ?? '') > 30 ||
+    if ($payment === 'online') {
+        json_response(['ok' => false, 'error' => 'online_payment_unavailable', 'message' => 'پرداخت آنلاین تا اتصال و تأیید واقعی درگاه فعال نیست؛ از پرداخت نقدی یا کارتخوان استفاده کنید'], 409);
+    }
+    if (!in_array($payment, ['cash','card'], true) || utf8_length($guestName ?? '') > 160 || strlen($guestPhone ?? '') > 30 ||
         ($payment === 'card' && !valid_uuid($terminalPaymentId)) || ($payment !== 'card' && $terminalPaymentId !== '')) {
         json_response(['ok' => false, 'error' => 'invalid_order_details', 'message' => 'اطلاعات مشتری یا روش پرداخت معتبر نیست'], 422);
     }
@@ -1894,9 +1897,9 @@ if (preg_match('#^/orders/(\d+)$#', $path, $editMatch) && $method === 'PATCH') {
         $pdo->rollBack();
         json_response(['ok' => false, 'error' => 'payment_method_change_requires_new_transaction', 'message' => 'روش پرداخت سفارش پس از ثبت قابل تغییر نیست؛ پرداخت جدید را جداگانه و با تأیید معتبر ثبت کنید'], 409);
     }
-    if ($storedPaymentMethod === 'card') {
+    if (in_array($storedPaymentMethod, ['card','online'], true)) {
         $pdo->rollBack();
-        json_response(['ok' => false, 'error' => 'card_order_edit_requires_reconciliation', 'message' => 'سفارش پرداخت‌شده با کارتخوان قابل ویرایش نیست؛ ابتدا وضعیت مالی و برگشت وجه آن باید تعیین‌تکلیف شود'], 409);
+        json_response(['ok' => false, 'error' => 'payment_reconciliation_required', 'message' => 'سفارش دارای پرداخت کارتخوان یا روش آنلاین قدیمی تا تعیین‌تکلیف مالی و بازپرداخت قابل ویرایش نیست'], 409);
     }
     $oldRedemptionStmt = $pdo->prepare('SELECT id, discount_id FROM pos_discount_redemptions WHERE order_id = ? AND reversed_at IS NULL FOR UPDATE');
     $oldRedemptionStmt->execute([$id]);
@@ -2381,12 +2384,18 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
     // A row lock prevents two devices from advancing the same order concurrently.
     try {
         $pdo->beginTransaction();
-        $orderStmt = $pdo->prepare('SELECT status FROM pos_orders WHERE id = ? FOR UPDATE');
+        $orderStmt = $pdo->prepare('SELECT status, payment_method FROM pos_orders WHERE id = ? FOR UPDATE');
         $orderStmt->execute([$id]);
-        $currentStatus = $orderStmt->fetchColumn();
-        if ($currentStatus === false) {
+        $currentOrder = $orderStmt->fetch();
+        if (!is_array($currentOrder)) {
             $pdo->rollBack();
             json_response(['ok' => false, 'error' => 'order_not_found'], 404);
+        }
+        $currentStatus = (string)$currentOrder['status'];
+        $currentPaymentMethod = (string)($currentOrder['payment_method'] ?? 'cash');
+        if ($status === 'cancelled' && in_array($currentPaymentMethod, ['card','online'], true)) {
+            $pdo->rollBack();
+            json_response(['ok' => false, 'error' => 'payment_reconciliation_required', 'message' => 'لغو سفارش پرداخت‌شده بدون تعیین‌تکلیف تراکنش و بازپرداخت مجاز نیست'], 409);
         }
 
         $transitions = [
