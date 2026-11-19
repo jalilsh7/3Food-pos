@@ -673,3 +673,22 @@ section.rounded-\[var\(--radius-card\)\] {
   background: var(--surface-raised);
   border-color: var(--color-line);
 }
+
+/* Dark mode contrast refinements: keep product prices and inner outlines readable. */
+[data-theme="dark"] .pos-main .text-chili {
+  color: var(--color-price, #86efac);
+}
+[data-theme="dark"] .pos-main button.rounded-2xl.border.bg-surface {
+  border-color: var(--color-line);
+}
+[data-theme="dark"] .pos-main .pos-card,
+[data-theme="dark"] .pos-main .rounded-xl.bg-surface,
+[data-theme="dark"] .pos-main input,
+[data-theme="dark"] .pos-main select,
+[data-theme="dark"] .pos-main textarea {
+  border-color: var(--color-line);
+}
+[data-theme="dark"] .pos-main button.border,
+[data-theme="dark"] .pos-main [class*="border-line"] {
+  border-color: var(--color-line);
+}
