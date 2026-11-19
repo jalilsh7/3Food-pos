@@ -17,6 +17,7 @@ final readonly class Request
         public string $body,
         public string $requestId,
         public array $attributes = [],
+        public array $queryParameters = [],
     ) {}
 
     public static function fromGlobals(): self
@@ -26,6 +27,17 @@ final readonly class Request
         $path = parse_url($uri, PHP_URL_PATH);
         if (!is_string($path) || $path === '' || $path[0] !== '/') {
             $path = '/';
+        }
+        $queryString = parse_url($uri, PHP_URL_QUERY);
+        if (is_string($queryString) && strlen($queryString) > 4096) {
+            throw new HttpException(414, 'query_string_too_large', 'The query string exceeds the allowed size.');
+        }
+        $queryParameters = [];
+        if (is_string($queryString) && $queryString !== '') {
+            parse_str($queryString, $queryParameters);
+            if (count($queryParameters) > 20) {
+                throw new HttpException(400, 'too_many_query_parameters', 'The query contains too many parameters.');
+            }
         }
 
         $headers = [];
@@ -56,6 +68,7 @@ final readonly class Request
             $body === false ? '' : $body,
             $requestId,
             $attributes,
+            $queryParameters,
         );
     }
 
@@ -69,11 +82,17 @@ final readonly class Request
         return $this->attributes[$name] ?? null;
     }
 
+    public function query(string $name): ?string
+    {
+        $value = $this->queryParameters[$name] ?? null;
+        return is_string($value) || is_int($value) ? (string) $value : null;
+    }
+
     public function withAttribute(string $name, mixed $value): self
     {
         $attributes = $this->attributes;
         $attributes[$name] = $value;
-        return new self($this->method, $this->path, $this->headers, $this->body, $this->requestId, $attributes);
+        return new self($this->method, $this->path, $this->headers, $this->body, $this->requestId, $attributes, $this->queryParameters);
     }
 
     /** @return array<string, mixed> */
