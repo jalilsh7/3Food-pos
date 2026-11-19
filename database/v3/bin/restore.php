@@ -23,7 +23,7 @@ try{
   if(!preg_match('/^[A-Za-z0-9_]+$/',$name)||!is_array($columns)||!$columns||!is_string($createSql)||!is_int($rowCount)||$rowCount<0)throw new RuntimeException('Backup table descriptor is invalid.');
   if(isset($tables[$name]))throw new RuntimeException("Duplicate table descriptor: {$name}");
   foreach($columns as $column)if(!is_string($column)||!preg_match('/^[A-Za-z0-9_]+$/',$column))throw new RuntimeException("Invalid column name in {$name}.");
-  if(!str_starts_with(strtoupper(ltrim($createSql)),'CREATE TABLE'))throw new RuntimeException("Invalid CREATE TABLE statement for {$name}.");
+  if(!preg_match('/^CREATE TABLE\\s+`'.preg_quote($name,'/').'`/i',ltrim($createSql))||str_contains($createSql,';'))throw new RuntimeException("Invalid CREATE TABLE statement for {$name}.");
   $tables[$name]=['columns'=>$columns,'create_sql'=>$createSql,'expected_rows'=>$rowCount,'actual_rows'=>0,'insert'=>null];
  }
  if(count($tables)!==(int)($header['table_count']??0)||count($tables)<61)throw new RuntimeException('Backup table count does not match V3 baseline.');
@@ -57,4 +57,4 @@ try{
  }
  echo "Restore completed: ".count($tables)." tables; all row counts and foreign keys verified.\n";
 }catch(Throwable $error){try{$pdo->exec('SET FOREIGN_KEY_CHECKS=1');}catch(Throwable){}throw $error;}
-finally{if($gzip!==null)gzclose($gzip);PosV3DatabaseTools::releaseLock($pdo,$lock);}
+finally{if(is_resource($gzip))gzclose($gzip);PosV3DatabaseTools::releaseLock($pdo,$lock);}
