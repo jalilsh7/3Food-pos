@@ -56,7 +56,7 @@ final readonly class UserRepository
                  SELECT 1
                  FROM app_user_roles ur
                  INNER JOIN app_roles r ON r.id = ur.role_id AND r.is_active = 1
-                 WHERE ur.user_id = u.id AND r.code = 'owner'
+                 WHERE ur.user_id = u.id AND r.code = \'owner\'
              )
              ORDER BY u.display_name ASC, u.username ASC'
         );
@@ -94,7 +94,7 @@ final readonly class UserRepository
                  SELECT 1
                  FROM app_user_roles ur
                  INNER JOIN app_roles r ON r.id = ur.role_id AND r.is_active = 1
-                 WHERE ur.user_id = u.id AND r.code = 'owner'
+                 WHERE ur.user_id = u.id AND r.code = \'owner\'
              )
              ORDER BY u.display_name ASC, u.username ASC'
         );
