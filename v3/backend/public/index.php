@@ -142,7 +142,13 @@ try {
         return $middleware($request, $parameters, $next);
     };
 
-    $auditController = new AuditLogController(new AuditLogRepository($getConnection()));
+    $auditController = null;
+    $getAuditController = static function () use (&$auditController, $getConnection): AuditLogController {
+        if (!$auditController instanceof AuditLogController) {
+            $auditController = new AuditLogController(new AuditLogRepository($getConnection()));
+        }
+        return $auditController;
+    };
 
     $router = new Router();
     $router->add('GET', '/api/v1/health', static fn (Request $request): Response =>
@@ -170,7 +176,7 @@ try {
     );
 
     $router->add('GET', '/api/v1/audit-logs',
-        static fn (Request $request): Response => $auditController->list($request),
+        static fn (Request $request): Response => $getAuditController()->list($request),
         [$sessionMiddleware, $makePermissionMiddleware('audit.read', false)],
     );
 
