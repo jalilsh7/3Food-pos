@@ -310,3 +310,10 @@ v3/backend/
 - GET /api/v1/orders فقط سفارش‌های همان branch را می‌دهد؛ فیلتر status/channel و limit حداکثر 100 دارد.
 - فعلاً payment record، fulfillment detail، stock consumption/recipe, kitchen preparation item generation و pagination cursor در بسته‌های بعدی تکمیل می‌شوند.
 
+
+### BE-02A تکمیلی — جزئیات سفارش و fulfillment
+- GET /api/v1/orders/{orderPublicId} جزئیات سفارش، item snapshotها، گزینه‌ها، fulfillment، customer/table session و status history را فقط در scope همان branch برمی‌گرداند.
+- fulfillment methodهای dine_in، takeaway و delivery پشتیبانی می‌شوند؛ channel=table به dine_in و channel=takeaway به takeaway نگاشت می‌شود.
+- برای delivery، نام گیرنده، تلفن و address snapshot لازم است؛ delivery fee فعلاً صفر است و باید بعداً از تنظیمات/محاسبه سرور تعیین شود.
+- address و recipient فقط در snapshot fulfillment ذخیره می‌شوند و در audit snapshot ثبت نمی‌شوند.
+
