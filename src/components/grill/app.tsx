@@ -1924,6 +1924,7 @@ function TerminalSettingsPanel() {
   const [host,setHost]=useState("192.168.1.100");
   const [port,setPort]=useState("5000");
   const [connection,setConnection]=useState<"lan"|"wifi">("lan");
+  const [isDefault,setIsDefault]=useState(false);
   const [busy,setBusy]=useState(false);
   const [note,setNote]=useState("");
   async function refresh(){
@@ -1941,7 +1942,7 @@ function TerminalSettingsPanel() {
     setBusy(true);setNote("");
     try{
       if(!agentId)throw new Error("ابتدا یک کامپیوتر صندوق تعریف کنید.");
-      await phpApi.saveTerminal({id:uid("pt"),agentId,localTerminalKey:localKey.trim(),name:terminalName.trim(),providerCode:provider,modelName:model.trim(),driverCode:"unconfigured",connectionType:connection,host:host.trim(),port:Number(port),enabled:true,isDefault:terminals.length===0});
+      await phpApi.saveTerminal({id:uid("pt"),agentId,localTerminalKey:localKey.trim(),name:terminalName.trim(),providerCode:provider,modelName:model.trim(),driverCode:"unconfigured",connectionType:connection,host:host.trim(),port:Number(port),enabled:true,isDefault:isDefault||terminals.length===0});
       await refresh();setNote("مشخصات کارتخوان ذخیره شد. تا نصب درایور تأییدشده، پرداخت واقعی غیرفعال می‌ماند.");
     }catch(e){setNote(e instanceof Error?e.message:"ذخیره کارتخوان انجام نشد");}finally{setBusy(false);}
   }
@@ -1950,7 +1951,7 @@ function TerminalSettingsPanel() {
   return <Card className="space-y-4">
     <div><h3 className="font-semibold">مدیریت کارتخوان‌های بانکی</h3><p className="mt-1 text-xs leading-6 text-muted">اتصال شبکه‌ای چندکارتخوان از طریق عامل محلی صندوق طراحی شده است. ابتدا کامپیوتری که به شبکه کارتخوان دسترسی دارد ثبت می‌شود.</p></div>
     <div className="rounded-xl border border-line bg-bg p-3 space-y-3">
-      <p className="text-sm font-semibold">۱. ثبت کامپیوتر صندوق</p>
+      <div className="flex items-center justify-between gap-2"><p className="text-sm font-semibold">۱. ثبت کامپیوتر صندوق</p><Btn tone="ghost" onClick={()=>void refresh()} disabled={busy}>به‌روزرسانی وضعیت</Btn></div>
       <div className="flex flex-col gap-2 sm:flex-row"><input className={inputCls+" flex-1"} aria-label="نام کامپیوتر صندوق" value={agentName} onChange={e=>setAgentName(e.target.value)} placeholder="نام کامپیوتر صندوق"/><Btn onClick={()=>void createAgent()} disabled={busy||!agentName.trim()}>ساخت عامل محلی</Btn></div>
       {newToken?<div className="space-y-2 rounded-lg border border-warn bg-warn-bg p-3"><p className="text-xs text-warn">توکن اتصال را در محل امن نگه دارید؛ پس از بستن صفحه دیگر نمایش داده نمی‌شود.</p><code className="block break-all text-xs">{newToken}</code><Btn tone="ghost" onClick={()=>void navigator.clipboard.writeText(newToken)}>کپی توکن</Btn></div>:null}
       {agents.length?<div className="space-y-2">{agents.map(a=><div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-surface p-3"><div><p className="text-sm font-medium">{a.name}</p><p className="text-xs text-muted">{a.enabled?"فعال":"غیرفعال"} · آخرین ارتباط: {a.last_seen_at??"هنوز متصل نشده"}</p></div>{a.enabled?<Btn tone="ghost" onClick={()=>void disableAgent(a.id)} disabled={busy}>غیرفعال‌سازی</Btn>:null}</div>)}</div>:<p className="text-xs text-muted">هنوز کامپیوتر صندوقی ثبت نشده است.</p>}
@@ -1967,9 +1968,10 @@ function TerminalSettingsPanel() {
         <Field label="پورت"><input className={inputCls} type="number" min="1" max="65535" value={port} onChange={e=>setPort(e.target.value)}/></Field>
         <Field label="کلید محلی دستگاه"><input className={inputCls} value={localKey} onChange={e=>setLocalKey(e.target.value)} placeholder="terminal-1"/></Field>
       </div>
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={isDefault} onChange={e=>setIsDefault(e.target.checked)}/> انتخاب به‌عنوان کارتخوان پیش‌فرض</label>
       <div className="rounded-lg bg-bg p-3 text-xs leading-6 text-muted">درایور فعلاً روی «پیکربندی‌نشده» باقی می‌ماند. واردکردن IP به‌تنهایی اتصال بانکی ایجاد نمی‌کند؛ پس از دریافت مستندات ECR و پیاده‌سازی درایور معتبر، دستگاه قابل فعال‌سازی برای پرداخت خواهد شد.</div>
       <Btn onClick={()=>void saveTerminal()} disabled={busy||!agentId||!terminalName.trim()||!localKey.trim()||!host.trim()||!Number.isInteger(Number(port))||Number(port)<1||Number(port)>65535}>ذخیره کارتخوان</Btn>
-      {terminals.length?<div className="space-y-2">{terminals.map(t=><div key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-surface p-3"><div><p className="text-sm font-medium">{t.name}</p><p className="text-xs text-muted" dir="ltr">{t.host}:{t.port} · {t.provider_code??"unknown"} · {t.driver_code??"unconfigured"}</p><p className="text-xs text-muted">{t.enabled?"فعال":"غیرفعال"} · {t.agent_name??""}</p></div>{t.enabled?<Btn tone="ghost" onClick={()=>void disableTerminal(t.id)} disabled={busy}>غیرفعال‌سازی</Btn>:null}</div>)}</div>:null}
+      {terminals.length?<div className="space-y-2">{terminals.map(t=><div key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-surface p-3"><div><p className="text-sm font-medium">{t.name}</p><p className="text-xs text-muted" dir="ltr">{t.host}:{t.port} · {t.provider_code??"unknown"} · {t.driver_code??"unconfigured"}</p><p className="text-xs text-muted">{t.enabled?"فعال":"غیرفعال"}{t.is_default?" · پیش‌فرض":""} · {t.agent_name??""}</p></div>{t.enabled?<Btn tone="ghost" onClick={()=>void disableTerminal(t.id)} disabled={busy}>غیرفعال‌سازی</Btn>:null}</div>)}</div>:null}
     </div>
     {note?<p className="text-sm text-muted" role="status">{note}</p>:null}
   </Card>;
