@@ -54,6 +54,7 @@ jobs:
         run: |
           php -l database/v3/bin/bootstrap.php
           php -l database/v3/bin/install.php
+          php -l database/v3/bin/preflight.php
           php -l database/v3/bin/migrate.php
           php -l database/v3/bin/backup.php
           php -l database/v3/bin/restore.php
@@ -90,6 +91,7 @@ jobs:
           POS_V3_ADMIN_NAME: CI Owner
         run: |
           MYSQL_PWD="${{ matrix.engine.root_password }}" mysql --host=127.0.0.1 --user=root -e "CREATE DATABASE pos_v3_install_ci CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+          php database/v3/bin/preflight.php
           php database/v3/bin/install.php
           php scripts/check-v3-install.php
           printf "CREATE TABLE v3_ci_migration_probe (id INT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=InnoDB;" > database/v3/migrations/001_ci-smoke.sql
