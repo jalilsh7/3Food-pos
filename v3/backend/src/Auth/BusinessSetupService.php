@@ -62,8 +62,8 @@ final readonly class BusinessSetupService
         if (!in_array($timezone, DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC), true)) {
             throw new HttpException(422, 'invalid_timezone', 'The timezone is not recognized.');
         }
-        if (!preg_match('/^[A-Z]{3}$/', $currency)) {
-            throw new HttpException(422, 'invalid_currency', 'Currency must be a three-letter ISO code.');
+        if ($currency !== 'IRT') {
+            throw new HttpException(422, 'unsupported_currency', 'The initial V3 release supports Iranian toman (IRT) only.');
         }
 
         $businessPublicId = self::uuidV4();
