@@ -44,7 +44,7 @@ final readonly class AuthController
 
         $ipAddress = (string) ($request->attribute('remote_ip') ?? '');
         $userAgent = $request->header('user-agent') ?? '';
-        $session = $this->authentication->login($username, $password, $ipAddress, $userAgent);
+        $session = $this->authentication->login($username, $password, $ipAddress, $userAgent, $request->requestId);
 
         return Response::success([
             'user' => [
@@ -139,7 +139,7 @@ final readonly class AuthController
             throw new HttpException(422, 'invalid_password_format', 'Current and new passwords are required.');
         }
 
-        $this->authentication->changePassword($principal->userId, $currentPassword, $newPassword);
+        $this->authentication->changePassword($principal->userId, $currentPassword, $newPassword, $request->requestId, (string) ($request->attribute('remote_ip') ?? ''));
 
         return Response::success(['password_changed' => true])->withHeader('Set-Cookie', [
             SessionCookie::clear($this->secureCookies),
