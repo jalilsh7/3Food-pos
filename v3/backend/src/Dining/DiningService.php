@@ -42,7 +42,8 @@ final readonly class DiningService
         string $requestId,
         string $ipAddress,
     ): array {
-        $name = trim((string) ($payload['name'] ?? ''));
+        $rawName = $payload['name'] ?? null;
+        $name = is_string($rawName) ? trim($rawName) : '';
         $sortOrder = $payload['sort_order'] ?? 0;
         if ($name === '' || self::unicodeLength($name) > 80) {
             throw new HttpException(422, 'dining_area_name_invalid', 'Area name is required and must not exceed 80 characters.');
@@ -94,7 +95,8 @@ final readonly class DiningService
         if (!self::isUuid($areaPublicId)) {
             throw new HttpException(400, 'invalid_dining_area_id', 'The dining area identifier is invalid.');
         }
-        $code = strtoupper(trim((string) ($payload['code'] ?? '')));
+        $rawCode = $payload['code'] ?? null;
+        $code = is_string($rawCode) ? strtoupper(trim($rawCode)) : '';
         $capacity = $payload['capacity'] ?? 2;
         if (!preg_match('/^[A-Z0-9][A-Z0-9_-]{0,19}$/', $code)) {
             throw new HttpException(422, 'dining_table_code_invalid', 'Table code must contain 1-20 letters, digits, hyphens or underscores.');
