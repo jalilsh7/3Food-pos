@@ -8,16 +8,20 @@ use PDO;
 use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Infrastructure\Database\BusinessRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\TransactionManager;
+use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
+use PersiaCoder\PosV3\Security\AuditLogService;
 
 final readonly class BusinessSetupService
 {
     private BusinessRepository $businesses;
     private TransactionManager $transactions;
+    private AuditLogService $audit;
 
     public function __construct(private PDO $connection)
     {
         $this->businesses = new BusinessRepository($connection);
         $this->transactions = new TransactionManager($connection);
+        $this->audit = new AuditLogService(new AuditLogRepository($connection));
     }
 
     /** @return array{business_id:string,business_name:string,branch_id:string,branch_name:string} */
@@ -29,6 +33,8 @@ final readonly class BusinessSetupService
         string $currency,
         string $branchName,
         string $branchCode,
+        string $requestId,
+        string $ipAddress,
     ): array {
         if (!$this->businesses->isInstallationOwner($ownerUserId)) {
             throw new HttpException(403, 'owner_required', 'Only the installation owner can complete initial setup.');
@@ -91,6 +97,23 @@ final readonly class BusinessSetupService
                 $timezone,
             );
             $this->businesses->markInitialBusinessCreated($businessId);
+            $this->audit->record(
+                $ownerUserId,
+                'business.initialized',
+                'business',
+                $businessPublicId,
+                null,
+                [
+                    'name' => $name,
+                    'code' => $code,
+                    'timezone' => $timezone,
+                    'currency' => $currency,
+                    'initial_branch_id' => $branchPublicId,
+                ],
+                null,
+                $requestId,
+                $ipAddress,
+            );
         });
 
         return [
