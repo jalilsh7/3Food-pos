@@ -7,6 +7,8 @@ use PersiaCoder\PosV3\Catalog\CatalogService;
 use PersiaCoder\PosV3\Media\MediaController;
 use PersiaCoder\PosV3\Inventory\InventoryController;
 use PersiaCoder\PosV3\Inventory\InventoryService;
+use PersiaCoder\PosV3\Recipes\RecipeController;
+use PersiaCoder\PosV3\Recipes\RecipeService;
 use PersiaCoder\PosV3\Media\MediaService;
 use PersiaCoder\PosV3\Infrastructure\Storage\PrivateMediaStorage;
 use PersiaCoder\PosV3\Orders\OrderController;
@@ -236,6 +238,16 @@ try {
         return $inventoryController;
     };
 
+    $recipeController = null;
+    $getRecipeController = static function () use (&$recipeController, $getConnection, $configuration): RecipeController {
+        if (!$recipeController instanceof RecipeController) {
+            $recipeController = new RecipeController(
+                new RecipeService($getConnection(), $configuration->applicationKey),
+            );
+        }
+        return $recipeController;
+    };
+
     $router = new Router();
     $router->add('GET', '/api/v1/health', static fn (Request $request): Response =>
         Response::success(['status' => 'ok'])
@@ -360,6 +372,21 @@ try {
     $router->add('GET', '/api/v1/catalog/products/{productPublicId}',
         static fn (Request $request, array $parameters): Response => $getCatalogController()->productDetails($request, $parameters),
         [$sessionMiddleware, $makePermissionMiddleware('catalog.read', false)],
+    );
+
+    $router->add('GET', '/api/v1/catalog/products/{productPublicId}/recipe',
+        static fn (Request $request, array $parameters): Response => $getRecipeController()->showProductRecipe($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.read', false)],
+    );
+
+    $router->add('POST', '/api/v1/catalog/products/{productPublicId}/recipe-versions',
+        static fn (Request $request, array $parameters): Response => $getRecipeController()->createDraftVersion($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('POST', '/api/v1/catalog/recipe-versions/{versionPublicId}/activate',
+        static fn (Request $request, array $parameters): Response => $getRecipeController()->activateVersion($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
     );
     $router->add('POST', '/api/v1/catalog/products/{productPublicId}/variants',
         static fn (Request $request, array $parameters): Response => $getCatalogController()->createVariant($request, $parameters),
