@@ -27,6 +27,10 @@ ALTER TABLE pos_suppliers
 
 ALTER TABLE pos_stock_documents
   DROP INDEX uq_stock_documents_number,
+  DROP FOREIGN KEY fk_stock_documents_location,
+  DROP FOREIGN KEY fk_stock_documents_destination,
+  DROP FOREIGN KEY fk_stock_documents_supplier,
+  DROP FOREIGN KEY fk_stock_documents_order,
   ADD COLUMN business_id BIGINT UNSIGNED NOT NULL AFTER id,
   ADD COLUMN branch_id BIGINT UNSIGNED NOT NULL AFTER business_id,
   ADD UNIQUE KEY uq_stock_documents_business_branch_id (business_id, branch_id, id),
