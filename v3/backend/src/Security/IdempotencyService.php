@@ -22,7 +22,7 @@ final readonly class IdempotencyService
         string $applicationKey,
         private int $retentionSeconds = 86400,
     ) {
-        if (strlen($applicationKey) < 32) {
+        if (strlen($applicationKey) < 32 || !function_exists('openssl_encrypt') || !function_exists('openssl_decrypt')) {
             throw new \InvalidArgumentException('Application key must contain at least 32 bytes.');
         }
         if ($retentionSeconds < 60 || $retentionSeconds > 604800) {
