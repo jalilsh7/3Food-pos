@@ -87,6 +87,7 @@ try {
             $repository = new PermissionRepository($getConnection());
             $roleController = new RoleManagementController(
                 new RoleManagementService(
+                    $getConnection(),
                     new RoleRepository($getConnection()),
                     new PermissionService($repository),
                 ),
@@ -160,6 +161,21 @@ try {
     $router->add('POST', '/api/v1/access/branches/users',
         static fn (Request $request): Response => $getUserController()->createBranchUser($request),
         [$sessionMiddleware, $makePermissionMiddleware('users.manage', true), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('GET', '/api/v1/access/permissions',
+        static fn (Request $request): Response => $getRoleController()->permissions($request),
+        [$sessionMiddleware, $makePermissionMiddleware('roles.read', false)],
+    );
+
+    $router->add('POST', '/api/v1/access/roles',
+        static fn (Request $request): Response => $getRoleController()->create($request),
+        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('PATCH', '/api/v1/access/roles/{roleCode}',
+        static fn (Request $request, array $parameters): Response => $getRoleController()->update($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('GET', '/api/v1/access/roles',
