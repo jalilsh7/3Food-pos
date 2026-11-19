@@ -189,7 +189,7 @@ try {
     check($terminalSaved['status'] === 201, 'manager saves a LAN terminal configuration');
     $agentHeaders = ['X-Terminal-Agent-Token: ' . $agentToken];
     $agentHeartbeat = api('GET', '/api/v1/terminal-agent/next', null, $agentHeaders);
-    check($agentHeartbeat['status'] === 200 && ($agentHeartbeat['json']['payment'] ?? 'unexpected') === null, 'agent authenticates and sends heartbeat');
+    check($agentHeartbeat['status'] === 200 && ($agentHeartbeat['json']['payment'] ?? 'unexpected') === null, 'agent authenticates and sends heartbeat: ' . $agentHeartbeat['status'] . ' ' . json_encode($agentHeartbeat['json']));
     $availableTerminals = api('GET', '/api/v1/terminals/available');
     check($availableTerminals['status'] === 200 && count($availableTerminals['json']['items'] ?? []) === 1, 'cashier terminal discovery includes online configured drivers');
     $terminalPaymentKey = '44444444-4444-4444-8444-000000000010';
