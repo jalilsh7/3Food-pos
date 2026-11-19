@@ -55,6 +55,8 @@ jobs:
           php -l database/v3/bin/bootstrap.php
           php -l database/v3/bin/install.php
           php -l database/v3/bin/migrate.php
+          php -l database/v3/bin/backup.php
+          php -l database/v3/bin/restore.php
           php -l scripts/check-v3-database-schema.php
           php -l scripts/check-v3-install.php
           php -l scripts/check-v3-migration.php
@@ -92,3 +94,11 @@ jobs:
           php database/v3/bin/migrate.php
           php scripts/check-v3-migration.php
           rm -f database/v3/migrations/001_ci-smoke.sql
+          BACKUP_FILE="${RUNNER_TEMP}/persiacoder-pos-v3-ci-backup.jsonl.gz"
+          php database/v3/bin/backup.php "$BACKUP_FILE"
+          test "$(stat -c '%a' "$BACKUP_FILE")" = "600"
+          MYSQL_PWD="${POS_V3_DB_PASSWORD}" mysql --host=127.0.0.1 --user=root -e "CREATE DATABASE pos_v3_restore_ci CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+          export POS_V3_DB_NAME=pos_v3_restore_ci
+          php database/v3/bin/restore.php "$BACKUP_FILE"
+          php scripts/check-v3-install.php
+          php scripts/check-v3-migration.php
