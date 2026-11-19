@@ -1,7 +1,7 @@
 import { useId } from "react";
 import type {
+  HTMLAttributes,
   InputHTMLAttributes,
-  ReactNode,
   SelectHTMLAttributes,
 } from "react";
 
@@ -163,7 +163,7 @@ export function FilterBar({
   children,
   className = "",
   ...props
-}: React.HTMLAttributes<HTMLDivElement> & { children: ReactNode }) {
+}: HTMLAttributes<HTMLDivElement> & { children: ReactNode }) {
   return (
     <div {...props} className={`ui-filter-bar ${className}`.trim()}>
       {children}
