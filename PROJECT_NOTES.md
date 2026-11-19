@@ -1170,3 +1170,7 @@
 - payment، fulfillment کامل، stock/recipe consumption، kitchen preparation item و pagination cursor هنوز پیاده نشده‌اند.
 - هیچ تست یا migration اجرا نشده است.
 
+
+- تکمیل BE-02A: GET /api/v1/orders/{orderPublicId} جزئیات سفارش، item snapshots، option snapshots، fulfillment، customer/table session و status history را در scope همان branch می‌دهد.
+- fulfillment methodهای dine_in/takeaway/delivery اضافه شدند؛ table به dine_in و takeaway به takeaway نگاشت می‌شود؛ delivery نیازمند recipient_name، recipient_phone و delivery_address است. delivery fee در این مرحله صفر است.
+
