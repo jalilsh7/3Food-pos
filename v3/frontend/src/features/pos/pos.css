@@ -79,3 +79,25 @@
   .pos-cart-options { grid-template-columns: 1fr; }
 }
 .pos-cart > .ui-button { width: 100%; }
+
+/* Product option editor */
+.pos-option-editor { display: flex; flex-direction: column; gap: 14px; margin-top: 18px; padding: 16px; border: 1px solid #cbded2; border-radius: 14px; background: #fbfdfb; }
+.pos-option-editor-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.pos-option-editor-heading > div { display: flex; flex-direction: column; gap: 5px; }
+.pos-option-editor-heading strong { color: var(--pc-ink); font-size: 13px; }
+.pos-option-editor-heading span { color: var(--pc-muted); font-size: 10px; }
+.pos-option-editor-heading button { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--pc-line); border-radius: 8px; background: #fff; color: var(--pc-muted); }
+.pos-option-group { min-width: 0; margin: 0; padding: 0; border: 0; }
+.pos-option-group legend { margin-bottom: 8px; color: var(--pc-ink); font-size: 11px; font-weight: 800; }
+.pos-option-group legend span { margin-right: 5px; color: var(--pc-danger, #b54747); font-size: 9px; font-weight: 600; }
+.pos-option-group legend small { margin-right: 5px; color: var(--pc-muted); font-size: 9px; font-weight: 500; }
+.pos-option-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.pos-option { min-width: 0; display: flex; align-items: center; gap: 7px; padding: 9px; border: 1px solid var(--pc-line); border-radius: 9px; background: #fff; color: var(--pc-ink); cursor: pointer; }
+.pos-option.is-selected { border-color: var(--pc-brand); background: var(--pc-brand-soft); }
+.pos-option input { accent-color: var(--pc-brand); flex: 0 0 auto; }
+.pos-option > span { min-width: 0; flex: 1; font-size: 10px; font-weight: 700; }
+.pos-option > strong { color: var(--pc-muted); font-size: 9px; white-space: nowrap; }
+.pos-option-editor-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; border-top: 1px solid var(--pc-line); color: var(--pc-muted); font-size: 10px; }
+.pos-option-editor-footer strong { color: var(--pc-brand); font-size: 13px; }
+.pos-option-editor > .ui-button { width: 100%; }
+@media (max-width: 560px) { .pos-option-editor { padding: 12px; } .pos-option-list { grid-template-columns: 1fr; } }
