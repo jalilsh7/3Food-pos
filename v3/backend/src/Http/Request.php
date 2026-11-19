@@ -40,7 +40,7 @@ final readonly class Request
         }
 
         $candidate = $headers['x-request-id'] ?? '';
-        $requestId = is_string($candidate) && preg_match('/^[A-Za-z0-9._-]{8,80}$/', $candidate)
+        $requestId = is_string($candidate) && preg_match('/^[A-Za-z0-9._-]{8,36}$/', $candidate)
             ? $candidate
             : bin2hex(random_bytes(16));
 
