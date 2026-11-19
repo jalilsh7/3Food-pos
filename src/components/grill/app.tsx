@@ -613,7 +613,6 @@ function PosScreen() {
         payment: pay,
         ...(terminalPaymentId ? { terminalPaymentId } : {}),
       });
-      if(terminalPaymentId) await phpApi.attachTerminalPayment(terminalPaymentId,Number(server.order.id));
       const res = placeOrder({
         lines: cart, customer: checkoutCustomer, code, pointsToUse: points, taxEnabled: settings.taxEnabled !== false, payment: pay,
         guestName, guestPhone: phone.trim(),
