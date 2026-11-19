@@ -335,7 +335,7 @@ if ($method === 'GET' && $path === '/preflight') {
 }
 
 if ($method === 'GET' && $path === '/appearance') {
-    $defaults = ['primary'=>'#c2410c','secondary'=>'#1f6b4a','mode'=>'light','fontFamily'=>'byekan','fontSize'=>15,'cardRadius'=>16,'buttonRadius'=>12,'logoUrl'=>null];
+    $defaults = ['appTitle'=>'صندوق فروشگاهی آنلاین','primary'=>'#c2410c','secondary'=>'#1f6b4a','mode'=>'light','fontFamily'=>'byekan','fontSize'=>15,'cardRadius'=>16,'buttonRadius'=>12,'logoUrl'=>null];
     $stored = $pdo->query('SELECT settings FROM app_appearance_settings WHERE id = 1')->fetchColumn();
     $settings = is_string($stored) ? json_decode($stored, true) : null;
     if (!is_array($settings)) $settings = $defaults;
@@ -346,18 +346,18 @@ if ($method === 'GET' && $path === '/appearance') {
 if ($method === 'POST' && $path === '/appearance') {
     $actor = require_role($pdo, ['manager']); require_csrf(); $body = request_json(); $input = $body['settings'] ?? null;
     if (!is_array($input)) json_response(['ok'=>false,'error'=>'invalid_appearance'],422);
-    $primary=strtolower((string)($input['primary']??'')); $secondary=strtolower((string)($input['secondary']??''));
+    $appTitle=trim((string)($input['appTitle']??'صندوق فروشگاهی آنلاین')); $primary=strtolower((string)($input['primary']??'')); $secondary=strtolower((string)($input['secondary']??''));
     $mode=(string)($input['mode']??''); $font=(string)($input['fontFamily']??'');
     $fontSize=filter_var($input['fontSize']??null,FILTER_VALIDATE_INT); $cardRadius=filter_var($input['cardRadius']??null,FILTER_VALIDATE_INT);
     $buttonRadius=filter_var($input['buttonRadius']??null,FILTER_VALIDATE_INT); $logoUrl=$input['logoUrl']??null;
-    if (!preg_match('/^#[0-9a-f]{6}$/D',$primary)||!preg_match('/^#[0-9a-f]{6}$/D',$secondary)||
+    if ($appTitle===''||mb_strlen($appTitle,'UTF-8')>60||!preg_match('/^#[0-9a-f]{6}$/D',$primary)||!preg_match('/^#[0-9a-f]{6}$/D',$secondary)||
         !in_array($mode,['light','dark'],true)||!in_array($font,['byekan'],true)||
         $fontSize===false||$fontSize<13||$fontSize>20||$cardRadius===false||$cardRadius<8||$cardRadius>28||
         $buttonRadius===false||$buttonRadius<6||$buttonRadius>24||
         !($logoUrl===null||(is_string($logoUrl)&&preg_match('#^/uploads/appearance/[a-f0-9]{32}\.(png|jpg|webp)$#D',$logoUrl)))) {
         json_response(['ok'=>false,'error'=>'invalid_appearance','message'=>'یکی از مقادیر ظاهر معتبر نیست'],422);
     }
-    $settings=['primary'=>$primary,'secondary'=>$secondary,'mode'=>$mode,'fontFamily'=>$font,'fontSize'=>$fontSize,'cardRadius'=>$cardRadius,'buttonRadius'=>$buttonRadius,'logoUrl'=>$logoUrl];
+    $settings=['appTitle'=>$appTitle,'primary'=>$primary,'secondary'=>$secondary,'mode'=>$mode,'fontFamily'=>$font,'fontSize'=>$fontSize,'cardRadius'=>$cardRadius,'buttonRadius'=>$buttonRadius,'logoUrl'=>$logoUrl];
     $encoded=json_encode($settings,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
     $stmt=$pdo->prepare('INSERT INTO app_appearance_settings (id,settings,updated_by) VALUES (1,?,?) ON DUPLICATE KEY UPDATE settings=VALUES(settings),updated_by=VALUES(updated_by)');
     $stmt->execute([$encoded,(int)$actor['id']]);
@@ -367,7 +367,7 @@ if ($method === 'POST' && $path === '/appearance') {
 if ($method === 'POST' && $path === '/appearance/reset') {
     $actor=require_role($pdo,['manager']); require_csrf(); $pdo->exec('DELETE FROM app_appearance_settings WHERE id=1');
     audit($pdo,(int)$actor['id'],'appearance_reset','appearance','1');
-    json_response(['ok'=>true,'settings'=>['primary'=>'#c2410c','secondary'=>'#1f6b4a','mode'=>'light','fontFamily'=>'byekan','fontSize'=>15,'cardRadius'=>16,'buttonRadius'=>12,'logoUrl'=>null]]);
+    json_response(['ok'=>true,'settings'=>['appTitle'=>'صندوق فروشگاهی آنلاین','primary'=>'#c2410c','secondary'=>'#1f6b4a','mode'=>'light','fontFamily'=>'byekan','fontSize'=>15,'cardRadius'=>16,'buttonRadius'=>12,'logoUrl'=>null]]);
 }
 if ($method === 'POST' && $path === '/appearance/logo') {
     $actor=require_role($pdo,['manager']); require_csrf();
