@@ -33,9 +33,10 @@
 - 2.1 طراحی DDL: baseline مستقل ۶۱ جدولی در database/v3/schema.sql ثبت شده است؛ اجرای واقعی روی MySQL/MariaDB هنوز تأیید نشده.
 - 2.2 migration: ابزار CLI با checksum SHA-256، قفل advisory، مرتب‌سازی عددی و جلوگیری از تغییر migration اعمال‌شده اضافه شده؛ هنوز به runtime/deployment V3 متصل نشده و migration افزایشی محصولی منتشر نشده است.
 - 2.3 نصب تمیز: CLI installer با توقف روی دیتابیس غیرخالی، ثبت checksum baseline، ساخت حساب owner با password_hash و اجبار تغییر رمز اولیه اضافه شده؛ preflight پایه PHP 8.2/PDO MySQL و نسخه MySQL/MariaDB در اتصال CLI enforce می‌شود؛ installer گرافیکی، preflight کامل مجوزها و اتصال به runtime هنوز باقی است.
-- تست DB: workflow مجزا برای MySQL 8.4 و MariaDB 10.6 و تست قیود CHECK/FK/unique ثبت شده است. اجرای اولیه jobها پیش از شروع stepها fail شده و runner تخصیص نگرفته؛ هیچ تست موفق engine ادعا نمی‌شود.
+- تست DB: workflow مجزا برای MySQL 8.4 و MariaDB 10.6 و تست قیود CHECK/FK/unique، installer، migration، backup/restore و رد آرشیو دست‌کاری‌شده ثبت شده است. اجرای آخر در 2026-11-19 با runner_id=0 و بدون step شکست خورد؛ workflowهای دیگر مخزن نیز در همان بازه همین وضعیت را داشتند. هیچ تست موفق engine ادعا نمی‌شود.
 - 2.4 backup/restore: ابزار CLI تهیه backup فشرده و restore روی دیتابیس خالی اضافه شده؛ کنترل تعداد ردیف‌ها و orphanهای FK در restore وجود دارد. آزمایش واقعی بازیابی هنوز به CI سبز و staging نیاز دارد.
 - runtime فعلی V2 و php-backend/schema.sql دست‌نخورده‌اند؛ ابزارهای V3 در database/v3/bin مستقل هستند.
+- مانع جاری CI-INFRA-01: تخصیص runner در سطح مخزن/حساب GitHub Actions؛ jobها runner_id=0 دارند، هیچ step اجرا نشده و endpoint log نیز 404 می‌دهد. علت دقیق از ابزار فعلی قابل تشخیص نیست و باید تنظیمات/سهمیه/دسترسی Actions توسط مالک مخزن بررسی شود.
 - وضعیت فاز ۲: **در حال انجام** تا زمانی که CI هر دو engine سبز شود، backup/restore بازیابی واقعی را بگذراند و preflight/installer نهایی پذیرفته شود.
 
 ## فاز 0 — حاکمیت، ممیزی و تثبیت محدوده
@@ -104,19 +105,25 @@
 ### 2.1 طراحی DDL نهایی
 - schema نرمال‌شده و رابطه‌ای برای اسناد حیاتی؛ انتخاب FK/unique/index/constraints.
 - عدم انتقال داده V2.
-- وضعیت: **baseline اولیه 61 جدولی در database/v3/schema.sql ثبت شد؛ بازبینی نهایی و اجرای تست روی DB واقعی هنوز باقی است.**
+- وضعیت: **baseline مستقل ۶۱ جدولی ثبت شده و بررسی ایستای اولیه انجام شده؛ اجرای واقعی روی MySQL/MariaDB هنوز تأیید نشده است.**
 
 ### 2.2 migration و نسخه schema
-- migrationهای قابل تکرار/قابل تشخیص، ترتیب اجرا و قفل migration.
-- وضعیت: در انتظار.
+- ابزار CLI با ثبت checksum SHA-256، قفل advisory، مرتب‌سازی عددی migrationها و رد sequence تکراری ایجاد شده است.
+- migration اعمال‌شده با checksum متفاوت رد می‌شود؛ baseline immutable است و تغییرات فقط با migration افزایشی انجام می‌شود.
+- هنوز migration افزایشی محصولی منتشر نشده و runner به runtime/deployment V3 متصل نیست.
+- وضعیت: **زیرساخت اولیه پیاده‌سازی شده؛ تست engine و اتصال runtime باقی است.**
 
 ### 2.3 نصب تازه
-- installer، ایجاد مدیر اولیه امن، preflight نسخه PHP/MySQL و تنظیمات سرور.
-- وضعیت: در انتظار.
+- CLI installer فقط روی دیتابیس خالی اجرا می‌شود، baseline checksum را ثبت می‌کند و حساب owner را با password_hash و الزام تغییر رمز اولیه می‌سازد.
+- preflight پایه PHP 8.2+، PDO MySQL، MySQL 8.0.16+ و MariaDB 10.6+ وجود دارد.
+- preflight کامل مجوزهای DB/سرور، installer گرافیکی cPanel و اتصال به runtime/API هنوز باقی است.
+- وضعیت: **CLI اولیه پیاده‌سازی شده؛ پذیرش engine و installer نهایی باقی است.**
 
 ### 2.4 backup/restore
-- نسخه‌بندی، رمزنگاری/محافظت، صحت‌سنجی و تست بازیابی دیتابیس تازه.
-- وضعیت: در انتظار.
+- ابزار CLI backup با snapshot سازگار InnoDB، آرشیو gzip، فایل mode 0600 و HMAC-SHA256؛ restore فقط روی دیتابیس خالی و پس از احراز اصالت کامل آرشیو، همراه بررسی row count و FK.
+- کلید HMAC مستقل و محرمانه است؛ HMAC رمزنگاری نیست و archive باید در storage رمزنگاری‌شده نگهداری شود.
+- تست tamper rejection به workflow اضافه شده؛ اجرای واقعی آن به دلیل مشکل تخصیص runner در کل مخزن انجام نشده است.
+- وضعیت: **پیاده‌سازی اولیه انجام شده؛ تست بازیابی واقعی و staging باقی است.**
 
 ## فاز 3 — هسته Backend و امنیت
 - 3.1 لایه دامنه و سرویس‌های تراکنشی.
@@ -262,4 +269,4 @@
 - 61 جدول برای نصب، کاربران/RBAC، تنظیمات، کاتالوگ، میز/سفارش، آماده‌سازی، پرداخت/refund/terminal/settlement، صندوق/هزینه، انبار/رسپی/ledger و وفاداری ایجاد شد.
 - baseline فقط برای دیتابیس تازه است؛ هیچ تغییری در `php-backend/schema.sql` یا دیتابیس runtime انجام نشد.
 - بررسی ایستا: 61 دستور CREATE TABLE شناسایی شد؛ ارجاع ستون‌های index و FK، وجود جدول/ستون مقصد، تطابق نوع FK و یکتایی نام constraintها بررسی شد؛ هیچ FLOAT/DOUBLE در schema یافت نشد.
-- وضعیت: **فایل SQL ثبت شد؛ اجرای MySQL/MariaDB، نصب تازه، migration runner، backup/restore و race tests انجام نشده‌اند.**
+- وضعیت: **baseline و ابزارهای CLI اولیه ثبت شده‌اند؛ تست MySQL/MariaDB، نصب تازه، migration، backup/restore و race tests هنوز با موتور واقعی تأیید نشده‌اند.**
