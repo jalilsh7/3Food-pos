@@ -304,6 +304,7 @@ final readonly class OrderService
         string $idempotencyKey,
         string $requestId,
         string $ipAddress,
+        bool $kitchenOnly = false,
     ): array {
         if (!self::isUuid($orderPublicId)) {
             throw new HttpException(400, 'invalid_order_id', 'The order identifier is invalid.');
@@ -326,6 +327,7 @@ final readonly class OrderService
             'to_status' => $targetStatus,
             'reason_code' => $reasonCode,
             'reason_text' => $reasonText,
+            'kitchen_only' => $kitchenOnly,
         ]);
 
         return $this->idempotency->execute(
@@ -344,7 +346,11 @@ final readonly class OrderService
                 $requestId,
                 $ipAddress,
                 $idempotencyKey,
+                $kitchenOnly,
             ): array {
+                if ($kitchenOnly && !in_array($targetStatus, ['preparing', 'ready'], true)) {
+                    throw new HttpException(403, 'kitchen_transition_forbidden', 'Kitchen users may only move orders into preparing or ready.');
+                }
                 $order = $this->orders->findOrderForUpdate($scope->businessId, (int) $scope->branchId, $orderPublicId);
                 if ($order === null) {
                     throw new HttpException(404, 'order_not_found', 'The order was not found in this branch.');
@@ -409,6 +415,27 @@ final readonly class OrderService
                     ],
                 ];
             },
+        );
+    }
+
+    public function transitionKitchen(
+        AuthenticatedPrincipal $actor,
+        BusinessScope $scope,
+        string $orderPublicId,
+        array $payload,
+        string $idempotencyKey,
+        string $requestId,
+        string $ipAddress,
+    ): array {
+        return $this->transition(
+            $actor,
+            $scope,
+            $orderPublicId,
+            $payload,
+            $idempotencyKey,
+            $requestId,
+            $ipAddress,
+            true,
         );
     }
 
