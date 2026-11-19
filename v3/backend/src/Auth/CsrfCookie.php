@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace PersiaCoder\\PosV3\\Auth;
+namespace PersiaCoder\PosV3\Auth;
 
 use DateTimeImmutable;
 
@@ -12,7 +12,7 @@ final class CsrfCookie
     public static function issue(string $token, DateTimeImmutable $expiresAt, bool $secure = true): string
     {
         if (!preg_match('/^[A-Za-z0-9_-]{43}$/', $token)) {
-            throw new \\InvalidArgumentException('CSRF token format is invalid.');
+            throw new \InvalidArgumentException('CSRF token format is invalid.');
         }
 
         $maxAge = max(0, $expiresAt->getTimestamp() - time());
