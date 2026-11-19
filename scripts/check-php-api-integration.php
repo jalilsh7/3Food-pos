@@ -298,7 +298,7 @@ try {
         'idempotencyKey' => $key,
         'items' => [['key' => 'ci-line', 'productId' => 'ci-product', 'qty' => 1, 'unitPrice' => 1000, 'optionIds' => []]],
         'customer' => ['id' => 'ci-customer'],
-        'payment' => 'card',
+        'payment' => 'cash',
         'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 1000],
         'note' => 'CI integration order',
     ];
@@ -313,7 +313,7 @@ try {
     check($orderId !== '', 'created order id');
     check(($created['json']['order']['items'][0]['name'] ?? '') === 'CI Test Product', 'server canonical product name');
     $managerSnapshot = api('GET', '/api/v1/bootstrap');
-    check($managerSnapshot['status'] === 200 && ($managerSnapshot['json']['data']['orders'][0]['payment'] ?? '') === 'card', 'bootstrap preserves selected payment method');
+    check($managerSnapshot['status'] === 200 && ($managerSnapshot['json']['data']['orders'][0]['payment'] ?? '') === 'cash', 'bootstrap preserves selected payment method');
     $editBody = $orderBody;
     $editBody['items'][0]['qty'] = 2;
     $editBody['totals'] = ['subtotal' => 2000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 2000];
@@ -495,7 +495,7 @@ try {
         'idempotencyKey' => '44444444-4444-4444-8444-000000000012',
         'items' => [['key' => 'ci-card-line', 'productId' => 'ci-product', 'qty' => 1, 'unitPrice' => 1000, 'optionIds' => []]],
         'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 1000],
-        'guestName' => 'Terminal Test', 'guestPhone' => '09120000001', 'payment' => 'card',
+        'guestName' => 'Terminal Test', 'guestPhone' => '09120000001', 'payment' => 'card', 'terminalPaymentId' => $orderPaymentId,
     ], csrf_headers());
     check($cardOrder['status'] === 201, 'create card order after synthetic terminal approval');
     $cardOrderId = (int)($cardOrder['json']['order']['id'] ?? 0);
