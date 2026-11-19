@@ -102,7 +102,7 @@ try {
     $getBranchController = static function () use (&$branchController, $getConnection): BranchManagementController {
         if (!$branchController instanceof BranchManagementController) {
             $branchController = new BranchManagementController(
-                new BranchManagementService(new BusinessRepository($getConnection())),
+                new BranchManagementService($getConnection()),
             );
         }
         return $branchController;
