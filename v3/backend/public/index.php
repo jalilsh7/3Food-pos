@@ -210,6 +210,24 @@ try {
         [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
     );
 
+
+    $router->add('GET', '/api/v1/catalog/products/{productPublicId}',
+        static fn (Request $request, array $parameters): Response => $getCatalogController()->productDetails($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.read', false)],
+    );
+    $router->add('POST', '/api/v1/catalog/products/{productPublicId}/variants',
+        static fn (Request $request, array $parameters): Response => $getCatalogController()->createVariant($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+    $router->add('POST', '/api/v1/catalog/option-groups',
+        static fn (Request $request): Response => $getCatalogController()->createOptionGroup($request),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+    $router->add('POST', '/api/v1/catalog/products/{productPublicId}/option-groups',
+        static fn (Request $request, array $parameters): Response => $getCatalogController()->attachOptionGroup($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
     $router->add('GET', '/api/v1/audit-logs',
         static fn (Request $request): Response => $getAuditController()->list($request),
         [$sessionMiddleware, $makePermissionMiddleware('audit.read', false, true)],
