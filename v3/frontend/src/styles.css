@@ -1,6 +1,7 @@
 @import "./tokens.css";
 @import "./shared/ui/primitives.css";
 @import "./shared/ui/forms-table.css";
+@import "./features/pos/pos.css";
 
 * { box-sizing: border-box; }
 html { direction: rtl; min-width: 320px; background: var(--canvas); }
