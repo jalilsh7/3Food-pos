@@ -719,9 +719,10 @@ function PosScreen() {
           {customer ? <Field label="استفاده از امتیاز"><input className={inputCls} type="number" min={0} value={points} onChange={(e) => setPoints(Number(e.target.value))} /></Field> : null}
           {q.pointsError ? <p className="text-sm text-warn">{q.pointsError}</p> : null}
           <div className="flex gap-2">
-            {(["cash", "card", "online"] as const).map((p) => (
-              <button key={p} onClick={() => setPay(p)} className={`flex-1 rounded-xl py-3 text-sm ${pay === p ? "bg-ink text-bg" : "border border-line"}`}>{p === "cash" ? "نقد" : p === "card" ? "کارتخوان" : "آنلاین"}</button>
+            {(["cash", "card"] as const).map((p) => (
+              <button key={p} onClick={() => setPay(p)} className={`flex-1 rounded-xl py-3 text-sm ${pay === p ? "bg-ink text-bg" : "border border-line"}`}>{p === "cash" ? "نقد" : "کارتخوان"}</button>
             ))}
+            <button type="button" disabled title="پس از اتصال درگاه بانکی فعال می‌شود" className="flex-1 cursor-not-allowed rounded-xl border border-line py-3 text-sm opacity-50">آنلاین (به‌زودی)</button>
             {pay==="card"?<div className="mt-2 w-full"><Field label="کارتخوان"><select className={inputCls} value={selectedTerminalId} onChange={e=>setSelectedTerminalId(e.target.value)}><option value="">انتخاب کارتخوان آنلاین</option>{terminalOptions.map(t=><option key={t.id} value={t.id}>{t.name} · {t.provider_code??"شرکت نامشخص"}</option>)}</select></Field><p className="mt-1 text-xs text-muted">مبلغ نهایی سفارش ({money(q.total)}) پس از تأیید به کارتخوان ارسال می‌شود.</p></div>:null}
           </div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={shouldSendInvoiceSms} onChange={e=>setSendInvoiceSms(e.target.checked)}/>ارسال پیامک ریز فاکتور برای مشتری</label>
@@ -894,6 +895,10 @@ function OrdersScreen({ role }: { role: Role }) {
   }
   async function saveEdit() {
     if (!editing || editBusy || !editLines.length) return;
+    if (editing.payment !== "cash") {
+      window.alert("ویرایش سفارش دارای پرداخت کارتخوان یا پرداخت آنلاین قدیمی تا تعیین‌تکلیف مالی و بازپرداخت امکان‌پذیر نیست.");
+      return;
+    }
     if (editCode.trim() && editQuote.codeError) { window.alert(editQuote.codeError); return; }
     if (editQuote.pointsError) { window.alert(editQuote.pointsError); return; }
     setEditBusy(true);
@@ -954,7 +959,7 @@ function OrdersScreen({ role }: { role: Role }) {
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {steps.filter((st) => canMove(o.status, st)).map((st) => <Btn key={st} tone="ghost" onClick={() => jump(o, st)}>{statusFa(st)}</Btn>)}
-            {role === "manager" && o.status === "new" && /^\d+$/.test(o.id) ? <Btn tone="ghost" onClick={() => beginEdit(o)}>ویرایش سفارش</Btn> : null}
+            {role === "manager" && o.status === "new" && o.payment === "cash" && /^\d+$/.test(o.id) ? <Btn tone="ghost" onClick={() => beginEdit(o)}>ویرایش سفارش</Btn> : null}
             <Btn tone="ghost" onClick={() => setFocus(o)}>فیش</Btn>
           </div>
         </Card>
@@ -997,9 +1002,7 @@ function OrdersScreen({ role }: { role: Role }) {
               <Field label="کد تخفیف"><input className={inputCls} value={editCode} onChange={(e) => setEditCode(e.target.value)} /></Field>
               {editCustomer ? <Field label="امتیاز مصرفی"><input className={inputCls} type="number" min={0} value={editPoints} onChange={(e) => setEditPoints(Math.max(0, Number(e.target.value)))} /></Field> : null}
             </div>
-            <div className="flex gap-2">
-              {(["cash", "card", "online"] as const).map((method) => <button key={method} type="button" onClick={() => setEditPayment(method)} className={`flex-1 rounded-xl border px-3 py-2 text-sm ${editPayment === method ? "bg-ink text-bg" : "border-line"}`}>{method === "cash" ? "نقد" : method === "card" ? "کارت" : "آنلاین"}</button>)}
-            </div>
+            <p className="rounded-lg bg-surface px-3 py-2 text-sm text-muted">روش پرداخت ثبت‌شده: {editing.payment === "cash" ? "نقد" : editing.payment === "card" ? "کارتخوان" : "آنلاین (قدیمی)"} — روش پرداخت پس از ثبت سفارش قابل تغییر نیست.</p>
             {editQuote.codeError ? <p className="text-sm text-warn">{editQuote.codeError}</p> : null}
             {editQuote.pointsError ? <p className="text-sm text-warn">{editQuote.pointsError}</p> : null}
             <div className="space-y-1 rounded-xl bg-surface p-3 text-sm">
