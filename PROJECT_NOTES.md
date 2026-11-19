@@ -1039,3 +1039,13 @@
 - limiter به دو bucket مستقل ارتقا یافت: HMAC حساب و HMAC IP؛ حدها به‌ترتیب ۵ و ۳۰ تلاش ناموفق در ۱۵ دقیقه و block پانزده‌دقیقه‌ای است.
 - پس از ورود موفق فقط bucket حساب پاک می‌شود تا سابقه تلاش ناموفق IP برای مقابله با password spraying حفظ شود.
 - database check ایستا وجود migration 002، identifier hash و blocked_until را بررسی می‌کند.
+
+
+## BE-01D3 — SessionAuthenticator و CSRF middleware (2026-11-20)
+- `AuthenticatedPrincipal` context امن کاربر/نشست را نگه می‌دارد.
+- `SessionAuthenticator` cookie `pos_v3_session` را parse می‌کند، token ۲۵۶ بیتی را validate و hash می‌کند و از SessionRepository فقط نشست فعال با user فعال و session_version جاری را می‌پذیرد.
+- `SessionMiddleware` principal را به Request attribute اضافه می‌کند؛ `CsrfMiddleware` برای درخواست‌های تغییردهنده state header `X-CSRF-Token` را اجباری و hash را با `hash_equals` مقایسه می‌کند.
+- `SessionCookie` Set-Cookie صحیح با Path=/، HttpOnly، SameSite=Lax و Secure (پیش‌فرض) می‌سازد؛ clear با Max-Age=0 است.
+- Router middleware pipeline با ترتیب ثبت‌شده دارد؛ Request برای attributeها immutable است.
+- `scripts/check-v3-backend-auth-guards.php` CSRF safe/unsafe، cookie flags و ترتیب middleware را پوشش می‌دهد؛ تست هنوز در runner اجرا نشده است.
+- routeها هنوز middleware را مصرف نمی‌کنند و login/logout endpoint منتشر نشده است؛ هیچ UI به API متصل نیست.
