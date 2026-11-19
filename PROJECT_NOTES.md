@@ -794,3 +794,12 @@
 ### گام بعد
 - طراحی/پیاده‌سازی installer گرافیکی امن cPanel: token یک‌بارمصرف، CSRF، قفل نصب، تشخیص نصب مجدد، config خارج از web root، و recovery بدون حذف خودکار دیتابیس.
 - وضعیت فاز ۲: **در حال انجام**.
+
+
+## DB-CI-01 — مسیر تست مستقل Windows (2026-11-19)
+- با توجه به خطای Billing/runner در GitHub Actions و محیط اعلام‌شده Windows بدون Docker، اسکریپت PowerShell محلی `scripts/run-v3-local-ci.ps1` اضافه شد.
+- حالت پایه، پیش‌نیاز PHP 8.2+ و افزونه‌های لازم، PHP lint، SQL parser و Python compile را بررسی می‌کند.
+- حالت `-WithDatabase` به MySQL/MariaDB نصب‌شده محلی متصل می‌شود؛ Preflight دیتابیس خالی و checker قیود دیتابیس schema آزمایشی را اجرا می‌کند.
+- اسکریپت دیتابیس ایجاد/حذف نمی‌کند و عملیات مخرب Installer/migration/restore را خودکار اجرا نمی‌کند.
+- تست واقعی روی سیستم Windows کاربر هنوز اجرا نشده؛ پس وضعیت اجرایی این بسته «ثبت‌شده؛ نیازمند اجرا در محیط مالک» است.
+- GitHub Actions حذف یا تغییر مسیر داده نشد؛ این مسیر مکمل مستقل است و به سهمیه Actions وابسته نیست.
