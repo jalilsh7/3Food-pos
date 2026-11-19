@@ -68,6 +68,9 @@ jobs:
           php -l scripts/check-mysql-schema.php
           php -l scripts/check-mysql-transaction-invariants.php
           php -l scripts/check-php-api-integration.php
+          php -l php-backend/private/birthday-sms.php
+          php -l scripts/check-birthday-sms-parser.php
+          php scripts/check-birthday-sms-parser.php
       - name: Install and verify fresh MySQL schema
         env:
           MYSQL_TEST_HOST: 127.0.0.1
