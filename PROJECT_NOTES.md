@@ -721,3 +721,32 @@
 - محدودیت تست: محیط اجرا در این بسته MySQL/MariaDB server در دسترس نداشت؛ بنابراین syntax/behavior واقعی CHECK، generated columns، FKها، اجرای کامل baseline، backup/restore و race condition هنوز اثبات نشده‌اند.
 - فایل runtime فعلی `php-backend/schema.sql` و دیتابیس عملیاتی دست‌نخورده باقی ماندند. هیچ اتصال backend یا installer به این baseline انجام نشده است.
 - گام بعد: DB-03 — harness تست نصب تازه و سازگاری MySQL/MariaDB، رفع هر خطای واقعی و سپس migration runner با checksum/lock.
+
+
+---
+
+## 2026-11-19 — فاز ۲ / بسته DB-03 و زیرساخت نصب V3
+
+### ثبت تغییرات
+- تست مستقل scripts/check-v3-database-schema.php: شمارش ۶۱ جدول، بررسی FK/index/CHECK/generated columns و آزمون رفتاری CHECK/FK/unique.
+- workflow مستقل .github/workflows/v3-database-validation.yml برای MySQL 8.4 و MariaDB 10.6.
+- ابزارهای CLI مستقل V3:
+  - database/v3/bin/bootstrap.php: PDO، parser ساده SQL، advisory lock.
+  - database/v3/bin/install.php: فقط دیتابیس خالی، ثبت checksum baseline، ساخت حساب owner با hash و اجبار تغییر رمز.
+  - database/v3/bin/migrate.php: migration مرتب‌شده، checksum SHA-256، توقف در checksum mismatch و اجرای serialize شده.
+  - database/v3/migrations/README-FA.md: قرارداد نام‌گذاری و immutable بودن migration.
+- تست‌های CI نصب اولیه و migration idempotency: scripts/check-v3-install.php و scripts/check-v3-migration.php.
+- php-backend/schema.sql و کد runtime فعلی تغییر نکرده‌اند.
+
+### وضعیت تست
+- بررسی محتوای workflow و فایل‌ها از GitHub انجام شد.
+- PHP/MySQL/MariaDB محلی در محیط ابزار در دسترس نبود.
+- اجرای اولیه GitHub Actions با fail قبل از شروع stepها و runner_id=0 ثبت شد؛ نتیجه engine نامشخص است و تست سبز محسوب نمی‌شود.
+- parser، installer و migration runner هنوز روی موتور واقعی اجرا نشده‌اند.
+
+### محدودیت و گام بعد
+- ابزار نصب فعلاً CLI است، نه installer گرافیکی و هنوز به runtime V3 متصل نیست.
+- migration افزایشی محصولی هنوز وجود ندارد.
+- backup/restore و تست بازیابی واقعی انجام نشده است.
+- گام بعد: علت failure پیش از runner را از تنظیمات/دسترسی GitHub Actions روشن کن، تست MySQL/MariaDB را سبز کن، سپس backup/restore و preflight نصب را پیاده‌سازی و آزمایش کن.
+- وضعیت فاز ۲: در حال انجام؛ بسته فقط پس از تحقق معیارهای بالا تکمیل‌شده اعلام می‌شود.
