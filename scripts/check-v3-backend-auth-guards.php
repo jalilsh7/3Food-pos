@@ -5,6 +5,8 @@ use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\SessionCookie;
 use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Http\Request;
+use PersiaCoder\PosV3\Http\Response;
+use PersiaCoder\PosV3\Http\Router;
 use PersiaCoder\PosV3\Security\CsrfGuard;
 
 $root = dirname(__DIR__);
