@@ -11,6 +11,24 @@ final readonly class UserManagementController
 {
     public function __construct(private UserManagementService $users) {}
 
+    public function listBusinessUsers(Request $request): Response
+    {
+        $scope = $request->attribute('business_scope');
+        if (!$scope instanceof BusinessScope) {
+            throw new HttpException(400, 'business_context_required', 'A valid business scope is required.');
+        }
+        return Response::success(['users' => $this->users->listBusinessUsers($scope)]);
+    }
+
+    public function listBranchUsers(Request $request): Response
+    {
+        $scope = $request->attribute('business_scope');
+        if (!$scope instanceof BusinessScope) {
+            throw new HttpException(400, 'business_context_required', 'A valid business scope is required.');
+        }
+        return Response::success(['users' => $this->users->listBranchUsers($scope)]);
+    }
+
     public function createBusinessUser(Request $request): Response
     {
         return $this->create($request, false);
