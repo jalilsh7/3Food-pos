@@ -1958,7 +1958,7 @@ function SettingsScreen() {
   }
   return (
     <div className="space-y-4">
-      <PageHeading title="تنظیمات فروشگاه" description="ظاهر سامانه، اطلاعات فروشگاه، فیش‌پرینتر و پشتیبان‌گیری را پیکربندی کنید." />
+      <PageHeading title="تنظیمات فروشگاه" description="ظاهر سامانه، اطلاعات فروشگاه، اتصال ملی‌پیامک، فیش‌پرینتر و پشتیبان‌گیری را پیکربندی کنید." />
       <AppearanceSettingsPanel />
       <SmsProviderSettingsPanel />
       <Card className="grid gap-2 sm:grid-cols-2">
