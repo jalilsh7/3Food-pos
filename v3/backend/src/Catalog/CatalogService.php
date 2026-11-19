@@ -206,6 +206,94 @@ final readonly class CatalogService
         );
     }
 
+
+    /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
+    public function updateCategory(
+        AuthenticatedPrincipal $actor, BusinessScope $scope, string $publicId, array $payload,
+        string $key, string $requestId, string $ip,
+    ): array {
+        if (!self::isUuid($publicId)) throw new HttpException(422, 'category_id_invalid', 'The category identifier is invalid.');
+        $current = $this->catalog->findCategoryDetails($scope->businessId, $publicId);
+        if ($current === null) throw new HttpException(404, 'category_not_found', 'The category was not found.');
+        $name = trim((string) ($payload['name'] ?? $current['name']));
+        $sort = $payload['sort_order'] ?? (int) $current['sort_order'];
+        $active = $payload['is_active'] ?? ((int) $current['is_active'] === 1);
+        $parentPublicId = $payload['parent_id'] ?? $current['parent_public_id'] ?? null;
+        if ($name === '' || self::unicodeLength($name) > 120) throw new HttpException(422, 'category_name_invalid', 'Category name is invalid.');
+        if (!is_int($sort) || $sort < -100000 || $sort > 100000 || !is_bool($active)) throw new HttpException(422, 'category_fields_invalid', 'Category fields are invalid.');
+        if ($parentPublicId !== null && (!is_string($parentPublicId) || !self::isUuid($parentPublicId) || strtolower($parentPublicId) === strtolower($publicId))) {
+            throw new HttpException(422, 'category_parent_invalid', 'The parent category identifier is invalid.');
+        }
+        $parentId = $parentPublicId === null ? null : $this->catalog->findCategoryIdByPublicId($scope->businessId, $parentPublicId);
+        if ($parentPublicId !== null && $parentId === null) throw new HttpException(404, 'category_parent_not_found', 'The parent category was not found in this business.');
+        $categoryId = (int) $current['id'];
+        $before = ['name' => (string) $current['name'], 'parent_id' => $current['parent_public_id'], 'sort_order' => (int) $current['sort_order'], 'is_active' => (bool) $current['is_active']];
+        $after = ['name' => $name, 'parent_id' => $parentPublicId, 'sort_order' => $sort, 'is_active' => $active];
+        $fp = hash('sha256', json_encode($after, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
+        return $this->idempotency->execute($actor->userId, $scope, 'catalog.category.update', $key, $fp,
+            function (PDO $db) use ($scope, $categoryId, $publicId, $name, $parentId, $sort, $active, $actor, $requestId, $ip, $before, $after): array {
+                $this->catalog->updateCategory($scope->businessId, $categoryId, $name, $parentId, $sort, $active);
+                $this->audit->record($actor->userId, 'catalog.category.updated', 'category', $publicId, $before, $after, null, $requestId, $ip, $scope->businessId);
+                return ['status' => 200, 'body' => ['data' => ['category' => ['id' => $publicId] + $after], 'meta' => (object) []]];
+            });
+    }
+
+    /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
+    public function updateProduct(
+        AuthenticatedPrincipal $actor, BusinessScope $scope, string $publicId, array $payload,
+        string $key, string $requestId, string $ip,
+    ): array {
+        if (!self::isUuid($publicId)) throw new HttpException(422, 'product_id_invalid', 'The product identifier is invalid.');
+        $current = $this->catalog->findProductDetails($scope->businessId, $publicId);
+        if ($current === null) throw new HttpException(404, 'product_not_found', 'The product was not found.');
+        $name = trim((string) ($payload['name'] ?? $current['name']));
+        $sku = array_key_exists('sku', $payload) ? $payload['sku'] : $current['sku'];
+        $type = $payload['product_type'] ?? $current['product_type'];
+        $price = $payload['base_price_amount'] ?? (int) $current['base_price_amount'];
+        $tax = $payload['tax_rate_bps'] ?? (int) $current['tax_rate_bps'];
+        $active = $payload['is_active'] ?? ((int) $current['is_active'] === 1);
+        $categoryPublicId = array_key_exists('category_id', $payload) ? $payload['category_id'] : $current['category_public_id'];
+        if ($name === '' || self::unicodeLength($name) > 180) throw new HttpException(422, 'product_name_invalid', 'Product name is invalid.');
+        if ($sku !== null && (!is_string($sku) || !preg_match('/^[A-Za-z0-9._-]{1,80}$/', $sku))) throw new HttpException(422, 'product_sku_invalid', 'SKU is invalid.');
+        if (!is_string($type) || !in_array($type, ['prepared', 'packaged', 'ingredient', 'service'], true)) throw new HttpException(422, 'product_type_invalid', 'Product type is invalid.');
+        if (!is_int($price) || $price < 0 || $price > 9000000000000000) throw new HttpException(422, 'product_price_invalid', 'Product price is invalid.');
+        if (!is_int($tax) || $tax < 0 || $tax > 10000 || !is_bool($active)) throw new HttpException(422, 'product_fields_invalid', 'Product tax or active flag is invalid.');
+        if ($categoryPublicId !== null && (!is_string($categoryPublicId) || !self::isUuid($categoryPublicId))) throw new HttpException(422, 'product_category_invalid', 'Category identifier is invalid.');
+        $categoryId = $categoryPublicId === null ? null : $this->catalog->findCategoryIdByPublicId($scope->businessId, $categoryPublicId);
+        if ($categoryPublicId !== null && $categoryId === null) throw new HttpException(404, 'product_category_not_found', 'The category was not found or is inactive in this business.');
+        $productId = (int) $current['id'];
+        $before = ['name' => (string) $current['name'], 'sku' => $current['sku'], 'product_type' => (string) $current['product_type'], 'base_price_amount' => (int) $current['base_price_amount'], 'tax_rate_bps' => (int) $current['tax_rate_bps'], 'category_id' => $current['category_public_id'], 'is_active' => (bool) $current['is_active']];
+        $after = ['name' => $name, 'sku' => $sku, 'product_type' => $type, 'base_price_amount' => $price, 'tax_rate_bps' => $tax, 'category_id' => $categoryPublicId, 'is_active' => $active];
+        $fp = hash('sha256', json_encode($after, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
+        return $this->idempotency->execute($actor->userId, $scope, 'catalog.product.update', $key, $fp,
+            function (PDO $db) use ($scope, $productId, $publicId, $sku, $name, $type, $price, $tax, $active, $categoryId, $actor, $requestId, $ip, $before, $after): array {
+                if ($sku !== null && $this->catalog->findProductSkuConflict($sku, $productId)) throw new HttpException(409, 'product_sku_exists', 'Another product already uses this SKU.');
+                $this->catalog->updateProduct($scope->businessId, $productId, $categoryId, $name, $sku, $type, $price, $tax, $active);
+                $this->audit->record($actor->userId, 'catalog.product.updated', 'product', $publicId, $before, $after, null, $requestId, $ip, $scope->businessId);
+                return ['status' => 200, 'body' => ['data' => ['product' => ['id' => $publicId] + $after], 'meta' => (object) []]];
+            });
+    }
+
+    /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
+    public function archiveProduct(
+        AuthenticatedPrincipal $actor, BusinessScope $scope, string $publicId,
+        string $key, string $requestId, string $ip,
+    ): array {
+        if (!self::isUuid($publicId)) throw new HttpException(422, 'product_id_invalid', 'The product identifier is invalid.');
+        $current = $this->catalog->findProductDetails($scope->businessId, $publicId);
+        if ($current === null) throw new HttpException(404, 'product_not_found', 'The product was not found.');
+        $productId = (int) $current['id'];
+        $before = ['is_active' => (bool) $current['is_active'], 'archived' => false];
+        $after = ['is_active' => false, 'archived' => true];
+        $fp = hash('sha256', json_encode([$publicId, 'archive'], JSON_THROW_ON_ERROR));
+        return $this->idempotency->execute($actor->userId, $scope, 'catalog.product.archive', $key, $fp,
+            function (PDO $db) use ($scope, $productId, $publicId, $actor, $requestId, $ip, $before, $after): array {
+                $this->catalog->archiveProduct($scope->businessId, $productId);
+                $this->audit->record($actor->userId, 'catalog.product.archived', 'product', $publicId, $before, $after, null, $requestId, $ip, $scope->businessId);
+                return ['status' => 200, 'body' => ['data' => ['product' => ['id' => $publicId, 'archived' => true]], 'meta' => (object) []]];
+            });
+    }
+
     private static function unicodeLength(string $value): int
     {
         $count = preg_match_all('/./us', $value);
