@@ -220,3 +220,15 @@ v3/backend/
 - business-wide endpointها وجود X-Branch-ID را رد می‌کنند تا مجوز محدود یک شعبه برای مدیریت کل کسب‌وکار استفاده نشود.
 - نقش‌های پایه فعلاً قابل مشاهده و انتساب‌اند؛ CRUD نقش سفارشی و ویرایش permission mapping در بسته بعدی توسعه داده می‌شود.
 
+
+## 16. BE-01E3 — مدیریت کاربر، نقش سفارشی و شعبه
+
+- endpointهای GET/POST برای فهرست و ایجاد کاربر در سطح business و branch اضافه شدند؛ user جدید با password تصادفی ۲۵۶ بیتی ساخته می‌شود، hash فقط در DB ذخیره می‌شود و must_change_password=1 است.
+- رمز موقت فقط یک‌بار در پاسخ ایجاد کاربر نمایش داده می‌شود؛ نباید در log، analytics یا storage مرورگر ثبت شود و باید از مسیر امن به کاربر تحویل شود.
+- فهرست کاربران فقط کاربران منتسب به business/branch انتخاب‌شده و owner نصب را برمی‌گرداند؛ شناسه داخلی دیتابیس expose نمی‌شود.
+- endpointهای GET/POST شعبه برای مشاهده و ساخت شعبه جدید اضافه شدند؛ شعبه جدید به business فعال متصل است و timezone پیش‌فرض را از business می‌گیرد.
+- endpoint GET permissions فهرست permission codeهای فعال را می‌دهد؛ POST roles نقش سفارشی می‌سازد و PATCH roles/{roleCode} فقط نقش سفارشی را تغییر می‌دهد.
+- نقش‌های system و owner از ویرایش محافظت می‌شوند؛ wildcard در نقش سفارشی مجاز نیست؛ actor فقط permissionهایی را می‌تواند به role بدهد که خودش در همان scope دارد.
+- مدیریت نقش و user با PermissionMiddleware، scope و CSRF/same-origin در mutationها محافظت شده‌اند.
+- فعلاً غیرفعال‌سازی کاربر/شعبه، حذف role، تاریخچه تغییر نقش و audit eventها در بسته Audit/Administration تکمیل می‌شوند.
+
