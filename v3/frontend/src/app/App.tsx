@@ -193,7 +193,7 @@ export function App() {
               {search ? <Button variant="ghost" size="icon" onClick={() => setSearch("")} aria-label="پاک کردن جست‌وجو">×</Button> : null}
             </label>
             <span className="topbar-divider" />
-            <span className="preview-pill compact">حالت طراحی</span>
+            <StatusBadge variant="warning" className="compact">حالت طراحی</StatusBadge>
             <span className="avatar" aria-label="حساب نمایشی">PC</span>
           </div>
         </header>
