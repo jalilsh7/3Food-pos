@@ -18,7 +18,7 @@ final readonly class LoginAttemptLimiter
         private string $applicationKey,
     ) {
         if (strlen($this->applicationKey) < 32) {
-            throw new \\InvalidArgumentException('Application key must contain at least 32 bytes.');
+            throw new \InvalidArgumentException('Application key must contain at least 32 bytes.');
         }
     }
 
