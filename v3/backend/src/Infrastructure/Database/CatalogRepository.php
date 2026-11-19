@@ -12,7 +12,7 @@ final readonly class CatalogRepository
     public function findCategoryIdByPublicId(int $businessId, string $publicId): ?int
     {
         $statement = $this->connection->prepare(
-            'SELECT id FROM pos_categories WHERE business_id = :business_id AND public_id = :public_id LIMIT 1'
+            'SELECT id FROM pos_categories WHERE business_id = :business_id AND public_id = :public_id AND is_active = 1 LIMIT 1'
         );
         $statement->execute(['business_id' => $businessId, 'public_id' => $publicId]);
         $value = $statement->fetchColumn();
@@ -79,6 +79,9 @@ final readonly class CatalogRepository
         $sql .= ' ORDER BY p.name ASC, p.id ASC LIMIT :limit';
         $statement = $this->connection->prepare($sql);
         foreach ($parameters as $key => $value) {
+            if ($key === 'business_id') {
+                continue;
+            }
             $statement->bindValue(':' . $key, $value, PDO::PARAM_STR);
         }
         $statement->bindValue(':business_id', $businessId, PDO::PARAM_INT);
