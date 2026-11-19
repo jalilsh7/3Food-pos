@@ -590,6 +590,8 @@ try {
         'password' => 'CI-Cashier-Password-2026!',
     ]);
     check($cashierLogin['status'] === 200 && ($cashierLogin['json']['user']['role'] ?? '') === 'cashier', 'cashier login');
+    $cashierCannotReadManagerPayment = api('GET', '/api/v1/terminal-payments/' . rawurlencode($terminalPaymentId));
+    check($cashierCannotReadManagerPayment['status'] === 404 && ($cashierCannotReadManagerPayment['json']['error'] ?? '') === 'terminal_payment_not_found', 'cashier cannot read another users terminal payment');
     $cashierEdit = api('PATCH', '/api/v1/orders/' . rawurlencode($guestOrderId), [
         'items' => [['key' => 'ci-guest-line', 'productId' => 'ci-product', 'qty' => 1, 'unitPrice' => 1000, 'optionIds' => []]],
         'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 1000],
