@@ -50,6 +50,63 @@ final readonly class OrderService
         return $this->orders->listOrders($scope->businessId, (int) $scope->branchId, $status, $channel, $limit);
     }
 
+    public function get(BusinessScope $scope, string $orderPublicId): array
+    {
+        if (!self::isUuid($orderPublicId)) {
+            throw new HttpException(400, 'invalid_order_id', 'The order identifier is invalid.');
+        }
+        $order = $this->orders->findOrder($scope->businessId, (int) $scope->branchId, $orderPublicId);
+        if ($order === null) {
+            throw new HttpException(404, 'order_not_found', 'The order was not found in this branch.');
+        }
+
+        $address = null;
+        if (is_string($order['address_snapshot']) && $order['address_snapshot'] !== '') {
+            $decoded = json_decode($order['address_snapshot'], true);
+            $address = is_array($decoded) ? $decoded : null;
+        }
+
+        return [
+            'order' => [
+                'id' => (string) $order['public_id'],
+                'order_number' => (int) $order['order_number'],
+                'source_channel' => (string) $order['source_channel'],
+                'order_status' => (string) $order['order_status'],
+                'payment_status' => (string) $order['payment_status'],
+                'currency_code' => (string) $order['currency_code'],
+                'subtotal_amount' => (int) $order['subtotal_amount'],
+                'discount_amount' => (int) $order['discount_amount'],
+                'tax_amount' => (int) $order['tax_amount'],
+                'delivery_fee_amount' => (int) $order['delivery_fee_amount'],
+                'total_amount' => (int) $order['total_amount'],
+                'created_at' => (string) $order['created_at'],
+                'accepted_at' => $order['accepted_at'] === null ? null : (string) $order['accepted_at'],
+                'customer' => $order['customer_public_id'] === null ? null : [
+                    'id' => (string) $order['customer_public_id'],
+                    'name' => (string) $order['customer_name'],
+                ],
+                'table_session_id' => $order['table_session_public_id'] === null ? null : (string) $order['table_session_public_id'],
+                'fulfillment' => $order['fulfillment_method'] === null ? null : [
+                    'method' => (string) $order['fulfillment_method'],
+                    'recipient_name' => $order['recipient_name_snapshot'] === null ? null : (string) $order['recipient_name_snapshot'],
+                    'recipient_phone' => $order['recipient_phone_snapshot'] === null ? null : (string) $order['recipient_phone_snapshot'],
+                    'address' => $address,
+                    'delivery_fee_amount' => (int) $order['fulfillment_fee'],
+                ],
+            ],
+            'items' => $this->orders->listOrderItemsWithOptions(
+                $scope->businessId,
+                (int) $scope->branchId,
+                (int) $order['id'],
+            ),
+            'status_history' => $this->orders->listStatusEvents(
+                $scope->businessId,
+                (int) $scope->branchId,
+                (int) $order['id'],
+            ),
+        ];
+    }
+
     public function create(
         AuthenticatedPrincipal $actor,
         BusinessScope $scope,
