@@ -136,6 +136,7 @@ export type Settings = {
   paperWidth: 58 | 80;
   autoPrint: boolean;
   invoiceSmsEnabledDefault?: boolean;
+  birthdaySmsPrompt?: string;
   loyaltySilverPoints?: number;
   loyaltyGoldPoints?: number;
   loyaltyPlatinumPoints?: number;
