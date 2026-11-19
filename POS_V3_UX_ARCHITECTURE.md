@@ -177,9 +177,9 @@
 6. اگر کامپوننتی قرار است مشترک شود، ابتدا قرارداد مستقل و بدون وابستگی runtime تعریف و مالکیت آن روشن شود؛ کپی/import مستقیم از V2 مجاز نیست.
 7. هر مرحله با typecheck، تست‌های مربوط، lint و build مستقل V3 بررسی شود؛ نبود محیط تست باید به‌عنوان مانع ثبت شود، نه تأیید ضمنی.
 
-ساختار هدف اولیه (پیشنهادی و هنوز ایجادنشده):
-- `v3/frontend/src/app/`: entrypoint، router و application shell.
-- `v3/frontend/src/features/shell/`: پوسته، ناوبری و header.
+ساختار هدف اولیه (بخشی ایجاد شده و در حال تکمیل):
+- `v3/frontend/src/app/`: entrypoint و application shell؛ اسکلت اولیه در `App.tsx` ایجاد شده است.
+- `v3/frontend/src/features/shell/`: محل توسعه بعدی componentهای پوسته و ناوبری مستقل.
 - `v3/frontend/src/features/pos/`: سبد، جست‌وجوی کالا، مشتری و پرداخت.
 - `v3/frontend/src/features/orders/`: فهرست، فیلتر، جزئیات و timeline.
 - `v3/frontend/src/features/kitchen/`: صف و ایستگاه‌ها.
@@ -196,7 +196,7 @@
 | بسته | خروجی | وضعیت آغاز |
 |---|---|---|
 | UX-01 | این سند: معماری UX، IA و نقشه اجرا | ثبت‌شده |
-| UX-02 | ایجاد پوسته و ناوبری مستقل در `v3/frontend/` | در انتظار |
+| UX-02 | ایجاد پوسته و ناوبری مستقل در `v3/frontend/` | در حال انجام |
 | UX-03 | بازطراحی صفحه فروش و سبد چندقلمی | در انتظار |
 | UX-04 | مرکز سفارش واحد با فیلتر کانال و وضعیت‌های مستقل | در انتظار |
 | UX-05 | صفحه آشپزخانه و گردش آماده‌سازی | در انتظار |
@@ -226,10 +226,19 @@
 
 
 
-### تصمیم اصلاحی UX-02 — 2026-11-19
+### وضعیت اجرایی UX-02 — workspace مستقل V3 (2026-11-19)
 
-- ممیزی معماری نشان داد `src/components/grill/app.tsx` متعلق به runtime V2 است؛ جداسازی UI در همان مسیر، مرز استقلال V3 را نقض می‌کرد.
-- تغییر آزمایشی پوسته V2 به‌طور کامل برگشت داده شد و سه فایل موقت زیر حذف شدند: `src/features/shell/navigation.tsx`، `src/features/shell/pos-topbar.tsx` و `src/features/shell/pos-navigation.tsx`.
-- فایل `src/components/grill/app.tsx` به محتوای پیش از آزمایش بازگردانده شد. هیچ تغییر اجرایی V2 باقی نمانده است.
-- UX-02 تا ایجاد workspace مستقل V3 در `v3/frontend/` در وضعیت «در انتظار» قرار دارد.
-- این اصلاح، تغییر ساختاری آزمایشی را تأییدشده نمی‌داند؛ typecheck، تست، lint و build برای آن اجرا نشده و فایل‌های آزمایشی نیز در نسخه نهایی وجود ندارند.
+- وضعیت: **در حال انجام؛ اسکلت رابط ثبت شده، اجرای محلی و build هنوز تأیید نشده است.**
+- workspace مستقل در `v3/frontend/` ایجاد شد؛ فایل‌های پایه:
+  - `package.json` با وابستگی‌های مستقل و نسخه‌های ثابت.
+  - `tsconfig.json` و `vite.config.ts`.
+  - `index.html` و `src/main.tsx`.
+  - `src/app/App.tsx` با ناوبری گروه‌بندی‌شده و responsive، جست‌وجوی بخش‌ها، نمای کلی بدون داده جعلی و placeholderهای شفاف.
+  - `src/styles.css` با RTL، طراحی responsive و reduced-motion.
+  - `README.md` با دستورهای نصب/اجرا و محدودیت‌های فعلی.
+- هیچ فایل V2 از root `src/` import نشده و workspace جدید به API، احراز هویت یا دیتابیس وصل نیست.
+- وابستگی فونت CDN حذف شد؛ تا زمان افزودن فونت محلی مجاز، fallback سیستمی استفاده می‌شود.
+- فایل‌های تغییر آزمایشی V2 حذف و `src/components/grill/app.tsx` به blob پیشین بازگردانده شد؛ استقلال runtime رعایت شده است.
+- هنوز lockfile تولید نشده؛ باید پس از `npm install` محلی commit شود.
+- typecheck، تست، lint و build اجرا نشده‌اند؛ این اسکلت prototype عملیاتی نیست و نباید روی هاست مشتری نصب شود.
+- گام بعد: اجرای نصب dependency و typecheck/build در Windows مالک؛ سپس رفع خطاهای واقعی و ادامه design system و route/module shell.
