@@ -817,7 +817,11 @@ function formatPersianDateTime(value: Date | string | number) {
 
 function JalaliDateInput({ value, onChange, required = false }: { value: string; onChange: (value: string) => void; required?: boolean }) {
   const [draft, setDraft] = useState(() => value ? isoToJalali(value) : "");
-  useEffect(() => { setDraft(value ? isoToJalali(value) : ""); }, [value]);
+  const [syncedValue, setSyncedValue] = useState(value);
+  if (value !== syncedValue) {
+    setSyncedValue(value);
+    setDraft(value ? isoToJalali(value) : "");
+  }
   return (
     <input
       className={inputCls}
