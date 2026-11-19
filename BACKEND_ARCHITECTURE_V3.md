@@ -169,3 +169,13 @@ v3/backend/
 - login limiter دو bucket مستقل و domain-separated با HMAC دارد: حساب کاربری و IP منبع.
 - حد حساب پنج شکست و حد IP سی شکست در پنجره ۱۵ دقیقه‌ای است؛ هر bucket پس از رسیدن به حد برای ۱۵ دقیقه مسدود می‌شود.
 - موفقیت ورود bucket حساب را پاک می‌کند، اما bucket IP باقی می‌ماند تا تلاش برای password spraying از همان IP قابل محدودسازی باشد.
+
+
+## 16. Session middleware و CSRF — BE-01D3
+- Router از pipeline middleware با ترتیب ثبت‌شده پشتیبانی می‌کند؛ middleware قبل از handler اجرا می‌شود و Request attributeهای immutable دارد.
+- `SessionAuthenticator` فقط cookie با نام `pos_v3_session` را می‌پذیرد؛ token با الگوی ثابت validate و SHA-256 آن برای lookup نشست فعال استفاده می‌شود.
+- نشست منقضی/لغوشده، کاربر غیرفعال و session_version قدیمی رد می‌شوند.
+- `SessionMiddleware` principal را به Request context اضافه می‌کند؛ `CsrfMiddleware` principal را اجباری می‌کند و برای POST/PUT/PATCH/DELETE توکن header `X-CSRF-Token` را با hash ذخیره‌شده مقایسه می‌کند.
+- GET/HEAD/OPTIONS از CSRF token مستثنا هستند؛ تغییر state باید از method غیرایمن استفاده کند.
+- cookie با ترتیب صحیح Set-Cookie و ویژگی‌های Path=/، HttpOnly، SameSite=Lax و Secure در حالت امن صادر می‌شود؛ logout cookie را با Max-Age=0 منقضی می‌کند.
+- middlewareها هنوز به route تجاری وصل نشده‌اند؛ هر route حساس باید SessionMiddleware و سپس CsrfMiddleware را ثبت کند.
