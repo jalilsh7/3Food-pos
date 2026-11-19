@@ -7,6 +7,8 @@ use PDO;
 use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Infrastructure\Database\RoleRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\TransactionManager;
+use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
+use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Infrastructure\Database\UserRepository;
 
 final readonly class UserManagementService
@@ -14,6 +16,7 @@ final readonly class UserManagementService
     private UserRepository $users;
     private RoleRepository $roles;
     private TransactionManager $transactions;
+    private AuditLogService $audit;
 
     public function __construct(
         private PDO $connection,
@@ -22,6 +25,7 @@ final readonly class UserManagementService
         $this->users = new UserRepository($connection);
         $this->roles = new RoleRepository($connection);
         $this->transactions = new TransactionManager($connection);
+        $this->audit = new AuditLogService(new AuditLogRepository($connection));
     }
 
     public function listBusinessUsers(BusinessScope $scope): array
@@ -44,8 +48,10 @@ final readonly class UserManagementService
         string $username,
         string $displayName,
         string $roleCode,
+        string $requestId,
+        string $ipAddress,
     ): array {
-        return $this->create($actor, $scope, $username, $displayName, $roleCode, false);
+        return $this->create($actor, $scope, $username, $displayName, $roleCode, false, $requestId, $ipAddress);
     }
 
     /** @return array{user_id:string,username:string,display_name:string,role_code:string,temporary_password:string} */
@@ -55,11 +61,13 @@ final readonly class UserManagementService
         string $username,
         string $displayName,
         string $roleCode,
+        string $requestId,
+        string $ipAddress,
     ): array {
         if ($scope->branchId === null) {
             throw new HttpException(400, 'branch_context_required', 'A branch scope is required.');
         }
-        return $this->create($actor, $scope, $username, $displayName, $roleCode, true);
+        return $this->create($actor, $scope, $username, $displayName, $roleCode, true, $requestId, $ipAddress);
     }
 
     private function create(
@@ -69,6 +77,8 @@ final readonly class UserManagementService
         string $displayName,
         string $roleCode,
         bool $branchScoped,
+        string $requestId,
+        string $ipAddress,
     ): array {
         $username = strtolower(trim($username));
         $displayName = trim($displayName);
@@ -113,13 +123,33 @@ final readonly class UserManagementService
             $actor,
             $scope,
             $branchScoped,
+            $requestId,
+            $ipAddress,
         ): void {
             $userId = $this->users->createUser($publicId, $username, $passwordHash, $displayName);
             if ($branchScoped) {
                 $this->roles->assignBranchRole($userId, (int) $scope->branchId, $role['id'], $actor->userId);
-                return;
+            } else {
+                $this->roles->assignBusinessRole($userId, $scope->businessId, $role['id'], $actor->userId);
             }
-            $this->roles->assignBusinessRole($userId, $scope->businessId, $role['id'], $actor->userId);
+            $this->audit->record(
+                $actor->userId,
+                'user.created',
+                'user',
+                $publicId,
+                null,
+                [
+                    'username' => $username,
+                    'display_name' => $displayName,
+                    'role_code' => $roleCode,
+                    'scope' => $branchScoped ? 'branch' : 'business',
+                    'business_id' => $scope->businessPublicId,
+                    'branch_id' => $scope->branchPublicId,
+                ],
+                null,
+                $requestId,
+                $ipAddress,
+            );
         });
 
         return [
