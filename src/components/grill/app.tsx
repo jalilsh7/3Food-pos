@@ -611,6 +611,7 @@ function PosScreen() {
         guestName,
         guestPhone: normalizeIranPhone(phone),
         payment: pay,
+        ...(terminalPaymentId ? { terminalPaymentId } : {}),
       });
       if(terminalPaymentId) await phpApi.attachTerminalPayment(terminalPaymentId,Number(server.order.id));
       const res = placeOrder({
