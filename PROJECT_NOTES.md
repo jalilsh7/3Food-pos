@@ -1242,3 +1242,16 @@
 - علت: Configuration اکنون ۱۰ آرگومان (شامل privateStoragePath و mediaMaxBytes) می‌گیرد، اما fixture دو فراخوانی ۸ آرگومانی داشت.
 - هر دو فراخوانی تست با مسیر موقت `/tmp/pos-v3-test-media` و سقف ۵ MiB در commit `d53de809e65a796082779664a68a6bbe8a72381b` اصلاح شدند.
 - اجرای CI جدید باید تأیید کند database config checks و سپس auth guards پاس می‌شوند.
+
+ 
+## INV-01A — API مشاهده موجودی و گردش کالا (2026-11-20)
+- وضعیت: **در حال انجام؛ تأیید CI در انتظار**.
+- وضعیت مبنا: زیرساخت تعریف مواد اولیه/کالا و انبارک در API وجود داشت، اما endpoint عملیاتی برای مشاهده مانده هر کالا در هر انبارک و تاریخچه گردش کالا در شاخه توسعه ثبت نشده بود.
+- اضافه شد: `GET /api/v1/inventory/balances` با فیلتر اختیاری `stock_item_id` و `location_id`، سقف صفحه ۲۰۰، و خروجی مقدار موجود، رزروشده و قابل‌استفاده.
+- اضافه شد: `GET /api/v1/inventory/ledger` با فیلتر کالا/انبارک، cursor نزولی `before_id` و صفحه‌بندی حداکثر ۱۰۰ ردیف.
+- هر دو endpoint فقط با نشست معتبر و مجوز `inventory.read` و context شعبه در دسترس‌اند؛ queryها هم business_id و branch_id را در سطح SQL enforce می‌کنند.
+- داده هزینه/ارزش ریالی موجودی در این endpoint عمومی افشا نمی‌شود.
+- فایل‌ها: `InventoryController.php`, `InventoryService.php`, `InventoryRepository.php`, `v3/backend/public/index.php`.
+- تست regression جدید `scripts/check-v3-backend-inventory-read.php` به workflow Backend افزوده شد تا scope کسب‌وکار/شعبه، joinهای scope و cursor را کنترل کند.
+- تست: workflow پس از آخرین commit باید اجرا و نتیجه ثبت شود؛ تا آن زمان PASS ادعا نمی‌شود.
+- گام بعدی پس از تأیید: ایجاد/ثبت اسناد گردش انبار (رسید خرید، انتقال بین انبارک، تعدیل، ضایعات و برگشت) با ledger append-only، کنترل موجودی منفی و idempotency تراکنشی.
