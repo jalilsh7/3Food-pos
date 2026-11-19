@@ -75,6 +75,42 @@ final readonly class InventoryController
         ));
     }
 
+
+    public function balances(Request $request): Response
+    {
+        $limitValue = $request->query('limit') ?? '100';
+        if (!ctype_digit($limitValue)) {
+            throw new HttpException(422, 'inventory_limit_invalid', 'The inventory limit is invalid.');
+        }
+        $items = $this->inventory->listBalances(
+            $this->scope($request),
+            $request->query('stock_item_id'),
+            $request->query('location_id'),
+            (int) $limitValue,
+        );
+        return Response::success(['balances' => $items], ['limit' => (int) $limitValue]);
+    }
+
+    public function ledger(Request $request): Response
+    {
+        $limitValue = $request->query('limit') ?? '50';
+        $beforeValue = $request->query('before_id');
+        if (!ctype_digit($limitValue) || ($beforeValue !== null && !ctype_digit($beforeValue))) {
+            throw new HttpException(422, 'inventory_pagination_invalid', 'The inventory ledger pagination is invalid.');
+        }
+        $result = $this->inventory->listLedger(
+            $this->scope($request),
+            $request->query('stock_item_id'),
+            $request->query('location_id'),
+            $beforeValue === null ? null : (int) $beforeValue,
+            (int) $limitValue,
+        );
+        return Response::success(
+            ['entries' => $result['items']],
+            ['limit' => (int) $limitValue, 'next_cursor' => $result['next_cursor']],
+        );
+    }
+
     private function jsonPayload(Request $request): array
     {
         $contentType = strtolower(trim($request->header('content-type') ?? ''));
