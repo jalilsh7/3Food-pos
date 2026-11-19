@@ -40,10 +40,24 @@ try {
 
 $expiresAt = new DateTimeImmutable('+1 hour');
 $cookie = SessionCookie::issue($token, $expiresAt, true);
-$assert(str_contains($cookie, 'Secure;'), 'Production session cookie must be Secure.');
+$assert(str_starts_with($cookie, 'pos_v3_session='), 'Session cookie must start with its name and value.');
+$assert(str_contains($cookie, 'Secure'), 'Production session cookie must be Secure.');
 $assert(str_contains($cookie, 'HttpOnly'), 'Session cookie must be HttpOnly.');
 $assert(str_contains($cookie, 'SameSite=Lax'), 'Session cookie must use SameSite=Lax.');
 $assert(str_contains($cookie, 'Path=/'), 'Session cookie must use root path.');
 $assert(str_contains(SessionCookie::clear(), 'Max-Age=0'), 'Logout cookie must expire immediately.');
+
+$router = new Router();
+$router->add(
+    'POST',
+    '/api/v1/middleware-check',
+    static fn (Request $request): Response => Response::success(['ordered' => $request->attribute('first') === true && $request->attribute('second') === true]),
+    [
+        static fn (Request $request, array $params, callable $next): Response => $next($request->withAttribute('first', true)),
+        static fn (Request $request, array $params, callable $next): Response => $next($request->withAttribute('second', $request->attribute('first') === true)),
+    ],
+);
+$middlewareResponse = $router->dispatch(new Request('POST', '/api/v1/middleware-check', [], '', 'test-request-0014'));
+$assert(str_contains($middlewareResponse->body, '"ordered":true'), 'Route middleware must execute in registration order.');
 
 echo "V3 backend authentication guard checks passed.\n";
