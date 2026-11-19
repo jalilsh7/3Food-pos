@@ -1620,6 +1620,9 @@ function SmsScreen() {
   const orders = usePos((s) => s.orders);
   const settings = usePos((s) => s.settings);
   const [manual, setManual] = useState({ to: "", text: "" });
+  const [birthdayPrompt, setBirthdayPrompt] = useState("برای ثبت تاریخ تولد در باشگاه مشتریان، لطفاً پاسخ دهید: تولد ۱۳۷۰/۰۵/۱۲");
+  const [birthdayPromptBusy, setBirthdayPromptBusy] = useState(false);
+  const [birthdayPromptProgress, setBirthdayPromptProgress] = useState("");
   const products = usePos((s) => s.products);
   const [campaignLogic,setCampaignLogic]=useState<"all"|"any">("all");
   const [campaignFilters,setCampaignFilters]=useState({tier:"",birthday:"",inactiveDays:"",minOrders:"",minSpent:"",productId:""});
@@ -1679,6 +1682,27 @@ function SmsScreen() {
             window.alert(error instanceof Error ? error.message : "دریافت پیامک انجام نشد.");
           }
         }}>دریافت و ثبت پاسخ‌های تولد</Btn>
+      </Card>
+      <Card>
+        <h3 className="mb-2 font-semibold">ارسال درخواست تاریخ تولد</h3>
+        <p className="mb-2 text-xs text-muted">فقط به مشتریانی پیامک می‌فرستد که رضایت پیامکی دارند و تاریخ تولدشان ثبت نشده است. مشتری باید تاریخ را با قالب نمونه پاسخ دهد.</p>
+        <textarea className={inputCls} rows={2} maxLength={950} value={birthdayPrompt} onChange={e=>setBirthdayPrompt(e.target.value)} />
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Btn disabled={birthdayPromptBusy || !birthdayPrompt.trim()} onClick={async () => {
+            const targets = customers.filter(customer => customer.smsConsent === true && !customer.birthday && /^09[0-9]{9}$/.test(normalizeIranPhone(customer.phone)));
+            if (!targets.length) { window.alert("مشتری واجد شرایطی برای دریافت درخواست وجود ندارد."); return; }
+            if (!window.confirm(`درخواست ثبت تاریخ تولد برای ${targets.length.toLocaleString("fa-IR")} مشتری ارسال شود؟`)) return;
+            setBirthdayPromptBusy(true);
+            let sent = 0, failed = 0;
+            for (const customer of targets) {
+              if (await sendRaw(customer.phone, birthdayPrompt)) sent++; else failed++;
+              setBirthdayPromptProgress(`موفق ${sent.toLocaleString("fa-IR")} · ناموفق ${failed.toLocaleString("fa-IR")} از ${targets.length.toLocaleString("fa-IR")}`);
+            }
+            setBirthdayPromptBusy(false);
+            setBirthdayPromptProgress(`پایان ارسال — موفق ${sent.toLocaleString("fa-IR")}، ناموفق ${failed.toLocaleString("fa-IR")}`);
+          }}>{birthdayPromptBusy ? "در حال ارسال..." : "ارسال درخواست به مشتریان واجد شرایط"}</Btn>
+          <span className="text-xs text-muted">{birthdayPromptProgress}</span>
+        </div>
       </Card>
       <Card>
         <h3 className="mb-2 font-semibold">ارسال دستی</h3>
