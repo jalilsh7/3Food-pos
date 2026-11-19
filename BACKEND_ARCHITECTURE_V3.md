@@ -293,3 +293,20 @@ v3/backend/
 - ویرایش محصول با `PATCH /api/v1/catalog/products/{productPublicId}`؛ فیلدهای `name`، `sku`، `product_type`، `base_price_amount`، `tax_rate_bps`، `category_id` و `is_active` با اعتبارسنجی سمت سرور کنترل می‌شوند.
 - آرشیو محصول با `DELETE /api/v1/catalog/products/{productPublicId}` به‌صورت soft archive انجام می‌شود: `archived_at` ثبت و `is_active=0` می‌شود؛ ردیف برای حفظ ارجاعات سفارش‌های تاریخی نگه داشته می‌شود.
 - همه commandها به business scope، permission `catalog.manage`، session، CSRF، Origin، Idempotency-Key و audit log مقیدند. هیچ mutation در دیتابیس اجرا نشده است.
+
+
+## 18. BE-02A — هسته عملیاتی سفارش
+
+- migration 008 جداول order، item، item option، status event، fulfillment، preparation، adjustment، dining area/table و table session را business/branch-scoped می‌کند.
+- FKهای مرکب مانع اتصال سفارش به customer، product، variant، option، table session یا branch متعلق به business دیگر می‌شوند.
+- order number از sequence مستقل برای هر business/branch ساخته می‌شود؛ order_number در محدوده شعبه یکتا است.
+- POST /api/v1/orders سفارش را با قیمت authoritative دیتابیس می‌سازد؛ قیمت frontend دریافت یا اعتماد نمی‌شود.
+- قیمت snapshot شامل base product، variant و option delta است؛ quantity با دقت سه رقم اعشار و محاسبه مبلغ با integer arithmetic انجام می‌شود.
+- tax بر اساس tax_rate_bps محصول محاسبه می‌شود؛ subtotal قبل از مالیات، tax جدا و total برابر subtotal + tax است؛ discount و delivery fee فعلاً صفر هستند.
+- گزینه‌ها با mapping محصول، بازه min/max، single/multiple و required اعتبارسنجی می‌شوند؛ variant فعال در صورت وجود اجباری است.
+- ایجاد سفارش و ثبت وضعیت اولیه و audit در transaction واحد و با idempotency رمز‌شده انجام می‌شود.
+- PATCH /api/v1/orders/{id}/status گردش وضعیت draft/awaiting_payment/accepted/preparing/ready/completed/cancelled/rejected را کنترل می‌کند؛ پرداخت از وضعیت سفارش مستقل است.
+- PATCH /api/v1/orders/{id}/kitchen-status فقط preparing/ready را برای نقش kitchen مجاز می‌کند.
+- GET /api/v1/orders فقط سفارش‌های همان branch را می‌دهد؛ فیلتر status/channel و limit حداکثر 100 دارد.
+- فعلاً payment record، fulfillment detail، stock consumption/recipe, kitchen preparation item generation و pagination cursor در بسته‌های بعدی تکمیل می‌شوند.
+
