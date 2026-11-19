@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Auth;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Http\Request;
 use PersiaCoder\PosV3\Infrastructure\Database\SessionRepository;
@@ -25,6 +27,7 @@ final readonly class SessionAuthenticator
             throw new HttpException(401, 'session_invalid', 'The session is invalid or has expired.');
         }
 
+        $expiresAt = new DateTimeImmutable((string) $session['expires_at'], new DateTimeZone('UTC'));
         return new AuthenticatedPrincipal(
             (int) $session['id'],
             (int) $session['user_id'],
@@ -33,6 +36,7 @@ final readonly class SessionAuthenticator
             (string) $session['display_name'],
             (int) $session['must_change_password'] === 1,
             (string) $session['csrf_token_hash'],
+            $expiresAt,
         );
     }
 
