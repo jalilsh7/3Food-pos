@@ -46,7 +46,7 @@ final readonly class RoleManagementService
         if ($name === '' || self::unicodeLength($name) > 100) {
             throw new HttpException(422, 'role_name_invalid', 'Role name is required and must not exceed 100 characters.');
         }
-        if ($this->roles->findActiveRole($code) !== null) {
+        if ($this->roles->roleCodeExists($code)) {
             throw new HttpException(409, 'role_code_exists', 'A role with this code already exists.');
         }
 
