@@ -17,6 +17,7 @@ final readonly class PermissionMiddleware
         private BusinessScopeResolver $scopeResolver,
         private string $permissionCode,
         private bool $requireBranch = true,
+        private bool $allowBranchContext = false,
     ) {}
 
     /** @param callable(Request): Response $next */
@@ -27,7 +28,7 @@ final readonly class PermissionMiddleware
             throw new HttpException(401, 'authentication_required', 'Authentication is required.');
         }
 
-        $scope = $this->scopeResolver->resolve($request, $this->requireBranch);
+        $scope = $this->scopeResolver->resolve($request, $this->requireBranch, $this->allowBranchContext);
         if (!$this->permissions->allows($principal, $this->permissionCode, $scope)) {
             throw new HttpException(403, 'permission_denied', 'You do not have permission to perform this action.');
         }
