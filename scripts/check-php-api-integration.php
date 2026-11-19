@@ -471,7 +471,7 @@ try {
     $cardOrderCancel = api('PATCH', '/api/v1/orders/' . rawurlencode((string)$cardOrderId) . '/status', ['status' => 'cancelled'], csrf_headers());
     check($cardOrderCancel['status'] === 409 && ($cardOrderCancel['json']['error'] ?? '') === 'payment_reconciliation_required', 'paid card order cannot be cancelled before refund reconciliation');
     $cardOrderEdit = api('PATCH', '/api/v1/orders/' . rawurlencode((string)$cardOrderId), ['payment' => 'card'], csrf_headers());
-    check($cardOrderEdit['status'] === 409 && ($cardOrderEdit['json']['error'] ?? '') === 'card_order_edit_requires_reconciliation', 'approved card order cannot be edited before payment reconciliation');
+    check($cardOrderEdit['status'] === 409 && ($cardOrderEdit['json']['error'] ?? '') === 'payment_reconciliation_required', 'approved card order cannot be edited before payment reconciliation');
     $paymentAttached = api('POST', '/api/v1/terminal-payments/' . rawurlencode($orderPaymentId) . '/attach-order', ['orderId' => $cardOrderId], csrf_headers());
     check($paymentAttached['status'] === 200 && (int)($paymentAttached['json']['order_id'] ?? 0) === $cardOrderId, 'approved payment attaches only to matching card order');
     $paymentLinkedRead = api('GET', '/api/v1/terminal-payments/' . rawurlencode($orderPaymentId));
