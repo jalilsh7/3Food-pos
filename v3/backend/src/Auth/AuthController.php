@@ -8,10 +8,13 @@ use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Http\Request;
 use PersiaCoder\PosV3\Http\Response;
 use PersiaCoder\PosV3\Infrastructure\Database\SessionRepository;
+use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
+use PersiaCoder\PosV3\Security\AuditLogService;
 
 final readonly class AuthController
 {
     private SessionRepository $sessions;
+    private AuditLogService $audit;
 
     public function __construct(
         PDO $connection,
@@ -19,6 +22,7 @@ final readonly class AuthController
         private bool $secureCookies = true,
     ) {
         $this->sessions = new SessionRepository($connection);
+        $this->audit = new AuditLogService(new AuditLogRepository($connection));
     }
 
     public function login(Request $request): Response
@@ -93,6 +97,18 @@ final readonly class AuthController
         if ($sessionToken !== null && preg_match('/^[A-Za-z0-9_-]{43}$/', $sessionToken)) {
             $this->sessions->revokeByTokenHash(hash('sha256', $sessionToken));
         }
+
+        $this->audit->record(
+            $principal->userId,
+            'auth.logout',
+            'user',
+            $principal->userPublicId,
+            null,
+            ['session_id' => $principal->sessionId],
+            null,
+            $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
+        );
 
         return Response::success(['logged_out' => true])->withHeader('Set-Cookie', [
             SessionCookie::clear($this->secureCookies),
