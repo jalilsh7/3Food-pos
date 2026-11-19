@@ -153,6 +153,16 @@ try {
         [$sessionMiddleware, $csrfMiddleware, $originMiddleware],
     );
 
+    $router->add('GET', '/api/v1/access/users',
+        static fn (Request $request): Response => $getUserController()->listBusinessUsers($request),
+        [$sessionMiddleware, $makePermissionMiddleware('users.read', false)],
+    );
+
+    $router->add('GET', '/api/v1/access/branches/users',
+        static fn (Request $request): Response => $getUserController()->listBranchUsers($request),
+        [$sessionMiddleware, $makePermissionMiddleware('users.read', true)],
+    );
+
     $router->add('POST', '/api/v1/access/users',
         static fn (Request $request): Response => $getUserController()->createBusinessUser($request),
         [$sessionMiddleware, $makePermissionMiddleware('users.manage', false), $csrfMiddleware, $originMiddleware],
