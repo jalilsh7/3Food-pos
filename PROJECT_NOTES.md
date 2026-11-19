@@ -1033,3 +1033,9 @@
 - DTO `AuthenticatedSession` خروجی service را نگه می‌دارد؛ هنوز هیچ login/logout HTTP route یا cookie صادر نمی‌شود.
 - workflow check database باید وجود migrationها و config جدید را بررسی کند؛ تا اجرای واقعی runner/DB هیچ PASS اجرایی اعلام نمی‌شود.
 - محدودیت‌های باز: cookie flags، CSRF verification middleware، session resolution middleware، logout، reset password، audit و RBAC scope.
+
+
+### اصلاح تکمیلی LoginAttemptLimiter
+- limiter به دو bucket مستقل ارتقا یافت: HMAC حساب و HMAC IP؛ حدها به‌ترتیب ۵ و ۳۰ تلاش ناموفق در ۱۵ دقیقه و block پانزده‌دقیقه‌ای است.
+- پس از ورود موفق فقط bucket حساب پاک می‌شود تا سابقه تلاش ناموفق IP برای مقابله با password spraying حفظ شود.
+- database check ایستا وجود migration 002، identifier hash و blocked_until را بررسی می‌کند.
