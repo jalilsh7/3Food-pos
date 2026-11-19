@@ -38,6 +38,36 @@ final readonly class UserRepository
         return is_array($user) && (int) $user['is_active'] === 1 ? $user : null;
     }
 
+    public function usernameExists(string $username): bool
+    {
+        $statement = $this->connection->prepare(
+            'SELECT 1 FROM app_users WHERE username = :username LIMIT 1'
+        );
+        $statement->execute(['username' => $username]);
+        return $statement->fetchColumn() !== false;
+    }
+
+    public function createUser(
+        string $publicId,
+        string $username,
+        string $passwordHash,
+        string $displayName,
+    ): int {
+        $statement = $this->connection->prepare(
+            'INSERT INTO app_users
+                (public_id, username, password_hash, display_name, is_active, must_change_password)
+             VALUES
+                (:public_id, :username, :password_hash, :display_name, 1, 1)'
+        );
+        $statement->execute([
+            'public_id' => $publicId,
+            'username' => $username,
+            'password_hash' => $passwordHash,
+            'display_name' => $displayName,
+        ]);
+        return (int) $this->connection->lastInsertId();
+    }
+
     public function updatePasswordHash(int $userId, string $passwordHash): void
     {
         $statement = $this->connection->prepare(
