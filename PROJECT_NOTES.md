@@ -1012,3 +1012,13 @@
 
 ### BE-01C follow-up
 - `v3/backend/public/index.php` اصلاح شد تا خطای bootstrap را با JSON 503 و headerهای امنیتی پایه، بدون وابستگی به autoload کلاس Response برگرداند. این مسیر برای PHP ناسازگار یا config ناقص نیز از fatal error ثانویه جلوگیری می‌کند.
+
+
+## BE-01D1 — زیرساخت ذخیره‌سازی نشست (2026-11-20)
+- پیش از پیاده‌سازی auth، schema موجود بررسی شد: `app_users` دارای `password_hash`، `is_active`، `must_change_password` و `session_version` است؛ نقش‌ها و permissionها نیز موجودند، اما جدول نشست کاربر در baseline وجود نداشت.
+- migration جدید `database/v3/migrations/001_create-user-sessions.sql` فقط یک جدول افزایشی `app_user_sessions` می‌سازد؛ baseline تغییر نکرده و migration روی DB اجرا نشده است.
+- فیلدهای session: user_id، token_hash، csrf_token_hash، session_version، ip_address، user_agent_hash، created_at، last_seen_at، expires_at و revoked_at؛ FK با ON DELETE RESTRICT و unique token hash.
+- `v3/backend/src/Infrastructure/Database/SessionRepository.php`: create، findActiveByTokenHash، revokeByTokenHash و revokeAllForUser با prepared statements.
+- `scripts/check-v3-backend-database.php` اکنون وجود table/FK/unique/expiry و عدم وجود DDL مخرب را به‌صورت ایستا بررسی می‌کند؛ این تست هنوز توسط runner اجرا نشده است.
+- migration guide نیز با توضیح فایل 001 به‌روزرسانی شد.
+- احراز هویت هنوز endpoint ندارد؛ login throttling، password verification، token issuance، cookie security و CSRF enforcement باید قبل از expose کردن login route تکمیل شوند.
