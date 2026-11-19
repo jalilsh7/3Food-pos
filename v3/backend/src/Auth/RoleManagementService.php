@@ -188,7 +188,7 @@ final readonly class RoleManagementService
                     $requestId,
                     $ipAddress,
                     $scope->businessId,
-                    $scope->branchId,
+                    null,
                 );
             }
             return $removed;
