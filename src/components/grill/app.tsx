@@ -1849,11 +1849,11 @@ function AppearanceSettingsPanel(){
  <div><h3 className="font-semibold">طراحی ظاهری سراسری</h3><p className="mt-1 text-xs text-muted">تغییرات زنده پیش‌نمایش می‌شوند؛ پس از ذخیره برای همه کاربران و دستگاه‌ها اعمال خواهند شد.</p></div>
  <div>
   <p className="mb-2 text-sm font-semibold">ترکیب‌رنگ‌های آماده</p>
-  <p className="mb-3 text-xs text-muted">یکی از پنج پالت هماهنگ را انتخاب کنید؛ حالت روشن یا تیره جداگانه قابل تنظیم است.</p>
+  <p className="mb-3 text-xs text-muted">پالت‌های کلاسیک و مدرن آماده؛ سه ترکیب مدرن به‌صورت خودکار روی حالت روشن قرار می‌گیرند.</p>
   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
    {APPEARANCE_PRESETS.map(preset=>{
-    const selected=settings.primary.toLowerCase()===preset.primary.toLowerCase()&&settings.secondary.toLowerCase()===preset.secondary.toLowerCase();
-    return <button key={preset.id} type="button" aria-pressed={selected} onClick={()=>update({primary:preset.primary,secondary:preset.secondary})} className={`flex min-w-0 items-center gap-3 rounded-2xl border p-3 text-right transition ${selected?"border-chili bg-chili/5 ring-2 ring-chili/15":"border-line bg-surface hover:border-leaf"}`}>
+    const selected=settings.primary.toLowerCase()===preset.primary.toLowerCase()&&settings.secondary.toLowerCase()===preset.secondary.toLowerCase()&&(!("mode" in preset)||settings.mode===preset.mode);
+    return <button key={preset.id} type="button" aria-pressed={selected} onClick={()=>update({primary:preset.primary,secondary:preset.secondary,...("mode" in preset?{mode:preset.mode}:{})})} className={`flex min-w-0 items-center gap-3 rounded-2xl border p-3 text-right transition ${selected?"border-chili bg-chili/5 ring-2 ring-chili/15":"border-line bg-surface hover:border-leaf"}`}>
      <span className="flex shrink-0 gap-1.5"><span className="h-9 w-9 rounded-xl border border-black/10" style={{backgroundColor:preset.primary}}/><span className="mt-1 h-7 w-7 rounded-lg border border-black/10" style={{backgroundColor:preset.secondary}}/></span>
      <span className="min-w-0 flex-1"><span className="block text-sm font-bold">{preset.name}</span><span className="mt-1 block text-[11px] leading-5 text-muted">{preset.description}</span></span>
      {selected?<span className="shrink-0 text-xs font-bold text-leaf">انتخاب‌شده</span>:null}
