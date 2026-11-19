@@ -194,4 +194,79 @@ final readonly class CatalogRepository
         return ['id'=>(string)$row['public_id'],'name'=>(string)$row['name'],'sku'=>$row['sku']===null?null:(string)$row['sku'],'product_type'=>(string)$row['product_type'],'base_price_amount'=>(int)$row['base_price_amount'],'tax_rate_bps'=>(int)$row['tax_rate_bps'],'is_active'=>(bool)$row['is_active'],'variants'=>$variants,'option_groups'=>array_values($groups)];
     }
 
+
+    public function findCategoryDetails(int $businessId, string $publicId): ?array
+    {
+        $s = $this->connection->prepare(
+            'SELECT id, public_id, parent_id, name, sort_order, is_active
+             FROM pos_categories WHERE business_id = :business_id AND public_id = :public_id LIMIT 1'
+        );
+        $s->execute(['business_id' => $businessId, 'public_id' => $publicId]);
+        $row = $s->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function updateCategory(int $businessId, int $categoryId, string $name, ?int $parentId, int $sortOrder, bool $isActive): void
+    {
+        $s = $this->connection->prepare(
+            'UPDATE pos_categories
+             SET name = :name, parent_id = :parent_id, sort_order = :sort_order, is_active = :is_active
+             WHERE business_id = :business_id AND id = :id'
+        );
+        $s->execute([
+            'name' => $name, 'parent_id' => $parentId, 'sort_order' => $sortOrder,
+            'is_active' => $isActive ? 1 : 0, 'business_id' => $businessId, 'id' => $categoryId,
+        ]);
+    }
+
+    public function findProductDetails(int $businessId, string $publicId): ?array
+    {
+        $s = $this->connection->prepare(
+            'SELECT p.id, p.public_id, p.category_id, c.public_id AS category_public_id,
+                    p.name, p.sku, p.product_type, p.base_price_amount, p.tax_rate_bps, p.is_active, p.archived_at
+             FROM pos_products p
+             LEFT JOIN pos_categories c ON c.id = p.category_id AND c.business_id = p.business_id
+             WHERE p.business_id = :business_id AND p.public_id = :public_id AND p.archived_at IS NULL
+             LIMIT 1'
+        );
+        $s->execute(['business_id' => $businessId, 'public_id' => $publicId]);
+        $row = $s->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function findProductSkuConflict(string $sku, int $exceptProductId): bool
+    {
+        $s = $this->connection->prepare(
+            'SELECT 1 FROM pos_products WHERE sku = :sku AND id <> :except_id LIMIT 1'
+        );
+        $s->execute(['sku' => $sku, 'except_id' => $exceptProductId]);
+        return $s->fetchColumn() !== false;
+    }
+
+    public function updateProduct(
+        int $businessId, int $productId, ?int $categoryId, string $name, ?string $sku,
+        string $productType, int $basePriceAmount, int $taxRateBps, bool $isActive,
+    ): void {
+        $s = $this->connection->prepare(
+            'UPDATE pos_products
+             SET category_id = :category_id, name = :name, sku = :sku, product_type = :product_type,
+                 base_price_amount = :base_price_amount, tax_rate_bps = :tax_rate_bps, is_active = :is_active
+             WHERE business_id = :business_id AND id = :id AND archived_at IS NULL'
+        );
+        $s->execute([
+            'category_id' => $categoryId, 'name' => $name, 'sku' => $sku, 'product_type' => $productType,
+            'base_price_amount' => $basePriceAmount, 'tax_rate_bps' => $taxRateBps,
+            'is_active' => $isActive ? 1 : 0, 'business_id' => $businessId, 'id' => $productId,
+        ]);
+    }
+
+    public function archiveProduct(int $businessId, int $productId): void
+    {
+        $s = $this->connection->prepare(
+            'UPDATE pos_products SET is_active = 0, archived_at = CURRENT_TIMESTAMP(3)
+             WHERE business_id = :business_id AND id = :id AND archived_at IS NULL'
+        );
+        $s->execute(['business_id' => $businessId, 'id' => $productId]);
+    }
+
 }
