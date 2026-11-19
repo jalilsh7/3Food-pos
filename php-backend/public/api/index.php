@@ -296,7 +296,7 @@ if ($method === 'GET' && $path === '/preflight') {
     $requiredTables = [
         'app_users', 'app_login_attempts', 'app_audit_logs', 'app_install_state', 'app_appearance_settings',
         'pos_records', 'pos_counters', 'pos_orders', 'pos_order_effects',
-        'pos_discount_redemptions',
+        'pos_discount_redemptions', 'app_terminal_agents', 'pos_payment_terminals', 'pos_terminal_payments',
     ];
     $tableStmt = $pdo->prepare(
         'SELECT COUNT(*) FROM information_schema.TABLES
