@@ -196,3 +196,16 @@ v3/backend/
 - این مرحله endpointهای auth را ثبت می‌کند، اما RBAC هنوز روی routeها اعمال نشده و هیچ route عملیاتی کسب‌وکار وجود ندارد. تا تکمیل RBAC و scope، از این endpointها برای اتصال UI عملیاتی فراتر از login/session استفاده نشود.
 - تست‌های اجرایی عمداً به انتهای پروژه موکول شده‌اند؛ هیچ ادعای lint، CI، DB migration یا integration PASS در این مرحله وجود ندارد.
 
+
+## 14. BE-01E1 — RBAC و محدوده کسب‌وکار/شعبه
+
+- migration افزایشی 003_create-business-scope-and-rbac.sql جداول pos_businesses، pos_branches، app_user_business_roles و app_user_branch_roles را تعریف می‌کند؛ baseline تغییر نمی‌کند.
+- نقش‌های سراسری موجود فقط برای مالک نصب استفاده می‌شوند؛ wildcard فقط برای نقش سیستمی owner seed می‌شود. سایر نقش‌ها در سطح کسب‌وکار یا شعبه انتساب می‌گیرند.
+- permission codeها مستقل و صریح‌اند؛ نقش‌های پایه manager، cashier، kitchen، inventory، accountant و waiter در migration تعریف می‌شوند.
+- PermissionRepository فقط permission فعال را از role فعال و mapping صریح می‌خواند؛ PermissionService به‌صورت deny-by-default عمل می‌کند.
+- BusinessScopeResolver شناسه عمومی UUID کسب‌وکار و شعبه را از headerهای X-Business-ID و X-Branch-ID resolve می‌کند؛ branch باید متعلق به business انتخابی و فعال باشد.
+- PermissionMiddleware ابتدا principal نشست را لازم دارد، scope را resolve می‌کند، permission را کنترل می‌کند و BusinessScope معتبر را به Request attribute اضافه می‌کند.
+- مجوز business-level از roleهای همان business و مجوز branch-level از roleهای همان branch یا business ارث می‌رسد؛ branch role به business-wide scope ارتقا پیدا نمی‌کند.
+- تا زمان ایجاد business و branch در onboarding، route عملیاتی scoped قابل استفاده نیست. migration هنوز اجرا نشده و role assignment endpoint هنوز اضافه نشده است.
+- هر route عملیاتی آینده باید زنجیره SessionMiddleware → PermissionMiddleware داشته باشد؛ برای commandهای تغییردهنده state، CsrfMiddleware و idempotency نیز لازم‌اند.
+
