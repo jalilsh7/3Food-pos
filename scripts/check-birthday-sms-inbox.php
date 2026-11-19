@@ -12,7 +12,7 @@ foreach($cases as $case){
     $rows=threefood_parse_payamak_inbox_response($case['raw']);
     if(count($rows)!==$case['count']) throw new RuntimeException('Failed: '.$case['name']);
 }
-foreach(['+989123456789'=>'09123456789','00989123456789'=>'09123456789','۰۹۱۲۳۴۵۶۷۸۹'=>'09123456789'] as $input=>$expected){
+foreach(['+989123456789'=>'09123456789','00989123456789'=>'09123456789','۰۹۱۲۳۴۵۶۷۸۹'=>'09123456789','+98 912 345 6789'=>'09123456789'] as $input=>$expected){
     if(threefood_normalize_iran_mobile($input)!==$expected) throw new RuntimeException('Phone normalization failed');
 }
 foreach(['{}','{"Value":"not-json"}','{"Value":[{"foo":"bar"}]}'] as $raw){
