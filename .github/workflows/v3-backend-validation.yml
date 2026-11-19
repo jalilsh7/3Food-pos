@@ -33,3 +33,5 @@ jobs:
         run: php scripts/check-v3-backend-bootstrap.php
       - name: HTTP kernel checks
         run: php scripts/check-v3-backend-http.php
+      - name: Database configuration checks
+        run: php scripts/check-v3-backend-database.php
