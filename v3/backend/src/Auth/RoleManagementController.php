@@ -16,6 +16,29 @@ final readonly class RoleManagementController
         return Response::success(['roles' => $this->roles->listRoles()]);
     }
 
+    public function permissions(Request $request): Response
+    {
+        return Response::success(['permissions' => $this->roles->listPermissions()]);
+    }
+
+    public function create(Request $request): Response
+    {
+        [$code, $name, $permissions] = $this->rolePayload($request, true);
+        $principal = $this->principal($request);
+        $scope = $this->scope($request);
+        $this->roles->createCustomRole($principal, $scope, $code, $name, $permissions);
+        return Response::success(['created' => true, 'code' => $code], [], 201);
+    }
+
+    public function update(Request $request, array $parameters): Response
+    {
+        [, $name, $permissions] = $this->rolePayload($request, false);
+        $principal = $this->principal($request);
+        $scope = $this->scope($request);
+        $this->roles->updateCustomRole($principal, $scope, $parameters['roleCode'], $name, $permissions);
+        return Response::success(['updated' => true, 'code' => $parameters['roleCode']]);
+    }
+
     public function assignBusiness(Request $request, array $parameters): Response
     {
         $principal = $this->principal($request);
@@ -56,6 +79,36 @@ final readonly class RoleManagementController
         return Response::success(['removed' => $removed]);
     }
 
+    private function rolePayload(Request $request, bool $includeCode): array
+    {
+        $contentType = strtolower(trim($request->header('content-type') ?? ''));
+        if (!preg_match('/^application\/json(?:\s*;|$)/', $contentType)) {
+            throw new HttpException(415, 'unsupported_media_type', 'Content-Type must be application/json.');
+        }
+        $payload = $request->json();
+        $code = $payload['code'] ?? '';
+        $name = $payload['name'] ?? null;
+        $permissions = $payload['permissions'] ?? null;
+        if (($includeCode && !is_string($code)) || !is_string($name) || !is_array($permissions)) {
+            throw new HttpException(422, 'invalid_role_payload', 'Role code, name and permissions are required.');
+        }
+        return [$code, $name, $permissions];
+    }
+
+    private function roleCode(Request $request): string
+    {
+        $contentType = strtolower(trim($request->header('content-type') ?? ''));
+        if (!preg_match('/^application\/json(?:\s*;|$)/', $contentType)) {
+            throw new HttpException(415, 'unsupported_media_type', 'Content-Type must be application/json.');
+        }
+        $payload = $request->json();
+        $code = $payload['role_code'] ?? null;
+        if (!is_string($code)) {
+            throw new HttpException(422, 'role_code_required', 'A role_code string is required.');
+        }
+        return $code;
+    }
+
     private function principal(Request $request): AuthenticatedPrincipal
     {
         $principal = $request->attribute('principal');
@@ -72,19 +125,5 @@ final readonly class RoleManagementController
             throw new HttpException(400, 'business_context_required', 'A valid business scope is required.');
         }
         return $scope;
-    }
-
-    private function roleCode(Request $request): string
-    {
-        $contentType = strtolower(trim($request->header('content-type') ?? ''));
-        if (!preg_match('/^application\/json(?:\s*;|$)/', $contentType)) {
-            throw new HttpException(415, 'unsupported_media_type', 'Content-Type must be application/json.');
-        }
-        $payload = $request->json();
-        $code = $payload['role_code'] ?? null;
-        if (!is_string($code)) {
-            throw new HttpException(422, 'role_code_required', 'A role_code string is required.');
-        }
-        return $code;
     }
 }
