@@ -183,3 +183,14 @@ For each work package:
 
 ---
 Last updated: 2026-11-20. Treat this as a living handoff document; update it after every substantial architecture or workflow change.
+
+ 
+## 12. Inventory read API package — 2026-11-20
+- Added `GET /api/v1/inventory/balances` and `GET /api/v1/inventory/ledger`.
+- Both routes require an authenticated session, `inventory.read` permission and a resolved branch context.
+- SQL enforces `business_id` and `branch_id`; document and document-line joins in the ledger query also include both scope keys.
+- Balance response exposes on-hand, reserved and available quantities; it deliberately omits average cost/valuation from the general inventory read permission.
+- Ledger response is newest-first and uses a descending numeric `before_id` cursor; public payload omits internal ledger row IDs.
+- Regression script: `scripts/check-v3-backend-inventory-read.php`, wired into `.github/workflows/v3-backend-validation.yml`. The script asserts query scope predicates and bindings; it is not a substitute for MySQL/MariaDB integration tests.
+- Latest inventory package commit before docs: `1b1ae0a83269680a5f69eb15dd473efef858e515`; docs commits follow. Re-fetch latest branch and verify CI.
+- Next vertical slice: transactional stock documents (purchase receipt, transfer, adjustment, waste, return), append-only ledger posting, atomic balance updates, negative-stock guard, idempotency and audit. Do not mutate balances outside ledger-backed posting.
