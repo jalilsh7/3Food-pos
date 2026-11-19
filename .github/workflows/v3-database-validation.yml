@@ -50,8 +50,13 @@ jobs:
           php-version: '8.2'
           extensions: pdo, pdo_mysql
 
-      - name: Verify PHP test syntax
-        run: php -l scripts/check-v3-database-schema.php
+      - name: Verify PHP tooling syntax
+        run: |
+          php -l database/v3/bin/bootstrap.php
+          php -l database/v3/bin/install.php
+          php -l database/v3/bin/migrate.php
+          php -l scripts/check-v3-database-schema.php
+          php -l scripts/check-v3-install.php
 
       - name: Install isolated V3 baseline into disposable database
         env:
@@ -66,3 +71,23 @@ jobs:
           MYSQL_TEST_USERNAME: root
           MYSQL_TEST_PASSWORD: ${{ matrix.engine.root_password }}
         run: php scripts/check-v3-database-schema.php
+
+      - name: Exercise guarded installer and checksum migration runner
+        env:
+          POS_V3_DB_HOST: 127.0.0.1
+          POS_V3_DB_PORT: 3306
+          POS_V3_DB_NAME: pos_v3_install_ci
+          POS_V3_DB_USER: root
+          POS_V3_DB_PASSWORD: ${{ matrix.engine.root_password }}
+          POS_V3_ADMIN_USERNAME: ci-owner
+          POS_V3_ADMIN_PASSWORD: ci-only-password-12345
+          POS_V3_ADMIN_NAME: CI Owner
+        run: |
+          MYSQL_PWD="${{ matrix.engine.root_password }}" mysql --host=127.0.0.1 --user=root -e "CREATE DATABASE pos_v3_install_ci CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+          php database/v3/bin/install.php
+          php scripts/check-v3-install.php
+          printf "CREATE TABLE v3_ci_migration_probe (id INT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=InnoDB;" > database/v3/migrations/001_ci-smoke.sql
+          php database/v3/bin/migrate.php
+          php database/v3/bin/migrate.php
+          php -r '$p = new PDO("mysql:host=127.0.0.1;dbname=pos_v3_install_ci;charset=utf8mb4", "root", getenv("POS_V3_DB_PASSWORD"), [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]); if (!$p->query("SHOW TABLES LIKE \'v3_ci_migration_probe\'")->fetchColumn()) { throw new RuntimeException("Migration probe table missing"); } $n = (int) $p->query("SELECT COUNT(*) FROM app_schema_migrations WHERE version = \'001_ci-smoke\'")->fetchColumn(); if ($n !== 1) { throw new RuntimeException("Migration was not recorded exactly once"); } echo "Migration idempotency check passed.\\n";'
+          rm -f database/v3/migrations/001_ci-smoke.sql
