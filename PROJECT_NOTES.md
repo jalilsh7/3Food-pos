@@ -1155,3 +1155,18 @@
 - همه commandها از IdempotencyService و AuditLogService استفاده می‌کنند و در مسیرهای route با session، `catalog.manage`، CSRF و Origin محافظت می‌شوند.
 - دسته‌بندی با `is_active=false` غیرفعال می‌شود؛ محصول علاوه بر غیرفعال‌شدن، `archived_at` می‌گیرد. ارجاعات سفارش تاریخی حفظ می‌شوند.
 - migration لازم نبود؛ schema موجود این فیلدها را دارد. هیچ migration، test، lint یا build اجرا نشده است.
+
+
+## BE-02A — هسته سفارش (2026-11-20)
+- migration جدید 008_scope-orders-and-service-areas.sql ایجاد شد؛ تمام جداول سفارش/اقلام/افزودنی/وضعیت/تحویل/آماده‌سازی و میز/سالن با business_id و branch_id و FKهای مرکب scoped شدند.
+- pos_orders.order_number از unique سراسری به unique در محدوده business/branch تغییر کرد؛ pos_sequences با کلید order:{businessId}:{branchId} شماره مستقل تولید می‌کند.
+- OrderRepository.php ایجاد شد: قیمت/variant/option را از DB می‌خواند، customer و open table session را scope می‌کند، order/item/option/status event می‌نویسد و فهرست branch را می‌دهد.
+- OrderService.php ایجاد شد: قیمت frontend authoritative نیست؛ قیمت پایه/variant/option delta از DB، quantity با سه رقم اعشار و integer math، tax بر اساس basis points و snapshot آیتم محاسبه می‌شود.
+- option group required/min/max/single/multiple و variant اجباری در صورت وجود variant فعال بررسی می‌شوند.
+- ایجاد سفارش در transaction و IdempotencyService انجام می‌شود؛ event اولیه draft و audit با business/branch ثبت می‌شود.
+- endpointها: GET/POST /api/v1/orders، PATCH /api/v1/orders/{orderPublicId}/status و PATCH /api/v1/orders/{orderPublicId}/kitchen-status.
+- تغییر وضعیت با state machine محدود شده؛ لغو/رد نیازمند orders.cancel و انتقال آشپزخانه نیازمند kitchen.update است؛ وضعیت پرداخت مستقل باقی می‌ماند.
+- ارز اولیه به IRT محدود شد تا با قید سفارش هماهنگ باشد.
+- payment، fulfillment کامل، stock/recipe consumption، kitchen preparation item و pagination cursor هنوز پیاده نشده‌اند.
+- هیچ تست یا migration اجرا نشده است.
+
