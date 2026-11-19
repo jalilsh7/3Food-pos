@@ -168,10 +168,10 @@ final readonly class IdempotencyService
         if (!is_string($json)) {
             throw new \RuntimeException('The stored idempotency response failed authentication.');
         }
-        $body = json_decode($json, true, 64, JSON_THROW_ON_ERROR);
-        if (!is_array($body)) {
+        $body = json_decode($json, false, 64, JSON_THROW_ON_ERROR);
+        if (!$body instanceof \stdClass) {
             throw new \RuntimeException('The stored idempotency response has an invalid shape.');
         }
-        return $body;
+        return get_object_vars($body);
     }
 }
