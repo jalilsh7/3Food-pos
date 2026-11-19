@@ -425,7 +425,7 @@ if ($method==='POST' && $path==='/terminal-payments') {
             $pdo->rollBack();json_response(['ok'=>false,'error'=>'terminal_agent_offline','message'=>'برنامه اتصال کارتخوان روی کامپیوتر صندوق آنلاین نیست'],409);
         }
         $pdo->prepare("UPDATE pos_terminal_payments SET status='unknown',completed_at=UTC_TIMESTAMP() WHERE terminal_id=? AND status='processing' AND requested_at < (UTC_TIMESTAMP() - INTERVAL 120 SECOND)")->execute([$terminalId]);
-        $unresolved=$pdo->prepare("SELECT id,status FROM pos_terminal_payments WHERE terminal_id=? AND status IN ('processing','unknown') ORDER BY requested_at DESC LIMIT 1 FOR UPDATE");
+        $unresolved=$pdo->prepare("SELECT id,status FROM pos_terminal_payments WHERE terminal_id=? AND (status IN ('processing','unknown') OR (status='approved' AND order_id IS NULL)) ORDER BY requested_at DESC LIMIT 1 FOR UPDATE");
         $unresolved->execute([$terminalId]);$unresolvedPayment=$unresolved->fetch();
         if(is_array($unresolvedPayment)){
             $pdo->rollBack();json_response(['ok'=>false,'error'=>'terminal_payment_reconciliation_required','message'=>'تراکنش قبلی نتیجه قطعی ندارد؛ پیش از پرداخت جدید باید وضعیت آن از بانک یا کارتخوان استعلام شود','payment_id'=>$unresolvedPayment['id'],'status'=>$unresolvedPayment['status']],409);
@@ -472,6 +472,20 @@ if (preg_match('#^/terminal-payments/([a-f0-9-]{36})/attach-order$#iD',$path,$m)
         error_log('[3Food POS] Terminal payment linking failed: '.$e->getMessage());
         json_response(['ok'=>false,'error'=>'terminal_payment_link_failed','message'=>'اتصال تراکنش به سفارش انجام نشد'],500);
     }
+}
+
+
+if ($method==='GET' && $path==='/terminal-payments/pending') {
+    $actor=require_role($pdo,['manager','cashier']);
+    if($actor['role']==='manager'){
+        $stmt=$pdo->query("SELECT p.id,p.terminal_id,p.amount,p.currency,p.status,p.requested_at,p.completed_at,t.name AS terminal_name FROM pos_terminal_payments p JOIN pos_payment_terminals t ON t.id=p.terminal_id WHERE p.status IN ('queued','processing','unknown') OR (p.status='approved' AND p.order_id IS NULL) ORDER BY p.requested_at DESC LIMIT 20");
+    }else{
+        $stmt=$pdo->prepare("SELECT p.id,p.terminal_id,p.amount,p.currency,p.status,p.requested_at,p.completed_at,t.name AS terminal_name FROM pos_terminal_payments p JOIN pos_payment_terminals t ON t.id=p.terminal_id WHERE p.created_by=? AND (p.status IN ('queued','processing','unknown') OR (p.status='approved' AND p.order_id IS NULL)) ORDER BY p.requested_at DESC LIMIT 10");
+        $stmt->execute([(int)$actor['id']]);
+    }
+    $rows=$stmt->fetchAll();
+    foreach($rows as &$row)$row['amount']=(int)$row['amount'];unset($row);
+    json_response(['ok'=>true,'items'=>$rows]);
 }
 
 if (preg_match('#^/terminal-payments/([a-f0-9-]{36})$#iD',$path,$m) && $method==='GET') {
