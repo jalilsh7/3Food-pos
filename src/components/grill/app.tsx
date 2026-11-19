@@ -697,8 +697,7 @@ function PosScreen() {
             <p className="mt-1">{stockShortages.map((item) => `${item.name}: موجودی ${item.stock.toLocaleString("fa-IR")}، نیاز سفارش ${item.required.toLocaleString("fa-IR")} ${item.unit}`).join(" · ")}</p>
             <p className="mt-1">ثبت سفارش متوقف نمی‌شود و با تأیید شما ادامه پیدا می‌کند.</p>
             <Btn tone="ghost" onClick={muteStockWarningForHour}>خاموش‌کردن هشدار برای یک ساعت</Btn>
-          </div>
-        ) : null}
+          </div>        ) : null}
         {cart.length === 0 ? <Empty text="آیتمی انتخاب نشده" /> : null}
         <ul className="space-y-2">
           {cart.map((l) => (
@@ -1397,8 +1396,7 @@ function createXlsxBlob(rows: unknown[][]): Blob {
   endView.setUint16(8, files.length, true);
   endView.setUint16(10, files.length, true);
   endView.setUint32(12, centralSize, true);
-  endView.setUint32(16, offset, true);
-  endView.setUint16(20, 0, true);
+  endView.setUint32(16, offset, true);  endView.setUint16(20, 0, true);
   const blobParts: BlobPart[] = [];
   for (const part of [...localParts, ...centralParts, end]) {
     const copy = new Uint8Array(part.byteLength);
@@ -1482,16 +1480,40 @@ function ExpensesScreen(){
   const [note,setNote]=useState("");
   const [newCategory,setNewCategory]=useState("");
   const [filter,setFilter]=useState("all");
+  const [reportFrom,setReportFrom]=useState(tehranDate(Date.now()-29*86400000));
+  const [reportTo,setReportTo]=useState(tehranDate());
   useEffect(()=>{let active=true;void phpApi.listRecords<{id:string;name:string;active?:boolean}>("expense_categories").then(result=>{if(active){setCategories(result.items);setCategory(result.items.find(item=>item.active!==false)?.name??"");}}).catch(()=>{if(active)setCategories([]);});return()=>{active=false;};},[]);
   const visible=expenses.filter(item=>(filter==="all"||item.category===filter)).sort((a,b)=>b.date.localeCompare(a.date));
-  const total=visible.reduce((sum,item)=>sum+item.amount,0);
+  const reportExpenses=expenses.filter(item=>item.date>=reportFrom&&item.date<=reportTo);
+  const reportTotal=reportExpenses.reduce((sum,item)=>sum+item.amount,0);
+  const reportByCategory=[...reportExpenses.reduce((map,item)=>{map.set(item.category,(map.get(item.category)??0)+item.amount);return map;},new Map<string,number>()).entries()].sort((a,b)=>b[1]-a[1]);
   async function add(event:FormEvent<HTMLFormElement>){event.preventDefault();if(!title.trim()||amount<=0||!category)return;const item={id:uid("ex"),title:title.trim(),amount,category,date,note:note.trim(),createdAt:new Date().toISOString()};const ok=await saveCentralRecord("expenses",item,()=>addExpense(item));if(ok){setTitle("");setAmount(0);setNote("");setDate(tehranDate());}}
   async function addCat(event:FormEvent<HTMLFormElement>){event.preventDefault();const name=newCategory.trim();if(!name||categories.some(item=>item.name===name))return;const item={id:uid("expense_cat"),name,active:true};if(await saveCentralRecord("expense_categories",item,()=>setCategories(old=>[...old,item]))){setNewCategory("");setCategory(name);}}
   async function edit(item:typeof expenses[number]){const nextTitle=window.prompt("شرح هزینه",item.title);if(nextTitle===null||!nextTitle.trim())return;const raw=window.prompt("مبلغ (تومان)",String(item.amount));if(raw===null)return;const nextAmount=Number(raw);if(!Number.isFinite(nextAmount)||nextAmount<=0){window.alert("مبلغ معتبر نیست.");return;}const updated={...item,title:nextTitle.trim(),amount:nextAmount};await saveCentralRecord("expenses",updated,()=>saveExpense(updated));}
   async function remove(item:typeof expenses[number]){if(!window.confirm("هزینه «"+item.title+"» حذف شود؟"))return;await deleteCentralRecord("expenses",item.id,()=>removeExpense(item.id));}
-  return <div className="space-y-4"><PageHeading title="مدیریت هزینه‌ها" description="ثبت مستقل هزینه‌های جاری، دسته‌بندی و پیگیری مخارج کسب‌وکار."/><div className="grid gap-3 sm:grid-cols-3"><Card><p className="text-xs text-muted">مجموع هزینه‌های نمایش‌داده‌شده</p><p className="text-xl font-bold">{money(total)}</p></Card><Card><p className="text-xs text-muted">تعداد هزینه‌ها</p><p className="text-xl font-bold">{visible.length.toLocaleString("fa-IR")}</p></Card><Card><p className="text-xs text-muted">تعداد دسته‌ها</p><p className="text-xl font-bold">{categories.length.toLocaleString("fa-IR")}</p></Card></div><Card><h3 className="mb-3 font-semibold">ثبت هزینه جدید</h3><form className="grid gap-2 sm:grid-cols-2" onSubmit={e=>void add(e)}><Field label="عنوان هزینه"><input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} required/></Field><Field label="مبلغ (تومان)"><input className={inputCls} type="number" min="1" value={amount||""} onChange={e=>setAmount(Number(e.target.value))} required/></Field><Field label="تاریخ"><input className={inputCls} type="date" value={date} onChange={e=>setDate(e.target.value)} required/></Field><Field label="دسته‌بندی"><select className={inputCls} value={category} onChange={e=>setCategory(e.target.value)} required>{categories.filter(item=>item.active!==false).map(item=><option key={item.id} value={item.name}>{item.name}</option>)}</select></Field><Field label="توضیحات"><input className={inputCls} value={note} onChange={e=>setNote(e.target.value)}/></Field><div className="flex items-end"><Btn type="submit">ثبت هزینه</Btn></div></form></Card><Card><h3 className="mb-2 font-semibold">مدیریت دسته‌بندی‌ها</h3><form className="flex gap-2" onSubmit={e=>void addCat(e)}><input className={inputCls} value={newCategory} onChange={e=>setNewCategory(e.target.value)} placeholder="نام دسته جدید"/><Btn type="submit">افزودن</Btn></form><div className="mt-3 flex flex-wrap gap-2">{categories.map(item=><span key={item.id} className="rounded-lg border border-line px-3 py-2 text-sm">{item.name}</span>)}</div></Card><Card><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">سوابق هزینه‌ها</h3><select className={inputCls+" max-w-64"} value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">همه دسته‌ها</option>{categories.map(item=><option key={item.id} value={item.name}>{item.name}</option>)}</select></div>{visible.length?visible.map(item=><div key={item.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-line py-3 text-sm"><div><b>{item.title}</b><p className="text-xs text-muted">{item.category} · {new Date(item.date+"T12:00:00").toLocaleDateString("fa-IR")}{item.note?" · "+item.note:""}</p></div><div className="flex items-center gap-2"><b>{money(item.amount)}</b><Btn tone="ghost" onClick={()=>void edit(item)}>ویرایش</Btn><Btn tone="ghost" onClick={()=>void remove(item)}>حذف</Btn></div></div>):<Empty text="هنوز هزینه‌ای ثبت نشده است."/>}</Card></div>;
+  return <div className="space-y-4">
+    <PageHeading title="مدیریت هزینه‌ها" description="ثبت هزینه، مدیریت گروه‌ها و گزارش مستقل مخارج کسب‌وکار."/>
+    <Card className="space-y-3">
+      <div><h3 className="font-semibold">گزارش هزینه‌ها</h3><p className="mt-1 text-xs text-muted">گزارش هزینه‌ها فقط در همین بخش نمایش داده می‌شود و از مرکز گزارش‌گیری فروش جداست.</p></div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Field label="از تاریخ"><input className={inputCls} type="date" value={reportFrom} max={reportTo} onChange={e=>setReportFrom(e.target.value)}/></Field>
+        <Field label="تا تاریخ"><input className={inputCls} type="date" value={reportTo} min={reportFrom} onChange={e=>setReportTo(e.target.value)}/></Field>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl bg-bg p-3"><p className="text-xs text-muted">جمع هزینه در بازه انتخابی</p><p className="mt-1 text-xl font-bold">{money(reportTotal)}</p></div>
+        <div className="rounded-xl bg-bg p-3"><p className="text-xs text-muted">تعداد هزینه‌های ثبت‌شده</p><p className="mt-1 text-xl font-bold">{reportExpenses.length.toLocaleString("fa-IR")}</p></div>
+      </div>
+      <div><h4 className="mb-2 text-sm font-semibold">تفکیک هزینه بر اساس گروه</h4>
+        {reportByCategory.length? <div className="space-y-3">{reportByCategory.map(([name,value])=><div key={name} className="space-y-1"><div className="flex justify-between gap-2 text-sm"><span>{name}</span><b>{money(value)}</b></div><div className="h-2 overflow-hidden rounded-full bg-soft"><div className="h-full rounded-full bg-leaf" style={{width:`${Math.max(1,value/Math.max(1,reportTotal)*100)}%`}}/></div></div>)}</div>:<Empty text="در بازه انتخابی هزینه‌ای ثبت نشده است."/>}
+      </div>
+    </Card>
+    <div className="grid gap-3 sm:grid-cols-2">
+      <Card><h3 className="mb-3 font-semibold">ثبت هزینه جدید</h3><form className="grid gap-2" onSubmit={e=>void add(e)}><Field label="عنوان هزینه"><input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} required/></Field><Field label="مبلغ (تومان)"><input className={inputCls} type="number" min="1" value={amount||""} onChange={e=>setAmount(Number(e.target.value))} required/></Field><Field label="تاریخ"><input className={inputCls} type="date" value={date} onChange={e=>setDate(e.target.value)} required/></Field><Field label="گروه هزینه"><select className={inputCls} value={category} onChange={e=>setCategory(e.target.value)} required><option value="">انتخاب گروه</option>{categories.filter(item=>item.active!==false).map(item=><option key={item.id} value={item.name}>{item.name}</option>)}</select></Field><Field label="توضیحات"><input className={inputCls} value={note} onChange={e=>setNote(e.target.value)}/></Field><Btn type="submit">ثبت هزینه</Btn></form></Card>
+      <Card><h3 className="mb-3 font-semibold">گروه‌های هزینه</h3><form className="flex gap-2" onSubmit={e=>void addCat(e)}><input className={inputCls} value={newCategory} onChange={e=>setNewCategory(e.target.value)} placeholder="نام گروه جدید"/><Btn type="submit">افزودن</Btn></form><div className="mt-3 flex flex-wrap gap-2">{categories.map(item=><span key={item.id} className="rounded-lg border border-line px-3 py-2 text-sm">{item.name}</span>)}</div></Card>
+    </div>
+    <Card><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">سوابق هزینه‌ها</h3><select className={inputCls+" max-w-64"} value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">همه گروه‌ها</option>{categories.map(item=><option key={item.id} value={item.name}>{item.name}</option>)}</select></div>{visible.length?visible.map(item=><div key={item.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-line py-3 text-sm"><div><b>{item.title}</b><p className="text-xs text-muted">{item.category} · {new Date(item.date+"T12:00:00").toLocaleDateString("fa-IR")}{item.note?" · "+item.note:""}</p></div><div className="flex items-center gap-2"><b>{money(item.amount)}</b><Btn tone="ghost" onClick={()=>void edit(item)}>ویرایش</Btn><Btn tone="ghost" onClick={()=>void remove(item)}>حذف</Btn></div></div>):<Empty text="هنوز هزینه‌ای ثبت نشده است."/>}</Card>
+  </div>;
 }
-
 function SuppliersScreen(){
   type Supplier={id:string;name:string;phone:string;contact:string;notes:string;balance:number;active:boolean};
   type Purchase={id:string;supplierId:string;title:string;amount:number;date:string;paid:number;note:string;kind?:string;ingredientId?:string;quantity?:number;unitCost?:number};
