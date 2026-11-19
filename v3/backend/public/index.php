@@ -6,6 +6,8 @@ use PersiaCoder\PosV3\Catalog\CatalogController;
 use PersiaCoder\PosV3\Catalog\CatalogService;
 use PersiaCoder\PosV3\Orders\OrderController;
 use PersiaCoder\PosV3\Orders\OrderService;
+use PersiaCoder\PosV3\Dining\DiningController;
+use PersiaCoder\PosV3\Dining\DiningService;
 use PersiaCoder\PosV3\Auth\AuthController;
 use PersiaCoder\PosV3\Auth\AuditLogController;
 use PersiaCoder\PosV3\Auth\BusinessSetupController;
@@ -87,6 +89,16 @@ try {
             $setupController = new BusinessSetupController(new BusinessSetupService($getConnection()));
         }
         return $setupController;
+    };
+
+    $diningController = null;
+    $getDiningController = static function () use (&$diningController, $getConnection, $configuration): DiningController {
+        if (!$diningController instanceof DiningController) {
+            $diningController = new DiningController(
+                new DiningService($getConnection(), $configuration->applicationKey),
+            );
+        }
+        return $diningController;
     };
 
     $orderController = null;
@@ -205,6 +217,31 @@ try {
     $router->add('POST', '/api/v1/auth/change-password',
         static fn (Request $request): Response => $getController()->changePassword($request),
         [$sessionMiddleware, $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('GET', '/api/v1/dining',
+        static fn (Request $request): Response => $getDiningController()->list($request),
+        [$sessionMiddleware, $makePermissionMiddleware('orders.read', true)],
+    );
+
+    $router->add('POST', '/api/v1/dining/areas',
+        static fn (Request $request): Response => $getDiningController()->createArea($request),
+        [$sessionMiddleware, $makePermissionMiddleware('settings.manage', true), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('POST', '/api/v1/dining/areas/{areaPublicId}/tables',
+        static fn (Request $request, array $parameters): Response => $getDiningController()->createTable($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('settings.manage', true), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('POST', '/api/v1/dining/tables/{tablePublicId}/sessions',
+        static fn (Request $request, array $parameters): Response => $getDiningController()->openSession($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('orders.create', true), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('PATCH', '/api/v1/dining/sessions/{sessionPublicId}/close',
+        static fn (Request $request, array $parameters): Response => $getDiningController()->closeSession($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('orders.update', true), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('GET', '/api/v1/orders',
