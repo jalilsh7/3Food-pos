@@ -1234,3 +1234,11 @@
 - علت: دو literal مربوط به `owner` داخل رشته SQL تک‌کوتیشن PHP escape نشده بودند.
 - هر دو occurrence در commit `330aaa01c0171fac072d3a301b6993552a6d70ed` با escape صحیح اصلاح شدند.
 - تست: اجرای قبلی شکست خورده است؛ اجرای CI پس از commit اصلاحی باید PHP lint و سپس guard/integration checks را تکمیل کند. تا مشاهده نتیجه نهایی، PASS ثبت نشود.
+
+
+## BUG-BE-DB-CHECK-01 — test fixture با constructor قدیمی Configuration (2026-11-20)
+- وضعیت: **اصلاح کد تست انجام شد؛ تأیید CI در انتظار**.
+- پس از اصلاح SQL، CI در PHP 8.2 و 8.3 از lint، bootstrap و HTTP checks عبور کرد و در check-v3-backend-database.php متوقف شد.
+- علت: Configuration اکنون ۱۰ آرگومان (شامل privateStoragePath و mediaMaxBytes) می‌گیرد، اما fixture دو فراخوانی ۸ آرگومانی داشت.
+- هر دو فراخوانی تست با مسیر موقت `/tmp/pos-v3-test-media` و سقف ۵ MiB در commit `d53de809e65a796082779664a68a6bbe8a72381b` اصلاح شدند.
+- اجرای CI جدید باید تأیید کند database config checks و سپس auth guards پاس می‌شوند.
