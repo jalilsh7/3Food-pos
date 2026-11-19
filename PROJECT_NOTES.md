@@ -945,3 +945,11 @@
 - نسخه عملیاتی باید ledger append-only، currency/rounding policy، مجوز نقش، idempotency، تراکنش دیتابیس، audit، شمارش واقعی وجه، کسری/اضافی و ثبت قطعی بستن شیفت را سمت Backend پیاده کند. پرداخت کارتخوان/درگاه در این بسته پیاده نشده است.
 - TypeScript، build، تست مرورگر و DB engine tests اجرا نشده‌اند.
 
+### UX-10A — تنظیمات پایه کسب‌وکار و کانال‌ها
+- وضعیت: **در حال انجام؛ prototype تعاملی ثبت شد، پذیرش فنی و اتصال Backend باقی است.**
+- مسیرها: `v3/frontend/src/features/settings/BusinessSettingsWorkspace.tsx`, `settings.css`، route در `v3/frontend/src/app/App.tsx` و import استایل در `v3/frontend/src/styles.css`.
+- امکانات: پروفایل صنفی و اطلاعات تماس، واحد پول نمایشی، کانال‌های دریافت سفارش، روزهای فعالیت و ساعات شروع/پایان.
+- ذخیره نمایشی فقط state را تغییر می‌دهد؛ هیچ persistence یا اثر بر فروشگاه/صندوق ندارد. تنظیمات واقعی باید از API با RBAC، audit، validation و policy سرور بارگذاری/ذخیره شوند.
+- فعال‌سازی کانال آنلاین به‌تنهایی مجوز پذیرش سفارش نیست؛ storefront باید مستقل از تنظیمات نمایشی و بر اساس وضعیت عملیاتی/ساعات/ظرفیت سمت سرور تصمیم بگیرد.
+- TypeScript، build و browser tests اجرا نشده‌اند.
+
