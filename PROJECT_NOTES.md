@@ -819,12 +819,15 @@
 - گام بعد: UX-02 — استخراج shell/navigation و اجزای پایه بدون تغییر رفتار؛ پس از بررسی دقیق importها، تست‌ها و کنترل مجوزهای فعلی.
 
 
-## UX-02 — اصلاح مرز استقلال runtime (2026-11-19)
+## UX-02 — اسکلت مستقل frontend تجاری V3 (2026-11-19)
 
-- وضعیت: **در انتظار؛ توسعه frontend مستقل V3 آغاز نشده است.**
-- در جریان بررسی متوجه شدیم `src/components/grill/app.tsx` و `src/main.tsx` متعلق به runtime V2 هستند؛ اتصال componentهای UX V3 به آن‌ها با الزام استقلال V3 سازگار نبود.
-- تغییر آزمایشی app.tsx به محتوای پیشین بازگردانده شد؛ commit برگشت: `6a76bf256c4558a37386d17dc2bfd686b228cd2e`.
-- سه فایل آزمایشی `src/features/shell/navigation.tsx`، `src/features/shell/pos-topbar.tsx` و `src/features/shell/pos-navigation.tsx` با commitهای حذف جداگانه پاک شدند. هیچ فایل اجرایی V2 در وضعیت نهایی این کار تغییرکرده باقی نمانده است.
-- سند UX به‌روزرسانی شد تا workspace مستقل V3 در `v3/frontend/` با package، entrypoint و build جداگانه را هدف بگیرد؛ هیچ import از root `src/` یا runtime V2 مجاز نیست.
-- این اصلاح یک تغییر معماری/مستندسازی است؛ typecheck، unit test، lint یا build اجرا نشده و هیچ قابلیت UI آماده/تأییدشده اعلام نمی‌شود.
-- گام بعد: ایجاد skeleton مستقل V3 پس از تثبیت مرز API و tooling؛ سپس اجرای typecheck و build در محیط محلی Windows.
+- وضعیت: **در حال انجام؛ نیازمند اجرای محلی و build واقعی.**
+- workspace جدید `v3/frontend/` به‌صورت مستقل از runtime ریشه (V2) ایجاد شد.
+- فایل‌ها: `package.json`، `tsconfig.json`، `vite.config.ts`، `index.html`، `src/main.tsx`، `src/app/App.tsx`، `src/styles.css` و `README.md`.
+- UI پایه: پوسته RTL و responsive، گروه‌بندی ناوبری، جست‌وجوی بخش‌ها، نمای کلی با placeholder به‌جای داده ساختگی، placeholder صفحات فروش، سفارش، آشپزخانه، کاتالوگ، انبار، مشتری، مالی و تنظیمات.
+- مرزهای ایمنی: هیچ import از root `src/`، store یا phpApi نسخه V2 وجود ندارد؛ frontend هنوز به backend/API/auth/database وصل نیست و صرفاً اسکلت طراحی است.
+- هیچ فونت یا script از CDN خارجی بارگیری نمی‌شود؛ فونت محلی در مرحله بعدی و پس از تعیین منبع مجاز اضافه خواهد شد.
+- نسخه‌های dependency در package.json ثابت شده‌اند؛ lockfile هنوز ایجاد نشده و باید با npm install در محیط Windows تولید و commit شود.
+- برای جلوگیری از تغییر V2، آزمایش قبلی shell در root به‌طور کامل revert شد: `src/components/grill/app.tsx` به blob قبلی `4cb11a62bb6dcc68a867e917dfac9a4b47491008` برگشت و سه فایل آزمایشی `src/features/shell/*` حذف شدند. fetch نهایی این وضعیت را تأیید کرد.
+- تست typecheck، unit، lint و build اجرا نشده‌اند؛ بنابراین هیچ PASS فنی یا آمادگی نصب اعلام نمی‌شود.
+- گام بعد: در Windows داخل `v3/frontend` اجرای `npm install`، سپس `npm run typecheck` و `npm run build`؛ خروجی کامل باید برای رفع خطاهای احتمالی بررسی شود.
