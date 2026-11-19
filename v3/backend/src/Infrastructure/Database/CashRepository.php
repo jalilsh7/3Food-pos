@@ -156,6 +156,25 @@ final readonly class CashRepository
         ]);
     }
 
+    /** @return array<string,mixed>|null */
+    public function findOpenSessionForUpdate(int $businessId, int $branchId, string $publicId): ?array
+    {
+        $statement = $this->connection->prepare(
+            "SELECT id, public_id, register_id, expected_cash_amount
+             FROM pos_cash_sessions
+             WHERE business_id = :business_id AND branch_id = :branch_id
+               AND public_id = :public_id AND status = 'open'
+             LIMIT 1 FOR UPDATE"
+        );
+        $statement->execute([
+            'business_id' => $businessId,
+            'branch_id' => $branchId,
+            'public_id' => $publicId,
+        ]);
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
+        return is_array($row) ? $row : null;
+    }
+
     public function increaseExpectedCash(int $businessId, int $branchId, int $sessionId, int $amount): void
     {
         $statement = $this->connection->prepare(
