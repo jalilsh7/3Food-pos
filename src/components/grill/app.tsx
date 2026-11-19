@@ -1480,9 +1480,8 @@ function ExpensesScreen(){
   const [note,setNote]=useState("");
   const [newCategory,setNewCategory]=useState("");
   const [filter,setFilter]=useState("all");
-  const [reportFrom,setReportFrom]=useState("");
-  const [reportTo,setReportTo]=useState("");
-  useEffect(()=>{const today=tehranDate();setReportFrom(tehranDate(Date.now()-29*86400000));setReportTo(today);},[]);
+  const [reportFrom,setReportFrom]=useState(tehranDate(Date.now()-29*86400000));
+  const [reportTo,setReportTo]=useState(tehranDate());
   useEffect(()=>{let active=true;void phpApi.listRecords<{id:string;name:string;active?:boolean}>("expense_categories").then(result=>{if(active){setCategories(result.items);setCategory(result.items.find(item=>item.active!==false)?.name??"");}}).catch(()=>{if(active)setCategories([]);});return()=>{active=false;};},[]);
   const visible=expenses.filter(item=>(filter==="all"||item.category===filter)).sort((a,b)=>b.date.localeCompare(a.date));
   const reportExpenses=expenses.filter(item=>item.date>=reportFrom&&item.date<=reportTo);
