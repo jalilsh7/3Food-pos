@@ -31,6 +31,7 @@ jobs:
         image: ${{ matrix.engine.image }}
         env:
           MYSQL_ROOT_PASSWORD: ${{ matrix.engine.root_password }}
+          MARIADB_ROOT_PASSWORD: ${{ matrix.engine.root_password }}
           MYSQL_DATABASE: pos_v3_ci
         ports:
           - 3306:3306
