@@ -1,14 +1,11 @@
 import { useState } from "react";
 import {
   Activity,
-  Bell,
   Boxes,
   ChefHat,
   ChevronLeft,
-  CircleHelp,
   ClipboardList,
   LayoutDashboard,
-  Package,
   Search,
   Settings,
   ShoppingCart,
@@ -144,6 +141,15 @@ export function App() {
   const [search, setSearch] = useState("");
   const activeItem = allItems.find((item) => item.id === activeView) ?? allItems[0];
   const ActiveIcon = activeItem.icon;
+  const normalizedSearch = search.trim().toLocaleLowerCase("fa-IR");
+  const filteredNavigation = navigation
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) =>
+        `${item.label} ${item.description}`.toLocaleLowerCase("fa-IR").includes(normalizedSearch),
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <div className="app-shell">
@@ -157,7 +163,7 @@ export function App() {
         </div>
         <div className="workspace-label">فضای کاری</div>
         <nav className="main-navigation" aria-label="ناوبری اصلی">
-          {navigation.map((group) => (
+          {filteredNavigation.map((group) => (
             <section className="nav-group" key={group.title}>
               <h2>{group.title}</h2>
               {group.items.map((item) => {
@@ -199,7 +205,7 @@ export function App() {
           <div className="topbar-actions">
             <label className="search-box">
               <Search size={17} />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="جست‌وجو در فضای کاری" aria-label="جست‌وجو در فضای کاری" />
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="جست‌وجوی بخش‌ها" aria-label="جست‌وجوی بخش‌ها" />
               {search ? <button type="button" onClick={() => setSearch("")} aria-label="پاک کردن جست‌وجو">×</button> : null}
             </label>
             <span className="topbar-divider" />
