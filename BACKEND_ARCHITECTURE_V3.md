@@ -153,3 +153,13 @@ v3/backend/
 - انقضا، لغو یک نشست و لغو همه نشست‌های کاربر پشتیبانی می‌شوند.
 - `SessionRepository` فقط prepared statements دارد و نشست منقضی/لغوشده/کاربر غیرفعال یا session_version ناسازگار را فعال برنمی‌گرداند.
 - migration هنوز اجرا نشده است؛ login endpoint و cookie/CSRF middleware تا تکمیل login throttling، session lifecycle و امنیت HTTP منتشر نمی‌شوند.
+
+
+## 15. احراز هویت و محدودسازی تلاش ورود — BE-01D2
+- `POS_V3_APP_KEY` یک secret مستقل با حداقل ۳۲ بایت است؛ برای HMAC شناسه تلاش ورود استفاده می‌شود و نباید در Git یا frontend قرار گیرد.
+- migration `002_create-auth-login-attempts.sql` جدول rate-limit پایدار را اضافه می‌کند؛ کلید رکورد HMAC نام کاربری نرمال‌شده و IP است.
+- سیاست اولیه login: پنج تلاش ناموفق در پنجره ۱۵ دقیقه‌ای، سپس block برای ۱۵ دقیقه؛ queryهای هم‌زمان با row lock serialize می‌شوند.
+- AuthenticationService با password_verify، hash dummy برای username ناموجود، رد کاربر غیرفعال، rehash رمز پس از ورود موفق و ساخت token تصادفی ۲۵۶ بیتی کار می‌کند.
+- فقط SHA-256 نشست و CSRF token در DB ذخیره می‌شود؛ token خام برای صدور cookie/response به caller برگردانده می‌شود.
+- SessionRepository و login limiter از prepared statements و TransactionManager استفاده می‌کنند.
+- این سرویس هنوز به HTTP route متصل نشده؛ cookie امن، CSRF middleware، session authentication و logout باید پیش از انتشار route تکمیل شوند.
