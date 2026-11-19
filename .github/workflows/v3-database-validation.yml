@@ -62,6 +62,7 @@ jobs:
           php -l scripts/check-v3-migration.php
           php -l scripts/check-v3-sql-parser.php
           php scripts/check-v3-sql-parser.php
+          python3 -m py_compile scripts/tamper-v3-backup.py
 
       - name: Install isolated V3 baseline into disposable database
         env:
@@ -96,11 +97,20 @@ jobs:
           php database/v3/bin/migrate.php
           php scripts/check-v3-migration.php
           rm -f database/v3/migrations/001_ci-smoke.sql
+          export POS_V3_BACKUP_HMAC_KEY='ci-only-v3-backup-key-32-bytes-minimum'
           BACKUP_FILE="${RUNNER_TEMP}/persiacoder-pos-v3-ci-backup.jsonl.gz"
+          TAMPERED_FILE="${RUNNER_TEMP}/persiacoder-pos-v3-ci-backup-tampered.jsonl.gz"
           php database/v3/bin/backup.php "$BACKUP_FILE"
           test "$(stat -c '%a' "$BACKUP_FILE")" = "600"
+          python3 scripts/tamper-v3-backup.py "$BACKUP_FILE" "$TAMPERED_FILE"
           MYSQL_PWD="${POS_V3_DB_PASSWORD}" mysql --host=127.0.0.1 --user=root -e "CREATE DATABASE pos_v3_restore_ci CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
           export POS_V3_DB_NAME=pos_v3_restore_ci
+          if php database/v3/bin/restore.php "$TAMPERED_FILE"; then
+            echo "Tampered backup was incorrectly accepted."
+            exit 1
+          fi
+          REMAINING_OBJECTS="$(MYSQL_PWD="${POS_V3_DB_PASSWORD}" mysql --host=127.0.0.1 --user=root --batch --skip-column-names -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='pos_v3_restore_ci'")"
+          test "$REMAINING_OBJECTS" = "0"
           php database/v3/bin/restore.php "$BACKUP_FILE"
           php scripts/check-v3-install.php
           php scripts/check-v3-migration.php
