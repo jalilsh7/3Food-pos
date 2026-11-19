@@ -15,7 +15,7 @@ import {
   Wallet,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { EmptyState, PageHeader, StatusBadge, Surface } from "../shared/ui/primitives";
+import { Button, EmptyState, PageHeader, StatusBadge, Surface } from "../shared/ui/primitives";
 
 type ViewId = "overview" | "pos" | "orders" | "kitchen" | "catalog" | "inventory" | "customers" | "finance" | "settings";
 
@@ -101,8 +101,8 @@ function Overview() {
               </div>
             ))}
           </div>
-        </section>
-        <section className="surface-card">
+        </Surface>
+        <Surface padding="none" className="surface-card">
           <div className="section-heading">
             <div>
               <h2>ماژول‌های نسخه اول</h2>
@@ -167,7 +167,7 @@ export function App() {
                   </button>
                 );
               })}
-            </section>
+            </Surface>
           ))}
         </nav>
         <div className="sidebar-foot">
@@ -190,7 +190,7 @@ export function App() {
             <label className="search-box">
               <Search size={17} />
               <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="جست‌وجوی بخش‌ها" aria-label="جست‌وجوی بخش‌ها" />
-              {search ? <button type="button" onClick={() => setSearch("")} aria-label="پاک کردن جست‌وجو">×</button> : null}
+              {search ? <Button variant="ghost" size="icon" onClick={() => setSearch("")} aria-label="پاک کردن جست‌وجو">×</Button> : null}
             </label>
             <span className="topbar-divider" />
             <span className="preview-pill compact">حالت طراحی</span>
