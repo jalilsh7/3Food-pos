@@ -35,7 +35,7 @@ final readonly class Configuration
         $databasePassword = Environment::requiredString('POS_V3_DB_PASSWORD', true);
         $portValue = Environment::string('POS_V3_DB_PORT', '3306');
 
-        if (strlen($host) > 255 || preg_match('/[\x00-\x20\x7F]/', $host)) {
+        if (strlen($host) > 255 || !preg_match('/^[A-Za-z0-9.:-]+$/', $host)) {
             throw new RuntimeException('POS_V3_DB_HOST contains invalid characters.');
         }
         if (strlen($username) > 128 || preg_match('/[\x00-\x1F\x7F]/', $username)) {
