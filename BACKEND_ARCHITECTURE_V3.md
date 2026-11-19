@@ -209,3 +209,14 @@ v3/backend/
 - تا زمان ایجاد business و branch در onboarding، route عملیاتی scoped قابل استفاده نیست. migration هنوز اجرا نشده و role assignment endpoint هنوز اضافه نشده است.
 - هر route عملیاتی آینده باید زنجیره SessionMiddleware → PermissionMiddleware داشته باشد؛ برای commandهای تغییردهنده state، CsrfMiddleware و idempotency نیز لازم‌اند.
 
+
+## 15. BE-01E2 — راه‌اندازی اولیه کسب‌وکار و مدیریت انتساب نقش
+
+- endpoint تغییر رمز اولیه \`POST /api/v1/auth/change-password\` اضافه شد؛ رمز جدید حداقل ۱۲ و حداکثر ۱۲۸ بایت است، رمز فعلی بررسی می‌شود، session_version افزایش می‌یابد و همه نشست‌ها باطل می‌شوند. کاربر پس از تغییر رمز دوباره وارد می‌شود.
+- endpoint \`POST /api/v1/setup/business\` فقط برای owner نصب و پس از تغییر رمز اولیه در دسترس است؛ ایجاد اولین business و شعبه اصلی در یک transaction انجام می‌شود.
+- جدول singleton به نام \`app_business_setup_state\` در migration 003 با \`SELECT ... FOR UPDATE\` از اجرای هم‌زمان setup و ساخت چند business اولیه جلوگیری می‌کند.
+- endpointهای \`GET /api/v1/access/roles\`، انتساب نقش business/branch و حذف انتساب نقش با SessionMiddleware، PermissionMiddleware، CSRF و SameOriginGuard محافظت می‌شوند.
+- نقش owner قابل انتساب از API scoped نیست؛ نقش هدف فقط وقتی قابل واگذاری است که actor تمام permissionهای آن نقش را در همان scope داشته باشد. نقش دارای wildcard قابل واگذاری نیست.
+- business-wide endpointها وجود X-Branch-ID را رد می‌کنند تا مجوز محدود یک شعبه برای مدیریت کل کسب‌وکار استفاده نشود.
+- نقش‌های پایه فعلاً قابل مشاهده و انتساب‌اند؛ CRUD نقش سفارشی و ویرایش permission mapping در بسته بعدی توسعه داده می‌شود.
+
