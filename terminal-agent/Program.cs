@@ -66,7 +66,7 @@ while (!stop.IsCancellationRequested) {
     } catch (OperationCanceledException) when (stop.IsCancellationRequested) { break; }
       catch (Exception ex) {
         Console.Error.WriteLine("Agent communication error: " + Safe(ex.Message));
-        try { await Task.Delay(4000, stop.Token); } catch (OperationCancelationException) { break; }
+        try { await Task.Delay(4000, stop.Token); } catch (OperationCanceledException) { break; }
     }
 }
 Console.WriteLine("Agent stopped.");
