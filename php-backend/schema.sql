@@ -201,7 +201,7 @@ CREATE TABLE IF NOT EXISTS pos_terminal_payments (
   terminal_id VARCHAR(100) NOT NULL,
   order_id BIGINT UNSIGNED NULL,
   amount BIGINT UNSIGNED NOT NULL,
-  currency CHAR(3) NOT NULL DEFAULT 'IRR',
+  currency CHAR(3) NOT NULL DEFAULT 'IRT',
   status ENUM('queued','processing','approved','declined','cancelled','unknown','expired') NOT NULL DEFAULT 'queued',
   external_transaction_id VARCHAR(120) NULL,
   trace_number VARCHAR(80) NULL,
