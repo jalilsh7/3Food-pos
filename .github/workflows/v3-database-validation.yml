@@ -60,6 +60,8 @@ jobs:
           php -l scripts/check-v3-database-schema.php
           php -l scripts/check-v3-install.php
           php -l scripts/check-v3-migration.php
+          php -l scripts/check-v3-sql-parser.php
+          php scripts/check-v3-sql-parser.php
 
       - name: Install isolated V3 baseline into disposable database
         env:
