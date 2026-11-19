@@ -88,7 +88,7 @@ try {
     };
 
     $roleController = null;
-    $getRoleController = static function () use (&$roleController, $getConnection): RoleManagementController {
+    $getRoleController = static function () use (&$roleController, $getConnection, $configuration): RoleManagementController {
         if (!$roleController instanceof RoleManagementController) {
             $repository = new PermissionRepository($getConnection());
             $roleController = new RoleManagementController(
@@ -104,7 +104,7 @@ try {
     };
 
     $branchController = null;
-    $getBranchController = static function () use (&$branchController, $getConnection): BranchManagementController {
+    $getBranchController = static function () use (&$branchController, $getConnection, $configuration): BranchManagementController {
         if (!$branchController instanceof BranchManagementController) {
             $branchController = new BranchManagementController(
                 new BranchManagementService($getConnection(), $configuration->applicationKey),
@@ -114,7 +114,7 @@ try {
     };
 
     $userController = null;
-    $getUserController = static function () use (&$userController, $getConnection): UserManagementController {
+    $getUserController = static function () use (&$userController, $getConnection, $configuration): UserManagementController {
         if (!$userController instanceof UserManagementController) {
             $repository = new PermissionRepository($getConnection());
             $userController = new UserManagementController(
