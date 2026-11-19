@@ -144,3 +144,12 @@ v3/backend/
 
 ### BE-01C follow-up hardening
 - Front controller bootstrap-failure fallback پاسخ 503 را بدون اتکا به autoloader یا کلاس‌های Backend تولید می‌کند؛ بنابراین حتی اگر PHP پایین‌تر از حداقل نسخه باشد یا autoload هنوز راه نیفتاده باشد، fallback JSON خودش fatal error ایجاد نمی‌کند.
+
+
+## 14. ذخیره‌سازی نشست کاربر — BE-01D1
+- migration افزایشی `001_create-user-sessions.sql` جدول `app_user_sessions` را ایجاد می‌کند؛ baseline موجود دست‌نخورده است.
+- فقط SHA-256 token hash و CSRF token hash در DB ذخیره می‌شوند؛ token خام فقط یک‌بار به کلاینت تحویل می‌شود.
+- نشست به `app_users` متصل است و `session_version` snapshot دارد؛ غیرفعال‌شدن کاربر یا تغییر session_version نشست قبلی را نامعتبر می‌کند.
+- انقضا، لغو یک نشست و لغو همه نشست‌های کاربر پشتیبانی می‌شوند.
+- `SessionRepository` فقط prepared statements دارد و نشست منقضی/لغوشده/کاربر غیرفعال یا session_version ناسازگار را فعال برنمی‌گرداند.
+- migration هنوز اجرا نشده است؛ login endpoint و cookie/CSRF middleware تا تکمیل login throttling، session lifecycle و امنیت HTTP منتشر نمی‌شوند.
