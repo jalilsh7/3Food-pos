@@ -1221,17 +1221,21 @@ if ($method === 'GET' && $path === '/bootstrap') {
             $marker->execute(['{"seeded":true}', (int)$user['id']]);
         }
     }
-    $resources = $user['role'] === 'kitchen' ? ['categories','products'] : ($user['role'] === 'cashier' ? ['categories','products','customers','discounts','settings','sms_logs'] : ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings','sms_logs']);
+    $resources = $user['role'] === 'kitchen' ? ['categories','products'] : ($user['role'] === 'cashier' ? ['categories','products','ingredients','customers','discounts','settings','sms_logs'] : ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings','sms_logs']);
     $result = [];
     foreach ($resources as $resource) {
         $q = $pdo->prepare('SELECT id, payload FROM pos_records WHERE resource = ? ORDER BY created_at ASC');
         $q->execute([$resource]);
-        $result[$resource] = array_map(static function(array $row) use ($resource): array {
+        $result[$resource] = array_map(static function(array $row) use ($resource, $user): array {
             $value = json_decode((string)$row['payload'], true);
             if (!is_array($value)) return [];
             // Provider credentials must never be returned by the POS data API.
             if ($resource === 'settings') {
                 unset($value['smsUser'], $value['smsKey'], $value['smsFrom']);
+            }
+            // Cashiers need current stock for checkout warnings, but never ingredient cost data.
+            if ($resource === 'ingredients' && $user['role'] === 'cashier') {
+                unset($value['costPerUnit'], $value['cost'], $value['unitCost']);
             }
             return $value;
         }, $q->fetchAll());
