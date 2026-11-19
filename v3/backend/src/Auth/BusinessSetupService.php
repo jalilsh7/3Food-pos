@@ -33,9 +33,6 @@ final readonly class BusinessSetupService
         if (!$this->businesses->isInstallationOwner($ownerUserId)) {
             throw new HttpException(403, 'owner_required', 'Only the installation owner can complete initial setup.');
         }
-        if ($this->businesses->countBusinesses() > 0) {
-            throw new HttpException(409, 'business_already_configured', 'The initial business has already been configured.');
-        }
 
         $name = trim($name);
         $code = strtolower(trim($code));
@@ -44,14 +41,14 @@ final readonly class BusinessSetupService
         $timezone = trim($timezone);
         $currency = strtoupper(trim($currency));
 
-        if ($name === '' || strlen($name) > 160) {
-            throw new HttpException(422, 'invalid_business_name', 'Business name is required and must not exceed 160 bytes.');
+        if ($name === '' || self::unicodeLength($name) > 160) {
+            throw new HttpException(422, 'invalid_business_name', 'Business name is required and must not exceed 160 characters.');
         }
         if (!preg_match('/^[a-z0-9][a-z0-9-]{1,62}$/', $code)) {
             throw new HttpException(422, 'invalid_business_code', 'Business code must use 2-63 lowercase letters, digits or hyphens.');
         }
-        if ($branchName === '' || strlen($branchName) > 160) {
-            throw new HttpException(422, 'invalid_branch_name', 'Branch name is required and must not exceed 160 bytes.');
+        if ($branchName === '' || self::unicodeLength($branchName) > 160) {
+            throw new HttpException(422, 'invalid_branch_name', 'Branch name is required and must not exceed 160 characters.');
         }
         if (!preg_match('/^[a-z0-9][a-z0-9-]{1,62}$/', $branchCode)) {
             throw new HttpException(422, 'invalid_branch_code', 'Branch code must use 2-63 lowercase letters, digits or hyphens.');
@@ -75,6 +72,10 @@ final readonly class BusinessSetupService
             $branchCode,
             $branchName,
         ): void {
+            if ($this->businesses->lockInitialBusinessId() !== null) {
+                throw new HttpException(409, 'business_already_configured', 'The initial business has already been configured.');
+            }
+
             $businessId = $this->businesses->createBusiness(
                 $businessPublicId,
                 $code,
@@ -89,6 +90,7 @@ final readonly class BusinessSetupService
                 $branchName,
                 $timezone,
             );
+            $this->businesses->markInitialBusinessCreated($businessId);
         });
 
         return [
@@ -97,6 +99,12 @@ final readonly class BusinessSetupService
             'branch_id' => $branchPublicId,
             'branch_name' => $branchName,
         ];
+    }
+
+    private static function unicodeLength(string $value): int
+    {
+        $count = preg_match_all('/./us', $value);
+        return $count === false ? PHP_INT_MAX : $count;
     }
 
     private static function uuidV4(): string
