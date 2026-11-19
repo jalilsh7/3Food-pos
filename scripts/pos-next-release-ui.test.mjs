@@ -21,7 +21,7 @@ test("invoice SMS remains an optional per-order action with a configurable defau
 });
 
 test("order list shows the server-created timestamp and elapsed duration", () => {
-  assert.match(app, /new Date\(o\.createdAt\)\.toLocaleString\("fa-IR",\{timeZone:"Asia\/Tehran"\}\)/);
+  assert.match(app, /formatPersianDateTime\(o\.createdAt\)/);
   assert.match(app, /formatElapsed\(clockNow-new Date\(o\.createdAt\)\.getTime\(\)\)/);
 });
 
