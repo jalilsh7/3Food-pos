@@ -899,3 +899,11 @@
 - جزئیات سفارش: هر قلم با تعداد، قیمت واحد، جمع ردیف، گزینه‌ها و یادداشت؛ timeline نمایشی از رخدادهای سفارش.
 - اطلاعات سفارش، زمان‌ها، مبلغ‌ها و timeline نمونه‌اند. هیچ API یا action واقعی وجود ندارد و transitionها فقط پس از پیاده‌سازی Backend و RBAC معتبر خواهند بود.
 - static verification از GitHub انجام شد؛ typecheck/build/unit/browser اجرا نشده است.
+
+### UX-05A — Kitchen Display System prototype
+- وضعیت: **در حال انجام؛ برد اولیه ثبت و static verify شده است.**
+- فایل‌ها: `v3/frontend/src/features/kitchen/KitchenBoard.tsx`, `kitchen.css` و route در `src/app/App.tsx`.
+- کارت‌های نمونه سفارش با کانال، نوع دریافت، میز، زمان، زمان سپری‌شده، اولویت، ایستگاه و جزئیات اقلام.
+- فیلتر ایستگاه؛ تغییر وضعیت مستقل هر قلم از queued به preparing و ready؛ خلاصه تعداد سفارش‌ها/اقلام و reset نمونه.
+- افزودنی و یادداشت قلم در KDS نشان داده می‌شود. داده‌ها و تعامل صرفاً محلی و نمایشی‌اند؛ اتصال realtime، چاپگر، نمایشگر دوم، صدا و ثبت رویداد Backend هنوز وجود ندارد.
+- typecheck/build/unit/browser و تست سخت‌افزار اجرا نشده‌اند.
