@@ -26,21 +26,21 @@ test("order list shows the server-created timestamp and elapsed duration", () =>
 });
 
 test("stock shortage warning follows the selected policy without disabling checkout controls", () => {
-  assert.match(app, /const showStockWarning = stockShortages\\.length > 0/);
+  assert.match(app, /const showStockWarning = stockShortages\.length > 0/);
   assert.match(app, /stockPolicy === "block"/);
   assert.match(app, /stockPolicy !== "allow_negative"/);
-  assert.match(app, /60 \\* 60 \\* 1000/);
+  assert.match(app, /60 \* 60 \* 1000/);
   assert.match(app, /خاموش‌کردن هشدار برای یک ساعت/);
-  assert.match(app, /<Btn onClick=\\{checkout\\} disabled=\\{!cart\\.length \\|\\| submitting\\}/);
+  assert.match(app, /<Btn onClick=\{checkout\} disabled=\{!cart\.length \|\| submitting\}/);
   assert.match(app, /ثبت سفارش ادامه پیدا می‌کند/);
   assert.match(app, /ثبت سفارش تا تأمین موجودی متوقف می‌شود/);
 });
 
 test("stock policy is configurable in settings and enforced by the PHP API", () => {
-  assert.match(model, /stockPolicy: "block" \\| "warn_and_allow" \\| "allow_negative"/);
+  assert.match(model, /stockPolicy: "block" \| "warn_and_allow" \| "allow_negative"/);
   assert.match(app, /سیاست فروش با موجودی ناکافی/);
   assert.match(phpApi, /invalid_stock_policy/);
-  assert.match(phpApi, /if \\(\$stockPolicy === 'block' && \$available/);
+  assert.match(phpApi, /if \(\$stockPolicy === 'block' && \$available/);
 });;
 
 test("new product form remains ready for consecutive product entry after save", () => {
