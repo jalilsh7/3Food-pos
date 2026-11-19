@@ -1142,7 +1142,7 @@ function CustomersScreen({ role }: { role: Role }) {
   const saveCustomer = usePos((s) => s.saveCustomer);
   const [q, setQ] = useState("");
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", phone: "", birthday: "", smsConsent: false });
+  const [form, setForm] = useState({ name: "", phone: "", birthday: "", smsConsent: true });
   const normalizedQuery=normalizeIranPhone(q);
   const list = customers.filter((c) => c.name.includes(q) || (normalizedQuery.length>0 && normalizeIranPhone(c.phone).includes(normalizedQuery)));
   const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId) ?? null;
@@ -1179,7 +1179,7 @@ function CustomersScreen({ role }: { role: Role }) {
           e.preventDefault();
           if (!form.phone) return;
           const item = { id: uid("cu"), name: form.name || "بدون نام", phone: form.phone, points: 0, birthday: form.birthday, smsConsent: form.smsConsent, totalSpent: 0, visits: 0, createdAt: new Date().toISOString() };
-          void saveCentralRecord("customers", item, () => saveCustomer(item)).then((ok) => { if (ok) setForm({ name: "", phone: "", birthday: "", smsConsent: false }); });
+          void saveCentralRecord("customers", item, () => saveCustomer(item)).then((ok) => { if (ok) setForm({ name: "", phone: "", birthday: "", smsConsent: true }); });
         }}>
           <input className={inputCls} placeholder="نام" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input className={inputCls} placeholder="موبایل" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
