@@ -961,3 +961,14 @@
 - معماری عملیاتی باید مستقل از WooCommerce باشد؛ قیمت/تخفیف/هزینه ارسال/مالیات و اعتبار موجودی فقط در سرور محاسبه و snapshot شوند. اتصال WooCommerce اختیاری و جداگانه خواهد بود.
 - TypeScript، build، unit و browser tests اجرا نشده‌اند.
 
+
+
+## BE-01 — تثبیت قرارداد معماری Backend تجاری (2026-11-20)
+- وضعیت: **قرارداد معماری ثبت شد؛ پیاده‌سازی Backend هنوز شروع نشده است.**
+- HEAD شاخه توسعه با GitHub بررسی شد و ساختار recursive tree نشان داد مسیر `v3/backend/` وجود ندارد. مسیر `database/v3/bin/` فقط ابزار CLI نصب، migration، preflight، backup و restore است و نباید به‌عنوان HTTP backend استفاده شود.
+- سند مرجع: `BACKEND_ARCHITECTURE_V3.md`.
+- اصول ثبت‌شده: runtime مستقل از V2؛ API JSON نسخه‌بندی‌شده؛ پاسخ موفق/خطای یکنواخت و request ID؛ server-side password/session؛ cookie امن، rotation، expiry/revoke و CSRF؛ RBAC با permission code و scope کسب‌وکار/شعبه؛ PDO prepared statements؛ transaction boundary در application service؛ append-only ledger/audit؛ idempotency با hash payload و unique constraint؛ کنترل race؛ rate limit و مدیریت امن secrets.
+- تمام مبلغ‌ها و قواعد قیمت/گزینه/تخفیف/مالیات/ارسال و موجودی در Backend authoritative هستند و snapshot سفارش در لحظه ثبت ذخیره می‌شود.
+- این بسته فقط سند معماری را ایجاد کرده است؛ هیچ کد PHP، endpoint، احراز هویت، نشست یا اتصال UI ایجاد نشده است.
+- تست PHP lint، unit، integration و DB در این بسته اجرا نشده‌اند؛ CI runner همچنان مانع شناخته‌شده است.
+- بسته‌های بعدی: BE-01A bootstrap/config؛ BE-01B HTTP؛ BE-01C PDO/transaction؛ BE-01D auth/session؛ BE-01E RBAC؛ BE-01F audit/idempotency؛ BE-01G اولین vertical slice.
