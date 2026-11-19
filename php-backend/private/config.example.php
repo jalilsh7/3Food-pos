@@ -21,8 +21,8 @@ return [
     // After setup, remove this value from config.php.
     'setup_token' => 'REPLACE_WITH_A_RANDOM_64_CHARACTER_TOKEN',
 
-    // Configure these values only in the private config.php when enabling National Payamak.
-    // Never place SMS credentials in the browser or in a public JS bundle.
+    // These are fallback defaults. Manage National Payamak credentials from the POS Settings page;
+    // the server stores them separately in private/sms-config.php. Never expose them to the browser.
     'sms' => [
         'provider' => 'none',
         'username' => '',
