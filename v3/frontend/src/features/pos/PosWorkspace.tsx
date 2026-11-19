@@ -46,6 +46,15 @@ const sampleProducts: Product[] = [
   { id: 10, name: "بستنی", category: "دسر", price: 68000, description: "دو اسکوپ", symbol: "🍨" },
 ];
 
+const normalizeDigits = (value: string) => value
+  .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+  .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)));
+
+const parseAmount = (value: string) => {
+  const normalized = normalizeDigits(value).replace(/[،,٬\s]/g, "").replace(/[^0-9]/g, "");
+  return normalized ? Number(normalized) : 0;
+};
+
 const money = (value: number) =>
   new Intl.NumberFormat("fa-IR").format(value);
 
@@ -82,7 +91,7 @@ export function PosWorkspace() {
   }, [category, query]);
 
   const subtotal = cart.reduce((sum, line) => sum + line.product.price * line.quantity, 0);
-  const requestedDiscount = Number(discount) || 0;
+  const requestedDiscount = parseAmount(discount);
   const discountAmount = Math.min(subtotal, Math.max(0, Math.floor(requestedDiscount)));
   const total = subtotal - discountAmount;
   const itemCount = cart.reduce((sum, line) => sum + line.quantity, 0);
@@ -269,12 +278,13 @@ export function PosWorkspace() {
             <TextField
               label="تخفیف به تومان"
               inputMode="numeric"
-              type="number"
-              min="0"
-              max={subtotal}
+              type="text"
               value={discount}
-              onChange={(event) => setDiscount(event.target.value)}
-              hint="مبلغ تخفیف از جمع کالاها بیشتر نخواهد شد."
+              onChange={(event) => {
+                const amount = parseAmount(event.target.value);
+                setDiscount(amount ? String(Math.min(amount, subtotal || amount)) : "");
+              }}
+              hint="ارقام فارسی و انگلیسی پذیرفته می‌شوند؛ تخفیف از جمع کالاها بیشتر نمی‌شود."
             />
           </div>
 
