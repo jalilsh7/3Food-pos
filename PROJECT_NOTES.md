@@ -773,3 +773,24 @@
 - database/v3/README-FA.md و ROADMAP_V3.md: روش تولید/نگهداری کلید و وضعیت واقعی تست به‌روزرسانی شدند.
 - وضعیت فاز ۲ همچنان **در حال انجام** است؛ ابزارها ثبت شده‌اند ولی engine validation، backup/restore واقعی، preflight کامل و installer گرافیکی باقی‌اند.
 - پیگیری CI در GitHub Issue شماره 6 ثبت شد: https://github.com/jalilsh7/3Food-pos/issues/6 .
+
+
+---
+
+## 2026-11-19 — DB-05: پیش‌بررسی غیرمخرب نصب V3
+
+### خروجی
+- فایل `database/v3/bin/preflight.php` اضافه شد.
+- پیش‌بررسی PHP 8.2+، افزونه‌های PDO MySQL/JSON/zlib، اتصال و نسخه DB، charset utf8mb4، خالی بودن دیتابیس و خوانایی/checksum فایل baseline.
+- ابزار فقط CLI است، هیچ داده یا schema را تغییر نمی‌دهد و secretها را چاپ نمی‌کند.
+- workflow `.github/workflows/v3-database-validation.yml` پیش از install، preflight را در دیتابیس disposable اجرا می‌کند.
+- راهنمای `database/v3/README-FA.md` و نقشه راه به‌روزرسانی شدند.
+
+### تست و محدودیت
+- تست PHP lint و اجرای واقعی preflight هنوز اجرا نشده است؛ GitHub Actions در انتظار رفع CI-INFRA-01 است و MySQL/MariaDB محلی نیز در محیط اجرا در دسترس نیست.
+- preflight مجوزهای کامل DDL، محدودیت‌های PHP وب، مسیرهای ذخیره‌سازی، تنظیمات cPanel/LiteSpeed یا نصب گرافیکی را هنوز تأیید نمی‌کند.
+- هیچ دیتابیس واقعی نصب یا تغییر داده نشده است.
+
+### گام بعد
+- طراحی/پیاده‌سازی installer گرافیکی امن cPanel: token یک‌بارمصرف، CSRF، قفل نصب، تشخیص نصب مجدد، config خارج از web root، و recovery بدون حذف خودکار دیتابیس.
+- وضعیت فاز ۲: **در حال انجام**.
