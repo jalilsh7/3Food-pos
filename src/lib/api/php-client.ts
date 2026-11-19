@@ -247,6 +247,13 @@ export const phpApi = {
       body: input,
     }),
 
+  syncBirthdaySmsInbox: () =>
+    request<ApiEnvelope<{ received: number; processed: number; duplicates: number; birthdays_saved: number; unmatched: number; ignored: number }>>("/sms/birthday-sync", {
+      method: "POST",
+      csrf: true,
+      body: {},
+    }),
+
   updateOrder: <TOrder>(id: string, input: {
     items: unknown[];
     totals: Record<string, number>;
