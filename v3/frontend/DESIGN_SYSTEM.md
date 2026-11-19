@@ -28,7 +28,7 @@ Aliasهای کوتاه فعلی برای سازگاری CSS پوسته نگه د
 
 ## کامپوننت‌های پایه
 
-پیاده‌سازی: `src/shared/ui/primitives.tsx`؛ ورودی عمومی: `src/shared/ui/index.ts`.
+پیاده‌سازی: `src/shared/ui/primitives.tsx`، `form-controls.tsx` و `data-table.tsx`؛ استایل‌ها در `primitives.css` و `forms-table.css`؛ ورودی عمومی: `src/shared/ui/index.ts`.
 
 - `Button`: variantهای `primary`، `secondary`، `ghost` و `danger`؛ اندازه‌های `sm`، `md` و `icon`. نوع پیش‌فرض button است تا submit ناخواسته فرم ایجاد نشود.
 - `Surface`: سطح معنایی section با padding قابل انتخاب.
@@ -36,6 +36,10 @@ Aliasهای کوتاه فعلی برای سازگاری CSS پوسته نگه د
 - `StatusBadge`: نشانگر متنی با variantهای neutral/success/warning/danger/info؛ وضعیت هرگز فقط با رنگ نمایش داده نشود.
 - `Notice`: پیام توضیحی info یا warning.
 - `EmptyState`: حالت خالی/درحال‌ساخت با آیکن، عنوان، توضیح و notice اختیاری.
+- `TextField` و `SelectField`: کنترل‌های ورودی دارای label، hint، error، شناسه پایدار و اتصال `aria-describedby`.
+- `CheckboxField`: چک‌باکس دارای label و توضیح/خطا.
+- `FilterBar`: ظرف واکنش‌گرا برای فیلترها.
+- `DataTable<Row>`: جدول typed با render ستون، کلید ردیف پایدار، alignment، عرض و حالت خالی.
 
 نمونه:
 
@@ -59,6 +63,8 @@ import { Button, PageHeader, StatusBadge, Surface } from "../shared/ui";
 - وضعیت انتخاب ناوبری با `aria-current` اعلام می‌شود.
 - پیام‌های EmptyState از `aria-live="polite"` استفاده می‌کنند.
 - از انیمیشن غیرضروری پرهیز شود و `prefers-reduced-motion` رعایت شود.
+- خطاهای فرم باید متنی، نزدیک فیلد و با `aria-invalid` و `aria-describedby` مرتبط باشند؛ رنگ به‌تنهایی کافی نیست.
+- جدول‌ها باید عنوان ستون با `scope=col`، متن خالی واضح و wrapper اسکرول افقی داشته باشند.
 - ترتیب DOM و جهت متن باید با RTL سازگار باشد؛ برای داده‌های لاتین/شناسه‌ها در صورت نیاز `dir="ltr"` موضعی اعمال شود.
 
 ## محدودیت فعلی
