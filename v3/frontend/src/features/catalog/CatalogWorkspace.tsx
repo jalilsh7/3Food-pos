@@ -24,6 +24,14 @@ const seedProducts: CatalogProduct[] = [
   { id: 6, name: "چیزکیک", category: "دسر", price: 112000, sku: "DS-001", active: true, stockTracked: false, groups: [] },
 ];
 const money = (value: number) => new Intl.NumberFormat("fa-IR").format(value);
+const parsePrice = (value: string) => {
+  const normalized = value
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+    .replace(/[،,٬\\s]/g, "")
+    .replace(/[^0-9]/g, "");
+  return normalized ? Number(normalized) : 0;
+};
 
 export function CatalogWorkspace() {
   const [products, setProducts] = useState(seedProducts);
@@ -46,7 +54,7 @@ export function CatalogWorkspace() {
   }
   function addProduct() {
     const name = newName.trim();
-    const price = Number(newPrice.replace(/[^0-9]/g, ""));
+    const price = parsePrice(newPrice);
     if (!name || !Number.isSafeInteger(price) || price <= 0) return;
     const nextId = Math.max(0, ...products.map((product) => product.id)) + 1;
     const product: CatalogProduct = { id: nextId, name, category: newCategory, price, sku: `NEW-${String(nextId).padStart(3, "0")}`, active: true, stockTracked: false, groups: [] };
