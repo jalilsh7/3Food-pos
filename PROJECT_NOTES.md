@@ -1061,3 +1061,14 @@
 - front controller اتصال DB را lazy نگه می‌دارد تا liveness health به DB وابسته نشود.
 - اجرای تست/CI و migration دیتابیس در این بسته انجام نشده و طبق تصمیم کاربر به انتهای پروژه منتقل شده است.
 
+
+## BE-01E1 — RBAC و محدوده دسترسی (2026-11-20)
+- migration جدید: database/v3/migrations/003_create-business-scope-and-rbac.sql.
+- schema افزایشی شامل کسب‌وکار، شعبه، انتساب role در سطح business و انتساب role در سطح branch است؛ هیچ migration اجرا نشده است.
+- permission codeهای مستقل و نقش‌های پایه مدیر، صندوقدار، آشپزخانه، انباردار، حسابدار و پرسنل سالن seed می‌شوند.
+- نقش owner که installer به‌صورت سراسری به مالک نصب می‌دهد، تنها نقش دارای wildcard است؛ سایر نقش‌ها باید در محدوده business/branch تخصیص داده شوند.
+- فایل‌های جدید: BusinessScope.php، BusinessScopeResolver.php، PermissionService.php، PermissionRepository.php و PermissionMiddleware.php.
+- PermissionMiddleware به principal نشست نیاز دارد و scope را از UUID عمومی headerها resolve می‌کند؛ branch باید زیرمجموعه business انتخابی باشد.
+- API مدیریت role و ایجاد business/branch هنوز در بسته‌های بعدی ساخته می‌شوند؛ هیچ route عملیاتی فعلاً permission middleware را مصرف نمی‌کند.
+- تست‌ها و migration اجرا نشده‌اند و برای مرحله جامع پایانی نگه داشته شده‌اند.
+
