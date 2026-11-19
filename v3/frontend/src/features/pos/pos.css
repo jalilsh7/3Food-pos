@@ -78,3 +78,4 @@
   .pos-product-card { min-height: 155px; padding: 10px; }
   .pos-cart-options { grid-template-columns: 1fr; }
 }
+.pos-cart > .ui-button { width: 100%; }
