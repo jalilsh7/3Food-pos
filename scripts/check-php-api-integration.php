@@ -411,6 +411,8 @@ try {
         'status' => 'approved', 'amount' => 1000, 'traceNumber' => 'CI-TRACE-ORDER',
     ], $agentHeaders);
     check($orderPaymentResult['status'] === 200, 'agent approves second synthetic payment');
+    $pendingRecovery = api('GET', '/api/v1/terminal-payments/pending');
+    check(count($pendingRecovery['json']['items'] ?? []) === 1 && ($pendingRecovery['json']['items'][0]['status'] ?? '') === 'approved', 'cashier can recover approved unlinked payment after refresh');
     $duplicateAfterApproval = api('POST', '/api/v1/terminal-payments', [
         'terminalId' => 'ci-terminal', 'amount' => 1000,
         'idempotencyKey' => '44444444-4444-4444-8444-000000000013',
@@ -428,6 +430,8 @@ try {
     check($paymentAttached['status'] === 200 && (int)($paymentAttached['json']['order_id'] ?? 0) === $cardOrderId, 'approved payment attaches only to matching card order');
     $paymentLinkedRead = api('GET', '/api/v1/terminal-payments/' . rawurlencode($orderPaymentId));
     check((int)($paymentLinkedRead['json']['payment']['order_id'] ?? 0) === $cardOrderId, 'payment ledger retains linked order id');
+    $pendingAfterLink = api('GET', '/api/v1/terminal-payments/pending');
+    check(count($pendingAfterLink['json']['items'] ?? []) === 0, 'linked payment disappears from unresolved recovery list');
 
     // Manager-only user administration and role-specific resource permissions.
     $cashierCreated = api('POST', '/api/v1/users', [
