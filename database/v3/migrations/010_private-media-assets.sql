@@ -29,7 +29,6 @@ CREATE TABLE pos_product_media (
   media_id BIGINT UNSIGNED NOT NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (business_id, product_id),
-  UNIQUE KEY uq_product_media_asset (business_id, media_id),
   CONSTRAINT fk_product_media_business FOREIGN KEY (business_id) REFERENCES pos_businesses(id) ON DELETE RESTRICT,
   CONSTRAINT fk_product_media_product FOREIGN KEY (business_id, product_id)
     REFERENCES pos_products (business_id, id) ON DELETE RESTRICT,
@@ -43,7 +42,6 @@ CREATE TABLE pos_category_media (
   media_id BIGINT UNSIGNED NOT NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (business_id, category_id),
-  UNIQUE KEY uq_category_media_asset (business_id, media_id),
   CONSTRAINT fk_category_media_business FOREIGN KEY (business_id) REFERENCES pos_businesses(id) ON DELETE RESTRICT,
   CONSTRAINT fk_category_media_category FOREIGN KEY (business_id, category_id)
     REFERENCES pos_categories (business_id, id) ON DELETE RESTRICT,
