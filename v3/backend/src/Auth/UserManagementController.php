@@ -68,6 +68,7 @@ final readonly class UserManagementController
                 $payload['username'],
                 $payload['display_name'],
                 $payload['role_code'],
+                $request->header('idempotency-key') ?? '',
                 $request->requestId,
                 (string) ($request->attribute('remote_ip') ?? ''),
             )
@@ -81,16 +82,7 @@ final readonly class UserManagementController
                 (string) ($request->attribute('remote_ip') ?? ''),
             );
 
-        return Response::success([
-            'user' => [
-                'id' => $result['user_id'],
-                'username' => $result['username'],
-                'display_name' => $result['display_name'],
-                'role_code' => $result['role_code'],
-                'must_change_password' => true,
-            ],
-            'temporary_password' => $result['temporary_password'],
-            'credential_notice' => 'This temporary password is shown once. Deliver it securely and do not store it in application logs.',
-        ], [], 201);
+        return Response::json($result['body'], $result['status'])
+            ->withHeader('Idempotency-Replayed', $result['replayed'] ? 'true' : 'false');
     }
 }
