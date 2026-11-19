@@ -38,7 +38,6 @@ CREATE TABLE pos_branches (
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
   UNIQUE KEY uq_pos_branches_public_id (public_id),
-  UNIQUE KEY uq_pos_branches_id_business (id, business_id),
   UNIQUE KEY uq_pos_branches_business_code (business_id, code),
   KEY idx_pos_branches_business_active (business_id, is_active),
   CONSTRAINT fk_pos_branches_business FOREIGN KEY (business_id) REFERENCES pos_businesses(id) ON DELETE RESTRICT,
