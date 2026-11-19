@@ -367,3 +367,10 @@
 - bootstrap فقط configuration immutable را می‌خواند و هیچ اتصال DB، session یا endpoint ایجاد نمی‌کند.
 - فرانت‌اند هنوز به Backend متصل نیست؛ UIها همچنان prototype محلی هستند.
 - CI هدف، PHP 8.2/8.3/8.4 را برای syntax و پیکربندی پایه بررسی می‌کند؛ تا دریافت نتیجه واقعی workflow پذیرش اجرایی نداریم.
+
+
+### BE-01B — قرارداد HTTP و وضعیت اتصال رابط
+- API base path برابر `/api/v1` است؛ پاسخ موفق `data/meta` و خطا `error` دارد و `X-Request-ID` برای پشتیبانی ارسال می‌شود.
+- route عمومی فعلی فقط `GET /api/v1/health` و صرفاً liveness است؛ health نباید در UI به‌عنوان «دیتابیس آماده است» تعبیر شود.
+- هیچ صفحه POS، سفارش، مالی، انبار یا storefront به این route یا endpoint آزمایشی متصل نشده است.
+- تا تکمیل authentication، RBAC، CSRF، CORS و rate limit، APIهای عملیاتی و اتصال UI مسدود باقی می‌مانند.
