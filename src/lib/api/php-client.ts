@@ -251,6 +251,7 @@ export const phpApi = {
     guestName?: string;
     guestPhone?: string;
     payment?: "cash" | "card" | "online";
+    terminalPaymentId?: string;
     idempotencyKey: string;
   }) =>
     request<ApiEnvelope<{ order: TOrder; replayed?: boolean }>>("/orders", {
