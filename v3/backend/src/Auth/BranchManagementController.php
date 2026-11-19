@@ -31,7 +31,19 @@ final readonly class BranchManagementController
             throw new HttpException(422, 'invalid_branch_payload', 'Timezone must be a string.');
         }
 
-        $branch = $this->branches->create($this->scope($request), $payload['name'], $payload['code'], $timezone);
+        $principal = $request->attribute('principal');
+        if (!$principal instanceof AuthenticatedPrincipal) {
+            throw new HttpException(401, 'authentication_required', 'Authentication is required.');
+        }
+        $branch = $this->branches->create(
+            $principal,
+            $this->scope($request),
+            $payload['name'],
+            $payload['code'],
+            $timezone,
+            $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
+        );
         return Response::success(['branch' => $branch], [], 201);
     }
 
