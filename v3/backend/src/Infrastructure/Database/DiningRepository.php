@@ -199,7 +199,10 @@ final readonly class DiningRepository
             "SELECT 1 FROM pos_orders
              WHERE business_id = :business_id AND branch_id = :branch_id
                AND table_session_id = :session_id
-               AND order_status NOT IN ('completed','cancelled','rejected')
+               AND (
+                 order_status NOT IN ('completed','cancelled','rejected')
+                 OR (order_status = 'completed' AND payment_status <> 'paid')
+               )
              LIMIT 1"
         );
         $statement->execute([
