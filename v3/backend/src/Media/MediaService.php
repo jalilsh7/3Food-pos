@@ -207,4 +207,68 @@ final readonly class MediaService
         return substr($hex, 0, 8) . '-' . substr($hex, 8, 4) . '-'
             . substr($hex, 12, 4) . '-' . substr($hex, 16, 4) . '-' . substr($hex, 20);
     }
+
+    /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
+    public function detachProductImage(
+        AuthenticatedPrincipal $actor, BusinessScope $scope, string $productPublicId,
+        string $key, string $requestId, string $ip,
+    ): array {
+        if (!self::isUuid($productPublicId)) {
+            throw new HttpException(422, 'product_id_invalid', 'The product identifier is invalid.');
+        }
+        $productId = $this->media->findProductId($scope->businessId, $productPublicId);
+        if ($productId === null) throw new HttpException(404, 'product_not_found', 'The product was not found.');
+        $before = $this->media->findProductImage($scope->businessId, $productId);
+        $fingerprint = hash('sha256', json_encode([$productPublicId, 'detach-image'], JSON_THROW_ON_ERROR));
+        return $this->idempotency->execute(
+            $actor->userId, $scope, 'catalog.product.image.detach', $key, $fingerprint,
+            function (PDO $db) use ($scope, $productId, $productPublicId, $actor, $requestId, $ip, $before): array {
+                $this->media->detachProductImage($scope->businessId, $productId);
+                if ($before !== null) {
+                    $this->audit->record(
+                        $actor->userId, 'catalog.product.image_detached', 'product', $productPublicId,
+                        ['media_id' => (string) $before['public_id']], ['media_id' => null],
+                        null, $requestId, $ip, $scope->businessId,
+                    );
+                }
+                return ['status' => 200, 'body' => [
+                    'data' => ['product_id' => $productPublicId, 'image' => null],
+                    'meta' => (object) [],
+                ]];
+            },
+        );
+    }
+
+    /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
+    public function detachCategoryImage(
+        AuthenticatedPrincipal $actor, BusinessScope $scope, string $categoryPublicId,
+        string $key, string $requestId, string $ip,
+    ): array {
+        if (!self::isUuid($categoryPublicId)) {
+            throw new HttpException(422, 'category_id_invalid', 'The category identifier is invalid.');
+        }
+        $categoryId = $this->media->findCategoryId($scope->businessId, $categoryPublicId);
+        if ($categoryId === null) throw new HttpException(404, 'category_not_found', 'The category was not found.');
+        $before = $this->media->findCategoryImage($scope->businessId, $categoryId);
+        $fingerprint = hash('sha256', json_encode([$categoryPublicId, 'detach-image'], JSON_THROW_ON_ERROR));
+        return $this->idempotency->execute(
+            $actor->userId, $scope, 'catalog.category.image.detach', $key, $fingerprint,
+            function (PDO $db) use ($scope, $categoryId, $categoryPublicId, $actor, $requestId, $ip, $before): array {
+                $this->media->detachCategoryImage($scope->businessId, $categoryId);
+                if ($before !== null) {
+                    $this->audit->record(
+                        $actor->userId, 'catalog.category.image_detached', 'category', $categoryPublicId,
+                        ['media_id' => (string) $before['public_id']], ['media_id' => null],
+                        null, $requestId, $ip, $scope->businessId,
+                    );
+                }
+                return ['status' => 200, 'body' => [
+                    'data' => ['category_id' => $categoryPublicId, 'image' => null],
+                    'meta' => (object) [],
+                ]];
+            },
+        );
+    }
+
+
 }
