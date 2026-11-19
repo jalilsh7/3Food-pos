@@ -1373,6 +1373,19 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
         // or echoed back through the generic settings-record endpoint.
         if ($resource === 'settings') {
             unset($item['smsUser'], $item['smsKey'], $item['smsFrom']);
+            $allowedStockPolicies = ['block', 'warn_and_allow', 'allow_negative'];
+            if (array_key_exists('stockPolicy', $item)) {
+                if (!is_string($item['stockPolicy']) || !in_array($item['stockPolicy'], $allowedStockPolicies, true)) {
+                    json_response(['ok' => false, 'error' => 'invalid_stock_policy', 'message' => 'سیاست موجودی انتخاب‌شده معتبر نیست'], 422);
+                }
+            } else {
+                $existingSettingsStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'settings' AND id = ? LIMIT 1");
+                $existingSettingsStmt->execute([$id]);
+                $existingSettingsRaw = $existingSettingsStmt->fetchColumn();
+                $existingSettings = is_string($existingSettingsRaw) ? json_decode($existingSettingsRaw, true) : null;
+                $existingPolicy = is_array($existingSettings) ? ($existingSettings['stockPolicy'] ?? null) : null;
+                $item['stockPolicy'] = is_string($existingPolicy) && in_array($existingPolicy, $allowedStockPolicies, true) ? $existingPolicy : 'warn_and_allow';
+            }
         }
         // Cashiers may maintain customer contact details, but loyalty balances
         // are server-owned and must never be writable through generic CRUD.
@@ -1625,6 +1638,8 @@ if ($method === 'POST' && $path === '/orders') {
     if (!is_array($taxSettings)) $taxSettings = [];
     $taxEnabled = !array_key_exists('taxEnabled', $taxSettings) || $taxSettings['taxEnabled'] !== false;
     $taxPercent = (float)($taxSettings['taxPercent'] ?? 0);
+    $stockPolicy = (string)($taxSettings['stockPolicy'] ?? 'warn_and_allow');
+    if (!in_array($stockPolicy, ['block', 'warn_and_allow', 'allow_negative'], true)) $stockPolicy = 'warn_and_allow';
     if (!is_finite($taxPercent) || $taxPercent < 0 || $taxPercent > 100) {
         json_response(['ok' => false, 'error' => 'invalid_tax_settings', 'message' => 'تنظیم درصد مالیات معتبر نیست'], 409);
     }
@@ -1727,7 +1742,11 @@ if ($method === 'POST' && $path === '/orders') {
                 json_response(['ok' => false, 'error' => 'ingredient_not_found', 'message' => 'یکی از مواد اولیه دستور محصول در انبار پیدا نشد'], 409);
             }
             $available = (float)($ingredient['stock'] ?? 0);
-            // Restaurant policy: stock depletion warns the operator but never blocks a valid sale.
+            if ($stockPolicy === 'block' && $available + 0.000001 < $needed) {
+                $pdo->rollBack();
+                json_response(['ok' => false, 'error' => 'insufficient_stock', 'message' => 'موجودی یکی از مواد اولیه کافی نیست: ' . (string)($ingredient['name'] ?? $ingredientId)], 409);
+            }
+            // warn_and_allow keeps the operator informed in the POS; allow_negative skips the warning.
             // Negative stock is retained as an explicit backorder/shortage signal for replenishment reports.
             $ingredient['stock'] = round($available - $needed, 3);
             $ingredientUpdate->execute([
@@ -2129,6 +2148,8 @@ if (preg_match('#^/orders/(\d+)$#', $path, $editMatch) && $method === 'PATCH') {
     if (!is_array($taxSettings)) $taxSettings = [];
     $taxEnabled = !array_key_exists('taxEnabled', $taxSettings) || $taxSettings['taxEnabled'] !== false;
     $taxPercent = (float)($taxSettings['taxPercent'] ?? 0);
+    $stockPolicy = (string)($taxSettings['stockPolicy'] ?? 'warn_and_allow');
+    if (!in_array($stockPolicy, ['block', 'warn_and_allow', 'allow_negative'], true)) $stockPolicy = 'warn_and_allow';
     if (!is_finite($taxPercent) || $taxPercent < 0 || $taxPercent > 100) {
         json_response(['ok' => false, 'error' => 'invalid_tax_settings', 'message' => 'تنظیم درصد مالیات معتبر نیست'], 409);
     }
@@ -2223,7 +2244,7 @@ if (preg_match('#^/orders/(\d+)$#', $path, $editMatch) && $method === 'PATCH') {
                 json_response(['ok' => false, 'error' => 'ingredient_not_found', 'message' => 'یکی از مواد اولیه دستور محصول در انبار پیدا نشد'], 409);
             }
             $available = (float)($ingredient['stock'] ?? 0);
-            if ($available + 0.000001 < $needed) {
+            if ($stockPolicy === 'block' && $available + 0.000001 < $needed) {
                 $pdo->rollBack();
                 json_response(['ok' => false, 'error' => 'insufficient_stock', 'message' => 'موجودی یکی از مواد اولیه کافی نیست: ' . (string)($ingredient['name'] ?? $ingredientId)], 409);
             }
