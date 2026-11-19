@@ -339,6 +339,18 @@ try {
     $switchPaymentBody['terminalPaymentId'] = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
     $paymentMethodSwitch = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $switchPaymentBody, csrf_headers());
     check($paymentMethodSwitch['status'] === 409 && ($paymentMethodSwitch['json']['error'] ?? '') === 'payment_method_change_requires_new_transaction', 'order edit cannot switch cash to card without a separately approved transaction');
+    $stockPolicyBlockEdit = api('POST', '/api/v1/records/settings', ['item' => ['id' => 'main', 'stockPolicy' => 'block']], csrf_headers());
+    check($stockPolicyBlockEdit['status'] === 201, 'manager can configure stock policy to block insufficient stock');
+    $overStockEditBody = $editBody;
+    $overStockEditBody['items'][0]['qty'] = 6;
+    $overStockEditBody['totals'] = ['subtotal' => 6000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 6000];
+    $blockedEdit = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $overStockEditBody, csrf_headers());
+    check($blockedEdit['status'] === 409 && ($blockedEdit['json']['error'] ?? '') === 'insufficient_stock', 'block stock policy rejects insufficient inventory during order edit');
+    $stockAfterBlockedEdit = api('GET', '/api/v1/records/ingredients');
+    $stockAfterBlockedEditItem = array_values(array_filter($stockAfterBlockedEdit['json']['items'] ?? [], fn($item) => ($item['id'] ?? '') === 'ci-ingredient'))[0] ?? [];
+    check((float)($stockAfterBlockedEditItem['stock'] ?? -1) === 8.0, 'rejected order edit rolls back stock restoration and deduction');
+    $stockPolicyWarn = api('POST', '/api/v1/records/settings', ['item' => ['id' => 'main', 'stockPolicy' => 'warn_and_allow']], csrf_headers());
+    check($stockPolicyWarn['status'] === 201, 'manager can configure warn and allow stock policy');
     $edited = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $editBody, csrf_headers());
     check($edited['status'] === 200 && ($edited['json']['order']['id'] ?? '') === $orderId, 'manager edits existing order without changing its identity');
     $editedAgain = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $editBody, csrf_headers());
@@ -364,6 +376,14 @@ try {
         'customer' => ['id' => 'ci-customer'],
         'totals' => ['subtotal' => 5000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 5000],
     ];
+    $stockPolicyInvalid = api('POST', '/api/v1/records/settings', ['item' => ['id' => 'main', 'stockPolicy' => 'silently-ignore']], csrf_headers());
+    check($stockPolicyInvalid['status'] === 422 && ($stockPolicyInvalid['json']['error'] ?? '') === 'invalid_stock_policy', 'server rejects unknown stock policy values');
+    $stockPolicyBlockCreate = api('POST', '/api/v1/records/settings', ['item' => ['id' => 'main', 'stockPolicy' => 'block']], csrf_headers());
+    check($stockPolicyBlockCreate['status'] === 201, 'manager can enable stock blocking for new orders');
+    $blockedStockOrder = api('POST', '/api/v1/orders', $stockFailure, csrf_headers());
+    check($blockedStockOrder['status'] === 409 && ($blockedStockOrder['json']['error'] ?? '') === 'insufficient_stock', 'block stock policy rejects new orders with insufficient ingredients');
+    $stockPolicyWarnAgain = api('POST', '/api/v1/records/settings', ['item' => ['id' => 'main', 'stockPolicy' => 'warn_and_allow']], csrf_headers());
+    check($stockPolicyWarnAgain['status'] === 201, 'manager can restore warn and allow stock policy');
     $acceptedStock = api('POST', '/api/v1/orders', $stockFailure, csrf_headers());
     check($acceptedStock['status'] === 201 && !empty($acceptedStock['json']['order']['id']), 'checkout succeeds even when recipe stock is depleted');
     $stockDepletionOrderId = (string)($acceptedStock['json']['order']['id'] ?? '');
