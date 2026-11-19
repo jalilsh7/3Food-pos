@@ -6,10 +6,23 @@ final class PosV3DatabaseTools {
   $value=getenv($name); if ($value===false || $value==='') { if ($default!==null) return $default; throw new RuntimeException("Missing environment variable: {$name}"); } return $value;
  }
  public static function connect(): PDO {
+  if (PHP_VERSION_ID < 80200) throw new RuntimeException('PHP 8.2 or newer is required.');
+  if (!extension_loaded('pdo_mysql')) throw new RuntimeException('PDO MySQL extension is required.');
   $host=self::env('POS_V3_DB_HOST'); $port=self::env('POS_V3_DB_PORT','3306'); $database=self::env('POS_V3_DB_NAME'); $username=self::env('POS_V3_DB_USER'); $password=self::env('POS_V3_DB_PASSWORD','');
   if (!preg_match('/^[A-Za-z0-9_]+$/',$database)) throw new RuntimeException('Invalid database name.');
   if (!ctype_digit($port)||(int)$port<1||(int)$port>65535) throw new RuntimeException('Invalid database port.');
-  return new PDO("mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",$username,$password,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,PDO::ATTR_EMULATE_PREPARES=>false]);
+  $pdo=new PDO("mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",$username,$password,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,PDO::ATTR_EMULATE_PREPARES=>false]);
+  $serverVersion=(string)$pdo->query('SELECT VERSION()')->fetchColumn();
+  if (!preg_match('/^(\\d+\\.\\d+\\.\\d+)/',$serverVersion,$matches)) throw new RuntimeException('Unable to determine MySQL/MariaDB server version.');
+  $version=$matches[1];
+  if (stripos($serverVersion,'mariadb')!==false) {
+   if (version_compare($version,'10.6.0','<')) throw new RuntimeException("MariaDB 10.6 or newer is required; detected {$serverVersion}.");
+  } elseif (stripos($serverVersion,'mysql')!==false || preg_match('/^8\\./',$version)) {
+   if (version_compare($version,'8.0.16','<')) throw new RuntimeException("MySQL 8.0.16 or newer is required; detected {$serverVersion}.");
+  } else {
+   throw new RuntimeException("Unsupported database engine: {$serverVersion}.");
+  }
+  return $pdo;
  }
  public static function quoteIdentifier(string $identifier): string {
   if (!preg_match('/^[A-Za-z0-9_]+$/', $identifier)) throw new RuntimeException('Invalid SQL identifier.');
