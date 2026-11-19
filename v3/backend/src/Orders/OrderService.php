@@ -151,18 +151,22 @@ final readonly class OrderService
                     $groups = $this->orders->listProductOptionGroupsForUpdate($scope->businessId, (int) $product['id']);
                     $selectedOptions = $this->resolveOptions($scope->businessId, $groups, $item['options']);
 
-                    $unitPrice = (int) $product['base_price_amount'];
+                    $baseUnitPrice = (int) $product['base_price_amount'];
                     if ($variant !== null) {
-                        $unitPrice = self::safeAdd($unitPrice, (int) $variant['price_delta_amount']);
+                        $baseUnitPrice = self::safeAdd($baseUnitPrice, (int) $variant['price_delta_amount']);
                     }
+                    if ($baseUnitPrice < 0 || $baseUnitPrice > self::MAX_AMOUNT) {
+                        throw new HttpException(422, 'invalid_calculated_price', 'The product and variant price is outside the allowed range.');
+                    }
+                    $effectiveUnitPrice = $baseUnitPrice;
                     foreach ($selectedOptions as $selectedOption) {
-                        $unitPrice = self::safeAdd($unitPrice, (int) $selectedOption['price_delta_amount']);
+                        $effectiveUnitPrice = self::safeAdd($effectiveUnitPrice, (int) $selectedOption['price_delta_amount']);
                     }
-                    if ($unitPrice < 0 || $unitPrice > self::MAX_AMOUNT) {
+                    if ($effectiveUnitPrice < 0 || $effectiveUnitPrice > self::MAX_AMOUNT) {
                         throw new HttpException(422, 'invalid_calculated_price', 'The calculated item price is outside the allowed range.');
                     }
 
-                    $lineSubtotal = self::amountForQuantity($unitPrice, $item['quantity_milli']);
+                    $lineSubtotal = self::amountForQuantity($effectiveUnitPrice, $item['quantity_milli']);
                     $taxRate = (int) $product['tax_rate_bps'];
                     if ($taxRate < 0 || $taxRate > 10000) {
                         throw new HttpException(422, 'invalid_product_tax', 'The product tax rate is invalid.');
@@ -176,7 +180,7 @@ final readonly class OrderService
                         'product' => $product,
                         'variant' => $variant,
                         'quantity' => $item['quantity'],
-                        'unit_price' => $unitPrice,
+                        'unit_price' => $baseUnitPrice,
                         'tax_rate' => $taxRate,
                         'tax_amount' => $lineTax,
                         'line_total' => $lineTotal,
