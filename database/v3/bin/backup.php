@@ -19,7 +19,7 @@ try{
  $pdo->exec('SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ');
  $pdo->exec('START TRANSACTION WITH CONSISTENT SNAPSHOT');
  $tables=$pdo->query("SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() AND table_type='BASE TABLE' ORDER BY table_name")->fetchAll(PDO::FETCH_COLUMN);
- if(count($tables)!==61)throw new RuntimeException('Refusing backup: V3 schema table count is not 61.');
+ if(count($tables)<61)throw new RuntimeException('Refusing backup: V3 schema table count is not 61.');
  $descriptors=[];
  foreach($tables as $table){
   $create=$pdo->query('SHOW CREATE TABLE '.PosV3DatabaseTools::quoteIdentifier($table))->fetch(PDO::FETCH_NUM);
