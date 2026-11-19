@@ -167,7 +167,7 @@ export function App() {
                   </button>
                 );
               })}
-            </Surface>
+            </section>
           ))}
         </nav>
         <div className="sidebar-foot">
