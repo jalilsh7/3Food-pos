@@ -7,6 +7,7 @@ CREATE TABLE app_idempotency_keys (
   endpoint_code VARCHAR(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   key_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   request_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  lease_expires_at DATETIME(3) NOT NULL,
   response_status SMALLINT UNSIGNED NULL,
   response_ciphertext MEDIUMBLOB NULL,
   response_nonce BINARY(12) NULL,
