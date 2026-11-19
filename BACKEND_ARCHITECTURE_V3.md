@@ -347,3 +347,12 @@ v3/backend/
 - تصویر اصلی محصول/دسته‌بندی با PUT روی `/api/v1/catalog/products/{id}/image` و `/api/v1/catalog/categories/{id}/image` متصل و با DELETE از اتصال جدا می‌شود. detach فایل را حذف نمی‌کند.
 - migration 010 metadata و رابطه‌ها را می‌سازد؛ قبل از اجرای آن APIهای media عملیاتی نیستند. migration اجرا نشده است.
 - تنظیمات محیطی: `POS_V3_PRIVATE_STORAGE_PATH` (پیش‌فرض `v3/backend/var/private-media`، باید خارج از public root بماند) و `POS_V3_MEDIA_MAX_BYTES` (پیش‌فرض 5242880، حداکثر 20971520). افزونه PHP `fileinfo` لازم است.
+
+
+## BE-01G6 — مالکیت و ارتباط Recipe / Inventory
+- migration 011 اقلام انبار و تامین‌کنندگان را در سطح business و مکان‌ها/اسناد/ledger/balances/reservations را در سطح business+branch محدود می‌کند.
+- واحدهای اندازه‌گیری و تبدیل استاندارد مرجع مشترک هستند؛ تبدیل‌ها شامل mg↔g↔kg و ml↔l و واحد pcs هستند.
+- recipe در سطح business به product و در صورت نیاز به variant همان product متصل می‌شود؛ قید یکتا یک recipe برای هر product/variant را enforce می‌کند.
+- recipe version شناسه UUID دارد؛ نسخه فعال پس از انتشار immutable در نظر گرفته می‌شود و تغییر دستور ساخت باید نسخه جدید بسازد. مقدار quantity، unit و conversion factor در recipe line نگهداری می‌شوند.
+- موجودی فقط از طریق سند انبار و ledger تغییر می‌کند؛ ویرایش کاتالوگ یا recipe به‌تنهایی هیچ quantity_on_hand یا stock ledger را تغییر نمی‌دهد.
+- migration 011 فقط ثبت شده است؛ تا پایان توسعه روی هیچ دیتابیسی اجرا نمی‌شود.
