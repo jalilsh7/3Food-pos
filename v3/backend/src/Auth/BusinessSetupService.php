@@ -77,6 +77,9 @@ final readonly class BusinessSetupService
             $currency,
             $branchCode,
             $branchName,
+            $ownerUserId,
+            $requestId,
+            $ipAddress,
         ): void {
             if ($this->businesses->lockInitialBusinessId() !== null) {
                 throw new HttpException(409, 'business_already_configured', 'The initial business has already been configured.');
