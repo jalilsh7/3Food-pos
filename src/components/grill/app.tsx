@@ -1931,6 +1931,7 @@ function TerminalSettingsPanel() {
   const [terminalName,setTerminalName]=useState("کارتخوان اصلی");
   const [provider,setProvider]=useState("unknown");
   const [model,setModel]=useState("");
+  const [driverCode,setDriverCode]=useState("unconfigured");
   const [host,setHost]=useState("192.168.1.100");
   const [port,setPort]=useState("5000");
   const [connection,setConnection]=useState<"lan"|"wifi">("lan");
@@ -1952,7 +1953,7 @@ function TerminalSettingsPanel() {
     setBusy(true);setNote("");
     try{
       if(!agentId)throw new Error("ابتدا یک کامپیوتر صندوق تعریف کنید.");
-      await phpApi.saveTerminal({id:uid("pt"),agentId,localTerminalKey:localKey.trim(),name:terminalName.trim(),providerCode:provider,modelName:model.trim(),driverCode:"unconfigured",connectionType:connection,host:host.trim(),port:Number(port),enabled:true,isDefault:isDefault||terminals.length===0});
+      await phpApi.saveTerminal({id:uid("pt"),agentId,localTerminalKey:localKey.trim(),name:terminalName.trim(),providerCode:provider,modelName:model.trim(),driverCode:driverCode.trim()||"unconfigured",connectionType:connection,host:host.trim(),port:Number(port),enabled:true,isDefault:isDefault||terminals.length===0});
       await refresh();setNote("مشخصات کارتخوان ذخیره شد. تا نصب درایور تأییدشده، پرداخت واقعی غیرفعال می‌ماند.");
     }catch(e){setNote(e instanceof Error?e.message:"ذخیره کارتخوان انجام نشد");}finally{setBusy(false);}
   }
@@ -1973,13 +1974,14 @@ function TerminalSettingsPanel() {
         <Field label="نام کارتخوان"><input className={inputCls} value={terminalName} onChange={e=>setTerminalName(e.target.value)}/></Field>
         <Field label="شرکت پرداخت"><select className={inputCls} value={provider} onChange={e=>setProvider(e.target.value)}><option value="unknown">نامشخص</option><option value="behpardakht">به‌پرداخت ملت</option><option value="sep">پرداخت الکترونیک سامان</option><option value="iran_kish">ایران‌کیش</option><option value="asan_pardakht">آسان پرداخت</option><option value="pasargad">پاسارگاد</option><option value="parsian">پارسیان</option><option value="other">سایر</option></select></Field>
         <Field label="مدل دستگاه"><input className={inputCls} value={model} onChange={e=>setModel(e.target.value)} placeholder="مدل کارتخوان"/></Field>
+        <Field label="کد درایور"><input className={inputCls} value={driverCode} onChange={e=>setDriverCode(e.target.value)} placeholder="unconfigured"/></Field>
         <Field label="نوع اتصال"><select className={inputCls} value={connection} onChange={e=>setConnection(e.target.value as "lan"|"wifi")}><option value="lan">کابل شبکه (LAN)</option><option value="wifi">Wi-Fi</option></select></Field>
         <Field label="IP کارتخوان"><input className={inputCls} value={host} onChange={e=>setHost(e.target.value)} placeholder="192.168.1.100"/></Field>
         <Field label="پورت"><input className={inputCls} type="number" min="1" max="65535" value={port} onChange={e=>setPort(e.target.value)}/></Field>
         <Field label="کلید محلی دستگاه"><input className={inputCls} value={localKey} onChange={e=>setLocalKey(e.target.value)} placeholder="terminal-1"/></Field>
       </div>
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={isDefault} onChange={e=>setIsDefault(e.target.checked)}/> انتخاب به‌عنوان کارتخوان پیش‌فرض</label>
-      <div className="rounded-lg bg-bg p-3 text-xs leading-6 text-muted">درایور فعلاً روی «پیکربندی‌نشده» باقی می‌ماند. واردکردن IP به‌تنهایی اتصال بانکی ایجاد نمی‌کند؛ پس از دریافت مستندات ECR و پیاده‌سازی درایور معتبر، دستگاه قابل فعال‌سازی برای پرداخت خواهد شد.</div>
+      <div className="rounded-lg bg-bg p-3 text-xs leading-6 text-muted">کد درایور باید دقیقاً با افزونه معتبر نصب‌شده روی عامل محلی مطابقت داشته باشد. تا زمانی که درایور رسمی و تأییدشده نصب نشده، مقدار را «unconfigured» نگه دارید؛ واردکردن IP یا کد دلخواه به‌تنهایی اتصال بانکی ایجاد نمی‌کند.</div>
       <Btn onClick={()=>void saveTerminal()} disabled={busy||!agentId||!terminalName.trim()||!localKey.trim()||!host.trim()||!Number.isInteger(Number(port))||Number(port)<1||Number(port)>65535}>ذخیره کارتخوان</Btn>
       {terminals.length?<div className="space-y-2">{terminals.map(t=><div key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-surface p-3"><div><p className="text-sm font-medium">{t.name}</p><p className="text-xs text-muted" dir="ltr">{t.host}:{t.port} · {t.provider_code??"unknown"} · {t.driver_code??"unconfigured"}</p><p className="text-xs text-muted">{t.enabled?"فعال":"غیرفعال"}{t.is_default?" · پیش‌فرض":""} · {t.agent_name??""}</p></div>{t.enabled?<Btn tone="ghost" onClick={()=>void disableTerminal(t.id)} disabled={busy}>غیرفعال‌سازی</Btn>:null}</div>)}</div>:null}
     </div>
