@@ -325,6 +325,9 @@ final readonly class OrderService
         if ($reasonText !== null && (!is_string($reasonText) || self::unicodeLength($reasonText) > 500)) {
             throw new HttpException(422, 'invalid_status_reason_text', 'The status reason text must not exceed 500 characters.');
         }
+        if (in_array($targetStatus, ['cancelled', 'rejected'], true) && $reasonCode === null && trim((string) $reasonText) === '') {
+            throw new HttpException(422, 'status_reason_required', 'A reason code or reason text is required when cancelling or rejecting an order.');
+        }
 
         $fingerprint = self::fingerprint([
             'order_id' => $orderPublicId,
@@ -489,7 +492,6 @@ final readonly class OrderService
     /** @return list<array<string,mixed>> */
     private function resolveOptions(int $businessId, array $groups, array $selectedPublicIds): array
     {
-        $selectedByGroup = [];
         $resolved = [];
         $unmatched = $selectedPublicIds;
 
@@ -518,7 +520,6 @@ final readonly class OrderService
             if ($count < $minimum || $count > $maximum) {
                 throw new HttpException(422, 'option_selection_out_of_range', 'The selected options do not satisfy the product option group rules.');
             }
-            $selectedByGroup[$groupId] = $groupSelected;
             foreach ($groupSelected as $option) {
                 $resolved[] = $option;
             }
