@@ -819,15 +819,22 @@
 - گام بعد: UX-02 — استخراج shell/navigation و اجزای پایه بدون تغییر رفتار؛ پس از بررسی دقیق importها، تست‌ها و کنترل مجوزهای فعلی.
 
 
-## UX-02 — اسکلت مستقل frontend تجاری V3 (2026-11-19)
+## UX-02 — Design System و primitives مستقل V3 (2026-11-19)
 
-- وضعیت: **در حال انجام؛ نیازمند اجرای محلی و build واقعی.**
-- workspace جدید `v3/frontend/` به‌صورت مستقل از runtime ریشه (V2) ایجاد شد.
-- فایل‌ها: `package.json`، `tsconfig.json`، `vite.config.ts`، `index.html`، `src/main.tsx`، `src/app/App.tsx`، `src/styles.css` و `README.md`.
-- UI پایه: پوسته RTL و responsive، گروه‌بندی ناوبری، جست‌وجوی بخش‌ها، نمای کلی با placeholder به‌جای داده ساختگی، placeholder صفحات فروش، سفارش، آشپزخانه، کاتالوگ، انبار، مشتری، مالی و تنظیمات.
-- مرزهای ایمنی: هیچ import از root `src/`، store یا phpApi نسخه V2 وجود ندارد؛ frontend هنوز به backend/API/auth/database وصل نیست و صرفاً اسکلت طراحی است.
-- هیچ فونت یا script از CDN خارجی بارگیری نمی‌شود؛ فونت محلی در مرحله بعدی و پس از تعیین منبع مجاز اضافه خواهد شد.
-- نسخه‌های dependency در package.json ثابت شده‌اند؛ lockfile هنوز ایجاد نشده و باید با npm install در محیط Windows تولید و commit شود.
-- برای جلوگیری از تغییر V2، آزمایش قبلی shell در root به‌طور کامل revert شد: `src/components/grill/app.tsx` به blob قبلی `4cb11a62bb6dcc68a867e917dfac9a4b47491008` برگشت و سه فایل آزمایشی `src/features/shell/*` حذف شدند. fetch نهایی این وضعیت را تأیید کرد.
-- تست typecheck، unit، lint و build اجرا نشده‌اند؛ بنابراین هیچ PASS فنی یا آمادگی نصب اعلام نمی‌شود.
-- گام بعد: در Windows داخل `v3/frontend` اجرای `npm install`، سپس `npm run typecheck` و `npm run build`؛ خروجی کامل باید برای رفع خطاهای احتمالی بررسی شود.
+- وضعیت: **در حال انجام؛ کدنویسی UI پایه ثبت شده، پذیرش فنی و مرورگری باقی است.**
+- همه تغییرات اجرایی فقط زیر `v3/frontend/` انجام شده‌اند؛ runtime و فایل‌های V2 دست‌نخورده باقی مانده‌اند.
+- فایل‌های جدید:
+  - `src/tokens.css`: design tokens رنگ، متن، سطوح، وضعیت، radius، shadow و focus.
+  - `src/shared/ui/primitives.tsx`: Button، Surface، PageHeader، StatusBadge، Notice و EmptyState.
+  - `src/shared/ui/primitives.css`: استایل و variantهای primitives.
+  - `src/shared/ui/index.ts`: barrel export برای API داخلی UI.
+  - `DESIGN_SYSTEM.md`: مستند قرارداد، دسترس‌پذیری و نمونه استفاده.
+- فایل‌های به‌روزشده:
+  - `src/styles.css`: import توکن‌ها و component styles؛ حذف CSS placeholderهای قدیمی.
+  - `src/app/App.tsx`: مصرف primitives برای header، status، سطح‌های نمای کلی، placeholder و پاک‌کردن جست‌وجو.
+  - `README.md`: لینک مستند Design System و اعلام وضعیت تست.
+  - `POS_V3_UX_ARCHITECTURE.md` و `ROADMAP_V3.md`: ثبت خروجی و وضعیت UX-02.
+- بررسی ایستای پس از تغییر: فایل‌ها از شاخه دوباره fetch شدند؛ تعداد Surface opening/closing در App برابر است؛ nav section جدا باقی مانده؛ importهای V2 در workspace جدید دیده نشدند. این بررسی، جایگزین TypeScript compiler یا مرورگر نیست.
+- تست‌های typecheck/unit/lint/build و browser acceptance اجرا نشده‌اند. GitHub Actions به مانع runner/billing ثبت‌شده وابسته است؛ lockfile نیز هنوز تولید نشده است.
+- ریسک باقی: ناسازگاری احتمالی TS/JSX یا تفاوت visual در مرورگر تا زمان build واقعی؛ primitives هنوز آزمون واحد و visual regression ندارند.
+- گام بعد: ساخت primitiveهای فرم، فیلتر و جدول و سپس UX-03 صفحه فروش؛ پیش از اتصال به backend باید قرارداد API مستقل V3 تثبیت شود.
