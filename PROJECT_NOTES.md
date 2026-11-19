@@ -1008,3 +1008,7 @@
 - فایل جدید `scripts/check-v3-backend-database.php`: بررسی DSN، عدم حضور password در DSN و رد host ناامن.
 - workflow اکنون database configuration check را نیز اجرا می‌کند.
 - این بسته اتصال واقعی به DB برقرار نکرده و schema/migration/data را تغییر نداده است. تست MySQL 8.4/MariaDB 10.6 و commit/rollback واقعی هنوز اجرا نشده‌اند.
+
+
+### BE-01C follow-up
+- `v3/backend/public/index.php` اصلاح شد تا خطای bootstrap را با JSON 503 و headerهای امنیتی پایه، بدون وابستگی به autoload کلاس Response برگرداند. این مسیر برای PHP ناسازگار یا config ناقص نیز از fatal error ثانویه جلوگیری می‌کند.
