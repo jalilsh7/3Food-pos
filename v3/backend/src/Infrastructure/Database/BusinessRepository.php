@@ -9,11 +9,6 @@ final readonly class BusinessRepository
 {
     public function __construct(private PDO $connection) {}
 
-    public function countBusinesses(): int
-    {
-        return (int) $this->connection->query('SELECT COUNT(*) FROM pos_businesses')->fetchColumn();
-    }
-
     public function isInstallationOwner(int $userId): bool
     {
         $statement = $this->connection->prepare(
@@ -25,6 +20,18 @@ final readonly class BusinessRepository
         );
         $statement->execute(['user_id' => $userId]);
         return $statement->fetchColumn() !== false;
+    }
+
+    public function lockInitialBusinessId(): ?int
+    {
+        $statement = $this->connection->query(
+            'SELECT initial_business_id FROM app_business_setup_state WHERE id = 1 FOR UPDATE'
+        );
+        $value = $statement->fetchColumn();
+        if ($value === false) {
+            throw new \RuntimeException('Business setup state is missing.');
+        }
+        return $value === null ? null : (int) $value;
     }
 
     public function createBusiness(
@@ -67,5 +74,18 @@ final readonly class BusinessRepository
             'timezone' => $timezone,
         ]);
         return (int) $this->connection->lastInsertId();
+    }
+
+    public function markInitialBusinessCreated(int $businessId): void
+    {
+        $statement = $this->connection->prepare(
+            'UPDATE app_business_setup_state
+             SET initial_business_id = :business_id, initialized_at = UTC_TIMESTAMP(3)
+             WHERE id = 1 AND initial_business_id IS NULL'
+        );
+        $statement->execute(['business_id' => $businessId]);
+        if ($statement->rowCount() !== 1) {
+            throw new \RuntimeException('Initial business setup state could not be finalized.');
+        }
     }
 }
