@@ -442,3 +442,13 @@
 - تست پایه `scripts/check-v3-backend-bootstrap.php` و workflow ماتریسی PHP 8.2/8.3/8.4 در `.github/workflows/v3-backend-validation.yml` اضافه شد.
 - تست اجرایی تا دریافت نتیجه واقعی GitHub Actions تأیید نمی‌شود؛ CI-INFRA-01 همچنان مانع محتمل runner است.
 - گام بعد: BE-01B پیاده‌سازی Request/Response/Router و error contract.
+
+
+### BE-01B — هسته HTTP و قرارداد API (2026-11-20)
+- وضعیت: **کد پایه ثبت شد؛ پذیرش اجرایی CI و middlewareهای امنیتی باقی است.**
+- Request/Response/Router/Kernel و HttpException در `v3/backend/src/Http/` ایجاد شدند.
+- قرارداد JSON موفق/خطا، request ID، route parameter، 404/405، JSON validation و خطای عمومی 500 پیاده شد.
+- `v3/backend/public/index.php` فقط یک liveness route در `GET /api/v1/health` ارائه می‌کند؛ health به معنای readiness یا اتصال DB نیست.
+- تست `scripts/check-v3-backend-http.php` اضافه و workflow PHP 8.2/8.3/8.4 برای lint، bootstrap و HTTP checks توسعه یافت.
+- Auth/RBAC/CSRF/CORS/rate limit/body-size limit و API دامنه هنوز اجرا نشده‌اند؛ قبل از route حساس باید middlewareهای امنیتی پیاده شوند.
+- گام بعد: BE-01C اتصال PDO امن و TransactionManager؛ سپس middleware pipeline پیش از endpointهای حساس.
