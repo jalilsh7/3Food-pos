@@ -1201,3 +1201,11 @@
 - Request از multipart upload پشتیبانی می‌کند؛ POST /api/v1/media، GET /api/v1/media/{id}، PUT اتصال تصویر و DELETE جداکردن تصویر ثبت شدند.
 - فایل با تعویض/جداکردن تصویر حذف فیزیکی نمی‌شود تا از حذف فایل مشترک یا مورد ارجاع جلوگیری شود.
 - preflight به افزونه fileinfo نیازمند شد. هیچ تست، lint، build یا migration اجرا نشده است.
+
+
+## BE-01G6 — پایه داده رسپی و انبار (2026-11-19)
+- migration 011 مالکیت stock items/suppliers را به business و stock locations/documents/ledger/balances/reservations را به business+branch مقید می‌کند.
+- recipe و recipe version به business scope منتقل می‌شوند؛ variant recipe باید متعلق به همان محصول باشد و برای هر product/variant یک recipe یکتا تعریف می‌شود.
+- واحدهای mg/g/kg، ml/l و pcs و تبدیل‌های استاندارد seed می‌شوند؛ factor در recipe line snapshot می‌شود.
+- موجودی از مسیر recipe/catalog تغییر نمی‌کند؛ تغییر موجودی فقط در workflow اسناد انبار و stock ledger انجام خواهد شد.
+- migration اجرا نشده و تست‌ها اجرا نشده‌اند؛ APIهای دامنه در بسته بعدی ساخته می‌شوند.
