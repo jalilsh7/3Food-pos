@@ -1105,3 +1105,13 @@
 - تکرار کلید با payload متفاوت 409 و تکرار payload یکسان replay پاسخ را برمی‌گرداند. scope شامل actor، business، branch و endpoint است.
 - تست‌ها عمداً به پایان توسعه موکول شده‌اند؛ هیچ نتیجه تست یا اجرای migration ادعا نمی‌شود.
 - گام بعد: اتصال audit به عملیات مدیریت کاربر/نقش/شعبه و سپس استفاده از idempotency در اولین vertical slice سفارش.
+
+
+## BE-01F2 — Audit scope و مشاهده تاریخچه (2026-11-19)
+- وضعیت: **در حال انجام**؛ کد و endpoint اضافه شده‌اند، migration 005 اجرا نشده و تست نهایی باقی است.
+- migration: `database/v3/migrations/005_add-audit-business-scope.sql`.
+- audit eventها business_id و branch_id ساختاریافته می‌گیرند؛ FK مرکب branch/business از اتصال رویداد به شعبه متعلق به کسب‌وکار دیگر جلوگیری می‌کند.
+- endpoint: `GET /api/v1/audit-logs` با permission `audit.read`، فیلتر scope و pagination با `before_id` و `limit`.
+- فایل‌های اصلی: AuditLogRepository، AuditLogService، AuditLogController، Request، public/index.php و serviceهای business/user/role/branch.
+- query parser محدود به ۴۰۹۶ بایت و ۲۰ پارامتر است؛ audit controller lazy-load می‌شود.
+- تست و migration execution انجام نشده‌اند؛ تست‌ها طبق دستور مالک برای انتهای پروژه نگه داشته می‌شوند.
