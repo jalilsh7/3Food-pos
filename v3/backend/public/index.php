@@ -107,7 +107,7 @@ try {
     $getBranchController = static function () use (&$branchController, $getConnection): BranchManagementController {
         if (!$branchController instanceof BranchManagementController) {
             $branchController = new BranchManagementController(
-                new BranchManagementService($getConnection()),
+                new BranchManagementService($getConnection(), $configuration->applicationKey),
             );
         }
         return $branchController;
@@ -232,7 +232,7 @@ try {
 
     $router->add('POST', '/api/v1/access/branches',
         static fn (Request $request): Response => $getBranchController()->create($request),
-        [$sessionMiddleware, $makePermissionMiddleware('branches.manage', false), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('branches.create')],
+        [$sessionMiddleware, $makePermissionMiddleware('branches.manage', false), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('GET', '/api/v1/access/users',
