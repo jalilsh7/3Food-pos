@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { ChefHat } from "lucide-react";
-import { NAV, ROLE_LABEL, type View } from "@/features/shell/navigation";
-import { PosNavigation } from "@/features/shell/pos-navigation";
-import { PosTopbar } from "@/features/shell/pos-topbar";
+import {
+  ChefHat, ClipboardList, LayoutDashboard, MessageSquare, Percent,
+  Settings as SettingsIcon, ShoppingBag, Users, UtensilsCrossed, Warehouse, Truck, LogOut,
+} from "lucide-react";
 import { Btn, Card, Empty, Field, PageHeading, inputCls } from "./bits";
 import { ReceiptView } from "./receipt";
 import {
@@ -47,6 +47,24 @@ async function deleteCentralRecord(resource: string, id: string, commit: () => v
 
 const INITIAL_RENDER_TIME = Date.now();
 
+type View = "pos" | "orders" | "menu" | "stock" | "customers" | "codes" | "reports" | "expenses" | "suppliers" | "sms" | "users" | "settings";
+
+const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[] = [
+  { id: "pos", label: "فروش", icon: ShoppingBag, roles: ["manager", "cashier"] },
+  { id: "orders", label: "سفارش‌ها", icon: ClipboardList, roles: ["manager", "cashier", "kitchen"] },
+  { id: "menu", label: "منو", icon: UtensilsCrossed, roles: ["manager"] },
+  { id: "stock", label: "انبار", icon: Warehouse, roles: ["manager"] },
+  { id: "customers", label: "باشگاه", icon: Users, roles: ["manager", "cashier"] },
+  { id: "codes", label: "کد تخفیف", icon: Percent, roles: ["manager"] },
+  { id: "reports", label: "گزارش", icon: LayoutDashboard, roles: ["manager"] },
+  { id: "expenses", label: "هزینه‌ها", icon: ClipboardList, roles: ["manager"] },
+  { id: "suppliers", label: "تأمین‌کنندگان", icon: Truck, roles: ["manager"] },
+  { id: "sms", label: "پیامک", icon: MessageSquare, roles: ["manager"] },
+  { id: "users", label: "کاربران", icon: Users, roles: ["manager"] },
+  { id: "settings", label: "تنظیمات", icon: SettingsIcon, roles: ["manager"] },
+];
+
+const ROLE_LABEL: Record<Role, string> = { manager: "مدیر", cashier: "صندوقدار", kitchen: "آشپز" };
 const EVENT_LABEL: Record<SmsEvent, string> = {
   order_created: "ثبت سفارش", order_ready: "آماده شدن", order_delivered: "تحویل",
   points_earned: "کسب امتیاز", discount_used: "استفاده از کد",
@@ -132,8 +150,29 @@ export function GrillApp() {
   const [viewFallback] = allowed;
   return (
     <div className="pos-app min-h-screen bg-bg text-ink">
-      <PosTopbar shop={shop} logoUrl={appearance.logoUrl} user={user} onLogout={() => void logout()} />
-
+      <header className="pos-topbar sticky top-0 z-30 flex min-w-0 items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          {appearance.logoUrl ? (
+            <img src={appearance.logoUrl} alt="لوگوی فروشگاه" className="h-11 w-11 rounded-2xl border border-line bg-surface object-contain p-1" />
+          ) : (
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-chili text-chili-ink shadow-sm"><UtensilsCrossed size={21} /></div>
+          )}
+          <div className="min-w-0">
+            <p className="truncate text-base font-extrabold tracking-tight sm:text-lg">{shop}</p>
+            <p className="text-[11px] font-medium text-muted sm:text-xs">سامانه مدیریت و فروش 3Food</p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="hidden text-left sm:block">
+            <p className="text-sm font-bold">{user.display_name}</p>
+            <p className="text-[11px] text-muted">{ROLE_LABEL[user.role]}</p>
+          </div>
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-leaf/10 text-sm font-bold text-leaf">{user.display_name.trim().slice(0, 1) || "ک"}</span>
+          <button type="button" onClick={() => void logout()} className="pos-logout inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-xs font-semibold sm:text-sm">
+            <LogOut size={16} /><span className="hidden sm:inline">خروج امن</span>
+          </button>
+        </div>
+      </header>
       <PosWorkspace allowed={allowed} initialView={viewFallback?.id ?? "orders"} role={user.role} />
     </div>
   );
@@ -144,7 +183,29 @@ function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; ini
   const current = allowed.some((n) => n.id === view) ? view : allowed[0]?.id ?? "orders";
   return (
     <div className="pos-layout mx-auto grid w-full max-w-[1600px] min-w-0 gap-4 px-3 py-4 sm:px-5 lg:grid-cols-[248px_minmax(0,1fr)] lg:gap-6 lg:px-7 lg:py-7">
-      <PosNavigation allowed={allowed} current={current} onSelect={setView} />
+      <nav className="pos-nav min-w-0 lg:sticky lg:top-[92px] lg:flex lg:h-[calc(100vh-116px)] lg:flex-col">
+        <div className="hidden px-3 pb-4 pt-2 lg:block">
+          <p className="text-[10px] font-bold tracking-[0.18em] text-muted">WORKSPACE</p>
+          <p className="mt-1 text-sm font-extrabold">دسترسی سریع</p>
+        </div>
+        <div className="pos-nav-list flex min-w-0 gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
+          {allowed.map((n) => {
+            const Icon = n.icon;
+            const on = current === n.id;
+            return (
+              <button key={n.id} type="button" aria-current={on ? "page" : undefined} onClick={() => setView(n.id)} className={`pos-nav-item inline-flex shrink-0 items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold ${on ? "is-active" : ""}`}>
+                <span className="grid h-8 w-8 place-items-center rounded-xl"><Icon size={18} strokeWidth={2} /></span>
+                <span>{n.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-auto hidden rounded-2xl border border-line bg-surface/80 p-4 lg:block">
+          <p className="text-xs font-bold text-ink">3Food POS</p>
+          <p className="mt-1 text-[11px] leading-6 text-muted">مدیریت یکپارچه فروش، سفارش و موجودی</p>
+          <span className="mt-2 inline-flex items-center gap-2 text-[10px] font-semibold text-leaf"><span className="h-1.5 w-1.5 rounded-full bg-leaf" /> سامانه فعال</span>
+        </div>
+      </nav>
       <main className="pos-main min-w-0">
         {current === "pos" ? <PosScreen /> : null}
         {current === "orders" ? <OrdersScreen role={role} /> : null}
