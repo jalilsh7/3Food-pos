@@ -229,12 +229,12 @@ try {
 
     $router->add('POST', '/api/v1/access/roles',
         static fn (Request $request): Response => $getRoleController()->create($request),
-        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('roles.create-or-update')],
+        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('roles.create')],
     );
 
     $router->add('PATCH', '/api/v1/access/roles/{roleCode}',
         static fn (Request $request, array $parameters): Response => $getRoleController()->update($request, $parameters),
-        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware],
+        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('roles.update')],
     );
 
     $router->add('GET', '/api/v1/access/roles',
@@ -244,12 +244,12 @@ try {
 
     $router->add('POST', '/api/v1/access/users/{userPublicId}/business-roles',
         static fn (Request $request, array $parameters): Response => $getRoleController()->assignBusiness($request, $parameters),
-        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware],
+        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('roles.business-assignment')],
     );
 
     $router->add('DELETE', '/api/v1/access/users/{userPublicId}/business-roles/{roleCode}',
         static fn (Request $request, array $parameters): Response => $getRoleController()->removeBusiness($request, $parameters),
-        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware],
+        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('roles.business-revocation')],
     );
 
     $router->add('POST', '/api/v1/access/users/{userPublicId}/branch-roles',
@@ -259,7 +259,7 @@ try {
 
     $router->add('DELETE', '/api/v1/access/users/{userPublicId}/branch-roles/{roleCode}',
         static fn (Request $request, array $parameters): Response => $getRoleController()->removeBranch($request, $parameters),
-        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', true), $csrfMiddleware, $originMiddleware],
+        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', true), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('roles.branch-revocation')],
     );
 
     $router->add('POST', '/api/v1/auth/logout',
