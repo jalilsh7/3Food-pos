@@ -1072,3 +1072,14 @@
 - API مدیریت role و ایجاد business/branch هنوز در بسته‌های بعدی ساخته می‌شوند؛ هیچ route عملیاتی فعلاً permission middleware را مصرف نمی‌کند.
 - تست‌ها و migration اجرا نشده‌اند و برای مرحله جامع پایانی نگه داشته شده‌اند.
 
+
+## BE-01E2 — onboarding و مدیریت نقش (2026-11-20)
+- endpoint جدید POST /api/v1/auth/change-password: بررسی رمز فعلی، رمز جدید ۱۲ تا ۱۲۸ بایت، تغییر hash، خاموش‌کردن must_change_password، افزایش session_version و ابطال نشست‌های قبلی. پاسخ cookieهای نشست و CSRF را پاک می‌کند و ورود مجدد لازم است.
+- endpoint POST /api/v1/setup/business فقط برای owner نصب، پس از تغییر رمز اولیه و با CSRF/same-origin مجاز است؛ business و شعبه اصلی در یک transaction ساخته می‌شوند.
+- app_business_setup_state singleton و قفل FOR UPDATE از setup هم‌زمان جلوگیری می‌کند.
+- endpoint GET /api/v1/access/roles و POST/DELETE انتساب business-role و branch-role اضافه شدند.
+- RoleManagementService واگذاری نقش owner یا نقش wildcard را رد می‌کند و قبل از انتساب، داشتن تمام permissionهای نقش هدف توسط actor را در همان scope بررسی می‌کند.
+- BusinessScopeResolver برای endpointهای business-wide وجود X-Branch-ID را رد می‌کند؛ branch role نمی‌تواند مجوز خود را به کل business گسترش دهد.
+- فایل‌های جدید: BusinessRepository.php، BusinessSetupService.php، BusinessSetupController.php، InstallationOwnerMiddleware.php، RoleRepository.php، RoleManagementService.php و RoleManagementController.php.
+- migration 003 هنوز اجرا نشده؛ تست‌ها تا مرحله نهایی به تعویق افتاده‌اند.
+
