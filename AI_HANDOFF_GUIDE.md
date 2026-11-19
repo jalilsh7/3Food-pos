@@ -194,3 +194,12 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 - Regression script: `scripts/check-v3-backend-inventory-read.php`, wired into `.github/workflows/v3-backend-validation.yml`. The script asserts query scope predicates and bindings; it is not a substitute for MySQL/MariaDB integration tests.
 - Latest inventory package commit before docs: `1b1ae0a83269680a5f69eb15dd473efef858e515`; docs commits follow. Re-fetch latest branch and verify CI.
 - Next vertical slice: transactional stock documents (purchase receipt, transfer, adjustment, waste, return), append-only ledger posting, atomic balance updates, negative-stock guard, idempotency and audit. Do not mutate balances outside ledger-backed posting.
+
+ 
+## 13. Recipe API integration package — 2026-11-20
+- RecipeController/RecipeService were present but not registered in the HTTP front controller. They are now wired through a lazy controller factory.
+- Routes: product recipe read, draft recipe-version creation, and recipe-version activation.
+- Read requires `catalog.read`; writes require `catalog.manage`, session, CSRF, same-origin validation and idempotency keys.
+- Regression contract: `scripts/check-v3-backend-recipe-routes.php`, wired into Backend Validation workflow.
+- Recipe unit conversion factors are resolved and persisted as snapshots by the existing service/repository. Recipe activation retires the previous active version in the same idempotent transaction.
+- CI has not yet been confirmed for this package. Re-fetch current branch and workflow result before claiming green.
