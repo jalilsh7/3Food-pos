@@ -423,6 +423,8 @@ try {
     $backupData = $backup['json']['backup'] ?? [];
     check($backup['status'] === 200 && ($backupData['format'] ?? '') === '3food-pos-mysql-backup', 'manager can export MySQL backup');
     check(count($backupData['orders'] ?? []) >= 1 && count($backupData['order_effects'] ?? []) >= 2, 'backup includes all order history and reversible effect ledger: ' . count($backupData['orders'] ?? []) . '/' . count($backupData['order_effects'] ?? []));
+    check(count($backupData['terminal_agents'] ?? []) === 1 && count($backupData['payment_terminals'] ?? []) === 1 && count($backupData['terminal_payments'] ?? []) === 1, 'backup includes terminal setup and payment ledger');
+    check(!str_contains(json_encode($backupData['terminal_agents']), 'token_hash') && !str_contains(json_encode($backupData['terminal_agents']), $agentToken), 'backup never exports agent credentials');
     $backupSettings = [];
     foreach ($backupData['records'] ?? [] as $record) {
         if (($record['resource'] ?? '') === 'settings') $backupSettings = $record['payload'] ?? [];
@@ -432,6 +434,9 @@ try {
     }
     $occupiedRestore = api('POST', '/api/v1/backup/restore', ['backup' => $backupData], csrf_headers());
     check($occupiedRestore['status'] === 409 && ($occupiedRestore['json']['error'] ?? '') === 'restore_requires_empty_pos', 'restore refuses populated database (HTTP ' . $occupiedRestore['status'] . ', ' . ($occupiedRestore['json']['error'] ?? 'no_error') . ')');
+    $pdo->exec('DELETE FROM pos_terminal_payments');
+    $pdo->exec('DELETE FROM pos_payment_terminals');
+    $pdo->exec('DELETE FROM app_terminal_agents');
     $pdo->exec('DELETE FROM pos_discount_redemptions');
     $pdo->exec('DELETE FROM pos_order_effects');
     $pdo->exec('DELETE FROM pos_orders');
@@ -454,6 +459,9 @@ try {
     }
     check((int)$pdo->query('SELECT COUNT(*) FROM pos_order_effects')->fetchColumn() === count($backupData['order_effects']), 'restore reconstructs reversible order effects');
     check((int)$pdo->query('SELECT COUNT(*) FROM pos_discount_redemptions')->fetchColumn() === count($backupData['discount_redemptions']), 'restore reconstructs discount redemption ledger');
+    check((int)$pdo->query('SELECT COUNT(*) FROM app_terminal_agents WHERE enabled=0')->fetchColumn() === count($backupData['terminal_agents']), 'restore recreates agents disabled so they must be securely paired again');
+    check((int)$pdo->query('SELECT COUNT(*) FROM pos_payment_terminals WHERE enabled=0')->fetchColumn() === count($backupData['payment_terminals']), 'restore recreates terminal configs disabled');
+    check((int)$pdo->query('SELECT COUNT(*) FROM pos_terminal_payments')->fetchColumn() === count($backupData['terminal_payments']), 'restore reconstructs terminal payment ledger');
     check((int)$pdo->query('SELECT counter_value FROM pos_counters WHERE counter_key = "order_number"')->fetchColumn() === (int)$backupData['counters'][0]['counter_value'], 'restore preserves order number counter');
 
     $guestOrder = api('POST', '/api/v1/orders', [
