@@ -66,6 +66,7 @@
   line-height: 1.4;
   white-space: nowrap;
 }
+.ui-status.compact { min-height: 26px; padding: 5px 9px; }
 .ui-status__dot { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: currentColor; }
 .ui-status--neutral { border-color: #e5eae7; background: #f4f6f5; color: #65746e; }
 .ui-status--success { border-color: #d7ebdf; background: var(--pc-success-soft); color: var(--pc-success); }
