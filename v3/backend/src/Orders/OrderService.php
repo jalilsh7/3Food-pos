@@ -642,7 +642,7 @@ final readonly class OrderService
             $count = count($groupSelected);
             $minimum = (int) $group['min_select'];
             $maximum = (int) $group['max_select'];
-            if ((int) $group['is_required'] === 1) {
+            if ((int) $group['is_required'] === 1 || (int) $group['is_required_default'] === 1) {
                 $minimum = max(1, $minimum);
             }
             if ((string) $group['selection_type'] === 'single') {
