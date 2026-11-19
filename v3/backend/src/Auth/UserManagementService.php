@@ -24,6 +24,19 @@ final readonly class UserManagementService
         $this->transactions = new TransactionManager($connection);
     }
 
+    public function listBusinessUsers(BusinessScope $scope): array
+    {
+        return $this->users->listBusinessUsers($scope->businessId);
+    }
+
+    public function listBranchUsers(BusinessScope $scope): array
+    {
+        if ($scope->branchId === null) {
+            throw new HttpException(400, 'branch_context_required', 'A branch scope is required.');
+        }
+        return $this->users->listBranchUsers($scope->businessId, $scope->branchId);
+    }
+
     /** @return array{user_id:string,username:string,display_name:string,role_code:string,temporary_password:string} */
     public function createBusinessUser(
         AuthenticatedPrincipal $actor,
