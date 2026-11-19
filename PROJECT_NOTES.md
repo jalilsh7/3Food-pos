@@ -1226,3 +1226,11 @@
 - سند مستقل `AI_HANDOFF_GUIDE.md` در ریشه مخزن ایجاد شد.
 - شامل قواعد کار GitHub، معماری و مسیرهای مخزن، وضعیت پیاده‌سازی با الزام راستی‌آزمایی، سیاست تست اولویت‌بندی‌شده، invariants تجاری، محدودیت‌های migration/production، caveatهای تست و ترتیب گام‌های بعدی است.
 - هر دستیار/توسعه‌دهنده بعدی باید قبل از تغییر کد این سند، ROADMAP_V3.md و بخش‌های مرتبط PROJECT_NOTES.md را بخواند و سپس HEAD و SHA فایل‌ها را تازه دریافت کند.
+
+
+## BUG-BE-USER-REPOSITORY-01 — خطای نحوی SQL literal نقش owner (2026-11-20)
+- وضعیت: **اصلاح کد انجام شد؛ تأیید CI در انتظار**.
+- CI سه نسخه PHP 8.2/8.3/8.4 در commit ادغام‌شده PR خطای parse در UserRepository.php خط 59 را گزارش کرد.
+- علت: دو literal مربوط به `owner` داخل رشته SQL تک‌کوتیشن PHP escape نشده بودند.
+- هر دو occurrence در commit `330aaa01c0171fac072d3a301b6993552a6d70ed` با escape صحیح اصلاح شدند.
+- تست: اجرای قبلی شکست خورده است؛ اجرای CI پس از commit اصلاحی باید PHP lint و سپس guard/integration checks را تکمیل کند. تا مشاهده نتیجه نهایی، PASS ثبت نشود.
