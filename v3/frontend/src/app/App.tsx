@@ -22,6 +22,7 @@ import { KitchenBoard } from "../features/kitchen/KitchenBoard";
 import { CatalogWorkspace } from "../features/catalog/CatalogWorkspace";
 import { InventoryWorkspace } from "../features/inventory/InventoryWorkspace";
 import { CustomersWorkspace } from "../features/customers/CustomersWorkspace";
+import { FinanceWorkspace } from "../features/finance/FinanceWorkspace";
 
 type ViewId = "overview" | "pos" | "orders" | "kitchen" | "catalog" | "inventory" | "customers" | "finance" | "settings";
 
@@ -205,7 +206,7 @@ export function App() {
         </header>
 
         <div className="content-area">
-          {activeView === "overview" ? <Overview /> : activeView === "pos" ? <PosWorkspace /> : activeView === "orders" ? <OrderCenter /> : activeView === "kitchen" ? <KitchenBoard /> : activeView === "catalog" ? <CatalogWorkspace /> : activeView === "inventory" ? <InventoryWorkspace /> : activeView === "customers" ? <CustomersWorkspace /> : (
+          {activeView === "overview" ? <Overview /> : activeView === "pos" ? <PosWorkspace /> : activeView === "orders" ? <OrderCenter /> : activeView === "kitchen" ? <KitchenBoard /> : activeView === "catalog" ? <CatalogWorkspace /> : activeView === "inventory" ? <InventoryWorkspace /> : activeView === "customers" ? <CustomersWorkspace /> : activeView === "finance" ? <FinanceWorkspace /> : (
             <div className="page-stack">
               <PageHeader
                 eyebrow={activeItem.description}
