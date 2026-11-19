@@ -505,3 +505,11 @@
 - محدودیت طول JSON body و بازه طول نشست اضافه شد.
 - مورد بعدی: RBAC واقعی، permission registry، deny-by-default و scope کسب‌وکار/شعبه قبل از هر API عملیاتی.
 
+
+### BE-01E1 — زیرساخت RBAC و scope
+- وضعیت: **کدنویسی زیرساخت و migration انجام شد؛ تست و اجرای migration در مرحله نهایی.**
+- business/branch schema، business-role و branch-role assignment schema، permission registry و نقش‌های پیش‌فرض اضافه شدند.
+- permission evaluation با deny-by-default و wildcard محدود به owner نصب پیاده شد.
+- resolver و middleware برای enforce کردن scope با UUID عمومی اضافه شدند.
+- موارد بعدی: API مدیریت نقش/انتساب، onboarding کسب‌وکار/شعبه و اتصال middleware به routeهای عملیاتی.
+
