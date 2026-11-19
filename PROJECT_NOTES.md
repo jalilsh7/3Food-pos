@@ -999,3 +999,12 @@
 - workflow `.github/workflows/v3-backend-validation.yml` اکنون همه PHPهای backend/scripts را lint و دو check script را اجرا می‌کند.
 - تست‌ها فقط به GitHub اضافه شده‌اند؛ تا مشاهده runner و step conclusion، هیچ‌کدام را اجراشده/PASS نمی‌دانیم.
 - محدودیت‌های باز: body-size enforcement، CORS، CSRF، authentication، RBAC، rate limiting و middleware pipeline. تا تکمیل این موارد هیچ endpoint حساس اضافه نشود.
+
+
+## BE-01C — PDO factory و TransactionManager (2026-11-20)
+- فایل جدید `v3/backend/src/Infrastructure/Database/PdoConnectionFactory.php`: ساخت DSN امن MySQL، بررسی وجود pdo_mysql، native prepared statements، exception mode، associative fetch، utf8mb4 و timeout.
+- credential به DSN وارد نمی‌شود؛ خطای اتصال پیام عمومی دارد و log فقط SQLSTATE را ثبت می‌کند. host allowlist شامل حروف/اعداد/dot/colon/hyphen است تا DSN delimiter injection ممکن نباشد.
+- فایل جدید `v3/backend/src/Infrastructure/Database/TransactionManager.php`: اجرای callback در transaction، رد nested transaction، commit در موفقیت و rollback در Throwable؛ خطای rollback جداگانه log می‌شود و exception اصلی حفظ می‌شود.
+- فایل جدید `scripts/check-v3-backend-database.php`: بررسی DSN، عدم حضور password در DSN و رد host ناامن.
+- workflow اکنون database configuration check را نیز اجرا می‌کند.
+- این بسته اتصال واقعی به DB برقرار نکرده و schema/migration/data را تغییر نداده است. تست MySQL 8.4/MariaDB 10.6 و commit/rollback واقعی هنوز اجرا نشده‌اند.
