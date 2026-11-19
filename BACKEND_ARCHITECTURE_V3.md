@@ -179,3 +179,20 @@ v3/backend/
 - GET/HEAD/OPTIONS از CSRF token مستثنا هستند؛ تغییر state باید از method غیرایمن استفاده کند.
 - cookie با ترتیب صحیح Set-Cookie و ویژگی‌های Path=/، HttpOnly، SameSite=Lax و Secure در حالت امن صادر می‌شود؛ logout cookie را با Max-Age=0 منقضی می‌کند.
 - middlewareها هنوز به route تجاری وصل نشده‌اند؛ هر route حساس باید SessionMiddleware و سپس CsrfMiddleware را ثبت کند.
+
+
+## 13. BE-01D4 — اجرای API احراز هویت و نشست (2026-11-20)
+
+- endpointهای \`POST /api/v1/auth/login\`، \`GET /api/v1/auth/me\` و \`POST /api/v1/auth/logout\` در front controller ثبت شدند.
+- اتصال PDO lazy است؛ \`GET /api/v1/health\` برای liveness به دیتابیس وابسته نشده است.
+- login فقط JSON object می‌پذیرد، Content-Type را enforce می‌کند و قبل از بررسی رمز، same-origin را با Origin/Referer و Host کنترل می‌کند.
+- login از AuthenticationService و limiter دو bucket حساب/IP استفاده می‌کند؛ token نشست فقط در cookie \`pos_v3_session\` با HttpOnly، SameSite=Lax و Secure در محیط‌های غیرمحلی قرار می‌گیرد.
+- CSRF token در cookie جداگانه \`pos_v3_csrf\` بدون HttpOnly قرار می‌گیرد؛ مقدار خام فقط به کلاینت همان نشست تحویل می‌شود و hash آن در DB می‌ماند. logout برای هر دو cookie header مستقل Set-Cookie می‌فرستد.
+- \`GET /auth/me\` نشست را resolve می‌کند و در صورت نبود/نامعتبر بودن CSRF cookie، token جدید ایجاد و hash آن را در همان session جایگزین می‌کند تا بازیابی پس از refresh ممکن باشد.
+- logout به ترتیب SessionMiddleware، CsrfMiddleware و SameOriginGuard را اجرا می‌کند؛ session revoke و هر دو cookie پاک می‌شوند.
+- CSRF برای درخواست‌های تغییردهنده state تطبیق سه‌گانه header، cookie و hash دیتابیس را enforce می‌کند.
+- session lifetime در بازه ۳۰۰ تا ۸۶۴۰۰ ثانیه enforce شده است. JSON body حداکثر ۶۴ KiB خوانده می‌شود.
+- درخواست IP از \`REMOTE_ADDR\` گرفته می‌شود؛ \`X-Forwarded-For\` بدون پیکربندی proxy مورد اعتماد استفاده نمی‌شود.
+- این مرحله endpointهای auth را ثبت می‌کند، اما RBAC هنوز روی routeها اعمال نشده و هیچ route عملیاتی کسب‌وکار وجود ندارد. تا تکمیل RBAC و scope، از این endpointها برای اتصال UI عملیاتی فراتر از login/session استفاده نشود.
+- تست‌های اجرایی عمداً به انتهای پروژه موکول شده‌اند؛ هیچ ادعای lint، CI، DB migration یا integration PASS در این مرحله وجود ندارد.
+
