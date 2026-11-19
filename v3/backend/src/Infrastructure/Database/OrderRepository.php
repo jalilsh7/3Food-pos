@@ -160,6 +160,34 @@ final readonly class OrderRepository
         return (int) $this->connection->lastInsertId();
     }
 
+    public function createFulfillment(
+        int $businessId,
+        int $branchId,
+        int $orderId,
+        string $method,
+        ?string $recipientName,
+        ?string $recipientPhone,
+        ?string $addressJson,
+    ): void {
+        $statement = $this->connection->prepare(
+            'INSERT INTO pos_order_fulfillments
+                (business_id, branch_id, order_id, method, recipient_name_snapshot,
+                 recipient_phone_snapshot, address_snapshot, delivery_fee_amount)
+             VALUES
+                (:business_id, :branch_id, :order_id, :method, :recipient_name,
+                 :recipient_phone, :address_snapshot, 0)'
+        );
+        $statement->execute([
+            'business_id' => $businessId,
+            'branch_id' => $branchId,
+            'order_id' => $orderId,
+            'method' => $method,
+            'recipient_name' => $recipientName,
+            'recipient_phone' => $recipientPhone,
+            'address_snapshot' => $addressJson,
+        ]);
+    }
+
     public function createOrderItem(
         int $businessId,
         int $branchId,
@@ -272,8 +300,10 @@ final readonly class OrderRepository
     {
         $sql = 'SELECT o.public_id, o.order_number, o.source_channel, o.order_status, o.payment_status,
                        o.subtotal_amount, o.tax_amount, o.total_amount, o.currency_code,
-                       o.created_at, c.public_id AS customer_public_id, c.name AS customer_name
+                       o.created_at, f.method AS fulfillment_method,
+                       c.public_id AS customer_public_id, c.name AS customer_name
                 FROM pos_orders o
+                LEFT JOIN pos_order_fulfillments f ON f.order_id = o.id AND f.business_id = o.business_id AND f.branch_id = o.branch_id
                 LEFT JOIN pos_customers c ON c.id = o.customer_id AND c.business_id = o.business_id
                 WHERE o.business_id = :business_id AND o.branch_id = :branch_id';
         $parameters = ['business_id' => $businessId, 'branch_id' => $branchId];
@@ -309,6 +339,7 @@ final readonly class OrderRepository
             'total_amount' => (int) $row['total_amount'],
             'currency_code' => (string) $row['currency_code'],
             'created_at' => (string) $row['created_at'],
+            'fulfillment_method' => $row['fulfillment_method'] === null ? null : (string) $row['fulfillment_method'],
             'customer' => $row['customer_public_id'] === null ? null : [
                 'id' => (string) $row['customer_public_id'],
                 'name' => (string) $row['customer_name'],
