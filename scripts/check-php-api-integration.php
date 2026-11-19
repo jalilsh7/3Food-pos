@@ -323,6 +323,11 @@ try {
     $unverifiedCardBody['idempotencyKey'] = '11111111-1111-4111-8111-111111111112';
     $unverifiedCard = api('POST', '/api/v1/orders', $unverifiedCardBody, csrf_headers());
     check($unverifiedCard['status'] === 422, 'API rejects card orders without a terminal payment reference');
+    $unverifiedOnlineBody = $orderBody;
+    $unverifiedOnlineBody['payment'] = 'online';
+    $unverifiedOnlineBody['idempotencyKey'] = '11111111-1111-4111-8111-111111111113';
+    $unverifiedOnline = api('POST', '/api/v1/orders', $unverifiedOnlineBody, csrf_headers());
+    check($unverifiedOnline['status'] === 409 && ($unverifiedOnline['json']['error'] ?? '') === 'online_payment_unavailable', 'API blocks online orders until a real gateway confirms payment');
     $created = api('POST', '/api/v1/orders', $orderBody, csrf_headers());
     check($created['status'] === 201, 'create order: ' . json_encode($created['json']));
     $orderId = (string)($created['json']['order']['id'] ?? '');
@@ -463,6 +468,8 @@ try {
     ], csrf_headers());
     check($cardOrder['status'] === 201, 'create card order after synthetic terminal approval');
     $cardOrderId = (int)($cardOrder['json']['order']['id'] ?? 0);
+    $cardOrderCancel = api('PATCH', '/api/v1/orders/' . rawurlencode((string)$cardOrderId) . '/status', ['status' => 'cancelled'], csrf_headers());
+    check($cardOrderCancel['status'] === 409 && ($cardOrderCancel['json']['error'] ?? '') === 'payment_reconciliation_required', 'paid card order cannot be cancelled before refund reconciliation');
     $cardOrderEdit = api('PATCH', '/api/v1/orders/' . rawurlencode((string)$cardOrderId), ['payment' => 'card'], csrf_headers());
     check($cardOrderEdit['status'] === 409 && ($cardOrderEdit['json']['error'] ?? '') === 'card_order_edit_requires_reconciliation', 'approved card order cannot be edited before payment reconciliation');
     $paymentAttached = api('POST', '/api/v1/terminal-payments/' . rawurlencode($orderPaymentId) . '/attach-order', ['orderId' => $cardOrderId], csrf_headers());
@@ -569,13 +576,13 @@ try {
         'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 90, 'total' => 1090],
         'guestName' => 'Guest Test',
         'guestPhone' => '09120000000',
-        'payment' => 'online',
+        'payment' => 'cash',
     ], csrf_headers());
-    check($guestOrder['status'] === 201, 'create guest order with online payment');
+    check($guestOrder['status'] === 201, 'create guest order with cash payment');
     $guestSnapshot = api('GET', '/api/v1/bootstrap');
     $guestData = $guestSnapshot['json']['data']['orders'][0] ?? [];
     check(($guestData['customerName'] ?? '') === 'Guest Test' && ($guestData['customerPhone'] ?? '') === '09120000000', 'bootstrap preserves guest identity');
-    check(($guestData['payment'] ?? '') === 'online', 'bootstrap preserves guest payment method');
+    check(($guestData['payment'] ?? '') === 'cash', 'bootstrap preserves guest payment method');
     $guestOrderId = (string)($guestOrder['json']['order']['id'] ?? '');
 
 
