@@ -5,6 +5,7 @@
 @import "./features/orders/orders.css";
 @import "./features/customers/customers.css";
 @import "./features/finance/finance.css";
+@import "./features/settings/settings.css";
 
 * { box-sizing: border-box; }
 html { direction: rtl; min-width: 320px; background: var(--canvas); }
