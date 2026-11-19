@@ -74,7 +74,7 @@
 | POST | `/api/v1/terminals/{id}/disable` | مدیر + CSRF | غیرفعال‌سازی کارتخوان |
 | POST | `/api/v1/terminal-payments` | مدیر/صندوق‌دار + CSRF | ایجاد درخواست پرداخت با مبلغ و idempotency |
 | GET | `/api/v1/terminal-payments/{id}` | مدیر/صندوق‌دار | مشاهده وضعیت تراکنش خود یا همه تراکنش‌ها توسط مدیر |
-| POST | `/api/v1/terminal-agent/next` | عامل محلی با توکن | (مسیر واقعی GET است) دریافت heartbeat و درخواست پرداخت صف‌شده از `GET /api/v1/terminal-agent/next` |
+| GET | `/api/v1/terminal-agent/next` | عامل محلی با توکن | heartbeat و دریافت درخواست پرداخت صف‌شده |
 | POST | `/api/v1/terminal-agent/payments/{id}/result` | عامل محلی با توکن | ثبت نتیجه پالایش‌شده تراکنش و شماره پیگیری/مرجع |
 
 نقش‌ها: `manager`, `cashier`, `kitchen`.
