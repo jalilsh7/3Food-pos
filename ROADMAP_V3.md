@@ -465,3 +465,11 @@
 
 
 - اصلاح تکمیلی BE-01C: fallback خطای bootstrap در front controller مستقل از autoload شد و پاسخ عمومی 503 می‌دهد.
+
+
+### BE-01D1 — زیرساخت ذخیره‌سازی نشست کاربر
+- وضعیت: **migration افزایشی و repository ثبت شدند؛ احراز هویت و endpoint هنوز تکمیل نشده است.**
+- migration `001_create-user-sessions.sql` جدول نشست‌ها را با token hash، CSRF hash، session_version، expiry/revoke و FK به app_users اضافه می‌کند.
+- `SessionRepository` ساخت، lookup نشست فعال، revoke یک نشست و revoke نشست‌های کاربر را با prepared statements انجام می‌دهد.
+- تست ایستای migration افزایشی به database check اضافه شد؛ engine test اجرا نشده و migration اجرا نشده است.
+- گام بعد: login throttling، user repository، password verification، session token issuance، cookie و CSRF middleware؛ سپس endpoint ورود/خروج.
