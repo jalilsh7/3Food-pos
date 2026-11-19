@@ -385,6 +385,37 @@ try {
     $editCancelled = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $editBody, csrf_headers());
     check($editCancelled['status'] === 409 && ($editCancelled['json']['error'] ?? '') === 'order_not_editable', 'cancelled order cannot be edited');
 
+    $terminalProduct = api('POST', '/api/v1/records/products', ['item' => [
+        'id' => 'ci-terminal-product', 'name' => 'CI Terminal Product', 'price' => 1000, 'active' => true, 'options' => [], 'recipe' => [],
+    ]], csrf_headers());
+    check($terminalProduct['status'] === 201, 'create recipe-free product for terminal order test');
+    $agentHeartbeatBeforeOrder = api('GET', '/api/v1/terminal-agent/next', null, $agentHeaders);
+    check($agentHeartbeatBeforeOrder['status'] === 200, 'refresh local agent heartbeat before terminal order');
+    $orderPaymentKey = '44444444-4444-4444-8444-000000000011';
+    $orderPayment = api('POST', '/api/v1/terminal-payments', [
+        'terminalId' => 'ci-terminal', 'amount' => 1000, 'idempotencyKey' => $orderPaymentKey,
+    ], csrf_headers());
+    check($orderPayment['status'] === 201, 'create second terminal payment for order linking');
+    $orderPaymentId = (string)($orderPayment['json']['payment']['id'] ?? '');
+    $orderPaymentJob = api('GET', '/api/v1/terminal-agent/next', null, $agentHeaders);
+    check(($orderPaymentJob['json']['payment']['id'] ?? '') === $orderPaymentId, 'agent claims payment intended for order');
+    $orderPaymentResult = api('POST', '/api/v1/terminal-agent/payments/' . rawurlencode($orderPaymentId) . '/result', [
+        'status' => 'approved', 'amount' => 1000, 'traceNumber' => 'CI-TRACE-ORDER',
+    ], $agentHeaders);
+    check($orderPaymentResult['status'] === 200, 'agent approves second synthetic payment');
+    $cardOrder = api('POST', '/api/v1/orders', [
+        'idempotencyKey' => '44444444-4444-4444-8444-000000000012',
+        'items' => [['key' => 'ci-card-line', 'productId' => 'ci-product', 'qty' => 1, 'unitPrice' => 1000, 'optionIds' => []]],
+        'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 1000],
+        'guestName' => 'Terminal Test', 'guestPhone' => '09120000001', 'payment' => 'card', 'terminalPaymentId' => $orderPaymentId,
+    ], csrf_headers());
+    check($cardOrder['status'] === 201, 'create card order after synthetic terminal approval');
+    $cardOrderId = (int)($cardOrder['json']['order']['id'] ?? 0);
+    $paymentAttached = api('POST', '/api/v1/terminal-payments/' . rawurlencode($orderPaymentId) . '/attach-order', ['orderId' => $cardOrderId], csrf_headers());
+    check($paymentAttached['status'] === 200 && (int)($paymentAttached['json']['order_id'] ?? 0) === $cardOrderId, 'approved payment attaches only to matching card order');
+    $paymentLinkedRead = api('GET', '/api/v1/terminal-payments/' . rawurlencode($orderPaymentId));
+    check((int)($paymentLinkedRead['json']['payment']['order_id'] ?? 0) === $cardOrderId, 'payment ledger retains linked order id');
+
     // Manager-only user administration and role-specific resource permissions.
     $cashierCreated = api('POST', '/api/v1/users', [
         'username' => 'ci_cashier',
@@ -428,7 +459,7 @@ try {
     $backupData = $backup['json']['backup'] ?? [];
     check($backup['status'] === 200 && ($backupData['format'] ?? '') === '3food-pos-mysql-backup', 'manager can export MySQL backup');
     check(count($backupData['orders'] ?? []) >= 1 && count($backupData['order_effects'] ?? []) >= 2, 'backup includes all order history and reversible effect ledger: ' . count($backupData['orders'] ?? []) . '/' . count($backupData['order_effects'] ?? []));
-    check(count($backupData['terminal_agents'] ?? []) === 1 && count($backupData['payment_terminals'] ?? []) === 1 && count($backupData['terminal_payments'] ?? []) === 1, 'backup includes terminal setup and payment ledger');
+    check(count($backupData['terminal_agents'] ?? []) === 1 && count($backupData['payment_terminals'] ?? []) === 1 && count($backupData['terminal_payments'] ?? []) === 2, 'backup includes terminal setup and payment ledger');
     check(!str_contains(json_encode($backupData['terminal_agents']), 'token_hash') && !str_contains(json_encode($backupData['terminal_agents']), $agentToken), 'backup never exports agent credentials');
     $backupSettings = [];
     foreach ($backupData['records'] ?? [] as $record) {
@@ -484,30 +515,7 @@ try {
     check(($guestData['payment'] ?? '') === 'online', 'bootstrap preserves guest payment method');
     $guestOrderId = (string)($guestOrder['json']['order']['id'] ?? '');
 
-    $orderPaymentKey = '44444444-4444-4444-8444-000000000011';
-    $orderPayment = api('POST', '/api/v1/terminal-payments', [
-        'terminalId' => 'ci-terminal', 'amount' => 1000, 'idempotencyKey' => $orderPaymentKey,
-    ], csrf_headers());
-    check($orderPayment['status'] === 201, 'create second terminal payment for order linking');
-    $orderPaymentId = (string)($orderPayment['json']['payment']['id'] ?? '');
-    $orderPaymentJob = api('GET', '/api/v1/terminal-agent/next', null, $agentHeaders);
-    check(($orderPaymentJob['json']['payment']['id'] ?? '') === $orderPaymentId, 'agent claims payment intended for order');
-    $orderPaymentResult = api('POST', '/api/v1/terminal-agent/payments/' . rawurlencode($orderPaymentId) . '/result', [
-        'status' => 'approved', 'amount' => 1000, 'traceNumber' => 'CI-TRACE-ORDER',
-    ], $agentHeaders);
-    check($orderPaymentResult['status'] === 200, 'agent approves second synthetic payment');
-    $cardOrder = api('POST', '/api/v1/orders', [
-        'idempotencyKey' => '44444444-4444-4444-8444-000000000012',
-        'items' => [['key' => 'ci-card-line', 'productId' => 'ci-product', 'qty' => 1, 'unitPrice' => 1000, 'optionIds' => []]],
-        'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 1000],
-        'guestName' => 'Terminal Test', 'guestPhone' => '09120000001', 'payment' => 'card', 'terminalPaymentId' => $orderPaymentId,
-    ], csrf_headers());
-    check($cardOrder['status'] === 201, 'create card order after synthetic terminal approval');
-    $cardOrderId = (int)($cardOrder['json']['order']['id'] ?? 0);
-    $paymentAttached = api('POST', '/api/v1/terminal-payments/' . rawurlencode($orderPaymentId) . '/attach-order', ['orderId' => $cardOrderId], csrf_headers());
-    check($paymentAttached['status'] === 200 && (int)($paymentAttached['json']['order_id'] ?? 0) === $cardOrderId, 'approved payment attaches only to matching card order');
-    $paymentLinkedRead = api('GET', '/api/v1/terminal-payments/' . rawurlencode($orderPaymentId));
-    check((int)($paymentLinkedRead['json']['payment']['order_id'] ?? 0) === $cardOrderId, 'payment ledger retains linked order id');
+
 
     // Keep this order new until the cashier authorization check below.
 
