@@ -456,3 +456,12 @@
 - queryهای پشتیبانی‌شده `limit` با بازه ۱ تا ۱۰۰ و `before_id` برای صفحه بعد هستند؛ cursor از `meta.next_before_id` دریافت می‌شود.
 - دسترسی فقط با permission `audit.read` است؛ مخفی‌کردن منو جایگزین کنترل سمت Backend نیست.
 - رویدادهای business-level در نمای شعبه نیز قابل مشاهده‌اند؛ رویداد شعبه دیگر هرگز نباید در scope انتخاب‌شده ظاهر شود.
+
+
+## BE-01G1 — قرارداد API کاتالوگ
+- دسته‌ها: `GET /api/v1/catalog/categories` و ایجاد با `POST /api/v1/catalog/categories`؛ body شامل `name` و فیلدهای اختیاری `parent_id` و `sort_order`.
+- محصولات: `GET /api/v1/catalog/products?search=...&category_id=...&limit=...` و ایجاد با `POST /api/v1/catalog/products`؛ body شامل `name`، `base_price_amount` و فیلدهای اختیاری `sku`، `product_type`، `tax_rate_bps` و `category_id`.
+- همه درخواست‌ها `X-Business-ID` لازم دارند؛ catalog در سطح کسب‌وکار مشترک است و انتخاب شعبه برای این endpointها لازم نیست.
+- commandها علاوه بر CSRF باید `Idempotency-Key` یکتا داشته باشند؛ retry همان command باید همان کلید و payload را حفظ کند.
+- مبلغ در واحد صحیح تومان/IRT ذخیره می‌شود؛ UI نباید قیمت اعشاری یا مبلغ محاسبه‌شده client را authoritative فرض کند.
+- فقط ایجاد/فهرست پایه فعال است؛ UI prototype هنوز به این endpointها متصل نشده است.
