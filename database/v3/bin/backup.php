@@ -35,7 +35,14 @@ try{
  }
  $previousUmask=umask(0077);$gzip=gzopen($tempPath,'wb9');umask($previousUmask);
  if($gzip===false)throw new RuntimeException('Cannot create compressed backup file.');
- $write=static function(array $record)use($gzip):void{$line=json_encode($record,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE)."\n";if(gzwrite($gzip,$line)!==strlen($line))throw new RuntimeException('Short write while creating backup archive.');};
+ $hmacKey=PosV3DatabaseTools::env('POS_V3_BACKUP_HMAC_KEY');
+ if(strlen($hmacKey)<32)throw new RuntimeException('POS_V3_BACKUP_HMAC_KEY must contain at least 32 bytes.');
+ $hmac=hash_init('sha256',HASH_HMAC,$hmacKey);
+ $write=static function(array $record)use($gzip,$hmac):void{
+  $line=json_encode($record,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE)."\n";
+  if(gzwrite($gzip,$line)!==strlen($line))throw new RuntimeException('Short write while creating backup archive.');
+  hash_update($hmac,$line);
+ };
  $version=(string)$pdo->query('SELECT VERSION()')->fetchColumn();$engine=stripos($version,'mariadb')!==false?'mariadb':'mysql';
  $write(['type'=>'header','format'=>'persiacoder-pos-v3-jsonl-gzip','format_version'=>1,'created_at_utc'=>gmdate('c'),'engine'=>$engine,'server_version'=>$version,'table_count'=>count($tables),'baseline_sha256'=>$expectedBaseline]);
  foreach($descriptors as $descriptor)$write($descriptor);
@@ -44,6 +51,9 @@ try{
   $statement=$pdo->query('SELECT '.$quotedColumns.' FROM '.PosV3DatabaseTools::quoteIdentifier($table));
   while(($values=$statement->fetch(PDO::FETCH_NUM))!==false)$write(['type'=>'row','table'=>$table,'values'=>$values]);
  }
+ $signature=hash_final($hmac);
+ $signatureLine=json_encode(['type'=>'signature','algorithm'=>'hmac-sha256','value'=>$signature],JSON_THROW_ON_ERROR)."\n";
+ if(gzwrite($gzip,$signatureLine)!==strlen($signatureLine))throw new RuntimeException('Short write while finalizing backup signature.');
  $pdo->exec('COMMIT');
  if(!gzclose($gzip))throw new RuntimeException('Could not finalize compressed backup.');$gzip=null;
  if(!chmod($tempPath,0600))throw new RuntimeException('Could not restrict backup file permissions.');
