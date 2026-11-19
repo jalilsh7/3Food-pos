@@ -389,6 +389,15 @@ try {
     $stockDepletionOrderId = (string)($acceptedStock['json']['order']['id'] ?? '');
     $stockDepletionCancel = api('PATCH', '/api/v1/orders/' . rawurlencode($stockDepletionOrderId) . '/status', ['status' => 'cancelled'], csrf_headers());
     check($stockDepletionCancel['status'] === 200, 'cancel stock depletion fixture and restore its inventory effect');
+    $stockPolicyNegative = api('POST', '/api/v1/records/settings', ['item' => ['id' => 'main', 'stockPolicy' => 'allow_negative']], csrf_headers());
+    check($stockPolicyNegative['status'] === 201, 'manager can configure silent negative stock policy');
+    $negativeStockOrderBody = $stockFailure;
+    $negativeStockOrderBody['idempotencyKey'] = '33333333-3333-4333-8333-333333333334';
+    $negativeStockOrder = api('POST', '/api/v1/orders', $negativeStockOrderBody, csrf_headers());
+    check($negativeStockOrder['status'] === 201, 'allow negative stock policy permits sale without blocking');
+    $negativeStockOrderId = (string)($negativeStockOrder['json']['order']['id'] ?? '');
+    $negativeStockCancel = api('PATCH', '/api/v1/orders/' . rawurlencode($negativeStockOrderId) . '/status', ['status' => 'cancelled'], csrf_headers());
+    check($negativeStockCancel['status'] === 200, 'cancel silent negative stock fixture and restore inventory');
 
     $pdo = new PDO(
         'mysql:host=' . (getenv('MYSQL_TEST_HOST') ?: '127.0.0.1') . ';port=' . (getenv('MYSQL_TEST_PORT') ?: '3306') . ';dbname=' . (getenv('MYSQL_TEST_DATABASE') ?: 'threefood_test') . ';charset=utf8mb4',
