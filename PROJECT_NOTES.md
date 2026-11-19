@@ -819,16 +819,12 @@
 - گام بعد: UX-02 — استخراج shell/navigation و اجزای پایه بدون تغییر رفتار؛ پس از بررسی دقیق importها، تست‌ها و کنترل مجوزهای فعلی.
 
 
-## UX-02 — جداسازی اولیه پوسته و ناوبری (2026-11-19)
+## UX-02 — اصلاح مرز استقلال runtime (2026-11-19)
 
-- وضعیت: **در حال انجام؛ تست‌های پذیرش باقی است.**
-- فایل‌های جدید:
-  - `src/features/shell/navigation.tsx`: نوع View، مدل NAV و برچسب نقش‌ها.
-  - `src/features/shell/pos-topbar.tsx`: نوار بالایی و اطلاعات کاربر/خروج امن.
-  - `src/features/shell/pos-navigation.tsx`: ناوبری واکنش‌گرا با حفظ کلاس‌ها و انتخاب صفحه فعلی.
-- `src/components/grill/app.tsx` به مصرف componentهای جدید تغییر کرد؛ منطق احراز هویت، API، نقش‌های مجاز و محتوای صفحات در این بسته عمداً بازنویسی نشد.
-- بررسی ایستای بعد از commit: هر سه فایل جدید fetch شدند؛ app.tsx دارای import و استفاده از PosTopbar/PosNavigation است و markup قبلی header/nav در آن باقی نمانده است.
-- Commit تغییر app.tsx: `4aac4d0d7f4d12f626969113a90a08921a7754e2`؛ HEAD در زمان بررسی همین commit بود. اسناد roadmap و UX نیز بعداً در commitهای جدا به‌روزرسانی شدند.
-- هیچ typecheck، unit test، lint، build یا browser test اجرا نشده است؛ بنابراین UX-02 هنوز تکمیل/تأییدشده نیست.
-- ریسک باز: ناسازگاری احتمالی import/type یا تفاوت رندر تا زمان اجرای npm checks و مشاهده مرورگر.
-- گام بعد: اجرای `npm ci`، `npm run typecheck`، `npm test`، `npm run lint` و `npm run build:cpanel` در محیط Windows مالک یا runner معتبر؛ سپس رفع خروجی واقعی.
+- وضعیت: **در انتظار؛ توسعه frontend مستقل V3 آغاز نشده است.**
+- در جریان بررسی متوجه شدیم `src/components/grill/app.tsx` و `src/main.tsx` متعلق به runtime V2 هستند؛ اتصال componentهای UX V3 به آن‌ها با الزام استقلال V3 سازگار نبود.
+- تغییر آزمایشی app.tsx به محتوای پیشین بازگردانده شد؛ commit برگشت: `6a76bf256c4558a37386d17dc2bfd686b228cd2e`.
+- سه فایل آزمایشی `src/features/shell/navigation.tsx`، `src/features/shell/pos-topbar.tsx` و `src/features/shell/pos-navigation.tsx` با commitهای حذف جداگانه پاک شدند. هیچ فایل اجرایی V2 در وضعیت نهایی این کار تغییرکرده باقی نمانده است.
+- سند UX به‌روزرسانی شد تا workspace مستقل V3 در `v3/frontend/` با package، entrypoint و build جداگانه را هدف بگیرد؛ هیچ import از root `src/` یا runtime V2 مجاز نیست.
+- این اصلاح یک تغییر معماری/مستندسازی است؛ typecheck، unit test، lint یا build اجرا نشده و هیچ قابلیت UI آماده/تأییدشده اعلام نمی‌شود.
+- گام بعد: ایجاد skeleton مستقل V3 پس از تثبیت مرز API و tooling؛ سپس اجرای typecheck و build در محیط محلی Windows.
