@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Eye, FilterX, PackageCheck, Search } from "lucide-react";
+import { Eye, FilterX, PackageCheck } from "lucide-react";
 import {
   Button,
   DataTable,
