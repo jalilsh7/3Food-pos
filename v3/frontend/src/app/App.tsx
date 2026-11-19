@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ClipboardList,
   LayoutDashboard,
+  Globe,
   Search,
   Settings,
   ShoppingCart,
@@ -24,8 +25,9 @@ import { InventoryWorkspace } from "../features/inventory/InventoryWorkspace";
 import { CustomersWorkspace } from "../features/customers/CustomersWorkspace";
 import { FinanceWorkspace } from "../features/finance/FinanceWorkspace";
 import { BusinessSettingsWorkspace } from "../features/settings/BusinessSettingsWorkspace";
+import { StorefrontWorkspace } from "../features/storefront/StorefrontWorkspace";
 
-type ViewId = "overview" | "pos" | "orders" | "kitchen" | "catalog" | "inventory" | "customers" | "finance" | "settings";
+type ViewId = "overview" | "pos" | "orders" | "kitchen" | "catalog" | "inventory" | "customers" | "finance" | "settings" | "storefront";
 
 type NavigationItem = {
   id: ViewId;
@@ -46,6 +48,7 @@ const navigation: NavigationGroup[] = [
       { id: "overview", label: "نمای کلی", icon: LayoutDashboard, description: "نمای کلی کسب‌وکار" },
       { id: "pos", label: "صندوق فروش", icon: ShoppingCart, description: "ثبت فروش حضوری" },
       { id: "orders", label: "مرکز سفارش‌ها", icon: ClipboardList, description: "مدیریت همه کانال‌های سفارش" },
+      { id: "storefront", label: "منوی آنلاین", icon: Globe, description: "پیش‌نمایش منو و سفارش اینترنتی" },
       { id: "kitchen", label: "آشپزخانه", icon: ChefHat, description: "صف آماده‌سازی و ایستگاه‌ها" },
     ],
   },
@@ -207,7 +210,7 @@ export function App() {
         </header>
 
         <div className="content-area">
-          {activeView === "overview" ? <Overview /> : activeView === "pos" ? <PosWorkspace /> : activeView === "orders" ? <OrderCenter /> : activeView === "kitchen" ? <KitchenBoard /> : activeView === "catalog" ? <CatalogWorkspace /> : activeView === "inventory" ? <InventoryWorkspace /> : activeView === "customers" ? <CustomersWorkspace /> : activeView === "finance" ? <FinanceWorkspace /> : activeView === "settings" ? <BusinessSettingsWorkspace /> : (
+          {activeView === "overview" ? <Overview /> : activeView === "pos" ? <PosWorkspace /> : activeView === "orders" ? <OrderCenter /> : activeView === "kitchen" ? <KitchenBoard /> : activeView === "catalog" ? <CatalogWorkspace /> : activeView === "inventory" ? <InventoryWorkspace /> : activeView === "customers" ? <CustomersWorkspace /> : activeView === "finance" ? <FinanceWorkspace /> : activeView === "settings" ? <BusinessSettingsWorkspace /> : activeView === "storefront" ? <StorefrontWorkspace /> : (
             <div className="page-stack">
               <PageHeader
                 eyebrow={activeItem.description}
