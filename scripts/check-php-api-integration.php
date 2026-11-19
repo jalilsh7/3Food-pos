@@ -11,6 +11,8 @@ $setupToken = (string)(getenv('POS_TEST_SETUP_TOKEN') ?: 'ci-only-setup-token-'.
 $cookie = '';
 $csrf = '';
 
+function valid_uuid_for_test(string $value): bool { return preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iD', $value) === 1; }
+
 function check(bool $condition, string $message): void {
     if (!$condition) throw new RuntimeException($message);
 }
@@ -159,6 +161,65 @@ try {
     $csrf = (string)$passwordChanged['json']['csrf_token'];
     $meAfterPasswordChange = api('GET', '/api/v1/auth/me');
     check($meAfterPasswordChange['status'] === 200 && ($meAfterPasswordChange['json']['user']['must_change_password'] ?? null) === false, 'password change clears forced-password flag for refresh');
+
+
+    // Terminal API is exercised with a synthetic agent callback only; this does not
+    // claim that a physical bank terminal or a provider protocol has been tested.
+    $agentCreated = api('POST', '/api/v1/terminal-agents', ['name' => 'CI Terminal Agent'], csrf_headers());
+    check($agentCreated['status'] === 201, 'manager creates a local terminal agent');
+    $agentToken = (string)($agentCreated['json']['token'] ?? '');
+    $agentId = (string)($agentCreated['json']['agent']['id'] ?? '');
+    check(strlen($agentToken) === 64 && valid_uuid_for_test($agentId), 'agent token and UUID are generated');
+    $agentList = api('GET', '/api/v1/terminal-agents');
+    check($agentList['status'] === 200 && !str_contains(json_encode($agentList['json']), $agentToken), 'agent list never exposes raw token');
+    $terminalSaved = api('POST', '/api/v1/terminals', [
+        'id' => 'ci-terminal',
+        'agentId' => $agentId,
+        'localTerminalKey' => 'ci-local-1',
+        'name' => 'CI Network Terminal',
+        'providerCode' => 'ci_test',
+        'modelName' => 'Synthetic ECR',
+        'driverCode' => 'ci_stub',
+        'connectionType' => 'lan',
+        'host' => '192.168.1.200',
+        'port' => 5000,
+        'enabled' => true,
+        'isDefault' => true,
+    ], csrf_headers());
+    check($terminalSaved['status'] === 201, 'manager saves a LAN terminal configuration');
+    $agentHeaders = ['X-Terminal-Agent-Token: ' . $agentToken];
+    $agentHeartbeat = api('GET', '/api/v1/terminal-agent/next', null, $agentHeaders);
+    check($agentHeartbeat['status'] === 200 && ($agentHeartbeat['json']['payment'] ?? 'unexpected') === null, 'agent authenticates and sends heartbeat');
+    $availableTerminals = api('GET', '/api/v1/terminals/available');
+    check($availableTerminals['status'] === 200 && count($availableTerminals['json']['items'] ?? []) === 1, 'cashier terminal discovery includes online configured drivers');
+    $terminalPaymentKey = '44444444-4444-4444-8444-000000000010';
+    $terminalPaymentCreated = api('POST', '/api/v1/terminal-payments', [
+        'terminalId' => 'ci-terminal',
+        'amount' => 125000,
+        'idempotencyKey' => $terminalPaymentKey,
+    ], csrf_headers());
+    check($terminalPaymentCreated['status'] === 201, 'manager queues a terminal payment intent');
+    $terminalPaymentId = (string)($terminalPaymentCreated['json']['payment']['id'] ?? '');
+    check(valid_uuid_for_test($terminalPaymentId), 'terminal payment intent UUID is returned');
+    $agentJob = api('GET', '/api/v1/terminal-agent/next', null, $agentHeaders);
+    check($agentJob['status'] === 200 && ($agentJob['json']['payment']['id'] ?? '') === $terminalPaymentId && ($agentJob['json']['payment']['status'] ?? '') === 'processing', 'authenticated agent atomically claims queued payment');
+    $agentResult = api('POST', '/api/v1/terminal-agent/payments/' . rawurlencode($terminalPaymentId) . '/result', [
+        'status' => 'approved',
+        'amount' => 125000,
+        'traceNumber' => 'CI-TRACE-001',
+        'retrievalReferenceNumber' => 'CI-RRN-001',
+        'providerCode' => 'ci_test',
+        'responseCode' => '00',
+    ], $agentHeaders);
+    check($agentResult['status'] === 200 && ($agentResult['json']['status'] ?? '') === 'approved', 'authenticated agent submits an approved synthetic result');
+    $terminalPaymentStatus = api('GET', '/api/v1/terminal-payments/' . rawurlencode($terminalPaymentId));
+    check($terminalPaymentStatus['status'] === 200 && ($terminalPaymentStatus['json']['payment']['status'] ?? '') === 'approved', 'cashier can read final terminal payment state');
+    $terminalPaymentReplay = api('POST', '/api/v1/terminal-payments', [
+        'terminalId' => 'ci-terminal',
+        'amount' => 125000,
+        'idempotencyKey' => $terminalPaymentKey,
+    ], csrf_headers());
+    check($terminalPaymentReplay['status'] === 200 && ($terminalPaymentReplay['json']['payment']['id'] ?? '') === $terminalPaymentId, 'terminal payment retry reuses the original idempotency record');
 
     $managerBootstrapForFeatures = api('GET', '/api/v1/bootstrap');
     check($managerBootstrapForFeatures['status'] === 200, 'manager bootstrap for next-release resources');
