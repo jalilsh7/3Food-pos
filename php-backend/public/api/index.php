@@ -410,15 +410,42 @@ if ($method==='POST' && $path==='/terminal-payments') {
         if((int)$old['created_by']!==(int)$actor['id']||($old['terminal_id']!==$terminalId||(int)$old['amount']!==$amount)) json_response(['ok'=>false,'error'=>'terminal_payment_idempotency_conflict','message'=>'شناسه تکراری برای پرداخت دیگری استفاده شده است'],409);
         json_response(['ok'=>true,'payment'=>['id'=>$old['id'],'status'=>$old['status'],'amount'=>(int)$old['amount']]]);
     }
-    $device=$pdo->prepare('SELECT t.id,t.driver_code,t.enabled,a.enabled AS agent_enabled,a.last_seen_at FROM pos_payment_terminals t JOIN app_terminal_agents a ON a.id=t.agent_id WHERE t.id=? LIMIT 1');$device->execute([$terminalId]);$terminal=$device->fetch();
-    if(!is_array($terminal)||(int)$terminal['enabled']!==1||(int)$terminal['agent_enabled']!==1) json_response(['ok'=>false,'error'=>'terminal_unavailable','message'=>'کارتخوان فعال یا متصل نیست'],409);
-    if($terminal['driver_code']==='unconfigured') json_response(['ok'=>false,'error'=>'terminal_driver_unconfigured','message'=>'برای این مدل کارتخوان هنوز درایور تأییدشده نصب نشده است'],409);
-    if(!$terminal['last_seen_at']||strtotime((string)$terminal['last_seen_at'])<time()-90) json_response(['ok'=>false,'error'=>'terminal_agent_offline','message'=>'برنامه اتصال کارتخوان روی کامپیوتر صندوق آنلاین نیست'],409);
-    $paymentId=sprintf('%s-%s-%s-%s-%s',bin2hex(random_bytes(4)),bin2hex(random_bytes(2)),sprintf('%04x',(hexdec(bin2hex(random_bytes(2)))&0x0fff)|0x4000),sprintf('%04x',(hexdec(bin2hex(random_bytes(2)))&0x3fff)|0x8000),bin2hex(random_bytes(6)));
-    $insert=$pdo->prepare("INSERT INTO pos_terminal_payments (id,idempotency_key,terminal_id,amount,currency,status,created_by) VALUES (?,?,?,?,'IRT','queued',?)");
-    $insert->execute([$paymentId,$key,$terminalId,$amount,(int)$actor['id']]);
-    audit($pdo,(int)$actor['id'],'terminal_payment_queued','terminal_payment',$paymentId,['terminal_id'=>$terminalId,'amount'=>$amount]);
-    json_response(['ok'=>true,'payment'=>['id'=>$paymentId,'status'=>'queued','amount'=>$amount]],201);
+
+    try {
+        $pdo->beginTransaction();
+        $device=$pdo->prepare('SELECT t.id,t.driver_code,t.enabled,a.enabled AS agent_enabled,a.last_seen_at FROM pos_payment_terminals t JOIN app_terminal_agents a ON a.id=t.agent_id WHERE t.id=? FOR UPDATE');
+        $device->execute([$terminalId]);$terminal=$device->fetch();
+        if(!is_array($terminal)||(int)$terminal['enabled']!==1||(int)$terminal['agent_enabled']!==1){
+            $pdo->rollBack();json_response(['ok'=>false,'error'=>'terminal_unavailable','message'=>'کارتخوان فعال یا متصل نیست'],409);
+        }
+        if($terminal['driver_code']==='unconfigured'){
+            $pdo->rollBack();json_response(['ok'=>false,'error'=>'terminal_driver_unconfigured','message'=>'برای این مدل کارتخوان هنوز درایور تأییدشده نصب نشده است'],409);
+        }
+        if(!$terminal['last_seen_at']||strtotime((string)$terminal['last_seen_at'])<time()-90){
+            $pdo->rollBack();json_response(['ok'=>false,'error'=>'terminal_agent_offline','message'=>'برنامه اتصال کارتخوان روی کامپیوتر صندوق آنلاین نیست'],409);
+        }
+        $pdo->prepare("UPDATE pos_terminal_payments SET status='unknown',completed_at=UTC_TIMESTAMP() WHERE terminal_id=? AND status='processing' AND requested_at < (UTC_TIMESTAMP() - INTERVAL 120 SECOND)")->execute([$terminalId]);
+        $unresolved=$pdo->prepare("SELECT id,status FROM pos_terminal_payments WHERE terminal_id=? AND status IN ('processing','unknown') ORDER BY requested_at DESC LIMIT 1 FOR UPDATE");
+        $unresolved->execute([$terminalId]);$unresolvedPayment=$unresolved->fetch();
+        if(is_array($unresolvedPayment)){
+            $pdo->rollBack();json_response(['ok'=>false,'error'=>'terminal_payment_reconciliation_required','message'=>'تراکنش قبلی نتیجه قطعی ندارد؛ پیش از پرداخت جدید باید وضعیت آن از بانک یا کارتخوان استعلام شود','payment_id'=>$unresolvedPayment['id'],'status'=>$unresolvedPayment['status']],409);
+        }
+        $queuedByActor=$pdo->prepare("SELECT id FROM pos_terminal_payments WHERE terminal_id=? AND created_by=? AND status='queued' LIMIT 1 FOR UPDATE");
+        $queuedByActor->execute([$terminalId,(int)$actor['id']]);
+        if($queuedByActor->fetchColumn()){
+            $pdo->rollBack();json_response(['ok'=>false,'error'=>'terminal_payment_already_queued','message'=>'برای این صندوق یک درخواست پرداخت در صف وجود دارد؛ همان درخواست را پیگیری یا لغو کنید'],409);
+        }
+        $paymentId=sprintf('%s-%s-%s-%s-%s',bin2hex(random_bytes(4)),bin2hex(random_bytes(2)),sprintf('%04x',(hexdec(bin2hex(random_bytes(2)))&0x0fff)|0x4000),sprintf('%04x',(hexdec(bin2hex(random_bytes(2)))&0x3fff)|0x8000),bin2hex(random_bytes(6)));
+        $insert=$pdo->prepare("INSERT INTO pos_terminal_payments (id,idempotency_key,terminal_id,amount,currency,status,created_by) VALUES (?,?,?,?,'IRT','queued',?)");
+        $insert->execute([$paymentId,$key,$terminalId,$amount,(int)$actor['id']]);
+        audit($pdo,(int)$actor['id'],'terminal_payment_queued','terminal_payment',$paymentId,['terminal_id'=>$terminalId,'amount'=>$amount]);
+        $pdo->commit();
+        json_response(['ok'=>true,'payment'=>['id'=>$paymentId,'status'=>'queued','amount'=>$amount]],201);
+    } catch(Throwable $e) {
+        if($pdo->inTransaction())$pdo->rollBack();
+        error_log('[3Food POS] Terminal payment queue failed: '.$e->getMessage());
+        json_response(['ok'=>false,'error'=>'terminal_payment_queue_failed','message'=>'درخواست پرداخت ایجاد نشد'],500);
+    }
 }
 
 if (preg_match('#^/terminal-payments/([a-f0-9-]{36})/attach-order$#iD',$path,$m) && $method==='POST') {
