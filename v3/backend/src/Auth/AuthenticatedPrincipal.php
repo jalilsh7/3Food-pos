@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Auth;
 
+use DateTimeImmutable;
+
 final readonly class AuthenticatedPrincipal
 {
     public function __construct(
@@ -13,5 +15,6 @@ final readonly class AuthenticatedPrincipal
         public string $displayName,
         public bool $mustChangePassword,
         public string $csrfTokenHash,
+        public DateTimeImmutable $expiresAt,
     ) {}
 }
