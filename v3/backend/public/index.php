@@ -4,6 +4,8 @@ declare(strict_types=1);
 use Closure;
 use PersiaCoder\PosV3\Auth\AuthController;
 use PersiaCoder\PosV3\Auth\BusinessSetupController;
+use PersiaCoder\PosV3\Auth\BranchManagementController;
+use PersiaCoder\PosV3\Auth\BranchManagementService;
 use PersiaCoder\PosV3\Auth\BusinessSetupService;
 use PersiaCoder\PosV3\Auth\BusinessScopeResolver;
 use PersiaCoder\PosV3\Auth\PermissionService;
@@ -96,6 +98,16 @@ try {
         return $roleController;
     };
 
+    $branchController = null;
+    $getBranchController = static function () use (&$branchController, $getConnection): BranchManagementController {
+        if (!$branchController instanceof BranchManagementController) {
+            $branchController = new BranchManagementController(
+                new BranchManagementService(new BusinessRepository($getConnection())),
+            );
+        }
+        return $branchController;
+    };
+
     $userController = null;
     $getUserController = static function () use (&$userController, $getConnection): UserManagementController {
         if (!$userController instanceof UserManagementController) {
@@ -151,6 +163,16 @@ try {
     $router->add('POST', '/api/v1/auth/change-password',
         static fn (Request $request): Response => $getController()->changePassword($request),
         [$sessionMiddleware, $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('GET', '/api/v1/access/branches',
+        static fn (Request $request): Response => $getBranchController()->list($request),
+        [$sessionMiddleware, $makePermissionMiddleware('branches.read', false)],
+    );
+
+    $router->add('POST', '/api/v1/access/branches',
+        static fn (Request $request): Response => $getBranchController()->create($request),
+        [$sessionMiddleware, $makePermissionMiddleware('branches.manage', false), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('GET', '/api/v1/access/users',
