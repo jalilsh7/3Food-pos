@@ -22,7 +22,7 @@ $check('PHP version', static function (): string {
 });
 
 $check('Required PHP extensions', static function (): string {
-    $required = ['pdo_mysql', 'json', 'zlib'];
+    $required = ['pdo_mysql', 'json', 'zlib', 'openssl'];
     $missing = array_values(array_filter($required, static fn (string $extension): bool => !extension_loaded($extension)));
     if ($missing !== []) {
         throw new RuntimeException('Missing extensions: ' . implode(', ', $missing));
