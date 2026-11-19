@@ -1125,3 +1125,17 @@
 - business scope اجباری، RBAC با catalog.read/catalog.manage، CSRF/Origin برای commandها، audit در همان transaction و idempotency با پاسخ رمز‌شده.
 - Migration کاتالوگ و مشتری را business-scoped می‌کند؛ دسته public UUID می‌گیرد و SKU در هر business یکتا می‌شود.
 - UI هنوز به API وصل نشده؛ migration و تست‌ها اجرا نشده‌اند و به پایان توسعه موکول هستند.
+
+
+## BE-01F1 — Audit trail و Idempotency (2026-11-20)
+- migration 004_create-idempotency-keys.sql شامل actor/business/branch scope، endpoint_code، hash کلید، fingerprint درخواست، lease، expiry و ciphertext/nonce/tag پاسخ است.
+- migration 005_add-audit-business-scope.sql به app_audit_logs محدوده business/branch و FK مرکب شعبه-کسب‌وکار اضافه می‌کند.
+- IdempotencyRepository با createOrLock/complete و قفل ردیف کار می‌کند؛ IdempotencyService اجرای callback دامنه و ذخیره پاسخ رمز‌شده AES-256-GCM را در یک transaction قرار می‌دهد.
+- CatalogService از idempotency اتمیک استفاده می‌کند؛ BranchManagementService، UserManagementService و RoleManagementService نیز به آن متصل شدند.
+- پاسخ شامل credential موقت user هم در جدول فقط به‌صورت رمز‌شده نگهداری می‌شود تا replay امن درخواست تکراری ممکن باشد.
+- AuditLogService کلیدهای محرمانه را از snapshot رد می‌کند، اندازه snapshot را محدود می‌کند و business/branch scope را validate می‌کند.
+- رخدادهای login، logout، password change، business initialization، branch/user/role و catalog در audit ثبت می‌شوند.
+- GET /api/v1/audit-logs با cursor و limit قابل تنظیم، فیلتر business/branch و permission audit.read اضافه است.
+- middleware عمومی غیراتمیک idempotency حذف شد؛ idempotency فقط در service و transaction دامنه انجام می‌شود.
+- تست‌ها و migration اجرا نشده‌اند؛ OpenSSL باید در preflight/runtime بررسی شود و پاک‌سازی دوره‌ای رکوردهای منقضی هنوز باقی است.
+
