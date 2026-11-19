@@ -490,3 +490,18 @@
 - فرم ویرایش محصول باید تمام فیلدهای پایه را با داده موجود پر کند و PATCH را با Idempotency-Key جدید برای هر تغییر منطقی ارسال کند؛ retry همان کلید و payload را نگه می‌دارد.
 - غیرفعال‌سازی دسته‌بندی از آرشیو محصول جدا نمایش داده شود. آرشیو محصول عملیات برگشت‌پذیر UI فرض نشود و از لیست فعال خارجش کند؛ تاریخچه سفارش‌ها همچنان snapshot تاریخی را نمایش می‌دهد.
 - برای خطای SKU تکراری پاسخ 409، اعتبارسنجی 422 و مجوز 403 به‌صورت مشخص نمایش داده شود؛ UI نباید موفقیت محلی را قبل از پاسخ سرور اعلام کند.
+
+
+### BE-02A — قرارداد API سفارش
+- فهرست سفارش‌ها: GET /api/v1/orders?status={status}&channel={channel}&limit=50؛ limit بین 1 تا 100 و scope شعبه از X-Business-ID و X-Branch-ID می‌آید.
+- ایجاد سفارش: POST /api/v1/orders با Idempotency-Key و JSON شامل source_channel، customer_id اختیاری، table_session_id برای سفارش table و items.
+- هر item شامل product_id، variant_id اختیاری/اجباری در صورت وجود تنوع فعال، quantity به‌صورت رشته decimal با حداکثر سه رقم اعشار و options آرایه UUID گزینه‌هاست.
+- هیچ unit_price، line_total، tax یا total از UI پذیرفته نمی‌شود؛ Backend از snapshot قیمت DB محاسبه می‌کند.
+- ارز مبلغ IRT (تومان) است؛ subtotal قبل از مالیات، tax جدا و total شامل مالیات است. discount و delivery fee در این مرحله صفرند.
+- وضعیت اولیه سفارش draft و payment_status برابر unpaid است.
+- تغییر وضعیت عمومی: PATCH /api/v1/orders/{orderPublicId}/status با to_status، reason_code و reason_text اختیاری؛ برای cancelled/rejected علت الزامی است.
+- تغییر وضعیت آشپزخانه: PATCH /api/v1/orders/{orderPublicId}/kitchen-status؛ فقط preparing و ready پذیرفته می‌شوند.
+- Idempotency-Key در retry همان عملیات ثابت بماند؛ کلید جدید برای تغییر مستقل.
+- payment status از order status جدا نمایش داده شود؛ تغییر وضعیت سفارش به معنی پرداخت موفق نیست.
+- source_channelهای مجاز: pos، phone، manual، table، takeaway، storefront؛ channel=pos علاوه بر orders.create به pos.sell نیاز دارد و table باید table_session_id معتبر داشته باشد.
+
