@@ -484,3 +484,9 @@
 - ساخت گروه افزودنی: `POST /api/v1/catalog/option-groups` با `name`، `selection_type`، `min_select`، `max_select`، `is_required_default` و آرایه `options`؛ هر option دارای name و price_delta_amount است.
 - اتصال گروه به محصول: `POST /api/v1/catalog/products/{productPublicId}/option-groups` با `option_group_id`، `sort_order` و `is_required`.
 - delta قیمت تنوع/افزودنی عدد صحیح تومان و قابل افزایش یا کاهش است. UI باید min/max را رعایت کند؛ Backend سفارش نیز باید همین قواعد را مجدداً enforce کند.
+
+
+## UX / API contract — BE-01G3 مدیریت کاتالوگ
+- فرم ویرایش محصول باید تمام فیلدهای پایه را با داده موجود پر کند و PATCH را با Idempotency-Key جدید برای هر تغییر منطقی ارسال کند؛ retry همان کلید و payload را نگه می‌دارد.
+- غیرفعال‌سازی دسته‌بندی از آرشیو محصول جدا نمایش داده شود. آرشیو محصول عملیات برگشت‌پذیر UI فرض نشود و از لیست فعال خارجش کند؛ تاریخچه سفارش‌ها همچنان snapshot تاریخی را نمایش می‌دهد.
+- برای خطای SKU تکراری پاسخ 409، اعتبارسنجی 422 و مجوز 403 به‌صورت مشخص نمایش داده شود؛ UI نباید موفقیت محلی را قبل از پاسخ سرور اعلام کند.
