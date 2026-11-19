@@ -18,6 +18,7 @@ final readonly class Request
         public string $requestId,
         public array $attributes = [],
         public array $queryParameters = [],
+        public array $uploadedFiles = [],
     ) {}
 
     public static function fromGlobals(): self
@@ -56,7 +57,21 @@ final readonly class Request
             ? $candidate
             : bin2hex(random_bytes(16));
 
-        $body = file_get_contents('php://input', false, null, 0, self::MAX_JSON_BODY_BYTES + 1);
+        $contentType = strtolower(trim($headers['content-type'] ?? ''));
+        $body = str_starts_with($contentType, 'application/json')
+            ? file_get_contents('php://input', false, null, 0, self::MAX_JSON_BODY_BYTES + 1)
+            : '';
+        $uploadedFiles = [];
+        foreach ($_FILES as $field => $file) {
+            if (!is_string($field) || !is_array($file) || is_array($file['tmp_name'] ?? null)) {
+                continue;
+            }
+            $uploadedFiles[$field] = [
+                'tmp_name' => is_string($file['tmp_name'] ?? null) ? $file['tmp_name'] : '',
+                'size' => is_int($file['size'] ?? null) ? $file['size'] : 0,
+                'error' => is_int($file['error'] ?? null) ? $file['error'] : UPLOAD_ERR_NO_FILE,
+            ];
+        }
         $attributes = [
             'remote_ip' => is_string($_SERVER['REMOTE_ADDR'] ?? null) ? $_SERVER['REMOTE_ADDR'] : '',
         ];
@@ -69,6 +84,7 @@ final readonly class Request
             $requestId,
             $attributes,
             $queryParameters,
+            $uploadedFiles,
         );
     }
 
@@ -92,7 +108,19 @@ final readonly class Request
     {
         $attributes = $this->attributes;
         $attributes[$name] = $value;
-        return new self($this->method, $this->path, $this->headers, $this->body, $this->requestId, $attributes, $this->queryParameters);
+        return new self($this->method, $this->path, $this->headers, $this->body, $this->requestId, $attributes, $this->queryParameters, $this->uploadedFiles);
+    }
+
+    /** @return array{tmp_name:string,size:int,error:int}|null */
+    public function uploadedFile(string $name): ?array
+    {
+        $file = $this->uploadedFiles[$name] ?? null;
+        return is_array($file)
+            && is_string($file['tmp_name'] ?? null)
+            && is_int($file['size'] ?? null)
+            && is_int($file['error'] ?? null)
+            ? $file
+            : null;
     }
 
     /** @return array<string, mixed> */
