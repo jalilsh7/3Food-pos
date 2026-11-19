@@ -1255,3 +1255,17 @@
 - تست regression جدید `scripts/check-v3-backend-inventory-read.php` به workflow Backend افزوده شد تا scope کسب‌وکار/شعبه، joinهای scope و cursor را کنترل کند.
 - تست: workflow پس از آخرین commit باید اجرا و نتیجه ثبت شود؛ تا آن زمان PASS ادعا نمی‌شود.
 - گام بعدی پس از تأیید: ایجاد/ثبت اسناد گردش انبار (رسید خرید، انتقال بین انبارک، تعدیل، ضایعات و برگشت) با ledger append-only، کنترل موجودی منفی و idempotency تراکنشی.
+
+ 
+## REC-01 — اتصال سرویس رسپی به API نسخه‌بندی‌شده (2026-11-20)
+- وضعیت: **کدنویسی انجام شد؛ تأیید CI در انتظار**.
+- ممیزی نشان داد RecipeController و RecipeService در سورس وجود داشتند، اما در front controller به route و factory متصل نشده بودند؛ در نتیجه قابلیت‌های رسپی از مسیر HTTP قابل‌استفاده نبودند.
+- سه route ثبت شد:
+  - `GET /api/v1/catalog/products/{productPublicId}/recipe` با مجوز `catalog.read`.
+  - `POST /api/v1/catalog/products/{productPublicId}/recipe-versions` با مجوز `catalog.manage`، CSRF، Origin و Idempotency-Key.
+  - `POST /api/v1/catalog/recipe-versions/{versionPublicId}/activate` با مجوز `catalog.manage`، CSRF، Origin و Idempotency-Key.
+- factory تنبل RecipeController/RecipeService به `v3/backend/public/index.php` اضافه شد.
+- تست قرارداد route و security در `scripts/check-v3-backend-recipe-routes.php` اضافه و به workflow Backend متصل شد.
+- منطق موجود RecipeService نسخه draft، تبدیل واحد snapshot، فعال‌سازی نسخه جدید و بازنشسته‌کردن نسخه قبلی را انجام می‌دهد؛ تست DB واقعی هنوز لازم است.
+- تست: منتظر نتیجه CI روی آخرین commit؛ PASS ثبت نشده است.
+- گام بعد: پیاده‌سازی اسناد انبار و posting تراکنشی؛ پیش از ارزش‌گذاری/هزینه‌یابی، قرارداد واحد پول و valuation باید از اسناد مالی نهایی تطبیق داده شود.
