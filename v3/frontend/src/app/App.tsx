@@ -15,6 +15,7 @@ import {
   Wallet,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { EmptyState, PageHeader, StatusBadge, Surface } from "../shared/ui/primitives";
 
 type ViewId = "overview" | "pos" | "orders" | "kitchen" | "catalog" | "inventory" | "customers" | "finance" | "settings";
 
@@ -59,32 +60,15 @@ const navigation: NavigationGroup[] = [
 
 const allItems = navigation.flatMap((group) => group.items);
 
-function PlaceholderPanel({ title, description }: { title: string; description: string }) {
-  return (
-    <section className="placeholder-panel" aria-live="polite">
-      <div className="placeholder-icon"><Activity size={22} /></div>
-      <span className="eyebrow">زیرساخت رابط V3</span>
-      <h2>{title}</h2>
-      <p>{description}</p>
-      <div className="notice">
-        <span className="notice-dot" />
-        این بخش هنوز به احراز هویت، API و دیتابیس مستقل V3 متصل نشده است.
-      </div>
-    </section>
-  );
-}
-
 function Overview() {
   return (
     <div className="page-stack">
-      <div className="welcome-row">
-        <div>
-          <span className="eyebrow">COMMERCIAL EDITION</span>
-          <h1>نمای کلی کسب‌وکار</h1>
-          <p>مرکز کنترل فروش، سفارش و عملیات روزانه</p>
-        </div>
-        <span className="preview-pill">پیش‌نمایش رابط</span>
-      </div>
+      <PageHeader
+        eyebrow="COMMERCIAL EDITION"
+        title="نمای کلی کسب‌وکار"
+        description="مرکز کنترل فروش، سفارش و عملیات روزانه"
+        action={<StatusBadge variant="warning">پیش‌نمایش رابط</StatusBadge>}
+      />
       <div className="metric-grid">
         {[
           { title: "فروش امروز", value: "—", note: "پس از اتصال سرویس مالی" },
@@ -100,7 +84,7 @@ function Overview() {
         ))}
       </div>
       <div className="overview-grid">
-        <section className="surface-card">
+        <Surface padding="none" className="surface-card">
           <div className="section-heading">
             <div>
               <h2>جریان عملیات</h2>
@@ -130,7 +114,7 @@ function Overview() {
             {["رستوران", "کافه", "فست‌فود", "آبمیوه‌فروشی", "بستنی‌فروشی"].map((name) => <span key={name}>{name}</span>)}
           </div>
           <p className="muted-note">پروفایل صنفی در راه‌اندازی نصب انتخاب می‌شود و واژگان و قابلیت‌های مرتبط را تنظیم می‌کند.</p>
-        </section>
+        </Surface>
       </div>
     </div>
   );
@@ -217,15 +201,18 @@ export function App() {
         <div className="content-area">
           {activeView === "overview" ? <Overview /> : (
             <div className="page-stack">
-              <div className="welcome-row">
-                <div>
-                  <span className="eyebrow">{activeItem.description}</span>
-                  <h1>{activeItem.label}</h1>
-                  <p>فضای مستقل نسخه تجاری PersiaCoder POS V3</p>
-                </div>
-                <div className="page-icon"><ActiveIcon size={22} /></div>
-              </div>
-              <PlaceholderPanel title={activeItem.label} description={`ساختار صفحه «${activeItem.label}» در مرحله بعد بر اساس قرارداد دامنه و API مستقل V3 پیاده‌سازی می‌شود.`} />
+              <PageHeader
+                eyebrow={activeItem.description}
+                title={activeItem.label}
+                description="فضای مستقل نسخه تجاری PersiaCoder POS V3"
+                action={<StatusBadge variant="warning">در حال طراحی</StatusBadge>}
+              />
+              <EmptyState
+                icon={ActiveIcon}
+                title={activeItem.label}
+                description={`ساختار صفحه «${activeItem.label}» در مرحله بعد بر اساس قرارداد دامنه و API مستقل V3 پیاده‌سازی می‌شود.`}
+                notice="این بخش هنوز به احراز هویت، API و دیتابیس مستقل V3 متصل نشده است."
+              />
             </div>
           )}
           <footer className="app-footer">Powered by PersiaCoder.ir</footer>
