@@ -120,3 +120,13 @@ v3/backend/
 7. BE-01G: اولین vertical slice سفارش فقط پس از تکمیل قراردادهای فوق.
 
 **وضعیت فعلی:** این سند قرارداد معماری است؛ هیچ API عملیاتی، login، session، RBAC یا endpoint در این commit ایجاد نمی‌شود.
+
+
+## 12. اجرای قرارداد HTTP — BE-01B
+- ورودی HTTP به Request immutable تبدیل می‌شود؛ headerها lowercase، مسیر بدون query string، و request ID ورودی فقط با allowlist محدود پذیرفته می‌شود؛ در غیر این صورت شناسه تصادفی تولید می‌شود.
+- JSON body فقط object است؛ JSON نامعتبر یا آرایه با 400 رد می‌شود. بدنه خالی به object خالی تبدیل می‌شود.
+- Router فقط routeهای صریح ثبت‌شده را dispatch می‌کند؛ پارامترهای مسیر decode و کنترل می‌شوند؛ path ناموجود 404 و method نامعتبر برای path شناخته‌شده 405 است.
+- پاسخ موفق `data/meta` و پاسخ خطا `error` است؛ همه پاسخ‌ها request ID را در header `X-Request-ID` دارند.
+- خطای شناخته‌شده با status/code/message امن نگاشت می‌شود؛ Throwable غیرمنتظره فقط class و request ID را در log ثبت می‌کند و پاسخ عمومی 500 می‌دهد.
+- `GET /api/v1/health` صرفاً liveness است و اتصال DB، آمادگی سرویس یا صحت schema را ادعا نمی‌کند.
+- این مرحله authentication، authorization، CORS، CSRF، rate limiting، body-size enforcement و endpoint دامنه را هنوز پیاده نکرده است؛ هیچ route تجاری/حساس نباید پیش از تکمیل middlewareهای امنیتی اضافه شود.
