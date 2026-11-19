@@ -23,12 +23,21 @@ final readonly class AuditLogService
         ?string $reason,
         string $requestId,
         string $ipAddress,
+        ?int $businessId = null,
+        ?int $branchId = null,
     ): void {
         if (!preg_match('/^[a-z][a-z0-9_.-]{1,99}$/', $action)) {
             throw new \InvalidArgumentException('Audit action code is invalid.');
         }
         if ($entityType !== null && !preg_match('/^[a-z][a-z0-9_.-]{1,79}$/', $entityType)) {
             throw new \InvalidArgumentException('Audit entity type is invalid.');
+        }
+
+        if ($businessId !== null && $businessId < 1) {
+            throw new \InvalidArgumentException('Audit business scope is invalid.');
+        }
+        if ($branchId !== null && ($branchId < 1 || $businessId === null)) {
+            throw new \InvalidArgumentException('Audit branch scope requires a valid business scope.');
         }
 
         $beforeJson = $before === null ? null : self::encodeSafeSnapshot($before);
@@ -53,6 +62,8 @@ final readonly class AuditLogService
             $safeReason,
             $safeRequestId,
             $safeIp,
+            $businessId,
+            $branchId,
         );
     }
 
