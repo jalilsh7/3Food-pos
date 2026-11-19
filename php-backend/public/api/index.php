@@ -495,7 +495,8 @@ if ($method==='GET' && $path==='/terminal-agent/next') {
     $agent=require_terminal_agent($pdo);
     try {
         $pdo->beginTransaction();
-        $heartbeat=$pdo->prepare('UPDATE app_terminal_agents SET last_seen_at=UTC_TIMESTAMP() WHERE id=?');$heartbeat->execute([$agent['id']]);
+        $agentVersion=substr(trim((string)($_SERVER['HTTP_X_TERMINAL_AGENT_VERSION']??'')),0,40);
+        $heartbeat=$pdo->prepare('UPDATE app_terminal_agents SET last_seen_at=UTC_TIMESTAMP(),agent_version=COALESCE(NULLIF(?,\'\'),agent_version) WHERE id=?');$heartbeat->execute([$agentVersion,$agent['id']]);
         $stmt=$pdo->prepare("SELECT p.id,p.amount,p.currency,p.status,t.id AS terminal_id,t.name AS terminal_name,t.provider_code,t.model_name,t.driver_code,t.connection_type,t.host,t.port,t.local_terminal_key FROM pos_terminal_payments p JOIN pos_payment_terminals t ON t.id=p.terminal_id WHERE t.agent_id=? AND t.enabled=1 AND p.status='queued' ORDER BY p.requested_at ASC LIMIT 1 FOR UPDATE");
         $stmt->execute([$agent['id']]);$payment=$stmt->fetch();
         if(is_array($payment)){
