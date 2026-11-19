@@ -411,6 +411,17 @@ try {
         [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
     );
 
+
+    $router->add('DELETE', '/api/v1/catalog/products/{productPublicId}/image',
+        static fn (Request $request, array $parameters): Response => $getMediaController()->detachProductImage($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('DELETE', '/api/v1/catalog/categories/{categoryPublicId}/image',
+        static fn (Request $request, array $parameters): Response => $getMediaController()->detachCategoryImage($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
     $router->add('GET', '/api/v1/audit-logs',
         static fn (Request $request): Response => $getAuditController()->list($request),
         [$sessionMiddleware, $makePermissionMiddleware('audit.read', false, true)],
