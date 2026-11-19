@@ -152,10 +152,6 @@ final readonly class CatalogService
         if ($categoryPublicId !== null && $categoryId === null) {
             throw new HttpException(404, 'product_category_not_found', 'The category was not found in this business.');
         }
-        if ($sku !== null && $this->catalog->findProductBySku($scope->businessId, $sku)) {
-            throw new HttpException(409, 'product_sku_exists', 'A product with this SKU already exists in this business.');
-        }
-
         $publicId = self::uuidV4();
         $fingerprint = hash('sha256', json_encode([
             'name' => $name,
@@ -176,6 +172,9 @@ final readonly class CatalogService
                 $scope, $publicId, $categoryId, $name, $sku, $productType, $price, $taxRate, $categoryPublicId,
                 $actor, $requestId, $ipAddress,
             ): array {
+                if ($sku !== null && $this->catalog->findProductBySku($scope->businessId, $sku)) {
+                    throw new HttpException(409, 'product_sku_exists', 'A product with this SKU already exists in this business.');
+                }
                 $this->catalog->createProduct(
                     $scope->businessId, $publicId, $categoryId, $name, $sku, $productType, $price, $taxRate,
                 );
