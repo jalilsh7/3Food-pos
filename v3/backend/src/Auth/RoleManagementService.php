@@ -7,20 +7,21 @@ use PDO;
 use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\RoleRepository;
-use PersiaCoder\PosV3\Infrastructure\Database\TransactionManager;
 use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class RoleManagementService
 {
-    private TransactionManager $transactions;
+    private IdempotencyService $idempotency;
     private AuditLogService $audit;
 
     public function __construct(
         PDO $connection,
+        string $applicationKey,
         private RoleRepository $roles,
         private PermissionService $permissions,
     ) {
-        $this->transactions = new TransactionManager($connection);
+        $this->idempotency = new IdempotencyService($connection, $applicationKey);
         $this->audit = new AuditLogService(new AuditLogRepository($connection));
     }
 
@@ -40,9 +41,10 @@ final readonly class RoleManagementService
         string $code,
         string $name,
         array $permissionCodes,
+        string $idempotencyKey,
         string $requestId,
         string $ipAddress,
-    ): void {
+    ): array {
         $code = strtolower(trim($code));
         $name = trim($name);
         $permissionCodes = $this->validatePermissionCodes($permissionCodes);
@@ -52,37 +54,50 @@ final readonly class RoleManagementService
         if ($name === '' || self::unicodeLength($name) > 100) {
             throw new HttpException(422, 'role_name_invalid', 'Role name is required and must not exceed 100 characters.');
         }
-        if ($this->roles->roleCodeExists($code)) {
-            throw new HttpException(409, 'role_code_exists', 'A role with this code already exists.');
-        }
 
         $permissionIds = $this->authorizePermissionSet($actor, $scope, $permissionCodes);
-        $this->transactions->run(function (PDO $connection) use (
-            $code,
-            $name,
-            $permissionIds,
-            $permissionCodes,
-            $actor,
+        $fingerprint = self::fingerprint(['code' => $code, 'name' => $name, 'permissions' => $permissionCodes]);
+
+        return $this->idempotency->execute(
+            $actor->userId,
             $scope,
-            $requestId,
-            $ipAddress,
-        ): void {
-            $roleId = $this->roles->createCustomRole($code, $name);
-            $this->roles->replaceRolePermissions($roleId, $permissionIds);
-            $this->audit->record(
-                $actor->userId,
-                'role.created',
-                'role',
+            'roles.create',
+            $idempotencyKey,
+            $fingerprint,
+            function (PDO $connection) use (
                 $code,
-                null,
-                ['name' => $name, 'permissions' => $permissionCodes, 'business_id' => $scope->businessPublicId],
-                null,
+                $name,
+                $permissionIds,
+                $permissionCodes,
+                $actor,
+                $scope,
                 $requestId,
                 $ipAddress,
-                $scope->businessId,
-                null,
-            );
-        });
+            ): array {
+                if ($this->roles->roleCodeExists($code)) {
+                    throw new HttpException(409, 'role_code_exists', 'A role with this code already exists.');
+                }
+                $roleId = $this->roles->createCustomRole($code, $name);
+                $this->roles->replaceRolePermissions($roleId, $permissionIds);
+                $this->audit->record(
+                    $actor->userId,
+                    'role.created',
+                    'role',
+                    $code,
+                    null,
+                    ['name' => $name, 'permissions' => $permissionCodes, 'business_id' => $scope->businessPublicId],
+                    null,
+                    $requestId,
+                    $ipAddress,
+                    $scope->businessId,
+                    null,
+                );
+                return [
+                    'status' => 201,
+                    'body' => ['data' => ['created' => true, 'code' => $code], 'meta' => (object) []],
+                ];
+            },
+        );
     }
 
     public function updateCustomRole(
@@ -91,9 +106,10 @@ final readonly class RoleManagementService
         string $code,
         string $name,
         array $permissionCodes,
+        string $idempotencyKey,
         string $requestId,
         string $ipAddress,
-    ): void {
+    ): array {
         $code = strtolower(trim($code));
         $name = trim($name);
         $permissionCodes = $this->validatePermissionCodes($permissionCodes);
@@ -109,32 +125,45 @@ final readonly class RoleManagementService
         }
 
         $permissionIds = $this->authorizePermissionSet($actor, $scope, $permissionCodes);
-        $this->transactions->run(function (PDO $connection) use (
-            $role,
-            $name,
-            $permissionIds,
-            $permissionCodes,
-            $actor,
+        $fingerprint = self::fingerprint(['code' => $code, 'name' => $name, 'permissions' => $permissionCodes]);
+
+        return $this->idempotency->execute(
+            $actor->userId,
             $scope,
-            $requestId,
-            $ipAddress,
-        ): void {
-            $this->roles->updateCustomRoleName($role['id'], $name);
-            $this->roles->replaceRolePermissions($role['id'], $permissionIds);
-            $this->audit->record(
-                $actor->userId,
-                'role.updated',
-                'role',
-                $role['code'],
-                ['name' => $role['name'], 'permissions' => $role['permissions']],
-                ['name' => $name, 'permissions' => $permissionCodes, 'business_id' => $scope->businessPublicId],
-                null,
+            'roles.update',
+            $idempotencyKey,
+            $fingerprint,
+            function (PDO $connection) use (
+                $role,
+                $name,
+                $permissionIds,
+                $permissionCodes,
+                $actor,
+                $scope,
                 $requestId,
                 $ipAddress,
-                $scope->businessId,
-                null,
-            );
-        });
+            ): array {
+                $this->roles->updateCustomRoleName($role['id'], $name);
+                $this->roles->replaceRolePermissions($role['id'], $permissionIds);
+                $this->audit->record(
+                    $actor->userId,
+                    'role.updated',
+                    'role',
+                    $role['code'],
+                    ['name' => $role['name'], 'permissions' => $role['permissions']],
+                    ['name' => $name, 'permissions' => $permissionCodes, 'business_id' => $scope->businessPublicId],
+                    null,
+                    $requestId,
+                    $ipAddress,
+                    $scope->businessId,
+                    null,
+                );
+                return [
+                    'status' => 200,
+                    'body' => ['data' => ['updated' => true, 'code' => $role['code']], 'meta' => (object) []],
+                ];
+            },
+        );
     }
 
     public function assignBusinessRole(
@@ -142,10 +171,11 @@ final readonly class RoleManagementService
         string $targetUserPublicId,
         string $roleCode,
         BusinessScope $scope,
+        string $idempotencyKey,
         string $requestId,
         string $ipAddress,
-    ): void {
-        $this->assign($actor, $targetUserPublicId, $roleCode, $scope, false, $requestId, $ipAddress);
+    ): array {
+        return $this->assign($actor, $targetUserPublicId, $roleCode, $scope, false, $idempotencyKey, $requestId, $ipAddress);
     }
 
     public function assignBranchRole(
@@ -153,13 +183,14 @@ final readonly class RoleManagementService
         string $targetUserPublicId,
         string $roleCode,
         BusinessScope $scope,
+        string $idempotencyKey,
         string $requestId,
         string $ipAddress,
-    ): void {
+    ): array {
         if ($scope->branchId === null) {
             throw new HttpException(400, 'branch_context_required', 'A branch scope is required.');
         }
-        $this->assign($actor, $targetUserPublicId, $roleCode, $scope, true, $requestId, $ipAddress);
+        return $this->assign($actor, $targetUserPublicId, $roleCode, $scope, true, $idempotencyKey, $requestId, $ipAddress);
     }
 
     public function removeBusinessRole(
@@ -167,32 +198,11 @@ final readonly class RoleManagementService
         string $targetUserPublicId,
         string $roleCode,
         BusinessScope $scope,
+        string $idempotencyKey,
         string $requestId,
         string $ipAddress,
-    ): bool {
-        $targetId = $this->resolveTarget($targetUserPublicId);
-        $role = $this->resolveRole($roleCode);
-        return $this->transactions->run(function (PDO $connection) use (
-            $actor, $targetId, $targetUserPublicId, $role, $scope, $requestId, $ipAddress,
-        ): bool {
-            $removed = $this->roles->removeBusinessRole($targetId, $scope->businessId, $role['id']);
-            if ($removed) {
-                $this->audit->record(
-                    $actor->userId,
-                    'role.business_assignment_removed',
-                    'user',
-                    $targetUserPublicId,
-                    ['role_code' => $role['code'], 'business_id' => $scope->businessPublicId],
-                    null,
-                    null,
-                    $requestId,
-                    $ipAddress,
-                    $scope->businessId,
-                    null,
-                );
-            }
-            return $removed;
-        });
+    ): array {
+        return $this->remove($actor, $targetUserPublicId, $roleCode, $scope, false, $idempotencyKey, $requestId, $ipAddress);
     }
 
     public function removeBranchRole(
@@ -200,35 +210,14 @@ final readonly class RoleManagementService
         string $targetUserPublicId,
         string $roleCode,
         BusinessScope $scope,
+        string $idempotencyKey,
         string $requestId,
         string $ipAddress,
-    ): bool {
-        if ($scope->branchId === null || $scope->branchPublicId === null) {
+    ): array {
+        if ($scope->branchId === null) {
             throw new HttpException(400, 'branch_context_required', 'A branch scope is required.');
         }
-        $targetId = $this->resolveTarget($targetUserPublicId);
-        $role = $this->resolveRole($roleCode);
-        return $this->transactions->run(function (PDO $connection) use (
-            $actor, $targetId, $targetUserPublicId, $role, $scope, $requestId, $ipAddress,
-        ): bool {
-            $removed = $this->roles->removeBranchRole($targetId, (int) $scope->branchId, $role['id']);
-            if ($removed) {
-                $this->audit->record(
-                    $actor->userId,
-                    'role.branch_assignment_removed',
-                    'user',
-                    $targetUserPublicId,
-                    ['role_code' => $role['code'], 'business_id' => $scope->businessPublicId, 'branch_id' => $scope->branchPublicId],
-                    null,
-                    null,
-                    $requestId,
-                    $ipAddress,
-                    $scope->businessId,
-                    $scope->branchId,
-                );
-            }
-            return $removed;
-        });
+        return $this->remove($actor, $targetUserPublicId, $roleCode, $scope, true, $idempotencyKey, $requestId, $ipAddress);
     }
 
     private function assign(
@@ -237,49 +226,131 @@ final readonly class RoleManagementService
         string $roleCode,
         BusinessScope $scope,
         bool $branchScoped,
+        string $idempotencyKey,
         string $requestId,
         string $ipAddress,
-    ): void {
+    ): array {
         $targetId = $this->resolveTarget($targetUserPublicId);
         $role = $this->resolveRole($roleCode);
         if ($role['code'] === 'owner' || in_array('*', $role['permissions'], true)) {
             throw new HttpException(403, 'protected_role_assignment', 'The installation owner role cannot be assigned through scoped role management.');
         }
-
         $this->authorizePermissionSet($actor, $scope, $role['permissions']);
-        $this->transactions->run(function (PDO $connection) use (
-            $targetId,
-            $targetUserPublicId,
-            $role,
-            $actor,
+        $fingerprint = self::fingerprint([
+            'target_user_id' => $targetUserPublicId,
+            'role_code' => $role['code'],
+            'scope' => $branchScoped ? 'branch' : 'business',
+        ]);
+
+        return $this->idempotency->execute(
+            $actor->userId,
             $scope,
-            $branchScoped,
-            $requestId,
-            $ipAddress,
-        ): void {
-            if ($branchScoped) {
-                $this->roles->assignBranchRole($targetId, (int) $scope->branchId, $role['id'], $actor->userId);
-            } else {
-                $this->roles->assignBusinessRole($targetId, $scope->businessId, $role['id'], $actor->userId);
-            }
-            $this->audit->record(
-                $actor->userId,
-                $branchScoped ? 'role.branch_assignment_created' : 'role.business_assignment_created',
-                'user',
+            $branchScoped ? 'roles.assign.branch' : 'roles.assign.business',
+            $idempotencyKey,
+            $fingerprint,
+            function (PDO $connection) use (
+                $targetId,
                 $targetUserPublicId,
-                null,
-                [
-                    'role_code' => $role['code'],
-                    'business_id' => $scope->businessPublicId,
-                    'branch_id' => $branchScoped ? $scope->branchPublicId : null,
-                ],
-                null,
+                $role,
+                $actor,
+                $scope,
+                $branchScoped,
                 $requestId,
                 $ipAddress,
-                $scope->businessId,
-                $branchScoped ? $scope->branchId : null,
-            );
-        });
+            ): array {
+                if ($branchScoped) {
+                    $this->roles->assignBranchRole($targetId, (int) $scope->branchId, $role['id'], $actor->userId);
+                } else {
+                    $this->roles->assignBusinessRole($targetId, $scope->businessId, $role['id'], $actor->userId);
+                }
+                $this->audit->record(
+                    $actor->userId,
+                    $branchScoped ? 'role.branch_assignment_created' : 'role.business_assignment_created',
+                    'user',
+                    $targetUserPublicId,
+                    null,
+                    [
+                        'role_code' => $role['code'],
+                        'business_id' => $scope->businessPublicId,
+                        'branch_id' => $branchScoped ? $scope->branchPublicId : null,
+                    ],
+                    null,
+                    $requestId,
+                    $ipAddress,
+                    $scope->businessId,
+                    $branchScoped ? $scope->branchId : null,
+                );
+                return [
+                    'status' => 201,
+                    'body' => ['data' => ['assigned' => true], 'meta' => (object) []],
+                ];
+            },
+        );
+    }
+
+    private function remove(
+        AuthenticatedPrincipal $actor,
+        string $targetUserPublicId,
+        string $roleCode,
+        BusinessScope $scope,
+        bool $branchScoped,
+        string $idempotencyKey,
+        string $requestId,
+        string $ipAddress,
+    ): array {
+        $targetId = $this->resolveTarget($targetUserPublicId);
+        $role = $this->resolveRole($roleCode);
+        $fingerprint = self::fingerprint([
+            'target_user_id' => $targetUserPublicId,
+            'role_code' => $role['code'],
+            'scope' => $branchScoped ? 'branch' : 'business',
+            'action' => 'remove',
+        ]);
+
+        return $this->idempotency->execute(
+            $actor->userId,
+            $scope,
+            $branchScoped ? 'roles.remove.branch' : 'roles.remove.business',
+            $idempotencyKey,
+            $fingerprint,
+            function (PDO $connection) use (
+                $actor,
+                $targetId,
+                $targetUserPublicId,
+                $role,
+                $scope,
+                $branchScoped,
+                $requestId,
+                $ipAddress,
+            ): array {
+                $removed = $branchScoped
+                    ? $this->roles->removeBranchRole($targetId, (int) $scope->branchId, $role['id'])
+                    : $this->roles->removeBusinessRole($targetId, $scope->businessId, $role['id']);
+                if ($removed) {
+                    $this->audit->record(
+                        $actor->userId,
+                        $branchScoped ? 'role.branch_assignment_removed' : 'role.business_assignment_removed',
+                        'user',
+                        $targetUserPublicId,
+                        [
+                            'role_code' => $role['code'],
+                            'business_id' => $scope->businessPublicId,
+                            'branch_id' => $branchScoped ? $scope->branchPublicId : null,
+                        ],
+                        null,
+                        null,
+                        $requestId,
+                        $ipAddress,
+                        $scope->businessId,
+                        $branchScoped ? $scope->branchId : null,
+                    );
+                }
+                return [
+                    'status' => 200,
+                    'body' => ['data' => ['removed' => $removed], 'meta' => (object) []],
+                ];
+            },
+        );
     }
 
     /** @return list<int> */
@@ -291,18 +362,15 @@ final readonly class RoleManagementService
         if ($permissionCodes === [] || count($permissionCodes) > 64) {
             throw new HttpException(422, 'permission_set_invalid', 'A role must contain between 1 and 64 permissions.');
         }
-
         $idsByCode = $this->roles->findPermissionIdsByCodes($permissionCodes);
         if (count($idsByCode) !== count($permissionCodes)) {
             throw new HttpException(422, 'permission_unknown', 'The permission set contains an unknown permission.');
         }
-
         foreach ($permissionCodes as $permissionCode) {
             if ($permissionCode === '*' || !$this->permissions->allows($actor, $permissionCode, $scope)) {
                 throw new HttpException(403, 'permission_delegation_denied', 'You cannot grant a permission you do not hold.');
             }
         }
-
         return array_values($idsByCode);
     }
 
@@ -348,6 +416,11 @@ final readonly class RoleManagementService
             throw new HttpException(404, 'role_not_found', 'The role was not found.');
         }
         return $role;
+    }
+
+    private static function fingerprint(array $payload): string
+    {
+        return hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
     private static function unicodeLength(string $value): int
