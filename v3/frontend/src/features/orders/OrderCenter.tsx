@@ -236,6 +236,7 @@ export function OrderCenter() {
               { value: "صندوق", label: "صندوق" },
               { value: "تلفنی", label: "تلفنی" },
               { value: "فروشگاه آنلاین", label: "فروشگاه آنلاین" },
+              { value: "میز", label: "میز" },
             ]}
           />
           <SelectField
