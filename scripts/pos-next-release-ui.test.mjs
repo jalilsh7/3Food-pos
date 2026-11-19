@@ -41,7 +41,7 @@ test("stock policy is configurable in settings and enforced by the PHP API", () 
   assert.match(app, /سیاست فروش با موجودی ناکافی/);
   assert.match(phpApi, /invalid_stock_policy/);
   assert.match(phpApi, /if \(\$stockPolicy === 'block' && \$available/);
-});;
+});
 
 test("new product form remains ready for consecutive product entry after save", () => {
   assert.match(
