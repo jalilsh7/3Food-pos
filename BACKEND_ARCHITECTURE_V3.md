@@ -252,3 +252,12 @@ v3/backend/
 - pagination با `before_id` و `limit` (۱ تا ۱۰۰، پیش‌فرض ۵۰) و ترتیب نزولی شناسه انجام می‌شود. Query string در Request محدود و parse می‌شود.
 - ساخت AuditLogController lazy است تا endpoint عمومی liveness یا login بدون نیاز غیرضروری به DB از مسیر ساخت controller audit عبور کند.
 - migration 005 ثبت شده و هنوز اجرا نشده است. تست‌ها و CI طبق دستور مالک به پایان توسعه موکول شده‌اند.
+
+
+## 16. BE-01G1 — اولین vertical slice کاتالوگ
+- Migration `006_scope-catalog-and-customers.sql`، دسته‌ها، محصولات، تنوع‌ها، گروه/گزینه‌ها، ارتباط محصول-گروه گزینه و مشتری را به business متصل می‌کند؛ شناسه عمومی برای دسته‌ها افزوده می‌شود.
+- FKهای مرکب تضمین می‌کنند محصول به دسته همان کسب‌وکار، تنوع به محصول همان کسب‌وکار و گزینه به گروه همان کسب‌وکار متصل باشد. SKU محصول در محدوده business یکتا است.
+- APIهای فعلی: `GET/POST /api/v1/catalog/categories` و `GET/POST /api/v1/catalog/products`. خواندن با `catalog.read` و ایجاد با `catalog.manage` کنترل می‌شود؛ همه routeها نشست معتبر و commandها CSRF و Origin check دارند.
+- ایجاد دسته/محصول از `IdempotencyService` استفاده می‌کند؛ ثبت داده، audit و پاسخ رمز‌شده در transaction واحد انجام می‌شوند. قیمت و tax rate integer و در سمت سرور validate می‌شوند.
+- API فقط business-scoped است؛ کاتالوگ بین شعب یک کسب‌وکار مشترک می‌ماند. داده عملیاتی branch-level در ماژول سفارش/صندوق جدا scope می‌شود.
+- این slice فعلاً فقط category/product پایه را می‌خواند و ایجاد می‌کند؛ ویرایش/آرشیو، variant، option group، تصویر و مدیریت رسپی در بسته‌های بعدی ساخته می‌شوند. Migration 006 اجرا نشده است.
