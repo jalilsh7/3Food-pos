@@ -193,9 +193,11 @@ try {
         'isDefault' => true,
     ], csrf_headers());
     check($terminalSaved['status'] === 201, 'manager saves a LAN terminal configuration');
-    $agentHeaders = ['X-Terminal-Agent-Token: ' . $agentToken];
+    $agentHeaders = ['X-Terminal-Agent-Token: ' . $agentToken, 'X-Terminal-Agent-Version: ci-test/1.0'];
     $agentHeartbeat = api('GET', '/api/v1/terminal-agent/next', null, $agentHeaders);
     check($agentHeartbeat['status'] === 200 && (array_key_exists('payment', $agentHeartbeat['json']) && $agentHeartbeat['json']['payment'] === null), 'agent authenticates and sends heartbeat: ' . $agentHeartbeat['status'] . ' ' . json_encode($agentHeartbeat['json']));
+    $agentAfterHeartbeat = api('GET', '/api/v1/terminal-agents');
+    check(($agentAfterHeartbeat['json']['items'][0]['agent_version'] ?? '') === 'ci-test/1.0', 'agent heartbeat stores its software version');
     $availableTerminals = api('GET', '/api/v1/terminals/available');
     check($availableTerminals['status'] === 200 && count($availableTerminals['json']['items'] ?? []) === 1, 'cashier terminal discovery includes online configured drivers');
     $terminalPaymentKey = '44444444-4444-4444-8444-000000000010';
