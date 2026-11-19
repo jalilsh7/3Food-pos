@@ -1094,3 +1094,14 @@
 - endpointهای mutation با session، scope permission، CSRF و same-origin محافظت می‌شوند.
 - غیرفعال‌سازی کاربر/شعبه و audit trail هنوز در بسته‌های بعدی باقی‌اند؛ هیچ تست یا migration اجرا نشده است.
 
+
+
+## BE-01F1 — ثبت پیشرفت idempotency (2026-11-19)
+- وضعیت: **در حال انجام**؛ زیرساخت اولیه کدنویسی شده، هنوز به commandهای عملیاتی متصل نشده و migration اجرا نشده است.
+- شاخه: `feature/3food-pos-next-release-v2`.
+- فایل‌ها: `v3/backend/src/Infrastructure/Database/IdempotencyRepository.php`، `v3/backend/src/Security/IdempotencyService.php`، `database/v3/migrations/004_create-idempotency-keys.sql`.
+- قاعده مهم: callback باید تمام نوشتن‌های دامنه را با PDO دریافتی انجام دهد تا اثر دامنه و پاسخ رمز‌شده در همان transaction ثبت شوند.
+- پاسخ‌های ذخیره‌شده با AES-256-GCM رمز می‌شوند؛ کلید خام و fingerprintهای محرمانه در DB ذخیره نمی‌شوند. کلید درخواست فقط hash می‌شود.
+- تکرار کلید با payload متفاوت 409 و تکرار payload یکسان replay پاسخ را برمی‌گرداند. scope شامل actor، business، branch و endpoint است.
+- تست‌ها عمداً به پایان توسعه موکول شده‌اند؛ هیچ نتیجه تست یا اجرای migration ادعا نمی‌شود.
+- گام بعد: اتصال audit به عملیات مدیریت کاربر/نقش/شعبه و سپس استفاده از idempotency در اولین vertical slice سفارش.
