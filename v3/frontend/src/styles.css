@@ -36,18 +36,12 @@ button { cursor: pointer; }
 .topbar-actions { gap: 14px; }
 .search-box { width: min(270px, 30vw); height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 11px; border: 1px solid var(--line); border-radius: 11px; color: #8b9993; background: #f8faf8; }
 .search-box input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 10px; }
-.search-box button { border: 0; background: transparent; color: var(--muted); font-size: 18px; }
+.search-box .ui-button { width: 24px; min-height: 24px; flex: 0 0 auto; padding: 0; border-radius: 8px; font-size: 15px; }
 .topbar-divider { width: 1px; height: 25px; background: var(--line); }
-.preview-pill { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid #eadfc9; border-radius: 999px; background: #fbf6ec; color: #8d6a32; font-size: 10px; font-weight: 700; white-space: nowrap; }
-.preview-pill.compact { padding: 7px 10px; }
 .avatar { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--brand); color: white; font-size: 10px; font-weight: 800; direction: ltr; }
 
 .content-area { width: min(1440px, 100%); min-height: calc(100vh - 76px); display: flex; flex-direction: column; margin: 0 auto; padding: 34px; }
 .page-stack { display: flex; flex-direction: column; gap: 24px; }
-.welcome-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
-.eyebrow { color: #779088; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
-.welcome-row h1 { margin: 7px 0 4px; color: var(--ink); font-size: clamp(20px, 2vw, 27px); font-weight: 800; letter-spacing: -.8px; }
-.welcome-row p { margin: 0; color: var(--muted); font-size: 11px; }
 .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .metric-card, .surface-card, .placeholder-panel { border: 1px solid var(--line); border-radius: 17px; background: var(--surface); box-shadow: 0 8px 26px rgb(22 52 42 / 3%); }
 .metric-card { min-height: 132px; display: flex; flex-direction: column; align-items: flex-start; padding: 18px; }
@@ -67,12 +61,6 @@ button { cursor: pointer; }
 .module-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
 .module-tags span { padding: 8px 11px; border-radius: 9px; background: #f2f7f4; color: #526b60; font-size: 10px; font-weight: 600; }
 .muted-note { margin: 20px 0 0; color: var(--muted); font-size: 10px; line-height: 2; }
-.placeholder-panel { min-height: 320px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; text-align: center; }
-.placeholder-icon, .page-icon { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 16px; background: var(--brand-soft); color: var(--brand); }
-.placeholder-panel h2 { margin: 15px 0 6px; font-size: 19px; font-weight: 800; }
-.placeholder-panel > p { max-width: 480px; margin: 0; color: var(--muted); font-size: 11px; line-height: 2.1; }
-.notice { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; padding: 10px 13px; border: 1px solid #f0e4cf; border-radius: 10px; background: #fcf8f0; color: #8c7046; font-size: 10px; }
-.notice-dot { width: 7px; height: 7px; border-radius: 50%; background: #d49b43; }
 .app-footer { margin-top: auto; padding-top: 42px; color: #9ba8a2; font-size: 9px; text-align: center; direction: ltr; }
 
 @media (max-width: 1100px) {
@@ -99,15 +87,13 @@ button { cursor: pointer; }
   .breadcrumb strong { font-size: 10px; }
   .topbar-actions { gap: 7px; }
   .search-box { width: 38px; height: 36px; justify-content: center; padding: 0; border: 0; background: transparent; }
-  .search-box input, .search-box button, .topbar-divider, .preview-pill.compact { display: none; }
+  .search-box input, .search-box .ui-button, .topbar-divider, .ui-status.compact { display: none; }
   .avatar { width: 29px; height: 29px; font-size: 9px; }
   .content-area { min-height: calc(100vh - 112px); padding: 22px 14px; }
   .overview-grid { grid-template-columns: 1fr; }
   .flow-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .metric-card { min-height: 112px; padding: 14px; }
   .metric-card strong { font-size: 23px; }
-  .welcome-row h1 { font-size: 20px; }
-  .placeholder-panel { min-height: 260px; padding: 22px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
