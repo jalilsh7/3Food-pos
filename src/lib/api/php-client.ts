@@ -19,7 +19,7 @@ export type ApiUser = {
   must_change_password?: boolean;
 };
 
-export type AppearanceSettings={primary:string;secondary:string;mode:"light"|"dark";fontFamily:"byekan";fontSize:number;cardRadius:number;buttonRadius:number;logoUrl:string|null};
+export type AppearanceSettings={appTitle:string;primary:string;secondary:string;mode:"light"|"dark";fontFamily:"byekan";fontSize:number;cardRadius:number;buttonRadius:number;logoUrl:string|null};
 export type ManagedUser = ApiUser & {
   is_active: number | boolean;
   last_login_at?: string | null;
