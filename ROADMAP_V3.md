@@ -93,7 +93,7 @@
 ### 2.1 طراحی DDL نهایی
 - schema نرمال‌شده و رابطه‌ای برای اسناد حیاتی؛ انتخاب FK/unique/index/constraints.
 - عدم انتقال داده V2.
-- وضعیت: در انتظار.
+- وضعیت: **baseline اولیه 61 جدولی در database/v3/schema.sql ثبت شد؛ بازبینی نهایی و اجرای تست روی DB واقعی هنوز باقی است.**
 
 ### 2.2 migration و نسخه schema
 - migrationهای قابل تکرار/قابل تشخیص، ترتیب اجرا و قفل migration.
@@ -244,3 +244,11 @@
 - قرارداد PK/FK، شناسه عمومی، پول/مقدار، جداول نسخه اول، ایندکس‌های حیاتی، قیود و تراکنش‌ها مشخص شد.
 - baseline دیتابیس V3 از schema فعلی runtime جدا نگه داشته می‌شود؛ هیچ backfill از V2 نداریم.
 - وضعیت: **طراحی فیزیکی ثبت شد؛ تولید DDL و آزمون MySQL/MariaDB در بسته بعدی است**.
+
+
+### DB-02 — ایجاد baseline مستقل Schema V3
+- فایل: `database/v3/schema.sql`؛ راهنما: `database/v3/README-FA.md`.
+- 61 جدول برای نصب، کاربران/RBAC، تنظیمات، کاتالوگ، میز/سفارش، آماده‌سازی، پرداخت/refund/terminal/settlement، صندوق/هزینه، انبار/رسپی/ledger و وفاداری ایجاد شد.
+- baseline فقط برای دیتابیس تازه است؛ هیچ تغییری در `php-backend/schema.sql` یا دیتابیس runtime انجام نشد.
+- بررسی ایستا: 61 دستور CREATE TABLE شناسایی شد؛ ارجاع ستون‌های index و FK، وجود جدول/ستون مقصد، تطابق نوع FK و یکتایی نام constraintها بررسی شد؛ هیچ FLOAT/DOUBLE در schema یافت نشد.
+- وضعیت: **فایل SQL ثبت شد؛ اجرای MySQL/MariaDB، نصب تازه، migration runner، backup/restore و race tests انجام نشده‌اند.**
