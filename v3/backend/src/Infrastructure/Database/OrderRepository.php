@@ -287,11 +287,14 @@ final readonly class OrderRepository
         }
         $sql .= ' ORDER BY o.id DESC LIMIT :limit';
         $statement = $this->connection->prepare($sql);
-        foreach ($parameters as $key => $value) {
-            $statement->bindValue(':' . $key, $value, PDO::PARAM_STR);
-        }
         $statement->bindValue(':business_id', $businessId, PDO::PARAM_INT);
         $statement->bindValue(':branch_id', $branchId, PDO::PARAM_INT);
+        if ($status !== null) {
+            $statement->bindValue(':order_status', $status, PDO::PARAM_STR);
+        }
+        if ($channel !== null) {
+            $statement->bindValue(':source_channel', $channel, PDO::PARAM_STR);
+        }
         $statement->bindValue(':limit', $limit, PDO::PARAM_INT);
         $statement->execute();
 
