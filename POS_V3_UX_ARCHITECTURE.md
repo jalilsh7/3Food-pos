@@ -476,3 +476,11 @@
 - برای audit در سطح business، X-Business-ID ارسال شود؛ برای فیلتر branch، X-Branch-ID نیز ارسال شود. مجوز audit.read در Backend بررسی می‌شود.
 - audit log فقط خواندنی است؛ UI نباید گزینه ویرایش یا حذف رخداد ارائه کند.
 
+
+
+## BE-01G2 — قرارداد تنوع و افزودنی محصول
+- جزئیات محصول از `GET /api/v1/catalog/products/{productPublicId}` شامل `variants` و `option_groups` است.
+- ایجاد تنوع: `POST /api/v1/catalog/products/{productPublicId}/variants` با `name`، `price_delta_amount` و SKU اختیاری.
+- ساخت گروه افزودنی: `POST /api/v1/catalog/option-groups` با `name`، `selection_type`، `min_select`، `max_select`، `is_required_default` و آرایه `options`؛ هر option دارای name و price_delta_amount است.
+- اتصال گروه به محصول: `POST /api/v1/catalog/products/{productPublicId}/option-groups` با `option_group_id`، `sort_order` و `is_required`.
+- delta قیمت تنوع/افزودنی عدد صحیح تومان و قابل افزایش یا کاهش است. UI باید min/max را رعایت کند؛ Backend سفارش نیز باید همین قواعد را مجدداً enforce کند.
