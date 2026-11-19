@@ -259,8 +259,12 @@ final readonly class CatalogService
         if (!is_int($price) || $price < 0 || $price > 9000000000000000) throw new HttpException(422, 'product_price_invalid', 'Product price is invalid.');
         if (!is_int($tax) || $tax < 0 || $tax > 10000 || !is_bool($active)) throw new HttpException(422, 'product_fields_invalid', 'Product tax or active flag is invalid.');
         if ($categoryPublicId !== null && (!is_string($categoryPublicId) || !self::isUuid($categoryPublicId))) throw new HttpException(422, 'product_category_invalid', 'Category identifier is invalid.');
-        $categoryId = $categoryPublicId === null ? null : $this->catalog->findCategoryIdByPublicId($scope->businessId, $categoryPublicId);
-        if ($categoryPublicId !== null && $categoryId === null) throw new HttpException(404, 'product_category_not_found', 'The category was not found or is inactive in this business.');
+        $categoryId = array_key_exists('category_id', $payload)
+            ? ($categoryPublicId === null ? null : $this->catalog->findCategoryIdByPublicId($scope->businessId, $categoryPublicId))
+            : ($current['category_id'] === null ? null : (int) $current['category_id']);
+        if (array_key_exists('category_id', $payload) && $categoryPublicId !== null && $categoryId === null) {
+            throw new HttpException(404, 'product_category_not_found', 'The category was not found or is inactive in this business.');
+        }
         $productId = (int) $current['id'];
         $before = ['name' => (string) $current['name'], 'sku' => $current['sku'], 'product_type' => (string) $current['product_type'], 'base_price_amount' => (int) $current['base_price_amount'], 'tax_rate_bps' => (int) $current['tax_rate_bps'], 'category_id' => $current['category_public_id'], 'is_active' => (bool) $current['is_active']];
         $after = ['name' => $name, 'sku' => $sku, 'product_type' => $type, 'base_price_amount' => $price, 'tax_rate_bps' => $tax, 'category_id' => $categoryPublicId, 'is_active' => $active];
