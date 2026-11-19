@@ -14,6 +14,8 @@ if (!is_file($configPath)) {
     json_response(['ok' => false, 'error' => 'server_not_configured', 'message' => 'تنظیمات سرور انجام نشده است'], 503);
 }
 $config = require $configPath;
+require_once dirname(__DIR__, 2) . '/private/birthday-sms.php';
+require_once dirname(__DIR__, 2) . '/private/birthday-sms-inbox.php';
 if (!is_array($config) || strlen((string)($config['app_key'] ?? '')) < 32) {
     json_response(['ok' => false, 'error' => 'server_not_configured', 'message' => 'کلید امنیتی سرور تنظیم نشده است'], 503);
 }
@@ -2205,6 +2207,149 @@ if ($method === 'GET' && $path === '/reports/summary') {
     }
     usort($customerRows,static fn($a,$b)=>$b['totalSpent']<=>$a['totalSpent']);
     json_response(['ok'=>true,'range'=>['from'=>$from,'to'=>$to],'sales'=>$sales,'orders'=>$count,'cancelled'=>$cancelled,'average_order'=>$count?intdiv($sales,$count):0,'tax_collected'=>$taxCollected,'discounts'=>$discountsTotal,'cost_of_goods'=>$cost,'expenses'=>$expenseTotal,'inventory_purchases'=>$inventoryPurchases,'gross_profit'=>$sales-$cost,'net_profit'=>$sales-$cost-$expenseTotal,'daily'=>array_map(static fn($d,$v)=>['date'=>$d,'sales'=>$v],array_keys($daily),array_values($daily)),'monthly'=>array_map(static fn($m,$v)=>['month'=>$m,'sales'=>$v],array_keys($monthly),array_values($monthly)),'payments'=>$byPayment,'products'=>array_slice(array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),0,100),'all_products'=>array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),'product_categories'=>array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byCategory),array_values($byCategory)),'expense_categories'=>$expenseGroups,'expense_items'=>$expenses,'inventory'=>['value'=>round($inventoryValue),'low_stock_count'=>count($lowStock)],'inventory_items'=>$allInventory,'low_stock'=>$lowStock,'top_customers'=>array_slice($customerRows,0,20),'all_customers'=>$customerRows]);
+}
+
+
+if ($method === 'POST' && $path === '/sms/birthday-sync') {
+    $actor = require_role($pdo, ['manager']);
+    require_csrf();
+    $sms = $config['sms'] ?? [];
+    $username = trim((string)($sms['username'] ?? ''));
+    $password = trim((string)($sms['password'] ?? ''));
+    $location = $sms['inbox_location'] ?? null;
+    $from = trim((string)($sms['inbox_from'] ?? ''));
+    $index = trim((string)($sms['inbox_index'] ?? '1'));
+    $count = (int)($sms['inbox_count'] ?? 50);
+    if (($sms['provider'] ?? 'none') !== 'national_payamak' || $username === '' || $password === ''
+        || !is_numeric($location) || (int)$location < 0 || (int)$location > 99
+        || !preg_match('/^[0-9]{1,12}$/D', $index) || $count < 1 || $count > 100) {
+        json_response(['ok' => false, 'error' => 'sms_inbox_not_configured', 'message' => 'تنظیم دریافت پیامک ورودی در private/config.php کامل نیست'], 503);
+    }
+    $endpoint = 'https://rest.payamak-panel.com/api/SendSMS/GetMessages';
+    $fields = [
+        'UserName' => $username,
+        'PassWord' => $password,
+        'Location' => (string)(int)$location,
+        'From' => $from,
+        'Index' => $index,
+        'Count' => (string)$count,
+    ];
+    try {
+        $body = http_build_query($fields, '', '&', PHP_QUERY_RFC3986);
+        if (function_exists('curl_init')) {
+            $ch = curl_init($endpoint);
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => $body,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CONNECTTIMEOUT => 8,
+                CURLOPT_TIMEOUT => 20,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
+                CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+            ]);
+            $raw = curl_exec($ch);
+            $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+            if ($raw === false || $status < 200 || $status >= 300) {
+                throw new RuntimeException('sms_provider_http_error:' . $status . ':' . substr($curlError, 0, 120));
+            }
+        } else {
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'POST',
+                    'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
+                    'content' => $body,
+                    'timeout' => 20,
+                    'ignore_errors' => true,
+                ],
+                'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
+            ]);
+            $raw = file_get_contents($endpoint, false, $context);
+            $statusLine = $http_response_header[0] ?? '';
+            if ($raw === false || preg_match('/\s2[0-9]{2}\s/', $statusLine) !== 1) {
+                throw new RuntimeException('sms_provider_http_error');
+            }
+        }
+        $messages = threefood_parse_payamak_inbox_response((string)$raw);
+        $pdo->beginTransaction();
+        $insertInbox = $pdo->prepare('INSERT IGNORE INTO pos_records (id, resource, payload, updated_by) VALUES (?, ?, ?, ?)');
+        $findCustomers = $pdo->query("SELECT id, payload FROM pos_records WHERE resource = 'customers' FOR UPDATE")->fetchAll();
+        $processed = 0;
+        $duplicates = 0;
+        $updated = 0;
+        $unmatched = 0;
+        $ignored = 0;
+        foreach ($messages as $message) {
+            $sender = threefood_normalize_iran_mobile($message['sender']);
+            $providerId = $message['provider_id'];
+            $dedupeSource = $providerId !== null
+                ? 'provider:' . $providerId
+                : 'fallback:' . ($sender ?? $message['sender']) . '|' . $message['text'] . '|' . ($message['received_at'] ?? '');
+            $inboxId = 'in_' . substr(hash('sha256', $dedupeSource), 0, 60);
+            $birthday = threefood_parse_birthday_sms($message['text']);
+            $inbox = [
+                'id' => $inboxId,
+                'providerId' => $providerId,
+                'sender' => $sender ?? $message['sender'],
+                'receivedAt' => $message['received_at'],
+                'birthday' => $birthday,
+                'status' => 'received',
+                'processedAt' => gmdate('c'),
+            ];
+            $insertInbox->execute([$inboxId, 'sms_inbox', json_encode($inbox, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), (int)$actor['id']]);
+            if ($insertInbox->rowCount() === 0) {
+                $duplicates++;
+                continue;
+            }
+            $processed++;
+            if ($birthday === null || $sender === null) {
+                $inbox['status'] = 'ignored_unrecognized';
+                $ignored++;
+            } else {
+                $matches = [];
+                foreach ($findCustomers as $customerRow) {
+                    $customer = json_decode((string)$customerRow['payload'], true);
+                    if (!is_array($customer)) continue;
+                    if (threefood_normalize_iran_mobile((string)($customer['phone'] ?? '')) === $sender) {
+                        $matches[] = [$customerRow['id'], $customer];
+                    }
+                }
+                if (count($matches) !== 1) {
+                    $inbox['status'] = count($matches) === 0 ? 'customer_not_found' : 'ambiguous_customer';
+                    $unmatched++;
+                } else {
+                    [$customerId, $customer] = $matches[0];
+                    if (trim((string)($customer['birthday'] ?? '')) !== '') {
+                        $inbox['status'] = 'birthday_already_set';
+                        $ignored++;
+                    } else {
+                        $customer['birthday'] = $birthday;
+                        $customerPayload = json_encode($customer, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+                        $saveCustomer = $pdo->prepare("UPDATE pos_records SET payload = ?, updated_by = ? WHERE resource = 'customers' AND id = ?");
+                        $saveCustomer->execute([$customerPayload, (int)$actor['id'], (string)$customerId]);
+                        $inbox['status'] = 'birthday_saved';
+                        $updated++;
+                        audit($pdo, (int)$actor['id'], 'customer_birthday_received_by_sms', 'customer', (string)$customerId, ['inbox_id' => $inboxId]);
+                    }
+                }
+            }
+            $saveInbox = $pdo->prepare("UPDATE pos_records SET payload = ?, updated_by = ? WHERE resource = 'sms_inbox' AND id = ?");
+            $saveInbox->execute([json_encode($inbox, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), (int)$actor['id'], $inboxId]);
+        }
+        $pdo->commit();
+        json_response(['ok' => true, 'received' => count($messages), 'processed' => $processed, 'duplicates' => $duplicates, 'birthdays_saved' => $updated, 'unmatched' => $unmatched, 'ignored' => $ignored]);
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log('[3Food POS] Birthday SMS inbox sync failed: ' . $e->getMessage());
+        $unsupported = str_starts_with($e->getMessage(), 'sms_inbox_');
+        json_response([
+            'ok' => false,
+            'error' => $unsupported ? 'sms_inbox_format_unsupported' : 'sms_inbox_sync_failed',
+            'message' => $unsupported ? 'ساختار پاسخ صندوق پیامک با قالب پشتیبانی‌شده مطابقت ندارد؛ هیچ تغییری در مشتریان ثبت نشد' : 'دریافت یا پردازش پیامک‌های ورودی انجام نشد',
+        ], $unsupported ? 502 : 502);
+    }
 }
 
 if ($method === 'POST' && $path === '/sms/send') {
