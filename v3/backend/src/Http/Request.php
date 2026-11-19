@@ -14,6 +14,7 @@ final readonly class Request
         public array $headers,
         public string $body,
         public string $requestId,
+        public array $attributes = [],
     ) {}
 
     public static function fromGlobals(): self
@@ -46,6 +47,18 @@ final readonly class Request
     public function header(string $name): ?string
     {
         return $this->headers[strtolower($name)] ?? null;
+    }
+
+    public function attribute(string $name): mixed
+    {
+        return $this->attributes[$name] ?? null;
+    }
+
+    public function withAttribute(string $name, mixed $value): self
+    {
+        $attributes = $this->attributes;
+        $attributes[$name] = $value;
+        return new self($this->method, $this->path, $this->headers, $this->body, $this->requestId, $attributes);
     }
 
     /** @return array<string, mixed> */
