@@ -10,6 +10,22 @@ try{
  $objects=(int)$pdo->query('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()')->fetchColumn();
  if($objects!==0)throw new RuntimeException("Restore stopped: destination database is not empty ({$objects} tables/views found). No objects were changed.");
  $gzip=gzopen($archive,'rb');if($gzip===false)throw new RuntimeException('Cannot open backup archive.');
+ $hmacKey=PosV3DatabaseTools::env('POS_V3_BACKUP_HMAC_KEY');
+ if(strlen($hmacKey)<32)throw new RuntimeException('POS_V3_BACKUP_HMAC_KEY must contain at least 32 bytes.');
+ $hmac=hash_init('sha256',HASH_HMAC,$hmacKey);$signature=null;$lineNumber=0;
+ while(($line=gzgets($gzip))!==false){
+  $lineNumber++;$record=json_decode($line,true,512,JSON_THROW_ON_ERROR|JSON_BIGINT_AS_STRING);
+  if(!is_array($record)||!isset($record['type']))throw new RuntimeException('Backup archive contains an invalid record.');
+  if(($record['type']??'')==='signature'){
+   if($signature!==null||($record['algorithm']??'')!=='hmac-sha256'||!is_string($record['value']??null)||!preg_match('/^[a-f0-9]{64}$/i',$record['value']))throw new RuntimeException('Backup signature record is invalid.');
+   $signature=$record['value'];
+   if(gzgets($gzip)!==false)throw new RuntimeException('Backup signature must be the final archive record.');
+   break;
+  }
+  hash_update($hmac,$line);
+ }
+ if($lineNumber<2||$signature===null||!hash_equals(hash_final($hmac),$signature))throw new RuntimeException('Backup authentication failed. The archive is incomplete, modified, or signed with a different key.');
+ if(!gzrewind($gzip))throw new RuntimeException('Cannot rewind authenticated backup archive.');
  $readRecord=static function()use($gzip):?array{$line=gzgets($gzip);if($line===false)return null;$record=json_decode($line,true,512,JSON_THROW_ON_ERROR|JSON_BIGINT_AS_STRING);if(!is_array($record)||!isset($record['type']))throw new RuntimeException('Backup archive contains an invalid record.');return $record;};
  $header=$readRecord();
  if(!$header||($header['type']??'')!=='header'||($header['format']??'')!=='persiacoder-pos-v3-jsonl-gzip'||($header['format_version']??0)!==1)throw new RuntimeException('Unsupported or invalid V3 backup format.');
@@ -18,6 +34,7 @@ try{
  if(!is_string($header['baseline_sha256']??null)||!preg_match('/^[a-f0-9]{64}$/i',$header['baseline_sha256']))throw new RuntimeException('Backup baseline checksum metadata is invalid.');
  $tables=[];$sawRows=false;
  while(($record=$readRecord())!==null){
+  if(($record['type']??'')==='signature')break;
   if(($record['type']??'')==='row'){$sawRows=true;continue;}
   if(($record['type']??'')!=='table'||$sawRows)throw new RuntimeException('Backup records are out of order or contain an unknown type.');
   $name=(string)($record['name']??'');$columns=$record['columns']??null;$createSql=$record['create_sql']??null;$rowCount=$record['row_count']??null;
@@ -34,6 +51,7 @@ try{
  foreach($tables as $name=>$table)$pdo->exec($table['create_sql']);
  gzrewind($gzip);$readRecord();for($i=0;$i<count($tables);$i++)$readRecord();
  while(($record=$readRecord())!==null){
+  if(($record['type']??'')==='signature')break;
   if(($record['type']??'')!=='row')throw new RuntimeException('Unexpected non-row record in backup data section.');
   $name=(string)($record['table']??'');if(!isset($tables[$name]))throw new RuntimeException("Backup row references unknown table {$name}.");
   $values=$record['values']??null;if(!is_array($values)||count($values)!==count($tables[$name]['columns']))throw new RuntimeException("Backup row shape mismatch for {$name}.");
