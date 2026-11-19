@@ -120,6 +120,7 @@ final readonly class UserManagementService
             $passwordHash,
             $displayName,
             $role,
+            $roleCode,
             $actor,
             $scope,
             $branchScoped,
