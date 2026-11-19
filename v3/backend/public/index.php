@@ -125,14 +125,15 @@ try {
         return $userController;
     };
 
-    $makePermissionMiddleware = static function (string $permissionCode, bool $requireBranch) use ($getConnection): Closure {
-        return static function (Request $request, array $parameters, callable $next) use ($getConnection, $permissionCode, $requireBranch): Response {
+    $makePermissionMiddleware = static function (string $permissionCode, bool $requireBranch, bool $allowBranchContext = false) use ($getConnection): Closure {
+        return static function (Request $request, array $parameters, callable $next) use ($getConnection, $permissionCode, $requireBranch, $allowBranchContext): Response {
             $repository = new PermissionRepository($getConnection());
             $middleware = new PermissionMiddleware(
                 new PermissionService($repository),
                 new BusinessScopeResolver($repository),
                 $permissionCode,
                 $requireBranch,
+                $allowBranchContext,
             );
             return $middleware($request, $parameters, $next);
         };
@@ -189,7 +190,7 @@ try {
 
     $router->add('GET', '/api/v1/audit-logs',
         static fn (Request $request): Response => $getAuditController()->list($request),
-        [$sessionMiddleware, $makePermissionMiddleware('audit.read', false)],
+        [$sessionMiddleware, $makePermissionMiddleware('audit.read', false, true)],
     );
 
     $router->add('GET', '/api/v1/access/branches',
