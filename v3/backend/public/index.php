@@ -5,6 +5,8 @@ use Closure;
 use PersiaCoder\PosV3\Catalog\CatalogController;
 use PersiaCoder\PosV3\Catalog\CatalogService;
 use PersiaCoder\PosV3\Media\MediaController;
+use PersiaCoder\PosV3\Inventory\InventoryController;
+use PersiaCoder\PosV3\Inventory\InventoryService;
 use PersiaCoder\PosV3\Media\MediaService;
 use PersiaCoder\PosV3\Infrastructure\Storage\PrivateMediaStorage;
 use PersiaCoder\PosV3\Orders\OrderController;
@@ -223,6 +225,17 @@ try {
         return $mediaController;
     };
 
+
+    $inventoryController = null;
+    $getInventoryController = static function () use (&$inventoryController, $getConnection, $configuration): InventoryController {
+        if (!$inventoryController instanceof InventoryController) {
+            $inventoryController = new InventoryController(
+                new InventoryService($getConnection(), $configuration->applicationKey),
+            );
+        }
+        return $inventoryController;
+    };
+
     $router = new Router();
     $router->add('GET', '/api/v1/health', static fn (Request $request): Response =>
         Response::success(['status' => 'ok'])
@@ -423,6 +436,42 @@ try {
     $router->add('DELETE', '/api/v1/catalog/categories/{categoryPublicId}/image',
         static fn (Request $request, array $parameters): Response => $getMediaController()->detachCategoryImage($request, $parameters),
         [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
+
+    $router->add('GET', '/api/v1/inventory/units',
+        static fn (Request $request): Response => $getInventoryController()->units($request),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.read', false)],
+    );
+
+    $router->add('GET', '/api/v1/inventory/items',
+        static fn (Request $request): Response => $getInventoryController()->stockItems($request),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.read', false)],
+    );
+
+    $router->add('POST', '/api/v1/inventory/items',
+        static fn (Request $request): Response => $getInventoryController()->createStockItem($request),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('PATCH', '/api/v1/inventory/items/{stockItemPublicId}',
+        static fn (Request $request, array $parameters): Response => $getInventoryController()->updateStockItem($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('GET', '/api/v1/inventory/locations',
+        static fn (Request $request): Response => $getInventoryController()->locations($request),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.read', true)],
+    );
+
+    $router->add('POST', '/api/v1/inventory/locations',
+        static fn (Request $request): Response => $getInventoryController()->createLocation($request),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.manage', true), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('PATCH', '/api/v1/inventory/locations/{locationPublicId}',
+        static fn (Request $request, array $parameters): Response => $getInventoryController()->updateLocation($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.manage', true), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('GET', '/api/v1/audit-logs',
