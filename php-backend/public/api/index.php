@@ -346,11 +346,11 @@ if ($method === 'GET' && $path === '/appearance') {
 if ($method === 'POST' && $path === '/appearance') {
     $actor = require_role($pdo, ['manager']); require_csrf(); $body = request_json(); $input = $body['settings'] ?? null;
     if (!is_array($input)) json_response(['ok'=>false,'error'=>'invalid_appearance'],422);
-    $appTitle=trim((string)($input['appTitle']??'صندوق فروشگاهی آنلاین')); $primary=strtolower((string)($input['primary']??'')); $secondary=strtolower((string)($input['secondary']??''));
+    $appTitle=trim((string)($input['appTitle']??'صندوق فروشگاهی آنلاین')); if ($appTitle==='') $appTitle='صندوق فروشگاهی آنلاین'; $titleChars=[]; $titleLength=preg_match_all('/./us',$appTitle,$titleChars); $primary=strtolower((string)($input['primary']??'')); $secondary=strtolower((string)($input['secondary']??''));
     $mode=(string)($input['mode']??''); $font=(string)($input['fontFamily']??'');
     $fontSize=filter_var($input['fontSize']??null,FILTER_VALIDATE_INT); $cardRadius=filter_var($input['cardRadius']??null,FILTER_VALIDATE_INT);
     $buttonRadius=filter_var($input['buttonRadius']??null,FILTER_VALIDATE_INT); $logoUrl=$input['logoUrl']??null;
-    if ($appTitle===''||mb_strlen($appTitle,'UTF-8')>60||!preg_match('/^#[0-9a-f]{6}$/D',$primary)||!preg_match('/^#[0-9a-f]{6}$/D',$secondary)||
+    if ($titleLength===false||$titleLength>60||!preg_match('/^#[0-9a-f]{6}$/D',$primary)||!preg_match('/^#[0-9a-f]{6}$/D',$secondary)||
         !in_array($mode,['light','dark'],true)||!in_array($font,['byekan'],true)||
         $fontSize===false||$fontSize<13||$fontSize>20||$cardRadius===false||$cardRadius<8||$cardRadius>28||
         $buttonRadius===false||$buttonRadius<6||$buttonRadius>24||
