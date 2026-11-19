@@ -22,9 +22,11 @@ final readonly class IdempotencyRepository
     ): array {
         $statement = $this->connection->prepare(
             'INSERT INTO app_idempotency_keys
-                (actor_user_id, business_id, branch_id, scope_hash, endpoint_code, key_hash, request_hash, expires_at)
+                (actor_user_id, business_id, branch_id, scope_hash, endpoint_code, key_hash,
+                 request_hash, lease_expires_at, expires_at)
              VALUES
-                (:actor_user_id, :business_id, :branch_id, :scope_hash, :endpoint_code, :key_hash, :request_hash, :expires_at)
+                (:actor_user_id, :business_id, :branch_id, :scope_hash, :endpoint_code, :key_hash,
+                 :request_hash, DATE_ADD(UTC_TIMESTAMP(3), INTERVAL 5 MINUTE), :expires_at)
              ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)'
         );
         $statement->execute([
@@ -58,6 +60,22 @@ final readonly class IdempotencyRepository
                 $requestHash,
                 $expiresAt,
             );
+        }
+
+        if (!$created && $row['response_status'] === null
+            && strtotime((string) $row['lease_expires_at'] . ' UTC') <= time()) {
+            $lease = $this->connection->prepare(
+                'UPDATE app_idempotency_keys
+                 SET lease_expires_at = DATE_ADD(UTC_TIMESTAMP(3), INTERVAL 5 MINUTE),
+                     request_hash = :request_hash
+                 WHERE id = :id AND response_status IS NULL
+                   AND lease_expires_at <= UTC_TIMESTAMP(3)'
+            );
+            $lease->execute(['request_hash' => $requestHash, 'id' => $id]);
+            $created = $lease->rowCount() === 1;
+            if ($created) {
+                $row['request_hash'] = $requestHash;
+            }
         }
 
         return [
@@ -94,18 +112,26 @@ final readonly class IdempotencyRepository
         }
     }
 
+    public function deletePending(int $id): void
+    {
+        $statement = $this->connection->prepare(
+            'DELETE FROM app_idempotency_keys WHERE id = :id AND response_status IS NULL'
+        );
+        $statement->execute(['id' => $id]);
+    }
+
     /** @return array<string, mixed>|null */
     private function findForUpdate(int $id): ?array
     {
         $statement = $this->connection->prepare(
             'SELECT id, request_hash, response_status, response_ciphertext, response_nonce,
-                    response_tag, expires_at
+                    response_tag, expires_at, lease_expires_at
              FROM app_idempotency_keys
              WHERE id = :id
              LIMIT 1 FOR UPDATE'
         );
         $statement->execute(['id' => $id]);
-        $row = $statement->fetch();
+        $row = $statement->fetch(PDO::FETCH_ASSOC);
         return is_array($row) ? $row : null;
     }
 }
