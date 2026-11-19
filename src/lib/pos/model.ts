@@ -131,6 +131,7 @@ export type Settings = {
   phone: string;
   taxPercent: number;
   taxEnabled: boolean;
+  stockPolicy: "block" | "warn_and_allow" | "allow_negative";
   pointsPerToman: number;
   tomanPerPoint: number;
   paperWidth: 58 | 80;
