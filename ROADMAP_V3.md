@@ -530,3 +530,12 @@
 - کنترل delegation از افزایش سطح دسترسی جلوگیری می‌کند.
 - موارد بعدی: ویرایش/تعلیق کاربر و شعبه، حذف assignment، audit trail و اتصال UI مدیریت دسترسی.
 
+
+
+### BE-01F1 — زیرساخت idempotency تراکنشی
+- وضعیت: **کدنویسی زیرساخت انجام شد؛ اتصال به commandهای دامنه و اجرای migration باقی است.**
+- فایل‌ها: `v3/backend/src/Infrastructure/Database/IdempotencyRepository.php`، `v3/backend/src/Security/IdempotencyService.php` و `database/v3/migrations/004_create-idempotency-keys.sql`.
+- کلید idempotency به‌صورت hash، fingerprint درخواست، actor/business/branch/endpoint scope، وضعیت پاسخ و زمان انقضا نگهداری می‌شود.
+- پاسخ با AES-256-GCM و کلید مشتق‌شده از `POS_V3_APP_KEY` رمز می‌شود؛ ثبت اثر دامنه و پاسخ در یک transaction انجام‌پذیر است.
+- کلید تکراری با payload متفاوت رد می‌شود و payload یکسان پاسخ قبلی را replay می‌کند؛ قفل ردیف/unique index برای هم‌زمانی لحاظ شده است.
+- تست‌ها و CI طبق دستور مالک به پایان توسعه موکول شده‌اند؛ این بسته به‌معنی اجرای migration یا اتصال عملیاتی endpointها نیست.
