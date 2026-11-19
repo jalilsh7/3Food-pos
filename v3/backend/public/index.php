@@ -9,6 +9,8 @@ use PersiaCoder\PosV3\Auth\BusinessScopeResolver;
 use PersiaCoder\PosV3\Auth\PermissionService;
 use PersiaCoder\PosV3\Auth\RoleManagementController;
 use PersiaCoder\PosV3\Auth\RoleManagementService;
+use PersiaCoder\PosV3\Auth\UserManagementController;
+use PersiaCoder\PosV3\Auth\UserManagementService;
 use PersiaCoder\PosV3\Auth\AuthenticationService;
 use PersiaCoder\PosV3\Auth\SessionAuthenticator;
 use PersiaCoder\PosV3\Auth\SessionMiddleware;
@@ -93,6 +95,20 @@ try {
         return $roleController;
     };
 
+    $userController = null;
+    $getUserController = static function () use (&$userController, $getConnection): UserManagementController {
+        if (!$userController instanceof UserManagementController) {
+            $repository = new PermissionRepository($getConnection());
+            $userController = new UserManagementController(
+                new UserManagementService(
+                    $getConnection(),
+                    new PermissionService($repository),
+                ),
+            );
+        }
+        return $userController;
+    };
+
     $makePermissionMiddleware = static function (string $permissionCode, bool $requireBranch) use ($getConnection): Closure {
         return static function (Request $request, array $parameters, callable $next) use ($getConnection, $permissionCode, $requireBranch): Response {
             $repository = new PermissionRepository($getConnection());
@@ -134,6 +150,16 @@ try {
     $router->add('POST', '/api/v1/auth/change-password',
         static fn (Request $request): Response => $getController()->changePassword($request),
         [$sessionMiddleware, $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('POST', '/api/v1/access/users',
+        static fn (Request $request): Response => $getUserController()->createBusinessUser($request),
+        [$sessionMiddleware, $makePermissionMiddleware('users.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('POST', '/api/v1/access/branches/users',
+        static fn (Request $request): Response => $getUserController()->createBranchUser($request),
+        [$sessionMiddleware, $makePermissionMiddleware('users.manage', true), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('GET', '/api/v1/access/roles',
