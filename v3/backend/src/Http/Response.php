@@ -7,7 +7,7 @@ use JsonException;
 
 final readonly class Response
 {
-    /** @param array<string, string> $headers */
+    /** @param array<string, string|list<string>> $headers */
     public function __construct(
         public int $status,
         public string $body,
@@ -43,8 +43,16 @@ final readonly class Response
         ]);
     }
 
-    public function withHeader(string $name, string $value): self
+    public function withHeader(string $name, string|array $value): self
     {
+        if (is_array($value)) {
+            foreach ($value as $item) {
+                if (!is_string($item)) {
+                    throw new \InvalidArgumentException('Header values must be strings.');
+                }
+            }
+        }
+
         $headers = $this->headers;
         $headers[$name] = $value;
         return new self($this->status, $this->body, $headers);
@@ -53,8 +61,10 @@ final readonly class Response
     public function send(): void
     {
         http_response_code($this->status);
-        foreach ($this->headers as $name => $value) {
-            header($name . ': ' . $value, true);
+        foreach ($this->headers as $name => $values) {
+            foreach (is_array($values) ? $values : [$values] as $index => $value) {
+                header($name . ': ' . $value, $index === 0);
+            }
         }
         echo $this->body;
     }
