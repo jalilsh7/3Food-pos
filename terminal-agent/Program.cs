@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using System.Net.Http.Json;
 using System.Reflection;
 using System.Runtime.Loader;
@@ -35,7 +37,10 @@ while (!stop.IsCancellationRequested) {
         var job = poll.Payment;
         Console.WriteLine($"Payment request {job.Id}; amount {job.Amount}; terminal {job.TerminalName}.");
         TerminalResult result;
-        if (!drivers.TryGetValue(job.DriverCode, out var driver)) {
+        if (!IsPrivateTerminalAddress(job.Host) || job.Port < 1 || job.Port > 65535) {
+            result = new TerminalResult { Status = "unknown", ResponseCode = "INVALID_TERMINAL_ADDRESS",
+                ResponseMessage = "Terminal address is not a permitted private LAN address; no network command was sent." };
+        } else if (!drivers.TryGetValue(job.DriverCode, out var driver)) {
             result = new TerminalResult { Status = "unknown", ResponseCode = "DRIVER_NOT_INSTALLED",
                 ResponseMessage = $"No certified driver is installed for '{job.DriverCode}'. No payment command was sent." };
         } else {
@@ -106,3 +111,14 @@ static string? Limit(string? value, int max) {
     return clean.Length <= max ? clean : clean[..max];
 }
 static string Safe(string value) => Regex.Replace(value, @"[\r\n\t]+", " ");
+
+static bool IsPrivateTerminalAddress(string host) {
+    if (!IPAddress.TryParse(host, out var address)) return false;
+    if (address.AddressFamily == AddressFamily.InterNetwork) {
+        var b = address.GetAddressBytes();
+        return b[0] == 10 || (b[0] == 172 && b[1] >= 16 && b[1] <= 31) ||
+               (b[0] == 192 && b[1] == 168) || (b[0] == 169 && b[1] == 254);
+    }
+    return address.AddressFamily == AddressFamily.InterNetworkV6 &&
+           (address.IsIPv6UniqueLocal || address.IsIPv6LinkLocal);
+}
