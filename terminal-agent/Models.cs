@@ -22,6 +22,7 @@ public sealed class TerminalJob {
     [JsonPropertyName("local_terminal_key")] public string LocalTerminalKey { get; init; } = "";
 }
 public sealed class TerminalResult {
+    public long? ConfirmedAmount { get; init; }
     public string Status { get; init; } = "unknown";
     public string? ExternalTransactionId { get; init; }
     public string? TraceNumber { get; init; }
