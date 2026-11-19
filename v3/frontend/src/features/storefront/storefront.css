@@ -41,7 +41,8 @@
 .storefront-cart-bar span { display:flex; align-items:center; gap:7px; font-size:10px; }
 .storefront-cart-bar strong { font-size:11px; }
 .storefront-cart-panel { display:flex; flex-direction:column; gap:10px; padding:13px; border:1px solid var(--pc-line); border-radius:11px; background:#fafcfb; }
-.storefront-cart-title, .storefront-cart-row, .storefront-cart-total { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.storefront-cart-title, .storefront-cart-row, .storefront-continue { width:100%; }
+.storefront-cart-total { display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .storefront-cart-title strong { color:var(--pc-ink); font-size:11px; }
 .storefront-cart-title button { width:26px; height:26px; display:grid; place-items:center; border:1px solid var(--pc-line); border-radius:7px; background:#fff; color:var(--pc-muted); }
 .storefront-cart-row { color:var(--pc-muted); font-size:9px; }
