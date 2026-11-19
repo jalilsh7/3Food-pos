@@ -26,6 +26,7 @@ $valid = [
     'POS_V3_DB_NAME' => 'pos_v3_test',
     'POS_V3_DB_USER' => 'pos_test',
     'POS_V3_DB_PASSWORD' => '',
+    'POS_V3_APP_KEY' => str_repeat('k', 32),
 ];
 foreach ($valid as $name => $value) $setEnvironment($name, $value);
 
@@ -49,5 +50,10 @@ $expectFailure(static fn () => Configuration::fromEnvironment(), 'malformed bool
 $setEnvironment('POS_V3_APP_DEBUG', 'false');
 $setEnvironment('POS_V3_DB_PASSWORD', null);
 $expectFailure(static fn () => Configuration::fromEnvironment(), 'missing database password variable');
+$setEnvironment('POS_V3_DB_PASSWORD', '');
+$setEnvironment('POS_V3_APP_KEY', 'short');
+$expectFailure(static fn () => Configuration::fromEnvironment(), 'short application key');
+$setEnvironment('POS_V3_APP_KEY', null);
+$expectFailure(static fn () => Configuration::fromEnvironment(), 'missing application key');
 
 echo "V3 backend bootstrap checks passed.\n";
