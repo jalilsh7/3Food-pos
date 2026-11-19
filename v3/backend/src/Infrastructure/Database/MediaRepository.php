@@ -104,4 +104,21 @@ final readonly class MediaRepository
         );
         $s->execute(['business_id' => $businessId, 'category_id' => $categoryId, 'media_id' => $mediaId]);
     }
+
+    public function detachProductImage(int $businessId, int $productId): void
+    {
+        $s = $this->connection->prepare(
+            'DELETE FROM pos_product_media WHERE business_id = :business_id AND product_id = :product_id'
+        );
+        $s->execute(['business_id' => $businessId, 'product_id' => $productId]);
+    }
+
+    public function detachCategoryImage(int $businessId, int $categoryId): void
+    {
+        $s = $this->connection->prepare(
+            'DELETE FROM pos_category_media WHERE business_id = :business_id AND category_id = :category_id'
+        );
+        $s->execute(['business_id' => $businessId, 'category_id' => $categoryId]);
+    }
+
 }
