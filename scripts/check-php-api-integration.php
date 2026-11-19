@@ -307,6 +307,11 @@ try {
     $missingKey = api('POST', '/api/v1/orders', $missingKeyBody, csrf_headers());
     check($missingKey['status'] === 422 && ($missingKey['json']['error'] ?? '') === 'invalid_idempotency_key', 'new orders require a valid idempotency key');
 
+    $unverifiedCardBody = $orderBody;
+    $unverifiedCardBody['payment'] = 'card';
+    $unverifiedCardBody['idempotencyKey'] = '11111111-1111-4111-8111-111111111112';
+    $unverifiedCard = api('POST', '/api/v1/orders', $unverifiedCardBody, csrf_headers());
+    check($unverifiedCard['status'] === 422, 'API rejects card orders without a terminal payment reference');
     $created = api('POST', '/api/v1/orders', $orderBody, csrf_headers());
     check($created['status'] === 201, 'create order: ' . json_encode($created['json']));
     $orderId = (string)($created['json']['order']['id'] ?? '');
