@@ -74,6 +74,11 @@ try {
         [$sessionMiddleware],
     );
 
+    $router->add('POST', '/api/v1/auth/change-password',
+        static fn (Request $request): Response => $getController()->changePassword($request),
+        [$sessionMiddleware, $csrfMiddleware, $originMiddleware],
+    );
+
     $router->add('POST', '/api/v1/auth/logout',
         static fn (Request $request): Response => $getController()->logout($request),
         [$sessionMiddleware, $csrfMiddleware, $originMiddleware],
