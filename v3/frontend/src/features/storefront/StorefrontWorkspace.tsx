@@ -75,7 +75,7 @@ export function StorefrontWorkspace() {
           {cartItems.map((item) => <div className="storefront-cart-row" key={item.id}><span>{item.name} × {money(cart[item.id])}</span><strong>{money(item.price * cart[item.id])}</strong></div>)}
           {cartItems.length === 0 ? <p className="storefront-empty">سبد خرید خالی است.</p> : null}
           <div className="storefront-cart-total"><span>جمع نمونه</span><strong>{money(total)} تومان</strong></div>
-          <Button variant="primary" block disabled={count === 0}>ادامه سفارش (غیرفعال در پیش‌نمایش)</Button>
+          <Button variant="primary" className="storefront-continue" disabled={count === 0}>ادامه سفارش (غیرفعال در پیش‌نمایش)</Button>
         </div> : null}
       </div>
     </div>
