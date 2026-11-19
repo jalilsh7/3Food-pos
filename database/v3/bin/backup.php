@@ -30,7 +30,7 @@ try{
   $count=(int)$pdo->query('SELECT COUNT(*) FROM '.PosV3DatabaseTools::quoteIdentifier($table))->fetchColumn();
   $descriptors[]=['type'=>'table','name'=>$table,'create_sql'=>$create[1],'columns'=>$columns,'row_count'=>$count];
  }
- $gzip=gzopen($tempPath,'wb9');
+ $previousUmask=umask(0077);$gzip=gzopen($tempPath,'wb9');umask($previousUmask);
  if($gzip===false)throw new RuntimeException('Cannot create compressed backup file.');
  $write=static function(array $record)use($gzip):void{$line=json_encode($record,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE)."\n";if(gzwrite($gzip,$line)!==strlen($line))throw new RuntimeException('Short write while creating backup archive.');};
  $version=(string)$pdo->query('SELECT VERSION()')->fetchColumn();$engine=stripos($version,'mariadb')!==false?'mariadb':'mysql';
