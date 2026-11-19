@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 use Closure;
 use PersiaCoder\PosV3\Auth\AuthController;
+use PersiaCoder\PosV3\Auth\AuditLogController;
 use PersiaCoder\PosV3\Auth\BusinessSetupController;
 use PersiaCoder\PosV3\Auth\BranchManagementController;
 use PersiaCoder\PosV3\Auth\BranchManagementService;
@@ -20,6 +21,7 @@ use PersiaCoder\PosV3\Http\Kernel;
 use PersiaCoder\PosV3\Http\Request;
 use PersiaCoder\PosV3\Http\Response;
 use PersiaCoder\PosV3\Http\Router;
+use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\BusinessRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\PdoConnectionFactory;
 use PersiaCoder\PosV3\Infrastructure\Database\PermissionRepository;
@@ -140,6 +142,8 @@ try {
         return $middleware($request, $parameters, $next);
     };
 
+    $auditController = new AuditLogController(new AuditLogRepository($getConnection()));
+
     $router = new Router();
     $router->add('GET', '/api/v1/health', static fn (Request $request): Response =>
         Response::success(['status' => 'ok'])
@@ -163,6 +167,11 @@ try {
     $router->add('POST', '/api/v1/auth/change-password',
         static fn (Request $request): Response => $getController()->changePassword($request),
         [$sessionMiddleware, $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('GET', '/api/v1/audit-logs',
+        static fn (Request $request): Response => $auditController->list($request),
+        [$sessionMiddleware, $makePermissionMiddleware('audit.read', false)],
     );
 
     $router->add('GET', '/api/v1/access/branches',
