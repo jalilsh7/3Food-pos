@@ -65,6 +65,7 @@ final readonly class AuthenticationService
 
         $this->transactions->run(function (PDO $connection) use (
             $user,
+            $password,
             $userId,
             $tokenHash,
             $csrfTokenHash,
@@ -73,7 +74,7 @@ final readonly class AuthenticationService
             $userAgentHash,
         ): void {
             if (password_needs_rehash((string) $user['password_hash'], PASSWORD_DEFAULT)) {
-                $newHash = password_hash((string) $this->passwordForRehash, PASSWORD_DEFAULT);
+                $newHash = password_hash($password, PASSWORD_DEFAULT);
                 $this->users->updatePasswordHash($userId, $newHash);
             }
             $this->users->touchLastLogin($userId);
