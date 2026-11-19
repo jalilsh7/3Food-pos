@@ -11,7 +11,7 @@ final readonly class BusinessScopeResolver
 {
     public function __construct(private PermissionRepository $repository) {}
 
-    public function resolve(Request $request, bool $requireBranch): BusinessScope
+    public function resolve(Request $request, bool $requireBranch, bool $allowBranchContext = false): BusinessScope
     {
         $businessPublicId = trim($request->header('x-business-id') ?? '');
         if (!self::isUuid($businessPublicId)) {
@@ -31,7 +31,7 @@ final readonly class BusinessScopeResolver
             return new BusinessScope($businessId, $businessPublicId, null, null);
         }
 
-        if (!$requireBranch) {
+        if (!$requireBranch && !$allowBranchContext) {
             throw new HttpException(400, 'branch_context_not_allowed', 'This operation requires a business-wide scope without a branch header.');
         }
 
