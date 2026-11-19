@@ -1,15 +1,15 @@
 <?php
 declare(strict_types=1);
 
-namespace PersiaCoder\\PosV3\\Security;
+namespace PersiaCoder\PosV3\Security;
 
 use DateTimeImmutable;
 use DateTimeZone;
 use PDO;
-use PersiaCoder\\PosV3\\Auth\\BusinessScope;
-use PersiaCoder\\PosV3\\Http\\HttpException;
-use PersiaCoder\\PosV3\\Infrastructure\\Database\\IdempotencyRepository;
-use PersiaCoder\\PosV3\\Infrastructure\\Database\\TransactionManager;
+use PersiaCoder\PosV3\Auth\BusinessScope;
+use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Infrastructure\Database\IdempotencyRepository;
+use PersiaCoder\PosV3\Infrastructure\Database\TransactionManager;
 
 final readonly class IdempotencyService
 {
@@ -23,10 +23,10 @@ final readonly class IdempotencyService
         private int $retentionSeconds = 86400,
     ) {
         if (strlen($applicationKey) < 32) {
-            throw new \\InvalidArgumentException('Application key must contain at least 32 bytes.');
+            throw new \InvalidArgumentException('Application key must contain at least 32 bytes.');
         }
         if ($retentionSeconds < 60 || $retentionSeconds > 604800) {
-            throw new \\InvalidArgumentException('Idempotency retention must be between 60 and 604800 seconds.');
+            throw new \InvalidArgumentException('Idempotency retention must be between 60 and 604800 seconds.');
         }
         $this->records = new IdempotencyRepository($connection);
         $this->transactions = new TransactionManager($connection);
@@ -49,16 +49,16 @@ final readonly class IdempotencyService
         callable $operation,
     ): array {
         if ($actorUserId < 1 || $scope->businessId < 1) {
-            throw new \\InvalidArgumentException('Idempotency requires a valid actor and business scope.');
+            throw new \InvalidArgumentException('Idempotency requires a valid actor and business scope.');
         }
         if (!preg_match('/^[a-z][a-z0-9_.-]{1,99}$/', $endpointCode)) {
-            throw new \\InvalidArgumentException('Idempotency endpoint code is invalid.');
+            throw new \InvalidArgumentException('Idempotency endpoint code is invalid.');
         }
         if (!preg_match('/^[A-Za-z0-9._~-]{16,128}$/', $idempotencyKey)) {
             throw new HttpException(400, 'idempotency_key_invalid', 'A valid Idempotency-Key header is required.');
         }
         if (!preg_match('/^[a-f0-9]{64}$/', $requestHash)) {
-            throw new \\InvalidArgumentException('The request fingerprint must be a SHA-256 hex digest.');
+            throw new \InvalidArgumentException('The request fingerprint must be a SHA-256 hex digest.');
         }
 
         $scopeHash = hash('sha256', $actorUserId . ':' . $scope->businessId . ':' . ($scope->branchId ?? 0));
@@ -114,7 +114,7 @@ final readonly class IdempotencyService
             if (!is_array($result) || !is_int($result['status'] ?? null)
                 || $result['status'] < 200 || $result['status'] > 299
                 || !is_array($result['body'] ?? null)) {
-                throw new \\UnexpectedValueException('An idempotent operation must return a successful HTTP status and array body.');
+                throw new \UnexpectedValueException('An idempotent operation must return a successful HTTP status and array body.');
             }
 
             [$ciphertext, $nonce, $tag] = $this->encryptResponse($result['body']);
@@ -149,7 +149,7 @@ final readonly class IdempotencyService
             $tag,
         );
         if (!is_string($ciphertext) || strlen($tag) !== 16) {
-            throw new \\RuntimeException('The idempotency response could not be encrypted.');
+            throw new \RuntimeException('The idempotency response could not be encrypted.');
         }
         return [$ciphertext, $nonce, $tag];
     }
@@ -166,11 +166,11 @@ final readonly class IdempotencyService
             $tag,
         );
         if (!is_string($json)) {
-            throw new \\RuntimeException('The stored idempotency response failed authentication.');
+            throw new \RuntimeException('The stored idempotency response failed authentication.');
         }
         $body = json_decode($json, true, 64, JSON_THROW_ON_ERROR);
         if (!is_array($body)) {
-            throw new \\RuntimeException('The stored idempotency response has an invalid shape.');
+            throw new \RuntimeException('The stored idempotency response has an invalid shape.');
         }
         return $body;
     }
