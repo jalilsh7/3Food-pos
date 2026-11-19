@@ -432,3 +432,13 @@
 - هیچ endpoint، login، session، اتصال frontend یا اثر عملیاتی در این بسته ایجاد نشده است.
 - تست PHP/DB اجرا نشده؛ این بسته مستندسازی و تثبیت قرارداد است.
 - گام بعد: BE-01A bootstrap/config مستقل و سپس HTTP kernel؛ پیش از کدنویسی ساختار موجود مجدداً بررسی شود.
+
+
+### BE-01A — هسته bootstrap و پیکربندی امن PHP (2026-11-20)
+- وضعیت: **کد اولیه ثبت شد؛ پذیرش CI و تکمیل HTTP runtime باقی است.**
+- فایل‌ها: `v3/backend/bootstrap.php`، `src/Support/Environment.php`، `src/Support/Configuration.php`.
+- runtime مستقل V3 با autoload سبک PSR-4 و حداقل PHP 8.2 ایجاد شد؛ محیط اجرا، debug، host/port/name/user/password دیتابیس validate می‌شوند و debug در production/staging رد می‌شود.
+- bootstrap فقط configuration immutable برمی‌گرداند؛ اتصال PDO، session، route و هیچ اثر دیتابیسی ایجاد نمی‌کند.
+- تست پایه `scripts/check-v3-backend-bootstrap.php` و workflow ماتریسی PHP 8.2/8.3/8.4 در `.github/workflows/v3-backend-validation.yml` اضافه شد.
+- تست اجرایی تا دریافت نتیجه واقعی GitHub Actions تأیید نمی‌شود؛ CI-INFRA-01 همچنان مانع محتمل runner است.
+- گام بعد: BE-01B پیاده‌سازی Request/Response/Router و error contract.
