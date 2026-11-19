@@ -337,3 +337,13 @@ v3/backend/
 - گزینه‌ای که غیرفعال‌کردنش تعداد گزینه‌های فعال را از min_select یا max_select گروه کمتر کند با پاسخ 409 رد می‌شود؛ ابتدا باید قواعد گروه اصلاح شوند.
 - همه writeها در business scope، با permission `catalog.manage`، session، CSRF، Origin، Idempotency-Key و Audit اجرا می‌شوند. حذف فیزیکی تنوع/گروه/گزینه در این APIها وجود ندارد.
 - جزئیات محصول، `is_required_default` گروه را نیز برمی‌گرداند تا فرم مدیریت مقدار ذخیره‌شده را بدون حدس نمایش دهد.
+
+
+## BE-01G5 — زیرساخت امن تصاویر کاتالوگ
+- آپلود از `POST /api/v1/media` با multipart field به نام `file`، کنترل permission `catalog.manage`، CSRF، Origin و Idempotency-Key انجام می‌شود.
+- فقط JPEG، PNG و WebP با MIME تطبیق‌یافته توسط Fileinfo و getimagesize پذیرفته می‌شوند؛ SVG، فایل‌های ناشناخته، ابعاد بیش از 6000px، بیش از 20MP و فایل بزرگ‌تر از سقف پیکربندی رد می‌شوند.
+- `PrivateMediaStorage` نام فایل و storage key را خودش از UUID می‌سازد؛ مسیر ارسالی کاربر وجود ندارد. پوشه‌ها 0700 و فایل‌ها 0600 هستند و مسیر باید بیرون از document root باشد.
+- `GET /api/v1/media/{mediaPublicId}` فقط با session و `catalog.read` درون همان business قابل دسترسی است؛ پاسخ با Content-Type تاییدشده، nosniff و private cache ارسال می‌شود.
+- تصویر اصلی محصول/دسته‌بندی با PUT روی `/api/v1/catalog/products/{id}/image` و `/api/v1/catalog/categories/{id}/image` متصل و با DELETE از اتصال جدا می‌شود. detach فایل را حذف نمی‌کند.
+- migration 010 metadata و رابطه‌ها را می‌سازد؛ قبل از اجرای آن APIهای media عملیاتی نیستند. migration اجرا نشده است.
+- تنظیمات محیطی: `POS_V3_PRIVATE_STORAGE_PATH` (پیش‌فرض `v3/backend/var/private-media`، باید خارج از public root بماند) و `POS_V3_MEDIA_MAX_BYTES` (پیش‌فرض 5242880، حداکثر 20971520). افزونه PHP `fileinfo` لازم است.
