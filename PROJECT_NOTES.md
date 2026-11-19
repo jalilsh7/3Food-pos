@@ -1148,3 +1148,10 @@
 - تنوع‌ها دارای delta قیمت علامت‌دار هستند؛ گروه افزودنی از نوع single/multiple و min/max انتخاب پشتیبانی می‌کند؛ optionها delta قیمت دارند.
 - عملیات ایجاد با idempotency، audit، RBAC، CSRF و Origin محافظت می‌شوند.
 - تست و اجرای migration انجام نشده و به پایان توسعه موکول است.
+
+
+## BE-01G3 — مدیریت چرخه عمر کاتالوگ (2026-11-20)
+- API ویرایش دسته‌بندی و محصول با PATCH اضافه شد؛ آرشیو محصول با DELETE به معنی soft archive است و هیچ ردیفی فیزیکی حذف نمی‌شود.
+- همه commandها از IdempotencyService و AuditLogService استفاده می‌کنند و در مسیرهای route با session، `catalog.manage`، CSRF و Origin محافظت می‌شوند.
+- دسته‌بندی با `is_active=false` غیرفعال می‌شود؛ محصول علاوه بر غیرفعال‌شدن، `archived_at` می‌گیرد. ارجاعات سفارش تاریخی حفظ می‌شوند.
+- migration لازم نبود؛ schema موجود این فیلدها را دارد. هیچ migration، test، lint یا build اجرا نشده است.
