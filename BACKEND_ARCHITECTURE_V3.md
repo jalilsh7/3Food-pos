@@ -163,3 +163,9 @@ v3/backend/
 - فقط SHA-256 نشست و CSRF token در DB ذخیره می‌شود؛ token خام برای صدور cookie/response به caller برگردانده می‌شود.
 - SessionRepository و login limiter از prepared statements و TransactionManager استفاده می‌کنند.
 - این سرویس هنوز به HTTP route متصل نشده؛ cookie امن، CSRF middleware، session authentication و logout باید پیش از انتشار route تکمیل شوند.
+
+
+### BE-01D2 follow-up — محدودسازی مستقل حساب و IP
+- login limiter دو bucket مستقل و domain-separated با HMAC دارد: حساب کاربری و IP منبع.
+- حد حساب پنج شکست و حد IP سی شکست در پنجره ۱۵ دقیقه‌ای است؛ هر bucket پس از رسیدن به حد برای ۱۵ دقیقه مسدود می‌شود.
+- موفقیت ورود bucket حساب را پاک می‌کند، اما bucket IP باقی می‌ماند تا تلاش برای password spraying از همان IP قابل محدودسازی باشد.
