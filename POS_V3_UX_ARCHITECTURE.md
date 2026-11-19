@@ -381,3 +381,8 @@
 - تمام نوشتن‌های یک command دامنه باید در یک TransactionManager boundary انجام شوند؛ UI هرگز مستقیماً به DB متصل نمی‌شود.
 - repositoryهای آینده باید prepared statement داشته باشند و مبلغ/موجودی/مجوز را از ورودی UI authoritative ندانند.
 - هیچ اتصال واقعی دیتابیس یا تست engine در BE-01C انجام نشده است.
+
+
+### BE-01D1 — آماده‌سازی نشست و احراز هویت
+- جدول نشست سمت سرور در migration افزایشی تعریف شده و SessionRepository برای خواندن/لغو نشست ایجاد شده است.
+- UI هنوز login را به API متصل نمی‌کند؛ تا تکمیل login throttling، cookie امن، CSRF و RBAC هیچ route عملیاتی محافظت‌نشده منتشر نمی‌شود.
