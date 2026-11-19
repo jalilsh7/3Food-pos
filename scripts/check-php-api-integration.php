@@ -467,6 +467,13 @@ try {
         'item' => [
             'id' => 'main',
             'shopName' => 'CI Shop',
+            'taxPercent' => 9,
+            'taxEnabled' => true,
+            'pointsPerToman' => 20000,
+            'tomanPerPoint' => 500,
+            'loyaltySilverPoints' => 500,
+            'loyaltyGoldPoints' => 1500,
+            'loyaltyPlatinumPoints' => 4000,
             'smsUser' => 'must-not-persist-user',
             'smsKey' => 'must-not-persist-secret',
             'smsFrom' => 'must-not-persist-sender',
@@ -580,8 +587,14 @@ try {
 
     $cashierBootstrap = api('GET', '/api/v1/bootstrap');
     check($cashierBootstrap['status'] === 200, 'cashier bootstrap');
-    foreach (['ingredients', 'expenses', 'templates', 'settings'] as $restrictedResource) {
+    foreach (['ingredients', 'expenses', 'templates'] as $restrictedResource) {
         check(!array_key_exists($restrictedResource, $cashierBootstrap['json']['data'] ?? []), 'cashier bootstrap excludes ' . $restrictedResource);
+    }
+    $cashierSettings = $cashierBootstrap['json']['data']['settings'][0] ?? [];
+    check((float)($cashierSettings['taxPercent'] ?? -1) === 9.0 && ($cashierSettings['taxEnabled'] ?? false) === true, 'cashier bootstrap receives authoritative tax settings');
+    check((int)($cashierSettings['pointsPerToman'] ?? 0) === 20000 && (int)($cashierSettings['tomanPerPoint'] ?? 0) === 500, 'cashier bootstrap receives authoritative loyalty settings');
+    foreach (['smsUser', 'smsKey', 'smsFrom'] as $secretField) {
+        check(!array_key_exists($secretField, $cashierSettings), 'cashier bootstrap never exposes ' . $secretField);
     }
 
     $cashierUsers = api('GET', '/api/v1/users');
