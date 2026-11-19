@@ -65,17 +65,18 @@ final readonly class LoginAttemptLimiter
             $update = $connection->prepare(
                 'UPDATE app_auth_login_attempts
                  SET attempts = :attempts,
-                     window_started_at = IF(:window_expired = 1, UTC_TIMESTAMP(3), window_started_at),
+                     window_started_at = IF(:reset_window_start = 1, UTC_TIMESTAMP(3), window_started_at),
                      blocked_until = CASE
                          WHEN :blocked = 1 THEN DATE_ADD(UTC_TIMESTAMP(3), INTERVAL 15 MINUTE)
-                         WHEN :window_expired = 1 THEN NULL
+                         WHEN :reset_window_block = 1 THEN NULL
                          ELSE blocked_until
                      END
                  WHERE identifier_hash = :identifier_hash'
             );
             $update->execute([
                 'attempts' => $attempts,
-                'window_expired' => $expired ? 1 : 0,
+                'reset_window_start' => $expired ? 1 : 0,
+                'reset_window_block' => $expired ? 1 : 0,
                 'blocked' => $blocked ? 1 : 0,
                 'identifier_hash' => $identifierHash,
             ]);
