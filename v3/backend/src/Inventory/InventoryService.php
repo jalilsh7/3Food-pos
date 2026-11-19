@@ -238,6 +238,95 @@ final readonly class InventoryService
         );
     }
 
+
+    /** @return list<array<string,mixed>> */
+    public function listBalances(
+        BusinessScope $scope, ?string $stockItemPublicId, ?string $locationPublicId, int $limit,
+    ): array {
+        $branchId = self::requireBranch($scope);
+        if ($limit < 1 || $limit > 200) {
+            throw new HttpException(422, 'inventory_limit_invalid', 'The inventory page size must be between 1 and 200.');
+        }
+        $stockItemId = null;
+        if ($stockItemPublicId !== null) {
+            if (!self::isUuid($stockItemPublicId)) {
+                throw new HttpException(422, 'stock_item_id_invalid', 'The stock item identifier is invalid.');
+            }
+            $item = $this->inventory->findStockItem($scope->businessId, $stockItemPublicId);
+            if ($item === null) {
+                throw new HttpException(404, 'stock_item_not_found', 'The stock item was not found.');
+            }
+            $stockItemId = (int) $item['id'];
+        }
+        $locationId = null;
+        if ($locationPublicId !== null) {
+            if (!self::isUuid($locationPublicId)) {
+                throw new HttpException(422, 'stock_location_id_invalid', 'The stock location identifier is invalid.');
+            }
+            $location = $this->inventory->findLocation($scope->businessId, $branchId, $locationPublicId);
+            if ($location === null) {
+                throw new HttpException(404, 'stock_location_not_found', 'The stock location was not found in this branch.');
+            }
+            $locationId = (int) $location['id'];
+        }
+        return $this->inventory->listBalances(
+            $scope->businessId, $branchId, $stockItemId, $locationId, $limit,
+        );
+    }
+
+    /** @return array{items:list<array<string,mixed>>,next_cursor:?string} */
+    public function listLedger(
+        BusinessScope $scope, ?string $stockItemPublicId, ?string $locationPublicId,
+        ?int $beforeId, int $limit,
+    ): array {
+        $branchId = self::requireBranch($scope);
+        if ($limit < 1 || $limit > 100) {
+            throw new HttpException(422, 'inventory_limit_invalid', 'The ledger page size must be between 1 and 100.');
+        }
+        if ($beforeId !== null && $beforeId < 1) {
+            throw new HttpException(422, 'inventory_cursor_invalid', 'The ledger cursor is invalid.');
+        }
+        $stockItemId = null;
+        if ($stockItemPublicId !== null) {
+            if (!self::isUuid($stockItemPublicId)) {
+                throw new HttpException(422, 'stock_item_id_invalid', 'The stock item identifier is invalid.');
+            }
+            $item = $this->inventory->findStockItem($scope->businessId, $stockItemPublicId);
+            if ($item === null) {
+                throw new HttpException(404, 'stock_item_not_found', 'The stock item was not found.');
+            }
+            $stockItemId = (int) $item['id'];
+        }
+        $locationId = null;
+        if ($locationPublicId !== null) {
+            if (!self::isUuid($locationPublicId)) {
+                throw new HttpException(422, 'stock_location_id_invalid', 'The stock location identifier is invalid.');
+            }
+            $location = $this->inventory->findLocation($scope->businessId, $branchId, $locationPublicId);
+            if ($location === null) {
+                throw new HttpException(404, 'stock_location_not_found', 'The stock location was not found in this branch.');
+            }
+            $locationId = (int) $location['id'];
+        }
+        $rows = $this->inventory->listLedger(
+            $scope->businessId, $branchId, $stockItemId, $locationId, $beforeId, $limit + 1,
+        );
+        $hasMore = count($rows) > $limit;
+        if ($hasMore) {
+            array_pop($rows);
+        }
+        $nextCursor = null;
+        if ($hasMore && $rows !== []) {
+            $last = $rows[array_key_last($rows)];
+            $nextCursor = (string) $last['ledger_id'];
+        }
+        foreach ($rows as &$row) {
+            unset($row['ledger_id']);
+        }
+        unset($row);
+        return ['items' => $rows, 'next_cursor' => $nextCursor];
+    }
+
     private static function requireBranch(BusinessScope $scope): int
     {
         if ($scope->branchId === null) {
