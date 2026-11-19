@@ -545,13 +545,9 @@ final readonly class CatalogService
                 $actor, $requestId, $ip, $before, $after, $current,
             ): array {
                 if ($active === false && (bool) $before['is_active']) {
-                    $groupPublicId = $this->catalog->findOptionGroupPublicIdById($scope->businessId, $groupId);
-                    $group = $groupPublicId === null ? null : $this->catalog->findOptionGroupDetails($scope->businessId, $groupPublicId);
-                    if ($group !== null) {
-                        $remaining = $this->catalog->countActiveOptions($scope->businessId, $groupId) - 1;
-                        if ($remaining < (int) $group['max_select'] || $remaining < (int) $group['min_select']) {
-                            throw new HttpException(409, 'option_group_selection_bounds', 'This option cannot be disabled while the group selection bounds depend on it.');
-                        }
+                    $remaining = $this->catalog->countActiveOptions($scope->businessId, $groupId) - 1;
+                    if ($remaining < (int) $current['max_select'] || $remaining < (int) $current['min_select']) {
+                        throw new HttpException(409, 'option_group_selection_bounds', 'This option cannot be disabled while the group selection bounds depend on it.');
                     }
                 }
                 $this->catalog->updateOption($scope->businessId, $optionId, $name, $delta, $active);
