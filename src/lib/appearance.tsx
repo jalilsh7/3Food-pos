@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { phpApi, type AppearanceSettings } from "@/lib/api/php-client";
-export const DEFAULT_APPEARANCE: AppearanceSettings = { primary:"#14532d",secondary:"#0f766e",mode:"light",fontFamily:"byekan",fontSize:15,cardRadius:16,buttonRadius:12,logoUrl:null };
+export const DEFAULT_APPEARANCE: AppearanceSettings = { appTitle:"صندوق فروشگاهی آنلاین", primary:"#14532d",secondary:"#0f766e",mode:"light",fontFamily:"byekan",fontSize:15,cardRadius:16,buttonRadius:12,logoUrl:null };
 
 export const APPEARANCE_PRESETS = [
  { id:"royal", name:"سبز سلطنتی", description:"اصیل، مطمئن و مناسب فضای رستورانی", primary:"#14532d", secondary:"#0f766e" },
@@ -17,6 +17,7 @@ const AppearanceContext=createContext<AppearanceContextValue|null>(null);
 function safeColor(value:string,fallback:string){return /^#[0-9a-f]{6}$/i.test(value)?value:fallback;}
 function applyAppearance(s:AppearanceSettings){
  const root=document.documentElement,dark=s.mode==="dark";
+ document.title=(typeof s.appTitle==="string"&&s.appTitle.trim()?s.appTitle.trim():"صندوق فروشگاهی آنلاین").slice(0,60);
  const secondary=safeColor(s.secondary,DEFAULT_APPEARANCE.secondary);
  const resolvedSecondary=dark&&secondary.toLowerCase()===DEFAULT_APPEARANCE.secondary?"#5eead4":secondary;
  root.style.colorScheme=dark?"dark":"light";
