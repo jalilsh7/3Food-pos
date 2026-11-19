@@ -17,8 +17,9 @@ try {
     (new Kernel($router))->handle(Request::fromGlobals())->send();
 } catch (Throwable $exception) {
     error_log('POS_V3 bootstrap_failure=' . $exception::class);
-    Response::error([
-        'code' => 'service_unavailable',
-        'message' => 'The service is temporarily unavailable.',
-    ], 503)->send();
+    http_response_code(503);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    header('X-Content-Type-Options: nosniff');
+    echo '{"error":{"code":"service_unavailable","message":"The service is temporarily unavailable."}}';
 }
