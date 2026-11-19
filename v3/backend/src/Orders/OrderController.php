@@ -55,6 +55,21 @@ final readonly class OrderController
         return $this->idempotentResponse($result);
     }
 
+    public function transitionKitchen(Request $request, array $parameters): Response
+    {
+        $this->assertJson($request);
+        $result = $this->orders->transitionKitchen(
+            $this->principal($request),
+            $this->scope($request),
+            $parameters['orderPublicId'],
+            $request->json(),
+            $request->header('idempotency-key') ?? '',
+            $request->requestId,
+            $this->ipAddress($request),
+        );
+        return $this->idempotentResponse($result);
+    }
+
     private function assertJson(Request $request): void
     {
         $contentType = strtolower(trim($request->header('content-type') ?? ''));
