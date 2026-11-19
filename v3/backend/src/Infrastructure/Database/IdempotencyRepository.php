@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace PersiaCoder\\PosV3\\Infrastructure\\Database;
+namespace PersiaCoder\PosV3\Infrastructure\Database;
 
 use PDO;
 
@@ -42,7 +42,7 @@ final readonly class IdempotencyRepository
 
         $row = $this->findForUpdate($id);
         if ($row === null) {
-            throw new \\RuntimeException('The idempotency record could not be locked.');
+            throw new \RuntimeException('The idempotency record could not be locked.');
         }
 
         if (!$created && strtotime((string) $row['expires_at'] . ' UTC') <= time()) {
@@ -90,7 +90,7 @@ final readonly class IdempotencyRepository
             'id' => $id,
         ]);
         if ($statement->rowCount() !== 1) {
-            throw new \\RuntimeException('The idempotency result could not be finalized.');
+            throw new \RuntimeException('The idempotency result could not be finalized.');
         }
     }
 
