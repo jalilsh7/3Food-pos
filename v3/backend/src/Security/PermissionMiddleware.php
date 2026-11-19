@@ -27,6 +27,9 @@ final readonly class PermissionMiddleware
         if (!$principal instanceof AuthenticatedPrincipal) {
             throw new HttpException(401, 'authentication_required', 'Authentication is required.');
         }
+        if ($principal->mustChangePassword) {
+            throw new HttpException(403, 'password_change_required', 'Change the initial password before using business operations.');
+        }
 
         $scope = $this->scopeResolver->resolve($request, $this->requireBranch, $this->allowBranchContext);
         if (!$this->permissions->allows($principal, $this->permissionCode, $scope)) {
