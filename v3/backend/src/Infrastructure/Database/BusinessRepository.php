@@ -34,6 +34,37 @@ final readonly class BusinessRepository
         return $value === null ? null : (int) $value;
     }
 
+    public function findBusinessTimezone(int $businessId): ?string
+    {
+        $statement = $this->connection->prepare(
+            'SELECT timezone FROM pos_businesses WHERE id = :business_id AND is_active = 1 LIMIT 1'
+        );
+        $statement->execute(['business_id' => $businessId]);
+        $value = $statement->fetchColumn();
+        return $value === false ? null : (string) $value;
+    }
+
+    public function listBranches(int $businessId): array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT public_id, code, name, timezone, is_active
+             FROM pos_branches
+             WHERE business_id = :business_id
+             ORDER BY name ASC, code ASC'
+        );
+        $statement->execute(['business_id' => $businessId]);
+        return array_map(
+            static fn (array $row): array => [
+                'id' => (string) $row['public_id'],
+                'code' => (string) $row['code'],
+                'name' => (string) $row['name'],
+                'timezone' => $row['timezone'] === null ? null : (string) $row['timezone'],
+                'is_active' => (int) $row['is_active'] === 1,
+            ],
+            $statement->fetchAll(PDO::FETCH_ASSOC),
+        );
+    }
+
     public function createBusiness(
         string $publicId,
         string $code,
