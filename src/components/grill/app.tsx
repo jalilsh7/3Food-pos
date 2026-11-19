@@ -487,7 +487,9 @@ function PosScreen() {
     const ingredient = ingredients.find((item) => item.id === ingredientId);
     return ingredient && ingredient.stock < required ? [{ name: ingredient.name, stock: ingredient.stock, required, unit: ingredient.unit }] : [];
   });
-  const showStockWarning = stockShortages.length > 0 && stockClock >= stockWarningMutedUntil;
+  const stockPolicy = settings.stockPolicy ?? "warn_and_allow";
+  const showStockWarning = stockShortages.length > 0 && stockPolicy !== "allow_negative" &&
+    (stockPolicy === "block" || stockClock >= stockWarningMutedUntil);
   function muteStockWarningForHour() {
     const until = Date.now() + 60 * 60 * 1000;
     setStockWarningMutedUntil(until);
@@ -686,8 +688,8 @@ function PosScreen() {
           <div role="status" className="mb-3 rounded-xl border border-warn bg-warn-bg p-3 text-sm text-warn">
             <p className="font-bold">هشدار کمبود موجودی</p>
             <p className="mt-1">{stockShortages.map((item) => `${item.name}: موجودی ${item.stock.toLocaleString("fa-IR")}، نیاز سفارش ${item.required.toLocaleString("fa-IR")} ${item.unit}`).join(" · ")}</p>
-            <p className="mt-1">ثبت سفارش متوقف نمی‌شود و با تأیید شما ادامه پیدا می‌کند.</p>
-            <Btn tone="ghost" onClick={muteStockWarningForHour}>خاموش‌کردن هشدار برای یک ساعت</Btn>
+            <p className="mt-1">{stockPolicy === "block" ? "ثبت سفارش تا تأمین موجودی متوقف می‌شود." : "ثبت سفارش ادامه پیدا می‌کند و کسری موجودی در انبار ثبت خواهد شد."}</p>
+            {stockPolicy === "warn_and_allow" ? <Btn tone="ghost" onClick={muteStockWarningForHour}>خاموش‌کردن هشدار برای یک ساعت</Btn> : null}
           </div>
         ) : null}
         {cart.length === 0 ? <Empty text="آیتمی انتخاب نشده" /> : null}
@@ -2090,6 +2092,13 @@ function SettingsScreen() {
         <Field label="تلفن"><input className={inputCls} value={settings.phone} onChange={(e) => patchSettings({ phone: e.target.value })} onBlur={persistSettings} /></Field>
         <Field label="آدرس"><input className={inputCls} value={settings.address} onChange={(e) => patchSettings({ address: e.target.value })} onBlur={persistSettings} /></Field>
         <Field label="مالیات درصد"><input className={inputCls} type="number" min="0" max="100" step="0.01" value={settings.taxPercent} onChange={(e) => patchSettings({ taxPercent: Number(e.target.value) })} onBlur={persistSettings} /></Field>
+        <Field label="سیاست فروش با موجودی ناکافی">
+          <select className={inputCls} value={settings.stockPolicy ?? "warn_and_allow"} onChange={(e) => patchSettings({ stockPolicy: e.target.value as Settings["stockPolicy"] })} onBlur={persistSettings}>
+            <option value="block">جلوگیری از ثبت سفارش</option>
+            <option value="warn_and_allow">نمایش هشدار و اجازه ادامه فروش</option>
+            <option value="allow_negative">اجازه موجودی منفی بدون نمایش هشدار</option>
+          </select>
+        </Field>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.taxEnabled !== false} onChange={(e) => { const value = e.target.checked; patchSettings({ taxEnabled: value }); const current = usePos.getState().settings; void saveCentralRecord("settings", { id: "main", ...current, taxEnabled: value, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} />محاسبه مالیات فعال باشد</label>
         <Field label="هر چند تومان یک امتیاز"><input className={inputCls} type="number" value={settings.pointsPerToman} onChange={(e) => patchSettings({ pointsPerToman: Number(e.target.value) })} onBlur={persistSettings} /></Field>
         <Field label="ارزش هر امتیاز"><input className={inputCls} type="number" value={settings.tomanPerPoint} onChange={(e) => patchSettings({ tomanPerPoint: Number(e.target.value) })} onBlur={persistSettings} /></Field>
