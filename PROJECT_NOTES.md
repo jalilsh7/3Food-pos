@@ -1022,3 +1022,14 @@
 - `scripts/check-v3-backend-database.php` اکنون وجود table/FK/unique/expiry و عدم وجود DDL مخرب را به‌صورت ایستا بررسی می‌کند؛ این تست هنوز توسط runner اجرا نشده است.
 - migration guide نیز با توضیح فایل 001 به‌روزرسانی شد.
 - احراز هویت هنوز endpoint ندارد؛ login throttling، password verification، token issuance، cookie security و CSRF enforcement باید قبل از expose کردن login route تکمیل شوند.
+
+
+## BE-01D2 — AuthenticationService و login throttling (2026-11-20)
+- تنظیم `POS_V3_APP_KEY` به Configuration اضافه شد؛ اجباری، حداقل ۳۲ بایت و بدون مقدار واقعی در Git. تست bootstrap برای نبودن و کوتاه‌بودن آن توسعه یافت.
+- migration افزایشی `database/v3/migrations/002_create-auth-login-attempts.sql` جدول تلاش ورود را ایجاد می‌کند. migration روی دیتابیس اجرا نشده است.
+- `LoginAttemptLimiter` شناسه ترکیبی username/IP را با HMAC-SHA256 و app key ناشناس می‌کند؛ پنج شکست در پنجره ۱۵ دقیقه، block پانزده‌دقیقه‌ای؛ ثبت شکست با row lock و TransactionManager.
+- `UserRepository` فقط queryهای prepared دارد؛ `AuthenticationService` رمز را با password_verify بررسی می‌کند، برای username ناموجود dummy hash اجرا می‌کند، user غیرفعال را رد می‌کند و در صورت نیاز hash رمز را به‌روز می‌کند.
+- در ورود موفق، last_login و session record در یک transaction ثبت می‌شوند؛ token نشست و CSRF تصادفی ۲۵۶ بیتی هستند و فقط SHA-256 آن‌ها ذخیره می‌شود.
+- DTO `AuthenticatedSession` خروجی service را نگه می‌دارد؛ هنوز هیچ login/logout HTTP route یا cookie صادر نمی‌شود.
+- workflow check database باید وجود migrationها و config جدید را بررسی کند؛ تا اجرای واقعی runner/DB هیچ PASS اجرایی اعلام نمی‌شود.
+- محدودیت‌های باز: cookie flags، CSRF verification middleware، session resolution middleware، logout، reset password، audit و RBAC scope.
