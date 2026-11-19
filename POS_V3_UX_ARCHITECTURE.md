@@ -235,11 +235,13 @@
   - `Button` با variant و size مشخص و type پیش‌فرض button.
   - `Surface` با semantics از نوع section و padding قابل تنظیم.
   - `PageHeader`، `StatusBadge`، `Notice` و `EmptyState`.
+- کنترل‌های فرم در `src/shared/ui/form-controls.tsx`: `TextField`، `SelectField`، `CheckboxField` و `FilterBar` با شناسه خودکار، label، hint/error و ارتباط ARIA.
+- جدول عمومی typed در `src/shared/ui/data-table.tsx`: تعریف ستون با renderer، کلید پایدار ردیف، alignment، عرض و حالت خالی؛ استایل‌ها در `src/shared/ui/forms-table.css`.
 - stylesheet مستقل componentها در `src/shared/ui/primitives.css` ایجاد شد و از طریق `src/styles.css` به tokens و shell متصل است.
 - `src/app/App.tsx` برای استفاده از primitives مشترک بازآرایی شد؛ کارت‌های نمای کلی و placeholder صفحات از componentهای پایه استفاده می‌کنند. جست‌وجوی بخش‌ها همچنان محلی و نمایشی است و به داده عملیاتی وصل نیست.
 - فوکوس قابل مشاهده، aria-label کنترل پاک‌کردن جست‌وجو، aria-current ناوبری، aria-live حالت خالی و reduced-motion در CSS لحاظ شده‌اند.
 - راهنمای قرارداد componentها در `v3/frontend/DESIGN_SYSTEM.md` ایجاد و از README لینک شد.
 - وابستگی فونت خارجی وجود ندارد؛ fallback سیستمی فعال است. lockfile هنوز تولید نشده است.
-- بررسی ایستای GitHub: فایل‌های جدید/ویرایش‌شده مجدداً fetch شدند؛ importهای V2 در workspace دیده نشدند، wrapperهای Surface از نظر تعداد باز/بسته کنترل شدند و selectorهای placeholder حذف شدند.
+- بررسی ایستای GitHub: فایل‌های جدید/ویرایش‌شده مجدداً fetch شدند؛ importهای V2 در workspace دیده نشدند، wrapperهای Surface و nav section از نظر تعداد باز/بسته کنترل شدند و selectorهای placeholder حذف شدند. exportهای form/table نیز در barrel بررسی شدند.
 - typecheck، unit test، lint، build و browser acceptance اجرا نشده‌اند؛ به علت محدودیت runner/عدم اجرای محلی، این بسته هنوز از نظر اجرایی پذیرفته نشده است.
 - گام بعد: تکمیل تست‌پذیری UI و الگوهای فرم/جدول/فیلتر، سپس UX-03 صفحه فروش؛ اتصال به API فقط پس از تثبیت قرارداد مستقل backend.
