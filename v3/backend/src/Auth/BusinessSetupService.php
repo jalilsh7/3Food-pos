@@ -92,7 +92,7 @@ final readonly class BusinessSetupService
                 $timezone,
                 $currency,
             );
-            $this->businesses->createBranch(
+            $branchId = $this->businesses->createBranch(
                 $branchPublicId,
                 $businessId,
                 $branchCode,
@@ -116,6 +116,8 @@ final readonly class BusinessSetupService
                 null,
                 $requestId,
                 $ipAddress,
+                $businessId,
+                $branchId,
             );
         });
 
