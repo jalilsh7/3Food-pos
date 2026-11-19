@@ -15,6 +15,7 @@ final readonly class Configuration
         public string $databaseName,
         public string $databaseUsername,
         public string $databasePassword,
+        public string $applicationKey,
     ) {}
 
     public static function fromEnvironment(): self
@@ -33,6 +34,10 @@ final readonly class Configuration
         $username = Environment::requiredString('POS_V3_DB_USER');
         $databaseName = Environment::requiredString('POS_V3_DB_NAME');
         $databasePassword = Environment::requiredString('POS_V3_DB_PASSWORD', true);
+        $applicationKey = Environment::requiredString('POS_V3_APP_KEY');
+        if (strlen($applicationKey) < 32) {
+            throw new RuntimeException('POS_V3_APP_KEY must contain at least 32 bytes.');
+        }
         $portValue = Environment::string('POS_V3_DB_PORT', '3306');
 
         if (strlen($host) > 255 || !preg_match('/^[A-Za-z0-9.:-]+$/', $host)) {
@@ -48,6 +53,6 @@ final readonly class Configuration
             throw new RuntimeException('POS_V3_DB_PORT must be an integer between 1 and 65535.');
         }
 
-        return new self($environment, $debug, $host, (int) $portValue, $databaseName, $username, $databasePassword);
+        return new self($environment, $debug, $host, (int) $portValue, $databaseName, $username, $databasePassword, $applicationKey);
     }
 }
