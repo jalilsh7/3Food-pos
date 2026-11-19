@@ -34,7 +34,6 @@ use PersiaCoder\PosV3\Security\CsrfMiddleware;
 use PersiaCoder\PosV3\Security\SameOriginGuard;
 use PersiaCoder\PosV3\Security\InstallationOwnerMiddleware;
 use PersiaCoder\PosV3\Security\PermissionMiddleware;
-use PersiaCoder\PosV3\Security\IdempotencyMiddleware;
 
 try {
     $configuration = require dirname(__DIR__) . '/bootstrap.php';
@@ -95,6 +94,7 @@ try {
             $roleController = new RoleManagementController(
                 new RoleManagementService(
                     $getConnection(),
+                    $configuration->applicationKey,
                     new RoleRepository($getConnection()),
                     new PermissionService($repository),
                 ),
@@ -137,17 +137,6 @@ try {
                 $permissionCode,
                 $requireBranch,
                 $allowBranchContext,
-            );
-            return $middleware($request, $parameters, $next);
-        };
-    };
-
-    $makeIdempotencyMiddleware = static function (string $endpointCode) use ($getConnection, $configuration): Closure {
-        return static function (Request $request, array $parameters, callable $next) use ($getConnection, $configuration, $endpointCode): Response {
-            $middleware = new IdempotencyMiddleware(
-                $getConnection(),
-                $configuration->applicationKey,
-                $endpointCode,
             );
             return $middleware($request, $parameters, $next);
         };
@@ -263,12 +252,12 @@ try {
 
     $router->add('POST', '/api/v1/access/roles',
         static fn (Request $request): Response => $getRoleController()->create($request),
-        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('roles.create')],
+        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('PATCH', '/api/v1/access/roles/{roleCode}',
         static fn (Request $request, array $parameters): Response => $getRoleController()->update($request, $parameters),
-        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('roles.update')],
+        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('GET', '/api/v1/access/roles',
@@ -278,22 +267,22 @@ try {
 
     $router->add('POST', '/api/v1/access/users/{userPublicId}/business-roles',
         static fn (Request $request, array $parameters): Response => $getRoleController()->assignBusiness($request, $parameters),
-        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('roles.business-assignment')],
+        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('DELETE', '/api/v1/access/users/{userPublicId}/business-roles/{roleCode}',
         static fn (Request $request, array $parameters): Response => $getRoleController()->removeBusiness($request, $parameters),
-        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('roles.business-revocation')],
+        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', false), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('POST', '/api/v1/access/users/{userPublicId}/branch-roles',
         static fn (Request $request, array $parameters): Response => $getRoleController()->assignBranch($request, $parameters),
-        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', true), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('roles.branch-assignment')],
+        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', true), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('DELETE', '/api/v1/access/users/{userPublicId}/branch-roles/{roleCode}',
         static fn (Request $request, array $parameters): Response => $getRoleController()->removeBranch($request, $parameters),
-        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', true), $csrfMiddleware, $originMiddleware, $makeIdempotencyMiddleware('roles.branch-revocation')],
+        [$sessionMiddleware, $makePermissionMiddleware('roles.manage', true), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('POST', '/api/v1/auth/logout',
