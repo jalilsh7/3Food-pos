@@ -12,6 +12,10 @@ final class PdoConnectionFactory
 {
     public static function dsn(Configuration $configuration): string
     {
+        if (!preg_match('/^[A-Za-z0-9.:-]+$/', $configuration->databaseHost)) {
+            throw new RuntimeException('Database host contains invalid DSN characters.');
+        }
+
         return sprintf(
             'mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4',
             $configuration->databaseHost,
