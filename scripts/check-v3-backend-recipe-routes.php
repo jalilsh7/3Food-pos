@@ -38,7 +38,7 @@ $assert(str_contains($entrypoint, '$csrfMiddleware, $originMiddleware'), 'Recipe
 $assert(is_string($controller) && str_contains($controller, "header('idempotency-key')"), 'Recipe writes must forward idempotency keys.');
 $assert(is_string($service) && str_contains($service, 'catalog.recipe.version.create'), 'Recipe draft creation must be idempotent.');
 $assert(str_contains($service, 'catalog.recipe.version.activate'), 'Recipe activation must be idempotent.');
-$assert(str_contains($service, 'conversion_factor_snapshot'), 'Recipe lines must preserve unit conversion snapshots.');
+$assert(str_contains($service, 'findConversionFactor') && str_contains($service, 'createRecipeLine'), 'Recipe lines must resolve and persist unit conversion snapshots.');
 $assert(str_contains($service, 'retireActiveVersions'), 'Activating a recipe must retire the previous active version.');
 
 echo "V3 recipe route and security contract checks passed.\n";
