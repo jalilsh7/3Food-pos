@@ -5,26 +5,27 @@ namespace PersiaCoder\PosV3\Auth;
 
 use PDO;
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Database\RoleRepository;
-use PersiaCoder\PosV3\Infrastructure\Database\TransactionManager;
 use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
-use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Infrastructure\Database\RoleRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\UserRepository;
+use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class UserManagementService
 {
     private UserRepository $users;
     private RoleRepository $roles;
-    private TransactionManager $transactions;
+    private IdempotencyService $idempotency;
     private AuditLogService $audit;
 
     public function __construct(
-        private PDO $connection,
+        PDO $connection,
+        string $applicationKey,
         private PermissionService $permissions,
     ) {
         $this->users = new UserRepository($connection);
         $this->roles = new RoleRepository($connection);
-        $this->transactions = new TransactionManager($connection);
+        $this->idempotency = new IdempotencyService($connection, $applicationKey);
         $this->audit = new AuditLogService(new AuditLogRepository($connection));
     }
 
@@ -41,33 +42,35 @@ final readonly class UserManagementService
         return $this->users->listBranchUsers($scope->businessId, $scope->branchId);
     }
 
-    /** @return array{user_id:string,username:string,display_name:string,role_code:string,temporary_password:string} */
+    /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function createBusinessUser(
         AuthenticatedPrincipal $actor,
         BusinessScope $scope,
         string $username,
         string $displayName,
         string $roleCode,
+        string $idempotencyKey,
         string $requestId,
         string $ipAddress,
     ): array {
-        return $this->create($actor, $scope, $username, $displayName, $roleCode, false, $requestId, $ipAddress);
+        return $this->create($actor, $scope, $username, $displayName, $roleCode, false, $idempotencyKey, $requestId, $ipAddress);
     }
 
-    /** @return array{user_id:string,username:string,display_name:string,role_code:string,temporary_password:string} */
+    /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function createBranchUser(
         AuthenticatedPrincipal $actor,
         BusinessScope $scope,
         string $username,
         string $displayName,
         string $roleCode,
+        string $idempotencyKey,
         string $requestId,
         string $ipAddress,
     ): array {
         if ($scope->branchId === null) {
             throw new HttpException(400, 'branch_context_required', 'A branch scope is required.');
         }
-        return $this->create($actor, $scope, $username, $displayName, $roleCode, true, $requestId, $ipAddress);
+        return $this->create($actor, $scope, $username, $displayName, $roleCode, true, $idempotencyKey, $requestId, $ipAddress);
     }
 
     private function create(
@@ -77,6 +80,7 @@ final readonly class UserManagementService
         string $displayName,
         string $roleCode,
         bool $branchScoped,
+        string $idempotencyKey,
         string $requestId,
         string $ipAddress,
     ): array {
@@ -90,13 +94,10 @@ final readonly class UserManagementService
         if ($displayName === '' || self::unicodeLength($displayName) > 120) {
             throw new HttpException(422, 'invalid_display_name', 'Display name is required and must not exceed 120 characters.');
         }
-        if ($this->users->usernameExists($username)) {
-            throw new HttpException(409, 'username_already_exists', 'The username is already in use.');
-        }
-
         if (!preg_match('/^[a-z][a-z0-9_-]{1,63}$/', $roleCode)) {
             throw new HttpException(400, 'role_code_invalid', 'The role code is invalid.');
         }
+
         $role = $this->roles->findActiveRole($roleCode);
         if ($role === null) {
             throw new HttpException(404, 'role_not_found', 'The role was not found.');
@@ -110,58 +111,84 @@ final readonly class UserManagementService
             }
         }
 
-        $publicId = self::uuidV4();
-        $temporaryPassword = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
-        $passwordHash = password_hash($temporaryPassword, PASSWORD_DEFAULT);
-
-        $this->transactions->run(function (PDO $connection) use (
-            $publicId,
-            $username,
-            $passwordHash,
-            $displayName,
-            $role,
-            $roleCode,
-            $actor,
-            $scope,
-            $branchScoped,
-            $requestId,
-            $ipAddress,
-        ): void {
-            $userId = $this->users->createUser($publicId, $username, $passwordHash, $displayName);
-            if ($branchScoped) {
-                $this->roles->assignBranchRole($userId, (int) $scope->branchId, $role['id'], $actor->userId);
-            } else {
-                $this->roles->assignBusinessRole($userId, $scope->businessId, $role['id'], $actor->userId);
-            }
-            $this->audit->record(
-                $actor->userId,
-                'user.created',
-                'user',
-                $publicId,
-                null,
-                [
-                    'username' => $username,
-                    'display_name' => $displayName,
-                    'role_code' => $roleCode,
-                    'scope' => $branchScoped ? 'branch' : 'business',
-                    'business_id' => $scope->businessPublicId,
-                    'branch_id' => $scope->branchPublicId,
-                ],
-                null,
-                $requestId,
-                $ipAddress,
-                $scope->businessId,
-                $branchScoped ? $scope->branchId : null,
-            );
-        });
-
-        return [
-            'user_id' => $publicId,
+        $fingerprint = hash('sha256', json_encode([
             'username' => $username,
             'display_name' => $displayName,
             'role_code' => $roleCode,
-            'temporary_password' => $temporaryPassword,
-        ];
+            'scope' => $branchScoped ? 'branch' : 'business',
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+        return $this->idempotency->execute(
+            $actor->userId,
+            $scope,
+            $branchScoped ? 'users.create.branch' : 'users.create.business',
+            $idempotencyKey,
+            $fingerprint,
+            function (PDO $connection) use (
+                $publicId = null,
+                $username,
+                $displayName,
+                $role,
+                $roleCode,
+                $actor,
+                $scope,
+                $branchScoped,
+                $requestId,
+                $ipAddress,
+            ): array {
+                if ($this->users->usernameExists($username)) {
+                    throw new HttpException(409, 'username_already_exists', 'The username is already in use.');
+                }
+
+                $publicId = self::uuidV4();
+                $temporaryPassword = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+                $passwordHash = password_hash($temporaryPassword, PASSWORD_DEFAULT);
+                $userId = $this->users->createUser($publicId, $username, $passwordHash, $displayName);
+                if ($branchScoped) {
+                    $this->roles->assignBranchRole($userId, (int) $scope->branchId, $role['id'], $actor->userId);
+                } else {
+                    $this->roles->assignBusinessRole($userId, $scope->businessId, $role['id'], $actor->userId);
+                }
+                $this->audit->record(
+                    $actor->userId,
+                    'user.created',
+                    'user',
+                    $publicId,
+                    null,
+                    [
+                        'username' => $username,
+                        'display_name' => $displayName,
+                        'role_code' => $roleCode,
+                        'scope' => $branchScoped ? 'branch' : 'business',
+                        'business_id' => $scope->businessPublicId,
+                        'branch_id' => $scope->branchPublicId,
+                    ],
+                    null,
+                    $requestId,
+                    $ipAddress,
+                    $scope->businessId,
+                    $branchScoped ? $scope->branchId : null,
+                );
+
+                return [
+                    'status' => 201,
+                    'body' => [
+                        'data' => [
+                            'user' => [
+                                'id' => $publicId,
+                                'username' => $username,
+                                'display_name' => $displayName,
+                                'role_code' => $roleCode,
+                                'must_change_password' => true,
+                            ],
+                            'temporary_password' => $temporaryPassword,
+                            'credential_notice' => 'This temporary password is shown once. Deliver it securely and do not store it in application logs.',
+                        ],
+                        'meta' => (object) [],
+                    ],
+                ];
+            },
+        );
     }
 
     private static function unicodeLength(string $value): int
