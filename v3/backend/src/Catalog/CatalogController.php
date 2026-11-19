@@ -67,6 +67,34 @@ final readonly class CatalogController
         return $this->idempotentResponse($result);
     }
 
+
+    public function updateCategory(Request $request, array $parameters): Response
+    {
+        return $this->idempotentResponse($this->catalog->updateCategory(
+            $this->principal($request), $this->scope($request), (string) ($parameters['categoryPublicId'] ?? ''),
+            $this->jsonPayload($request), $request->header('idempotency-key') ?? '', $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
+        ));
+    }
+
+    public function updateProduct(Request $request, array $parameters): Response
+    {
+        return $this->idempotentResponse($this->catalog->updateProduct(
+            $this->principal($request), $this->scope($request), (string) ($parameters['productPublicId'] ?? ''),
+            $this->jsonPayload($request), $request->header('idempotency-key') ?? '', $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
+        ));
+    }
+
+    public function archiveProduct(Request $request, array $parameters): Response
+    {
+        return $this->idempotentResponse($this->catalog->archiveProduct(
+            $this->principal($request), $this->scope($request), (string) ($parameters['productPublicId'] ?? ''),
+            $request->header('idempotency-key') ?? '', $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
+        ));
+    }
+
     private function jsonPayload(Request $request): array
     {
         $contentType = strtolower(trim($request->header('content-type') ?? ''));
