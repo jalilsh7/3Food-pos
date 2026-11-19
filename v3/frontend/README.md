@@ -13,7 +13,7 @@
 ## ساختار UI
 
 - توکن‌های طراحی: `src/tokens.css`
-- اجزای مشترک: `src/shared/ui/`
+- اجزای مشترک: `src/shared/ui/` (primitiveها، کنترل‌های فرم و جدول typed)
 - مستند طراحی و قرارداد componentها: [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)
 
 ## اجرای محلی
