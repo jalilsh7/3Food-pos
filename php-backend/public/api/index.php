@@ -405,6 +405,33 @@ if ($method==='POST' && $path==='/terminal-payments') {
     audit($pdo,(int)$actor['id'],'terminal_payment_queued','terminal_payment',$paymentId,['terminal_id'=>$terminalId,'amount'=>$amount]);
     json_response(['ok'=>true,'payment'=>['id'=>$paymentId,'status'=>'queued','amount'=>$amount]],201);
 }
+
+if (preg_match('#^/terminal-payments/([a-f0-9-]{36})/attach-order$#iD',$path,$m) && $method==='POST') {
+    $actor=require_role($pdo,['manager','cashier']);require_csrf();$body=request_json();
+    $orderId=filter_var($body['orderId']??null,FILTER_VALIDATE_INT);
+    if($orderId===false||$orderId<1) json_response(['ok'=>false,'error'=>'invalid_order_id'],422);
+    try {
+        $pdo->beginTransaction();
+        $paymentStmt=$pdo->prepare('SELECT id,amount,status,order_id,created_by FROM pos_terminal_payments WHERE id=? FOR UPDATE');$paymentStmt->execute([$m[1]]);$payment=$paymentStmt->fetch();
+        if(!is_array($payment)||($actor['role']!=='manager'&&(int)$payment['created_by']!==(int)$actor['id'])){$pdo->rollBack();json_response(['ok'=>false,'error'=>'payment_not_found'],404);}
+        if($payment['status']!=='approved'){$pdo->rollBack();json_response(['ok'=>false,'error'=>'payment_not_approved','message'=>'فقط تراکنش تأییدشده قابل اتصال به سفارش است'],409);}
+        $orderStmt=$pdo->prepare('SELECT id,payment_method,totals,created_by FROM pos_orders WHERE id=? LIMIT 1');$orderStmt->execute([$orderId]);$order=$orderStmt->fetch();
+        $totals=is_array($order)?json_decode((string)$order['totals'],true):null;
+        if(!is_array($order)||(string)$order['payment_method']!=='card'||(int)($totals['total']??-1)!==(int)$payment['amount']||(int)$order['created_by']!==(int)$payment['created_by']){
+            $pdo->rollBack();json_response(['ok'=>false,'error'=>'payment_order_mismatch','message'=>'مبلغ یا مالک سفارش با تراکنش کارتخوان مطابقت ندارد'],409);
+        }
+        if($payment['order_id']!==null&&(int)$payment['order_id']!==$orderId){$pdo->rollBack();json_response(['ok'=>false,'error'=>'payment_already_linked'],409);}
+        $update=$pdo->prepare('UPDATE pos_terminal_payments SET order_id=? WHERE id=? AND order_id IS NULL');$update->execute([$orderId,$m[1]]);
+        audit($pdo,(int)$actor['id'],'terminal_payment_linked','terminal_payment',$m[1],['order_id'=>$orderId]);
+        $pdo->commit();
+        json_response(['ok'=>true,'order_id'=>$orderId]);
+    } catch(Throwable $e) {
+        if($pdo->inTransaction())$pdo->rollBack();
+        error_log('[3Food POS] Terminal payment linking failed: '.$e->getMessage());
+        json_response(['ok'=>false,'error'=>'terminal_payment_link_failed','message'=>'اتصال تراکنش به سفارش انجام نشد'],500);
+    }
+}
+
 if (preg_match('#^/terminal-payments/([a-f0-9-]{36})$#iD',$path,$m) && $method==='GET') {
     $actor=require_role($pdo,['manager','cashier']);
     $stmt=$pdo->prepare('SELECT p.id,p.terminal_id,p.order_id,p.amount,p.currency,p.status,p.external_transaction_id,p.trace_number,p.retrieval_reference_number,p.response_code,p.response_message,p.requested_at,p.completed_at,p.created_by,t.name AS terminal_name FROM pos_terminal_payments p JOIN pos_payment_terminals t ON t.id=p.terminal_id WHERE p.id=? LIMIT 1');
