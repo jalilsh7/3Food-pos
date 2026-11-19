@@ -505,3 +505,8 @@
 - payment status از order status جدا نمایش داده شود؛ تغییر وضعیت سفارش به معنی پرداخت موفق نیست.
 - source_channelهای مجاز: pos، phone، manual، table، takeaway، storefront؛ channel=pos علاوه بر orders.create به pos.sell نیاز دارد و table باید table_session_id معتبر داشته باشد.
 
+
+- جزئیات سفارش: GET /api/v1/orders/{orderPublicId} شامل order، items، option snapshots، fulfillment و status_history است.
+- fulfillment_method اختیاری برای POS/manual/phone/storefront از مقادیر dine_in/takeaway/delivery است؛ table به dine_in و takeaway به takeaway نگاشت می‌شود.
+- برای delivery، recipient_name، recipient_phone و delivery_address object اجباری است؛ UI مبلغ delivery fee را محاسبه یا ارسال نکند، چون در این نسخه صفر و در نسخه بعدی server-calculated خواهد بود.
+
