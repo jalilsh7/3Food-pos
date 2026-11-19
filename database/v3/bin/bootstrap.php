@@ -11,6 +11,10 @@ final class PosV3DatabaseTools {
   if (!ctype_digit($port)||(int)$port<1||(int)$port>65535) throw new RuntimeException('Invalid database port.');
   return new PDO("mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4",$username,$password,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,PDO::ATTR_EMULATE_PREPARES=>false]);
  }
+ public static function quoteIdentifier(string $identifier): string {
+  if (!preg_match('/^[A-Za-z0-9_]+$/', $identifier)) throw new RuntimeException('Invalid SQL identifier.');
+  return chr(96) . $identifier . chr(96);
+ }
  /** @return list<string> */
  public static function statements(string $sql): array {
   $statements=[]; $buffer=''; $quote=null; $lineComment=false; $blockComment=false; $length=strlen($sql);
