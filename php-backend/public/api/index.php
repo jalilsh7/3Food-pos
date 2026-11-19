@@ -336,6 +336,12 @@ if (preg_match('#^/terminal-agents/([a-f0-9-]{36})/disable$#iD',$path,$m) && $me
     audit($pdo,(int)$actor['id'],'terminal_agent_disabled','terminal_agent',$m[1]);
     json_response(['ok'=>true]);
 }
+if ($method==='GET' && $path==='/terminals/available') {
+    require_role($pdo,['manager','cashier']);
+    $rows=$pdo->query("SELECT t.id,t.name,t.provider_code,t.model_name,t.driver_code,t.is_default,a.last_seen_at FROM pos_payment_terminals t JOIN app_terminal_agents a ON a.id=t.agent_id WHERE t.enabled=1 AND a.enabled=1 AND t.driver_code<>'unconfigured' AND a.last_seen_at >= (UTC_TIMESTAMP() - INTERVAL 90 SECOND) ORDER BY t.is_default DESC,t.name ASC")->fetchAll();
+    foreach($rows as &$row){$row['is_default']=(bool)$row['is_default'];} unset($row);
+    json_response(['ok'=>true,'items'=>$rows]);
+}
 if ($method==='GET' && $path==='/terminals') {
     require_role($pdo,['manager']);
     $rows=$pdo->query('SELECT t.id,t.agent_id,t.local_terminal_key,t.name,t.provider_code,t.model_name,t.driver_code,t.connection_type,t.host,t.port,t.enabled,t.is_default,t.last_seen_at,a.name AS agent_name,a.enabled AS agent_enabled FROM pos_payment_terminals t JOIN app_terminal_agents a ON a.id=t.agent_id ORDER BY t.is_default DESC,t.name ASC')->fetchAll();
