@@ -9,9 +9,9 @@
 - پیش از نصب مشتری، نسخه DB، backup قابل بازیابی، دسترسی محدود کاربر DB و محیط staging باید بررسی شود.
 
 ## نیازمندی‌ها
-- MySQL 8.0.16+ یا MariaDB 10.6+
-- InnoDB، utf8mb4 و PDO MySQL در PHP 8.2+
-- timezone اتصال UTC؛ تبدیل تاریخ شمسی فقط در لایه نمایش.
+- PHP 8.2+ و افزونه PDO MySQL؛ ابزارهای backup/restore به zlib نیز نیاز دارند.
+- MySQL 8.0.16+ یا MariaDB 10.6+؛ ابزار اتصال نسخه engine را در زمان اجرا preflight می‌کند.
+- InnoDB و utf8mb4؛ timestampها UTC و تبدیل تاریخ شمسی فقط در لایه نمایش.
 
 ## فایل‌ها
 - schema.sql: baseline ساخت جداول نسخه اول؛ داده آزمایشی ندارد.
