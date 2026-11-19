@@ -288,10 +288,6 @@ final readonly class CatalogService
         });
     }
 
-    private static function uuidV4(): string
-    {
-        $bytes=random_bytes(16);$bytes[6]=chr((ord($bytes[6])&0x0f)|0x40);$bytes[8]=chr((ord($bytes[8])&0x3f)|0x80);$h=bin2hex($bytes);
-        return substr($h,0,8).'-'.substr($h,8,4).'-'.substr($h,12,4).'-'.substr($h,16,4).'-'.substr($h,20);
-    }
+
 
 }
