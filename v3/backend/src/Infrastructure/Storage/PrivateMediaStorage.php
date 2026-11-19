@@ -12,8 +12,7 @@ final readonly class PrivateMediaStorage
     public function __construct(string $configuredPath)
     {
         if ($configuredPath === '' || strlen($configuredPath) > 512
-            || (!str_starts_with($configuredPath, DIRECTORY_SEPARATOR)
-                && !str_starts_with($configuredPath, DIRECTORY_SEPARATOR)) {
+            || !str_starts_with($configuredPath, DIRECTORY_SEPARATOR)) {
             throw new RuntimeException('Private media storage path must be absolute.');
         }
         if (is_link($configuredPath)) {
