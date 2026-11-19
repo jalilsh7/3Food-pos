@@ -57,3 +57,12 @@ MySQL/MariaDB برای بسیاری از دستورات DDL implicit commit ان
 - فایل `007_catalog-variants-and-options.sql` برای تنوع محصول، گروه افزودنی و گزینه‌ها شناسه عمومی UUID و indexهای کسب‌وکار اضافه می‌کند؛ اگر رکورد قبلی وجود داشته باشد، UUID برای آن backfill و سپس ستون اجباری می‌شود.
 - `is_required_default` مقدار پیش‌فرض اجباری بودن گروه گزینه است؛ اتصال به محصول همچنان مقدار `is_required` مستقل دارد.
 - migration فقط ثبت شده و اجرا نشده است.
+
+
+## Migration 008 — سفارش‌ها و محدوده شعبه
+- فایل 008_scope-orders-and-service-areas.sql جداول order، item، item option، status event، fulfillment، preparation، adjustment، dining area/table و table session را به business و branch متصل می‌کند.
+- FKهای مرکب، تعلق سفارش و اقلام آن به همان business/branch را enforce می‌کنند؛ رابطه مشتری/محصول/تنوع/گزینه نیز در محدوده business کنترل می‌شود.
+- order number از sequence مستقل برای هر business و branch ساخته می‌شود؛ order number در محدوده شعبه یکتا است.
+- برای سالن، میز و ایستگاه آماده‌سازی public UUID افزوده می‌شود.
+- این migration برای دیتابیس تازه و قبل از ایجاد داده عملیاتی طراحی شده است؛ فقط ثبت شده و اجرا نشده است.
+
