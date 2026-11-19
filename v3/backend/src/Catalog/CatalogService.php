@@ -218,14 +218,19 @@ final readonly class CatalogService
         $name = trim((string) ($payload['name'] ?? $current['name']));
         $sort = $payload['sort_order'] ?? (int) $current['sort_order'];
         $active = $payload['is_active'] ?? ((int) $current['is_active'] === 1);
-        $parentPublicId = $payload['parent_id'] ?? $current['parent_public_id'] ?? null;
+        $parentWasProvided = array_key_exists('parent_id', $payload);
+        $parentPublicId = $parentWasProvided ? $payload['parent_id'] : $current['parent_public_id'];
         if ($name === '' || self::unicodeLength($name) > 120) throw new HttpException(422, 'category_name_invalid', 'Category name is invalid.');
         if (!is_int($sort) || $sort < -100000 || $sort > 100000 || !is_bool($active)) throw new HttpException(422, 'category_fields_invalid', 'Category fields are invalid.');
         if ($parentPublicId !== null && (!is_string($parentPublicId) || !self::isUuid($parentPublicId) || strtolower($parentPublicId) === strtolower($publicId))) {
             throw new HttpException(422, 'category_parent_invalid', 'The parent category identifier is invalid.');
         }
-        $parentId = $parentPublicId === null ? null : $this->catalog->findCategoryIdByPublicId($scope->businessId, $parentPublicId);
-        if ($parentPublicId !== null && $parentId === null) throw new HttpException(404, 'category_parent_not_found', 'The parent category was not found in this business.');
+        if ($parentWasProvided) {
+            $parentId = $parentPublicId === null ? null : $this->catalog->findCategoryIdByPublicId($scope->businessId, $parentPublicId);
+            if ($parentPublicId !== null && $parentId === null) throw new HttpException(404, 'category_parent_not_found', 'The parent category was not found in this business.');
+        } else {
+            $parentId = $current['parent_id'] === null ? null : (int) $current['parent_id'];
+        }
         $categoryId = (int) $current['id'];
         $before = ['name' => (string) $current['name'], 'parent_id' => $current['parent_public_id'], 'sort_order' => (int) $current['sort_order'], 'is_active' => (bool) $current['is_active']];
         $after = ['name' => $name, 'parent_id' => $parentPublicId, 'sort_order' => $sort, 'is_active' => $active];
