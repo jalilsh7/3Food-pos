@@ -31,8 +31,8 @@
 ### 2.1 تا 2.4 — وضعیت اجرایی به‌روزرسانی 2026-11-19
 
 - 2.1 طراحی DDL: baseline مستقل ۶۱ جدولی در database/v3/schema.sql ثبت شده است؛ اجرای واقعی روی MySQL/MariaDB هنوز تأیید نشده.
-- 2.2 migration: ابزار CLI با checksum SHA-256، قفل advisory و جلوگیری از تغییر migration اعمال‌شده اضافه شده؛ هنوز به runtime/deployment V3 متصل نشده و migration افزایشی محصولی منتشر نشده است.
-- 2.3 نصب تمیز: CLI installer با توقف روی دیتابیس غیرخالی، ثبت checksum baseline، ساخت حساب owner با password_hash و اجبار تغییر رمز اولیه اضافه شده؛ installer گرافیکی و preflight هنوز باقی است.
+- 2.2 migration: ابزار CLI با checksum SHA-256، قفل advisory، مرتب‌سازی عددی و جلوگیری از تغییر migration اعمال‌شده اضافه شده؛ هنوز به runtime/deployment V3 متصل نشده و migration افزایشی محصولی منتشر نشده است.
+- 2.3 نصب تمیز: CLI installer با توقف روی دیتابیس غیرخالی، ثبت checksum baseline، ساخت حساب owner با password_hash و اجبار تغییر رمز اولیه اضافه شده؛ preflight پایه PHP 8.2/PDO MySQL و نسخه MySQL/MariaDB در اتصال CLI enforce می‌شود؛ installer گرافیکی، preflight کامل مجوزها و اتصال به runtime هنوز باقی است.
 - تست DB: workflow مجزا برای MySQL 8.4 و MariaDB 10.6 و تست قیود CHECK/FK/unique ثبت شده است. اجرای اولیه jobها پیش از شروع stepها fail شده و runner تخصیص نگرفته؛ هیچ تست موفق engine ادعا نمی‌شود.
 - 2.4 backup/restore: ابزار CLI تهیه backup فشرده و restore روی دیتابیس خالی اضافه شده؛ کنترل تعداد ردیف‌ها و orphanهای FK در restore وجود دارد. آزمایش واقعی بازیابی هنوز به CI سبز و staging نیاز دارد.
 - runtime فعلی V2 و php-backend/schema.sql دست‌نخورده‌اند؛ ابزارهای V3 در database/v3/bin مستقل هستند.
