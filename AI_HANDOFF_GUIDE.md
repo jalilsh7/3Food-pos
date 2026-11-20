@@ -265,3 +265,15 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 - Real DB integration test `scripts/check-v3-inventory-posting-integration.php` covers two purchase receipts, weighted average, valuation permission data service, cost privacy in general detail, consumption, transfer, idempotency replay, insufficient stock and atomic multi-line rollback. The DB workflow also verifies binary idempotency nonce/tag survive backup/restore v2.
 - Verified Backend run: [44697072239](https://github.com/jalilsh7/3Food-pos/actions/runs/44697072239). Verified DB engine run: [44697072230](https://github.com/jalilsh7/3Food-pos/actions/runs/44697072230), both MySQL 8.4 and MariaDB 10.6 passed. PHP migration workflow on the same latest code was still running at handoff update.
 - Remaining: race/concurrency test with separate connections, cross-business/branch negative tests, reserved stock scenarios, adjustment in/out scenarios, return source links, UI/API integration. Never run migrations on customer/production DB without explicit approval.
+
+
+## 19. Final INV-02B1 verification — code HEAD 9e800c9
+- Backend Validation PASS on PHP 8.2/8.3/8.4: [44698948479](https://github.com/jalilsh7/3Food-pos/actions/runs/44698948479).
+- V3 Frontend TypeScript/build PASS: [44698948599](https://github.com/jalilsh7/3Food-pos/actions/runs/44698948599).
+- V3 DB validation PASS on MySQL 8.4 + MariaDB 10.6: [44698942685](https://github.com/jalilsh7/3Food-pos/actions/runs/44698942685).
+- PHP migration workflow PASS including PHP API integration, TS, unit, lint, cPanel build, Chromium smoke, desktop/mobile performance and package artifact: [44698948522](https://github.com/jalilsh7/3Food-pos/actions/runs/44698948522).
+- Real DB posting integration now covers weighted-average receipts, inbound/outbound adjustments, consumption, transfer symmetry, reserved stock, waste, blocked unlinked return, business/branch isolation, idempotency replay, multi-line atomic rollback and concurrent competing postings. MySQL and MariaDB both confirm exactly one concurrent issue succeeds while the other is blocked.
+- Deadlock root cause: duplicate-key insert path could cause lock upgrade. Balance creation now uses `INSERT ... ON DUPLICATE KEY UPDATE`; item/location rows use shared locks, balances use exclusive row locks. Keep this ordering unless a new concurrency test proves an alternative.
+- Backup format v2 encodes binary columns as tagged base64 values; restore supports legacy v1 and new v2. Binary idempotency nonce/tag lengths are verified after restore.
+- Return document draft is allowed, but posting deliberately rejects it until a source order/receipt line and historical cost restoration are available.
+- Remaining critical work: connect frontend login/session to Auth API, then inventory UI to real APIs; integrate order reservations/recipe consumption; implement source-linked return. No customer/production migrations were executed.
