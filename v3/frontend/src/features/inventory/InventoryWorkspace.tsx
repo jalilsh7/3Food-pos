@@ -9,6 +9,7 @@ import {
   getInventoryStockItems,
   getInventoryUnits,
   getInventoryDocuments,
+  getInventoryDocument,
   createInventoryDocument,
   addInventoryDocumentLine,
   postInventoryDocument,
@@ -18,6 +19,7 @@ import {
   type InventoryStockItem,
   type InventoryUnit,
   type InventoryDocumentSummary,
+  type InventoryDocumentDetail,
   type InventoryDocumentType,
 } from "../../shared/api/client";
 import { Button, Notice, Surface } from "../../shared/ui";
@@ -59,6 +61,8 @@ export function InventoryWorkspace() {
   const [ledger, setLedger] = useState<InventoryLedgerEntry[]>([]);
   const [units, setUnits] = useState<InventoryUnit[]>([]);
   const [documents, setDocuments] = useState<InventoryDocumentSummary[]>([]);
+  const [activeDocument, setActiveDocument] = useState<InventoryDocumentDetail | null>(null);
+  const [documentDetailBusy, setDocumentDetailBusy] = useState(false);
   const [documentType, setDocumentType] = useState<InventoryDocumentType>("consumption");
   const [documentLocation, setDocumentLocation] = useState("");
   const [destinationLocation, setDestinationLocation] = useState("");
@@ -122,6 +126,18 @@ export function InventoryWorkspace() {
   const selected = items.find((item) => item.id === selectedId) ?? null;
   const selectedBalances = balances.filter((balance) => balance.stock_item_id === selectedId && (locationId === "all" || balance.location_id === locationId));
   const selectedLedger = ledger.filter((entry) => entry.stock_item_id === selectedId && (locationId === "all" || entry.location_id === locationId));
+  async function openDocument(documentId: string) {
+    setDocumentDetailBusy(true);
+    setDocumentMessage(null);
+    try {
+      setActiveDocument(await getInventoryDocument(documentId));
+    } catch (cause) {
+      setDocumentMessage(cause instanceof ApiError ? cause.message : "دریافت جزئیات سند انجام نشد.");
+    } finally {
+      setDocumentDetailBusy(false);
+    }
+  }
+
   const needsReason = ["adjustment_in", "adjustment_out", "waste"].includes(documentType);
   const needsCost = documentType === "adjustment_in";
   const selectedDocumentItem = items.find((item) => item.id === documentItem) ?? null;
@@ -229,9 +245,16 @@ export function InventoryWorkspace() {
         <div className="inventory-documents-list">
           {documents.map((document) => <div className="inventory-document-row" key={document.id}>
             <div><strong>{documentLabel[document.document_type] ?? document.document_type} · {document.document_no}</strong><small>{document.location.name}{document.destination ? ` ← ${document.destination.name}` : ""} · {dateTime(document.created_at)}</small>{document.reason ? <small>{document.reason}</small> : null}</div>
-            <span className={`inventory-document-status is-${document.status}`}>{documentStatus[document.status] ?? document.status}</span>
+            <div className="inventory-document-row-actions"><span className={`inventory-document-status is-${document.status}`}>{documentStatus[document.status] ?? document.status}</span><button type="button" onClick={() => void openDocument(document.id)} disabled={documentDetailBusy}>جزئیات</button></div>
           </div>)}
           {!documents.length ? <div className="inventory-empty">هنوز سندی برای این شعبه ثبت نشده است.</div> : null}
+          {activeDocument ? <div className="inventory-document-detail">
+            <div className="inventory-document-detail-heading"><strong>سند {activeDocument.document_no}</strong><button type="button" onClick={() => setActiveDocument(null)}>بستن</button></div>
+            <div className="inventory-document-lines">
+              {activeDocument.lines.map((line) => <div key={line.id}><span>{line.stock_item_name}</span><b>{quantity(line.quantity)} {line.unit_name}</b><small>مقدار پایه: {quantity(line.base_quantity)}</small></div>)}
+              {!activeDocument.lines.length ? <p>این سند هنوز ردیفی ندارد.</p> : null}
+            </div>
+          </div> : null}
         </div>
       </Surface>
 
