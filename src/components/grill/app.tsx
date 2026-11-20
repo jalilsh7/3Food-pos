@@ -1923,6 +1923,8 @@ function SmsScreen() {
               <span className="text-xs text-muted">{l.route === "service" ? "خط خدماتی" : "خط شخصی"} · {({campaign:"کمپین",birthday_prompt:"درخواست تولد",manual:"ارسال دستی",order_invoice:"فاکتور سفارش",order_created:"ثبت سفارش",order_ready:"آماده شدن",order_delivered:"تحویل",points_earned:"کسب امتیاز",discount_used:"استفاده از کد"} as Record<string,string>)[l.event] ?? l.event}</span>
             </div>
             <p className="mt-1 text-xs" dir="ltr">{l.to}</p>
+            <p className="mt-1 text-xs text-muted">{new Date(l.at).toLocaleString("fa-IR")}</p>
+            <p className="mt-1 line-clamp-2 text-xs">{l.text}</p>
             <p className="mt-1 text-xs text-muted">{l.detail}</p>
           </div>
         ))}
