@@ -34,4 +34,15 @@ $assert(str_contains($workspace, 'payment: payment === "all"') && str_contains($
 $assert(str_contains($client, 'before?: string;') && str_contains($client, 'has_more: boolean;'), 'Frontend order page contract is incomplete.');
 $assert(str_contains($workspace, 'loadMoreOrders') && str_contains($workspace, 'نمایش سفارش‌های قدیمی‌تر'), 'Order center does not expose the next page action.');
 
-fwrite(STDOUT, "V3 order cursor pagination contract checks passed.\n");
+$assert(str_contains($repository, 'findEffectiveTimezone') && str_contains($repository, 'COALESCE(NULLIF(branch.timezone'), 'Order date filtering must resolve branch timezone with business fallback.');
+$assert(str_contains($repository, 'o.created_at >= :created_from_utc') && str_contains($repository, 'o.created_at < :created_to_utc'), 'Order repository date bounds must use inclusive start and exclusive end.');
+$assert(str_contains($service, 'normalizeDateRange') && str_contains($service, 'order_date_range_too_large'), 'Order service date validation and maximum range are missing.');
+$assert(str_contains($service, "new \\DateTimeZone('UTC')"), 'Order service must convert local calendar boundaries to UTC.');
+$assert(str_contains($controller, "query('from_date')") && str_contains($controller, "query('to_date')"), 'Order controller date query contract is incomplete.');
+$assert(str_contains($client, 'fromDate?: string;') && str_contains($client, 'toDate?: string;')
+    && str_contains($client, 'query.set("from_date", filters.fromDate)')
+    && str_contains($client, 'query.set("to_date", filters.toDate)'), 'Frontend order client date filters are incomplete.');
+$assert(str_contains($workspace, 'type="date"') && str_contains($workspace, 'fromDate: fromDate || undefined')
+    && str_contains($workspace, 'toDate: toDate || undefined'), 'Order center does not send date filters with each cursor page.');
+
+fwrite(STDOUT, "V3 order pagination and timezone-aware date filter contract checks passed.\n");
