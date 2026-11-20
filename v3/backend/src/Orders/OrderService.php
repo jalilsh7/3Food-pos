@@ -107,8 +107,8 @@ final readonly class OrderService
             throw new HttpException(409, 'order_timezone_unavailable', 'The business or branch timezone is unavailable.');
         }
         try {
-            $timezone = new \\DateTimeZone($timezoneName);
-        } catch (\\Throwable) {
+            $timezone = new \DateTimeZone($timezoneName);
+        } catch (\Throwable) {
             throw new HttpException(409, 'order_timezone_invalid', 'The configured business or branch timezone is invalid.');
         }
 
@@ -124,20 +124,20 @@ final readonly class OrderService
             }
         }
 
-        $utc = new \\DateTimeZone('UTC');
+        $utc = new \DateTimeZone('UTC');
         return [
             $from?->setTimezone($utc)->format('Y-m-d H:i:s.u'),
             $to?->modify('+1 day')->setTimezone($utc)->format('Y-m-d H:i:s.u'),
         ];
     }
 
-    private static function parseLocalDate(string $value, \\DateTimeZone $timezone): \\DateTimeImmutable
+    private static function parseLocalDate(string $value, \DateTimeZone $timezone): \DateTimeImmutable
     {
-        if (!preg_match('/^\\\\d{4}-\\\\d{2}-\\\\d{2}$/', $value)) {
+        if (!preg_match('/^\\\d{4}-\\\d{2}-\\\d{2}$/', $value)) {
             throw new HttpException(422, 'invalid_order_date_filter', 'Order dates must use YYYY-MM-DD format.');
         }
-        $date = \\DateTimeImmutable::createFromFormat('!Y-m-d', $value, $timezone);
-        $errors = \\DateTimeImmutable::getLastErrors();
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value, $timezone);
+        $errors = \DateTimeImmutable::getLastErrors();
         if ($date === false
             || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))
             || $date->format('Y-m-d') !== $value) {
