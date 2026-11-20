@@ -14,6 +14,7 @@ use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Http\Request;
 use PersiaCoder\PosV3\Infrastructure\Database\SessionRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\BusinessRepository;
+use PersiaCoder\PosV3\Infrastructure\Database\PermissionRepository;
 use PersiaCoder\PosV3\Security\CsrfGuard;
 
 $root = dirname(__DIR__);
@@ -157,6 +158,14 @@ $contextBeforeSetup = $contextController->list($contextBeforeSetupRequest);
 $contextBeforeData = json_decode($contextBeforeSetup->body, true, 32, JSON_THROW_ON_ERROR)['data'];
 $assert($contextBeforeData['businesses'] === [], 'A fresh installation unexpectedly exposed a business.');
 $assert($contextBeforeData['can_initialize'] === true, 'Installation owner cannot initialize the first business.');
+$permissionRepository = new PermissionRepository($pdo);
+$preexistingBusinessId = $pdo->query('SELECT id FROM pos_businesses ORDER BY id LIMIT 1')->fetchColumn();
+if ($preexistingBusinessId !== false) {
+    $assert(
+        !$permissionRepository->userHasPermission($userId, 'orders.read', (int) $preexistingBusinessId, null),
+        'Global installation owner received permissions in an unassigned business.',
+    );
+}
 
 $setupController = new BusinessSetupController(new BusinessSetupService($pdo));
 $setupRequest = $makeRequest(
@@ -204,6 +213,19 @@ $contextAfterData = json_decode($contextAfterSetup->body, true, 32, JSON_THROW_O
 $assert(count($contextAfterData['businesses']) === 1, 'Business membership discovery did not return the assigned business.');
 $assert($contextAfterData['businesses'][0]['id'] === $businessPublicId, 'Business context discovery returned the wrong business.');
 $assert($contextAfterData['can_initialize'] === false, 'A non-owner business manager was incorrectly allowed to initialize setup.');
+$assert(
+    $permissionRepository->userHasPermission($userId, 'orders.read', $businessId, null),
+    'Business-scoped owner lost permissions in the initial business.',
+);
+$foreignBusiness = $pdo->prepare('SELECT id FROM pos_businesses WHERE id <> :business_id ORDER BY id LIMIT 1');
+$foreignBusiness->execute(['business_id' => $businessId]);
+$foreignBusinessId = $foreignBusiness->fetchColumn();
+if ($foreignBusinessId !== false) {
+    $assert(
+        !$permissionRepository->userHasPermission($userId, 'orders.read', (int) $foreignBusinessId, null),
+        'Business-scoped owner received permissions in another business.',
+    );
+}
 
 $branchController = new BranchManagementController(new BranchManagementService($pdo, $appKey));
 $branchListRequest = $makeRequest('GET', '/api/v1/access/branches')->withAttribute(
