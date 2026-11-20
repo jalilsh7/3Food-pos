@@ -718,7 +718,13 @@
 - [ ] تست load/soak و deadlock retry در شرایط چندکاربره پرتراکنش.
 
 ## FE-01 — اتصال احراز هویت و API client
-- [ ] API client با credentials same-origin و CSRF token حافظه‌ای.
-- [ ] Login/Me/Logout/Change-password UI متصل به V3 Auth API.
-- [ ] نمایش کاربر واقعی و وضعیت session؛ حذف حالت طراحی از shell پس از احراز هویت.
+- [x] API client با credentials same-origin و CSRF token حافظه‌ای.
+- [x] Login/Me/Logout/Change-password UI متصل به V3 Auth API.
+- [x] نمایش کاربر واقعی و وضعیت session؛ حذف حالت طراحی از shell پس از احراز هویت.
 - [ ] سپس اتصال InventoryWorkspace به balances/documents/ledger/valuation APIها.
+
+
+### FE-01A — احراز هویت Frontend (2026-11-20)
+- API client و صفحه ورود/تغییر رمز اولیه به Auth API متصل شدند؛ CSRF token فقط در حافظه runtime نگهداری می‌شود.
+- تست Frontend build و Backend validation موفق؛ DB integration برای login/me/CSRF rotation/password change/session invalidation/logout روی MySQL 8.4 و MariaDB 10.6 موفق.
+- باقی‌مانده FE-01: انتخاب business/branch context و اتصال واقعی InventoryWorkspace.
