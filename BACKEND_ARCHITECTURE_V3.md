@@ -451,3 +451,7 @@ v3/backend/
 ## Order cursor validation addendum — 2026-11-20
 - Accept positive decimal cursor strings up to 19 digits, then cast to PHP integer; this covers the signed BIGINT range used by the PHP application.
 - Cursor remains a branch-local order_number. Never accept an internal order primary key from the client.
+
+## Order pagination database verification — 2026-11-20
+- The database integration suite seeds three orders in one branch and one control order in a second branch, then exercises OrderRepository against the real PDO connection.
+- It verifies descending order, first/second page boundaries, next_cursor/has_more behavior, terminal-page semantics, and branch isolation. The same test runs against MySQL 8.4 and MariaDB 10.6.
