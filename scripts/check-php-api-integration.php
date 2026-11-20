@@ -430,6 +430,9 @@ try {
         'to' => 'not-a-phone', 'text' => 'hello',
     ], csrf_headers());
     check($invalidSmsNumber['status'] === 422 && ($invalidSmsNumber['json']['error'] ?? '') === 'invalid_sms', 'SMS endpoint rejects malformed recipient numbers');
+
+    $campaignWithoutCustomer = api('POST', '/api/v1/sms/send', ['to' => '09120000000', 'text' => 'CI only', 'event' => 'campaign'], csrf_headers());
+    check($campaignWithoutCustomer['status'] === 403 && ($campaignWithoutCustomer['json']['error'] ?? '') === 'sms_consent_required', 'campaign SMS requires customer identity and consent');
     check($smsLogWrite['status'] === 201, 'manager can persist SMS delivery log');
     $smsSnapshot = api('GET', '/api/v1/bootstrap');
     check(($smsSnapshot['json']['data']['sms_logs'][0]['id'] ?? '') === 'ci-sms-log', 'manager bootstrap includes persistent SMS logs');
