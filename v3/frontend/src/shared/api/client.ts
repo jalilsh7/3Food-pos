@@ -69,7 +69,7 @@ async function request<T>(path: string, options: RequestInit = {}, context: { bu
   if (scope?.branchId && !headers.has("X-Branch-ID")) headers.set("X-Branch-ID", scope.branchId);
   if (options.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   let pendingIdempotencySignature: string | null = null;
-  if ((path.startsWith("/inventory/") || path.startsWith("/catalog/")) && !["GET", "HEAD", "OPTIONS"].includes(method)
+  if ((path.startsWith("/inventory/") || path.startsWith("/catalog/") || path.startsWith("/orders/")) && !["GET", "HEAD", "OPTIONS"].includes(method)
     && !headers.has("Idempotency-Key")) {
     pendingIdempotencySignature = JSON.stringify([method, path, typeof options.body === "string" ? options.body : ""]);
     let key = pendingMutationIdempotencyKeys.get(pendingIdempotencySignature);
@@ -628,6 +628,40 @@ export type OrderDetail = {
     actor: { id: string; name: string | null } | null;
   }[];
 };
+
+export type OrderTransitionResult = {
+  order_id: string;
+  order_number: number;
+  from_status: OrderStatus;
+  to_status: OrderStatus;
+  payment_status: string;
+};
+
+export async function transitionOrder(
+  orderId: string,
+  toStatus: OrderStatus,
+  reasonText?: string,
+): Promise<OrderTransitionResult> {
+  const data = await request<OrderTransitionResult>(`/orders/${encodeURIComponent(orderId)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      to_status: toStatus,
+      ...(reasonText ? { reason_text: reasonText } : {}),
+    }),
+  });
+  return data;
+}
+
+export async function transitionKitchenOrder(
+  orderId: string,
+  toStatus: "preparing" | "ready",
+): Promise<OrderTransitionResult> {
+  const data = await request<OrderTransitionResult>(`/orders/${encodeURIComponent(orderId)}/kitchen-status`, {
+    method: "PATCH",
+    body: JSON.stringify({ to_status: toStatus }),
+  });
+  return data;
+}
 
 export type OrderPage = {
   orders: OrderSummary[];
