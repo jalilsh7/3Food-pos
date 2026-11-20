@@ -1901,13 +1901,13 @@ function SmsScreen() {
       <Card>
         <h3 className="mb-3 font-semibold">گزارش و سوابق ارسال پیامک</h3>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          {[["کل ارسال‌ها",smsReport.total],["موفق",smsReport.successful],["ناموفق",smsReport.failed],["خط خدماتی",smsReport.service],["خط شخصی",smsReport.personal],["کمپین‌ها",smsReport.campaigns]].map(([label,value])=><div key={label} className="rounded-xl border border-line bg-bg p-3"><p className="text-xs text-muted">{label}</p><p className="mt-1 text-lg font-extrabold tabular-nums">{Number(value).toLocaleString("fa-IR")}</p></div>)}
+          {[["کل ارسال‌ها",smsReport.total],["پذیرفته‌شده",smsReport.successful],["ناموفق",smsReport.failed],["خط خدماتی",smsReport.service],["خط شخصی",smsReport.personal],["کمپین‌ها",smsReport.campaigns]].map(([label,value])=><div key={label} className="rounded-xl border border-line bg-bg p-3"><p className="text-xs text-muted">{label}</p><p className="mt-1 text-lg font-extrabold tabular-nums">{Number(value).toLocaleString("fa-IR")}</p></div>)}
         </div>
-        <p className="mb-2 mt-3 text-xs text-muted">گزارش بر اساس سوابق ثبت‌شده در پنل؛ وضعیت موفقیت از پاسخ سرویس پیامک گرفته می‌شود.</p>
+        <p className="mb-2 mt-3 text-xs text-muted">گزارش از سوابق ذخیره‌شده در دیتابیس POS خوانده می‌شود. «پذیرفته‌شده» یعنی سرویس درخواست ارسال را قبول کرده؛ تحویل قطعی به گوشی فقط با گزارش دلیوری قابل تأیید است.</p>
         {logs.length === 0 ? <Empty text="ارسالی ثبت نشده" /> : logs.slice(0, 50).map((l) => (
           <div key={l.id} className="border-b border-line py-2 text-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className={l.ok ? "text-leaf" : "text-warn"}>{l.ok ? "موفق" : "ناموفق"}</span>
+              <span className={l.ok ? "text-leaf" : "text-warn"}>{l.ok ? "پذیرفته‌شده" : "ناموفق"}</span>
               <span className="text-xs text-muted">{l.route === "service" ? "خط خدماتی" : "خط شخصی"} · {({campaign:"کمپین",birthday_prompt:"درخواست تولد",manual:"ارسال دستی",order_invoice:"فاکتور سفارش",order_created:"ثبت سفارش",order_ready:"آماده شدن",order_delivered:"تحویل",points_earned:"کسب امتیاز",discount_used:"استفاده از کد"} as Record<string,string>)[l.event] ?? l.event}</span>
             </div>
             <p className="mt-1 text-xs" dir="ltr">{l.to}</p>
