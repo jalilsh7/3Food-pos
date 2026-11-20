@@ -144,3 +144,7 @@
 .inventory-management-row .is-disabled { color: #a43e34; }
 .inventory-management-row button { min-height: 25px; padding: 0 8px; background: #fff; color: var(--pc-brand); }
 @media (max-width: 700px) { .inventory-management-grid, .inventory-management-list { grid-template-columns: 1fr; } }
+
+
+.inventory-management-form textarea { width: 100%; min-height: 54px; resize: vertical; padding: 8px 9px; border: 1px solid var(--pc-line); border-radius: 7px; background: #fff; color: var(--pc-ink); font: inherit; font-size: 10px; }
+.inventory-management-form textarea:focus { outline: 0; border-color: var(--pc-brand); box-shadow: var(--pc-focus-ring); }
