@@ -48,8 +48,8 @@ $assert(str_contains($workspace, 'type="date"') && str_contains($workspace, 'fro
 $posWorkspace = file_get_contents(__DIR__ . '/../v3/frontend/src/features/pos/PosWorkspace.tsx');
 
 $assert(str_contains($client, 'getPosCatalogProducts') && str_contains($client, '/catalog/products?'), 'POS catalog list client is missing.');
-$assert(str_contains($client, 'getPosCatalogProductDetails') && '/catalog/products/' !== '', 'POS product configuration detail client is missing.');
-$assert(str_contains($client, 'createPosOrder') && 'Idempotency-Key' !== '', 'POS order creation client or idempotency header is missing.');
+$assert(str_contains($client, 'getPosCatalogProductDetails') && str_contains($client, '`/catalog/products/${encodeURIComponent(productId)}`'), 'POS product configuration detail client is missing.');
+$assert(str_contains($client, 'createPosOrder') && str_contains($client, 'Idempotency-Key'), 'POS order creation client or idempotency header is missing.');
 $assert(str_contains($client, 'CreatePosOrderPayload') && str_contains($client, 'variant_id: string | null'), 'POS order payload contract is incomplete.');
 $assert(str_contains($posWorkspace, 'getPosCatalogProducts()') && str_contains($posWorkspace, 'getPosCatalogProductDetails(summary.id)'), 'Cashier workspace is not loading the real catalog.');
 $assert(str_contains($posWorkspace, 'createPosOrder(payload, idempotencyAttempt.current.key)'), 'Cashier workspace is not submitting orders with a stable idempotency key.');
