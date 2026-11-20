@@ -187,9 +187,25 @@ export type InventoryLedgerEntry = {
   created_at: string;
 };
 
-export async function getInventoryLocations(): Promise<InventoryLocation[]> {
+export async function getInventoryLocations(includeInactive = false): Promise<InventoryLocation[]> {
   const data = await request<{ locations: InventoryLocation[] }>("/inventory/locations");
-  return data.locations.filter((location) => location.is_active);
+  return includeInactive ? data.locations : data.locations.filter((location) => location.is_active);
+}
+
+export async function createInventoryLocation(payload: {
+  code: string; name: string; location_type: "storage" | "kitchen" | "bar" | "freezer" | "other";
+}): Promise<void> {
+  await request<{ location: { id: string } }>("/inventory/locations", {
+    method: "POST", headers: idempotencyHeaders(), body: JSON.stringify(payload),
+  });
+}
+
+export async function updateInventoryLocation(locationId: string, payload: {
+  code: string; name: string; location_type: "storage" | "kitchen" | "bar" | "freezer" | "other"; is_active: boolean;
+}): Promise<void> {
+  await request<{ location: { id: string } }>(`/inventory/locations/${encodeURIComponent(locationId)}`, {
+    method: "PATCH", headers: idempotencyHeaders(), body: JSON.stringify(payload),
+  });
 }
 
 export async function getInventoryBalances(filters: {
@@ -226,11 +242,27 @@ export type InventoryStockItem = {
   is_active: boolean;
 };
 
-export async function getInventoryStockItems(search = ""): Promise<InventoryStockItem[]> {
+export async function getInventoryStockItems(search = "", includeInactive = false): Promise<InventoryStockItem[]> {
   const query = new URLSearchParams({ limit: "100" });
   if (search.trim()) query.set("search", search.trim());
   const data = await request<{ stock_items: InventoryStockItem[] }>(`/inventory/items?${query.toString()}`);
-  return data.stock_items.filter((item) => item.is_active);
+  return includeInactive ? data.stock_items : data.stock_items.filter((item) => item.is_active);
+}
+
+export async function createInventoryStockItem(payload: {
+  code: string; name: string; base_unit_code: string; negative_stock_policy?: "block";
+}): Promise<void> {
+  await request<{ stock_item: { id: string } }>("/inventory/items", {
+    method: "POST", headers: idempotencyHeaders(), body: JSON.stringify(payload),
+  });
+}
+
+export async function updateInventoryStockItem(itemId: string, payload: {
+  code: string; name: string; is_active: boolean;
+}): Promise<void> {
+  await request<{ stock_item: { id: string } }>(`/inventory/items/${encodeURIComponent(itemId)}`, {
+    method: "PATCH", headers: idempotencyHeaders(), body: JSON.stringify(payload),
+  });
 }
 
 
