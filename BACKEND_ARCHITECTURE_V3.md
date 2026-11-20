@@ -457,3 +457,12 @@ v3/backend/
 ## Order pagination database verification — 2026-11-20
 - The database integration suite seeds three orders in one branch and one control order in a second branch, then exercises OrderRepository against the real PDO connection.
 - It verifies descending order, first/second page boundaries, next_cursor/has_more behavior, terminal-page semantics, and branch isolation. The same test runs against MySQL 8.4 and MariaDB 10.6.
+
+
+## Order date filtering and business timezone — ORD-01D (2026-11-20)
+- The order list accepts optional local calendar dates `from_date` and `to_date` in strict `YYYY-MM-DD` format. One-sided filtering is supported; when both are supplied, start must not exceed end and the inclusive range is capped at 366 local calendar days.
+- Effective timezone is resolved from the active branch's timezone, falling back to the parent business timezone. The client never supplies an authoritative timezone for query calculation.
+- Local start date maps to an inclusive UTC lower bound. Local end date maps to midnight of the following local day as an exclusive UTC upper bound. Both bounds are computed in the IANA timezone before conversion, so DST-length days are handled as local calendar days rather than fixed 24-hour durations.
+- Repository predicates are `created_at >= :created_from_utc` and `created_at < :created_to_utc`, retaining business/branch scope and the existing order-number cursor.
+- Date range filters must be repeated unchanged on every cursor page. Changing either date resets the cursor and invalidates in-flight page responses.
+- MySQL 8.4 and MariaDB 10.6 integration coverage is in `scripts/check-v3-auth-integration.php`; pending CI on the current package must pass before calling ORD-01D verified.
