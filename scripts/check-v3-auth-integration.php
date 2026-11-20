@@ -248,25 +248,30 @@ $insertOrder = $pdo->prepare(
     "INSERT INTO pos_orders
         (business_id, branch_id, public_id, order_number, source_channel, order_status, payment_status, created_by)
      VALUES
-        (:business_id, :branch_id, :public_id, :order_number, 'manual', 'draft', 'unpaid', :created_by)"
+        (:business_id, :branch_id, :public_id, :order_number, 'manual', 'draft', :payment_status, :created_by)"
 );
-foreach ([80001, 80002, 80003] as $orderNumber) {
+$orderIds = [];
+foreach ([80001 => 'unpaid', 80002 => 'paid', 80003 => 'partially_paid'] as $orderNumber => $paymentStatus) {
     $insertOrder->execute([
         'business_id' => $businessId,
         'branch_id' => $branchId,
         'public_id' => $uuid(),
         'order_number' => $orderNumber,
+        'payment_status' => $paymentStatus,
         'created_by' => $userId,
     ]);
+    $orderIds[$orderNumber] = (int) $pdo->lastInsertId();
 }
 $insertOrder->execute([
     'business_id' => $businessId,
     'branch_id' => $otherBranchId,
     'public_id' => $uuid(),
     'order_number' => 80004,
+    'payment_status' => 'unpaid',
     'created_by' => $userId,
 ]);
 $orderRepository = new OrderRepository($pdo);
+$orderRepository->createFulfillment($businessId, $branchId, $orderIds[80003], 'dine_in', null, null, null);
 $firstOrderPage = $orderRepository->listOrders($businessId, $branchId, null, null, 2);
 $assert(count($firstOrderPage['orders']) === 2, 'Order page one did not return the requested page size.');
 $assert($firstOrderPage['orders'][0]['order_number'] === 80003, 'Order page one is not sorted newest-first.');
@@ -278,6 +283,11 @@ $assert($secondOrderPage['orders'][0]['order_number'] === 80001, 'Order page two
 $assert($secondOrderPage['has_more'] === false && $secondOrderPage['next_cursor'] === null, 'Final order page incorrectly advertises another page.');
 $otherBranchOrders = $orderRepository->listOrders($businessId, $otherBranchId, null, null, 10);
 $assert(count($otherBranchOrders['orders']) === 1 && $otherBranchOrders['orders'][0]['order_number'] === 80004, 'Order pagination leaked rows across branches.');
+$paidOrders = $orderRepository->listOrders($businessId, $branchId, null, null, 10, null, 'paid');
+$assert(count($paidOrders['orders']) === 1 && $paidOrders['orders'][0]['order_number'] === 80002, 'Order payment filter returned unexpected rows.');
+$dineInOrders = $orderRepository->listOrders($businessId, $branchId, null, null, 10, null, null, 'dine_in');
+$assert(count($dineInOrders['orders']) === 1 && $dineInOrders['orders'][0]['order_number'] === 80003, 'Order fulfillment filter returned unexpected rows.');
+
 
 $logoutRequest = $makeRequest('POST', '/api/v1/auth/logout', [
     'cookie' => $newCookieHeader,
