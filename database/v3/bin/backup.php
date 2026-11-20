@@ -27,12 +27,12 @@ try{
  foreach($tables as $table){
   $create=$pdo->query('SHOW CREATE TABLE '.PosV3DatabaseTools::quoteIdentifier($table))->fetch(PDO::FETCH_NUM);
   if(!$create||!isset($create[1]))throw new RuntimeException("Cannot read CREATE TABLE for {$table}.");
-  $columnQuery=$pdo->prepare("SELECT column_name,data_type FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND extra NOT LIKE '%GENERATED%' ORDER BY ordinal_position");
+  $columnQuery=$pdo->prepare("SELECT column_name AS col_name,data_type AS col_data_type FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? AND extra NOT LIKE '%GENERATED%' ORDER BY ordinal_position");
   $columnQuery->execute([$table]);$columnMetadata=$columnQuery->fetchAll(PDO::FETCH_ASSOC);
   $columns=[];$binaryColumns=[];
   foreach($columnMetadata as $columnInfo){
-   $columnName=(string)$columnInfo['column_name'];$columns[]=$columnName;
-   if(in_array(strtolower((string)$columnInfo['data_type']),['binary','varbinary','tinyblob','blob','mediumblob','longblob'],true))$binaryColumns[]=$columnName;
+   $columnName=(string)$columnInfo['col_name'];$columns[]=$columnName;
+   if(in_array(strtolower((string)$columnInfo['col_data_type']),['binary','varbinary','tinyblob','blob','mediumblob','longblob'],true))$binaryColumns[]=$columnName;
   }
   if(!$columns)throw new RuntimeException("No insertable columns found for {$table}.");
   $count=(int)$pdo->query('SELECT COUNT(*) FROM '.PosV3DatabaseTools::quoteIdentifier($table))->fetchColumn();
