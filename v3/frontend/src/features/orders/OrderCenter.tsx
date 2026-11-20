@@ -32,38 +32,6 @@ const demoOrders: DemoOrder[] = [
   { id: "D-1043", customer: "رضا احمدی", channel: "تلفنی", orderType: "بیرون‌بر", amount: 303000, status: "preparing", payment: "pending", time: "۱۳:۴۰", items: [{ name: "برگر کلاسیک", quantity: 1, unitPrice: 185000 }, { name: "سیب‌زمینی", quantity: 1, unitPrice: 85000 }, { name: "نوشابه", quantity: 1, unitPrice: 33000 }], timeline: [{ title: "ثبت سفارش", detail: "ثبت تلفنی", time: "۱۳:۴۰", state: "done" }, { title: "آماده‌سازی", detail: "در صف آشپزخانه", time: "۱۳:۴۳", state: "current" }, { title: "تحویل", detail: "در انتظار تحویل", time: "—", state: "pending" }] },
   { id: "D-1042", customer: "مشتری وب", channel: "فروشگاه آنلاین", orderType: "ارسال", amount: 195000, status: "new", payment: "paid", time: "۱۳:۲۸", items: [{ name: "لاته", quantity: 1, options: ["بزرگ", "شیر جو دوسر"], unitPrice: 178000 }, { name: "بستنی", quantity: 1, unitPrice: 17000 }], timeline: [{ title: "ثبت آنلاین", detail: "پرداخت اینترنتی تأییدشده در داده نمونه", time: "۱۳:۲۸", state: "done" }, { title: "تأیید سفارش", detail: "در انتظار تأیید عملیات", time: "—", state: "current" }, { title: "آماده‌سازی", detail: "هنوز آغاز نشده", time: "—", state: "pending" }] },
   { id: "D-1041", customer: "مشتری میز ۲", channel: "میز", orderType: "سرو داخل", amount: 275000, status: "delivered", payment: "partial", time: "۱۳:۱۲", items: [{ name: "پیتزا مخصوص", quantity: 1, unitPrice: 265000 }, { name: "سس اضافه", quantity: 1, unitPrice: 10000 }], timeline: [{ title: "ثبت سفارش", detail: "ثبت از میز شماره ۲", time: "۱۳:۱۲", state: "done" }, { title: "تحویل", detail: "تحویل‌شده؛ مانده پرداخت نیازمند تسویه", time: "۱۳:۴۰", state: "done" }] },
-];port { useMemo, useState } from "react";
-import { Eye, FilterX, PackageCheck } from "lucide-react";
-import {
-  Button,
-  DataTable,
-  Notice,
-  SelectField,
-  StatusBadge,
-  Surface,
-  TextField,
-} from "../../shared/ui";
-
-type DemoOrder = {
-  id: string;
-  customer: string;
-  channel: string;
-  orderType: string;
-  amount: number;
-  status: "new" | "preparing" | "ready" | "delivered" | "cancelled";
-  payment: "paid" | "pending" | "partial" | "refunded";
-  time: string;
-  items: { name: string; quantity: number; options?: string[]; note?: string; unitPrice: number }[];
-  timeline: { title: string; detail: string; time: string; state: "done" | "current" | "pending" }[];
-};
-
-const demoOrders: DemoOrder[] = [
-  { id: "D-1048", customer: "مشتری حضوری", channel: "صندوق", orderType: "سرو داخل", amount: 438000, status: "preparing", payment: "paid", time: "۱۴:۳۲", items: ["برگر کلاسیک × ۱", "قهوه اسپرسو × ۱", "سیب‌زمینی × ۱"] },
-  { id: "D-1047", customer: "سارا محمدی", channel: "تلفنی", orderType: "بیرون‌بر", amount: 530000, status: "new", payment: "pending", time: "۱۴:۲۶", items: ["پیتزا مخصوص × ۲"] },
-  { id: "D-1046", customer: "علی رضایی", channel: "صندوق", orderType: "ارسال", amount: 226000, status: "ready", payment: "paid", time: "۱۴:۱۸", items: ["ساندویچ مرغ × ۱", "نوشابه × ۱"] },
-  { id: "D-1045", customer: "مریم کریمی", channel: "فروشگاه آنلاین", orderType: "ارسال", amount: 380000, status: "delivered", payment: "paid", time: "۱۴:۰۵", items: ["پیتزا مخصوص × ۱", "چیزکیک × ۱"] },
-  { id: "D-1044", customer: "مشتری حضوری", channel: "صندوق", orderType: "سرو داخل", amount: 144000, status: "cancelled", payment: "refunded", time: "۱۳:۵۲", items: ["قهوه لاته × ۱", "بستنی × ۱"] },
-  { id: "D-1043", customer: "رضا احمدی", channel: "تلفنی", orderType: "بیرون‌بر", amount: 303000, status: "preparing", payment: "pending", time: "۱۳:۴۰", items: ["برگر کلاسیک × ۱", "سیب‌زمینی × ۱"] },
 ];
 
 const money = (value: number) => new Intl.NumberFormat("fa-IR").format(value);
