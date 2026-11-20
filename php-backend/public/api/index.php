@@ -2489,7 +2489,7 @@ if ($method === 'POST' && $path === '/sms/send') {
             }
             $context = stream_context_create(['http' => [
                 'method' => 'POST',
-                'header' => "Content-Type: application/x-www-form-urlencoded\\r\\n",
+                'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
                 'content' => $encodedFields,
                 'timeout' => 20,
                 'ignore_errors' => true,
