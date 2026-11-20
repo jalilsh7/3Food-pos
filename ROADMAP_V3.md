@@ -645,3 +645,13 @@
 - write routes با catalog.manage، CSRF، Origin و Idempotency-Key محافظت می‌شوند.
 - تست قرارداد route/security به CI Backend افزوده شد.
 - وضعیت: **کدنویسی ثبت شد؛ نتیجه CI در انتظار**.
+
+
+
+## INV-02A1 — پیش‌نویس سربرگ اسناد انبار
+- [x] API ساخت پیش‌نویس سند با idempotency و audit.
+- [x] API فهرست و جزئیات سربرگ سند با business/branch scope.
+- [x] شماره‌گذاری اتمیک به تفکیک business و branch.
+- [ ] API افزودن/ویرایش/حذف ردیف‌های draft و snapshot تبدیل واحد.
+- [ ] posting تراکنشی و ledger append-only؛ موجودی تا آن زمان نباید تغییر کند.
+- [ ] تست integration واقعی MySQL/MariaDB برای قفل شماره سند، idempotency race، scope و rollback.
