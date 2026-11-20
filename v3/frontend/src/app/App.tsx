@@ -248,8 +248,6 @@ export function App() {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setBootstrapError(null);
     getCurrentSession()
       .then((currentUser) => {
         if (!active) return;
@@ -293,7 +291,7 @@ export function App() {
         bootstrapError={bootstrapError}
         onAuthenticated={(authenticatedUser) => { setUser(authenticatedUser); setWorkspaceContext(null); setBootstrapError(null); }}
         onPasswordChanged={() => { setUser(null); setWorkspaceContext(null); setBootstrapError("رمز عبور تغییر کرد. برای ادامه با رمز جدید دوباره وارد شوید."); }}
-        onRetry={() => setAttempt((value) => value + 1)}
+        onRetry={() => { setLoading(true); setBootstrapError(null); setAttempt((value) => value + 1); }}
       />
     );
   }
