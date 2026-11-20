@@ -452,3 +452,14 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 - Commits after 5cdb3c17 only appended documentation; no POS source or DB integration test code changed. Latest documentation HEAD is 318cf041 and its own CI runs should be refreshed, but the POS implementation and integration test were already green on 5cdb3c17.
 - POS-01A is accepted for code + disposable DB integration. A browser smoke test with populated live catalog data remains outstanding, as does CatalogWorkspace API wiring.
 - Next package: connect CatalogWorkspace to real category/product APIs (list/create/update/archive) so the cashier can consume products created in the UI; then wire order acceptance/status and kitchen transitions with RBAC and idempotency.
+
+## Latest implementation update — CAT-01A (2026-11-20)
+
+- CatalogWorkspace now reads real categories and products from V3 APIs; hard-coded seedProducts were removed.
+- UI can create categories and products. Product creation supports name, base price, optional SKU, category, product type and tax rate.
+- Product details load real option groups/options and variants. They are currently read-only in this UI.
+- Product availability toggle uses PATCH /api/v1/catalog/products/{id}; archive uses DELETE /api/v1/catalog/products/{id}. Mutations are audit/idempotency-backed by the existing backend and the frontend now retains idempotency keys for /catalog/* mutations during same-runtime retries.
+- Contract assertions for category/product read/create/update/archive and removal of sample products were added to scripts/check-v3-backend-orders.php.
+- CI on code commit 540237d3 passed: Frontend typecheck/build run 44724422045; Backend Validation run 44724421824; DB engine validation run 44724421825 on both MySQL 8.4 and MariaDB 10.6.
+- Remaining catalog limitations: editing existing product name/price/SKU, category edit/archive, and creating/editing variants or option groups from the UI are not implemented. Variant and option detail display is read-only. Browser smoke test with a populated business catalog remains outstanding.
+- Next: connect order status transitions and kitchen state controls to existing APIs, enforce UI-side RBAC affordances while relying on backend RBAC, preserve idempotency and legal state transitions, and never auto-accept a newly created draft order.
