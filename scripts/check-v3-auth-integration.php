@@ -192,7 +192,8 @@ $ownerMembership = $pdo->prepare(
 );
 $ownerMembership->execute(['user_id' => $userId, 'business_id' => $businessId, 'role_id' => (int) $ownerRoleId]);
 $assert($ownerMembership->fetchColumn() !== false, 'Initial setup did not assign the installation owner to the created business.');
-$assert(!$businesses = (new BusinessRepository($pdo))->isInstallationOwner($userId), 'Installation owner privilege was not retired after setup.');
+$businessRepository = new BusinessRepository($pdo);
+$assert(!$businessRepository->isInstallationOwner($userId), 'Installation owner privilege was not retired after setup.');
 $globalOwner = $pdo->prepare('SELECT 1 FROM app_user_roles WHERE user_id = :user_id AND role_id = :role_id LIMIT 1');
 $globalOwner->execute(['user_id' => $userId, 'role_id' => (int) $ownerRoleId]);
 $assert($globalOwner->fetchColumn() === false, 'Global installation owner role remained assigned after setup.');
