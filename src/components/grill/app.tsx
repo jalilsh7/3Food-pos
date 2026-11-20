@@ -485,7 +485,7 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
       await postSms(phone, text, event, tpl.bodyId, "");
       return;
     }
-    const values = orderedKeys.map((key) => /^\\d+$/.test(key) ? indexedVars[Number(key)] : templateVars[key] ?? "");
+    const values = orderedKeys.map((key) => (/^\\d+$/.test(key) ? indexedVars[Number(key)] : templateVars[key]) ?? "");
     if (values.some((value) => !value.trim())) {
       await postSms(phone, text, event, tpl.bodyId, "", "متغیرهای الگوی خدماتی کامل نیستند؛ ترتیب و مقادیر الگو را بررسی کنید.");
       return;
