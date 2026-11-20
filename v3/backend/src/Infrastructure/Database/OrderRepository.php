@@ -424,6 +424,8 @@ final readonly class OrderRepository
         ?string $channel,
         int $limit,
         ?int $beforeOrderNumber = null,
+        ?string $paymentStatus = null,
+        ?string $fulfillmentMethod = null,
     ): array {
         $sql = 'SELECT o.public_id, o.order_number, o.source_channel, o.order_status, o.payment_status,
                        o.subtotal_amount, o.tax_amount, o.total_amount, o.currency_code,
@@ -442,6 +444,12 @@ final readonly class OrderRepository
         if ($channel !== null) {
             $sql .= ' AND o.source_channel = :source_channel';
         }
+        if ($paymentStatus !== null) {
+            $sql .= ' AND o.payment_status = :payment_status';
+        }
+        if ($fulfillmentMethod !== null) {
+            $sql .= ' AND f.method = :fulfillment_method';
+        }
         $sql .= ' ORDER BY o.order_number DESC LIMIT :fetch_limit';
         $statement = $this->connection->prepare($sql);
         $statement->bindValue(':business_id', $businessId, PDO::PARAM_INT);
@@ -454,6 +462,12 @@ final readonly class OrderRepository
         }
         if ($channel !== null) {
             $statement->bindValue(':source_channel', $channel, PDO::PARAM_STR);
+        }
+        if ($paymentStatus !== null) {
+            $statement->bindValue(':payment_status', $paymentStatus, PDO::PARAM_STR);
+        }
+        if ($fulfillmentMethod !== null) {
+            $statement->bindValue(':fulfillment_method', $fulfillmentMethod, PDO::PARAM_STR);
         }
         $statement->bindValue(':fetch_limit', $limit + 1, PDO::PARAM_INT);
         $statement->execute();
