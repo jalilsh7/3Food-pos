@@ -7,6 +7,10 @@ import {
   getInventoryLedger,
   getInventoryLocations,
   getInventoryStockItems,
+  createInventoryStockItem,
+  updateInventoryStockItem,
+  createInventoryLocation,
+  updateInventoryLocation,
   getInventoryUnits,
   getInventoryDocuments,
   getInventoryDocument,
@@ -85,6 +89,18 @@ export function InventoryWorkspace() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [itemEditorId, setItemEditorId] = useState<string | null>(null);
+  const [itemCode, setItemCode] = useState("");
+  const [itemName, setItemName] = useState("");
+  const [itemUnit, setItemUnit] = useState("");
+  const [itemActive, setItemActive] = useState(true);
+  const [locationEditorId, setLocationEditorId] = useState<string | null>(null);
+  const [locationCode, setLocationCode] = useState("");
+  const [locationName, setLocationName] = useState("");
+  const [locationType, setLocationType] = useState<InventoryLocation["location_type"]>("storage");
+  const [locationActive, setLocationActive] = useState(true);
+  const [managementBusy, setManagementBusy] = useState(false);
+  const [managementMessage, setManagementMessage] = useState<string | null>(null);
 
   async function loadData(isRefresh = false) {
     if (isRefresh) setRefreshing(true);
@@ -92,8 +108,8 @@ export function InventoryWorkspace() {
     setError(null);
     try {
       const [stockItems, stockLocations, stockBalances, entries, stockUnits, stockDocuments] = await Promise.all([
-        getInventoryStockItems(),
-        getInventoryLocations(),
+        getInventoryStockItems("", true),
+        getInventoryLocations(true),
         getInventoryBalances({ limit: 200 }),
         getInventoryLedger({ limit: 50 }),
         getInventoryUnits(),
@@ -105,11 +121,13 @@ export function InventoryWorkspace() {
       setLedger(entries);
       setUnits(stockUnits);
       setDocuments(stockDocuments);
-      setSelectedId((current) => stockItems.some((item) => item.id === current) ? current : stockItems[0]?.id ?? "");
-      setDocumentLocation((current) => stockLocations.some((location) => location.id === current) ? current : stockLocations[0]?.id ?? "");
-      setDestinationLocation((current) => stockLocations.find((location) => location.id !== current)?.id ?? "");
-      setDocumentItem((current) => stockItems.some((item) => item.id === current) ? current : stockItems[0]?.id ?? "");
-      setDocumentUnit((current) => current || stockItems[0]?.base_unit.code || stockUnits[0]?.code || "");
+      const activeItems = stockItems.filter((item) => item.is_active);
+      const activeLocations = stockLocations.filter((location) => location.is_active);
+      setSelectedId((current) => stockItems.some((item) => item.id === current) ? current : activeItems[0]?.id ?? "");
+      setDocumentLocation((current) => activeLocations.some((location) => location.id === current) ? current : activeLocations[0]?.id ?? "");
+      setDestinationLocation((current) => activeLocations.find((location) => location.id !== current)?.id ?? "");
+      setDocumentItem((current) => activeItems.some((item) => item.id === current) ? current : activeItems[0]?.id ?? "");
+      setDocumentUnit((current) => current || activeItems[0]?.base_unit.code || stockUnits[0]?.code || "");
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "دریافت اطلاعات واقعی انبار انجام نشد.");
     } finally {
@@ -129,6 +147,8 @@ export function InventoryWorkspace() {
     });
   }, [items, query, locationId, balances]);
 
+  const activeItems = items.filter((item) => item.is_active);
+  const activeLocations = locations.filter((location) => location.is_active);
   const selected = items.find((item) => item.id === selectedId) ?? null;
   const selectedBalances = balances.filter((balance) => balance.stock_item_id === selectedId && (locationId === "all" || balance.location_id === locationId));
   const selectedLedger = ledger.filter((entry) => entry.stock_item_id === selectedId && (locationId === "all" || entry.location_id === locationId));
@@ -186,7 +206,71 @@ export function InventoryWorkspace() {
 
   const needsReason = ["adjustment_in", "adjustment_out", "waste"].includes(documentType);
   const needsCost = documentType === "adjustment_in";
-  const selectedDocumentItem = items.find((item) => item.id === documentItem) ?? null;
+  const selectedDocumentItem = activeItems.find((item) => item.id === documentItem) ?? null;
+
+  function editStockItem(item: InventoryStockItem) {
+    setItemEditorId(item.id);
+    setItemCode(item.code);
+    setItemName(item.name);
+    setItemUnit(item.base_unit.code);
+    setItemActive(item.is_active);
+    setManagementMessage(null);
+  }
+
+  async function saveStockItem(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!itemCode.trim() || !itemName.trim() || (!itemEditorId && !itemUnit)) return;
+    setManagementBusy(true);
+    setManagementMessage(null);
+    try {
+      if (itemEditorId) {
+        await updateInventoryStockItem(itemEditorId, { code: itemCode.trim(), name: itemName.trim(), is_active: itemActive });
+        setManagementMessage("مشخصات قلم انبار به‌روزرسانی شد.");
+      } else {
+        await createInventoryStockItem({ code: itemCode.trim(), name: itemName.trim(), base_unit_code: itemUnit });
+        setManagementMessage("قلم جدید به فهرست انبار اضافه شد.");
+      }
+      setItemEditorId(null); setItemCode(""); setItemName(""); setItemUnit(""); setItemActive(true);
+      await loadData(true);
+    } catch (cause) {
+      setManagementMessage(cause instanceof ApiError ? cause.message : "ذخیره قلم انبار انجام نشد.");
+    } finally { setManagementBusy(false); }
+  }
+
+  function editLocation(location: InventoryLocation) {
+    setLocationEditorId(location.id);
+    setLocationCode(location.code);
+    setLocationName(location.name);
+    setLocationType(location.location_type);
+    setLocationActive(location.is_active);
+    setManagementMessage(null);
+  }
+
+  async function saveLocation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!locationCode.trim() || !locationName.trim()) return;
+    setManagementBusy(true);
+    setManagementMessage(null);
+    try {
+      const payload = {
+        code: locationCode.trim(), name: locationName.trim(),
+        location_type: locationType as "storage" | "kitchen" | "bar" | "freezer" | "other",
+        is_active: locationEditorId ? locationActive : true,
+      };
+      if (locationEditorId) {
+        await updateInventoryLocation(locationEditorId, payload);
+        setManagementMessage("مشخصات انبارک به‌روزرسانی شد.");
+      } else {
+        const { is_active: _active, ...createPayload } = payload;
+        await createInventoryLocation(createPayload);
+        setManagementMessage("انبارک جدید ایجاد شد.");
+      }
+      setLocationEditorId(null); setLocationCode(""); setLocationName(""); setLocationType("storage"); setLocationActive(true);
+      await loadData(true);
+    } catch (cause) {
+      setManagementMessage(cause instanceof ApiError ? cause.message : "ذخیره انبارک انجام نشد.");
+    } finally { setManagementBusy(false); }
+  }
 
   async function createDraftOnly() {
     if (!documentLocation) return;
@@ -340,9 +424,9 @@ export function InventoryWorkspace() {
             <label>نوع سند<select value={documentType} onChange={(event) => setDocumentType(event.target.value as InventoryDocumentType)}>
               <option value="consumption">مصرف مواد</option><option value="waste">ضایعات</option><option value="adjustment_in">تعدیل افزایشی</option><option value="adjustment_out">تعدیل کاهشی</option><option value="transfer">انتقال بین انبارک‌ها</option>
             </select></label>
-            <label>انبارک مبدأ<select required value={documentLocation} onChange={(event) => setDocumentLocation(event.target.value)}>{locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label>
-            {documentType === "transfer" ? <label>انبارک مقصد<select required value={destinationLocation} onChange={(event) => setDestinationLocation(event.target.value)}>{locations.filter((location) => location.id !== documentLocation).map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label> : null}
-            <label>قلم انبار<select required value={documentItem} onChange={(event) => { const item = items.find((entry) => entry.id === event.target.value); setDocumentItem(event.target.value); if (item) setDocumentUnit(item.base_unit.code); }}>{items.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.code})</option>)}</select></label>
+            <label>انبارک مبدأ<select required value={documentLocation} onChange={(event) => setDocumentLocation(event.target.value)}>{activeLocations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label>
+            {documentType === "transfer" ? <label>انبارک مقصد<select required value={destinationLocation} onChange={(event) => setDestinationLocation(event.target.value)}>{activeLocations.filter((location) => location.id !== documentLocation).map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label> : null}
+            <label>قلم انبار<select required value={documentItem} onChange={(event) => { const item = items.find((entry) => entry.id === event.target.value); setDocumentItem(event.target.value); if (item) setDocumentUnit(item.base_unit.code); }}>{activeItems.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.code})</option>)}</select></label>
             <label>واحد<select required value={documentUnit} onChange={(event) => setDocumentUnit(event.target.value)}>{units.filter((unit) => !selectedDocumentItem || unit.dimension === selectedDocumentItem.base_unit.dimension).map((unit) => <option key={unit.code} value={unit.code}>{unit.name} ({unit.code})</option>)}</select></label>
             <label>مقدار<input required inputMode="decimal" pattern="^[0-9]+([.][0-9]{1,6})?$" value={documentQuantity} onChange={(event) => setDocumentQuantity(event.target.value)} /></label>
             {needsCost ? <label>مبلغ کل (تومان)<input required inputMode="numeric" pattern="^[0-9]+$" value={documentCost} onChange={(event) => setDocumentCost(event.target.value)} /></label> : null}
@@ -366,7 +450,7 @@ export function InventoryWorkspace() {
             <div className="inventory-document-lines">
               {activeDocument.lines.map((line) => <div className="inventory-document-line-detail" key={line.id}>
                 {editingLineId === line.id ? <>
-                  <label><span>قلم</span><select value={editingItemId} onChange={(event) => { const item = items.find((entry) => entry.id === event.target.value); setEditingItemId(event.target.value); if (item) setEditingUnit(item.base_unit.code); }}>{items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+                  <label><span>قلم</span><select value={editingItemId} onChange={(event) => { const item = items.find((entry) => entry.id === event.target.value); setEditingItemId(event.target.value); if (item) setEditingUnit(item.base_unit.code); }}>{activeItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
                   <label><span>مقدار</span><input value={editingQuantity} onChange={(event) => setEditingQuantity(event.target.value)} inputMode="decimal" /></label>
                   <label><span>واحد</span><select value={editingUnit} onChange={(event) => setEditingUnit(event.target.value)}>{units.filter((unit) => { const item = items.find((entry) => entry.id === editingItemId); return !item || unit.dimension === item.base_unit.dimension; }).map((unit) => <option key={unit.code} value={unit.code}>{unit.name}</option>)}</select></label>
                   <div className="inventory-line-actions"><button type="button" disabled={documentDetailBusy} onClick={() => void saveDocumentLine()}>ذخیره</button><button type="button" onClick={() => setEditingLineId(null)}>انصراف</button></div>
@@ -381,6 +465,33 @@ export function InventoryWorkspace() {
         </div>
       </Surface>
 
+      <Surface padding="md" className="inventory-management-panel">
+        <div className="inventory-panel-heading"><div><h2>مدیریت اقلام و انبارک‌ها</h2><p>ایجاد، ویرایش و فعال/غیرفعال‌سازی با کنترل‌های سمت سرور</p></div></div>
+        <div className="inventory-management-grid">
+          <form className="inventory-management-form" onSubmit={saveStockItem}>
+            <strong>{itemEditorId ? "ویرایش قلم انبار" : "افزودن قلم جدید"}</strong>
+            <label>کد قلم<input required maxLength={64} pattern="[A-Za-z0-9._-]+" value={itemCode} onChange={(event) => setItemCode(event.target.value)} placeholder="مثلاً FLOUR-01" /></label>
+            <label>نام قلم<input required maxLength={160} value={itemName} onChange={(event) => setItemName(event.target.value)} placeholder="مثلاً آرد سفید" /></label>
+            {!itemEditorId ? <label>واحد پایه<select required value={itemUnit} onChange={(event) => setItemUnit(event.target.value)}><option value="">انتخاب واحد</option>{units.map((unit) => <option key={unit.code} value={unit.code}>{unit.name} ({unit.code})</option>)}</select></label> : <label>واحد پایه<input value={items.find((item) => item.id === itemEditorId)?.base_unit.name ?? ""} disabled /></label>}
+            {itemEditorId ? <label className="inventory-management-check"><input type="checkbox" checked={itemActive} onChange={(event) => setItemActive(event.target.checked)} /> قلم فعال باشد</label> : null}
+            <div className="inventory-management-actions"><button type="submit" disabled={managementBusy || !itemCode.trim() || !itemName.trim() || (!itemEditorId && !itemUnit)}>{managementBusy ? "در حال ذخیره..." : itemEditorId ? "ذخیره تغییرات" : "ایجاد قلم"}</button>{itemEditorId ? <button type="button" onClick={() => setItemEditorId(null)}>انصراف</button> : null}</div>
+          </form>
+          <form className="inventory-management-form" onSubmit={saveLocation}>
+            <strong>{locationEditorId ? "ویرایش انبارک" : "افزودن انبارک جدید"}</strong>
+            <label>کد انبارک<input required maxLength={40} pattern="[A-Za-z0-9._-]+" value={locationCode} onChange={(event) => setLocationCode(event.target.value)} placeholder="مثلاً MAIN" /></label>
+            <label>نام انبارک<input required maxLength={120} value={locationName} onChange={(event) => setLocationName(event.target.value)} placeholder="مثلاً انبار اصلی" /></label>
+            <label>نوع انبارک<select value={locationType} onChange={(event) => setLocationType(event.target.value as InventoryLocation["location_type"])}><option value="storage">انبار</option><option value="kitchen">آشپزخانه</option><option value="bar">بار</option><option value="freezer">فریزر</option><option value="other">سایر</option></select></label>
+            {locationEditorId ? <label className="inventory-management-check"><input type="checkbox" checked={locationActive} onChange={(event) => setLocationActive(event.target.checked)} /> انبارک فعال باشد</label> : null}
+            <div className="inventory-management-actions"><button type="submit" disabled={managementBusy || !locationCode.trim() || !locationName.trim()}>{managementBusy ? "در حال ذخیره..." : locationEditorId ? "ذخیره تغییرات" : "ایجاد انبارک"}</button>{locationEditorId ? <button type="button" onClick={() => setLocationEditorId(null)}>انصراف</button> : null}</div>
+          </form>
+        </div>
+        {managementMessage ? <p className="inventory-document-message" role="status">{managementMessage}</p> : null}
+        <div className="inventory-management-list">
+          <div><strong>اقلام ثبت‌شده</strong>{items.map((item) => <div className="inventory-management-row" key={item.id}><span>{item.name} <small>{item.code} · {item.base_unit.name}</small></span><span className={item.is_active ? "is-enabled" : "is-disabled"}>{item.is_active ? "فعال" : "غیرفعال"}</span><button type="button" onClick={() => editStockItem(item)}>ویرایش</button></div>)}</div>
+          <div><strong>انبارک‌های این شعبه</strong>{locations.map((location) => <div className="inventory-management-row" key={location.id}><span>{location.name} <small>{location.code} · {location.location_type}</small></span><span className={location.is_active ? "is-enabled" : "is-disabled"}>{location.is_active ? "فعال" : "غیرفعال"}</span><button type="button" onClick={() => editLocation(location)}>ویرایش</button></div>)}</div>
+        </div>
+      </Surface>
+
       <div className="inventory-layout">
         <Surface padding="md" className="inventory-stock-panel">
           <div className="inventory-panel-heading">
@@ -389,7 +500,7 @@ export function InventoryWorkspace() {
           <label className="inventory-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="جست‌وجوی نام یا کد کالا" /></label>
           <div className="inventory-locations">
             <button type="button" className={locationId === "all" ? "is-active" : ""} onClick={() => setLocationId("all")}>همه انبارک‌ها</button>
-            {locations.map((location) => <button type="button" key={location.id} className={locationId === location.id ? "is-active" : ""} onClick={() => setLocationId(location.id)}>{location.name}</button>)}
+            {activeLocations.map((location) => <button type="button" key={location.id} className={locationId === location.id ? "is-active" : ""} onClick={() => setLocationId(location.id)}>{location.name}</button>)}
           </div>
           {loading ? <div className="inventory-empty">در حال دریافت موجودی از سرور...</div> : (
             <div className="inventory-stock-list">
