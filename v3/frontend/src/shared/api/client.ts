@@ -307,6 +307,7 @@ export type InventoryDocumentSummary = {
   reason: string | null;
   location: { id: string; name: string };
   destination: { id: string; name: string } | null;
+  supplier: { id: string; name: string } | null;
   created_at: string;
   posted_at: string | null;
 };
