@@ -496,6 +496,11 @@ try {
         [$sessionMiddleware, $makePermissionMiddleware('inventory.read', true)],
     );
 
+    $router->add('GET', '/api/v1/inventory/documents/{documentPublicId}/valuation',
+        static fn (Request $request, array $parameters): Response => $getInventoryController()->documentValuation($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.manage', true)],
+    );
+
     $router->add('POST', '/api/v1/inventory/documents/{documentPublicId}/post',
         static fn (Request $request, array $parameters): Response => $getInventoryController()->postDocument($request, $parameters),
         [$sessionMiddleware, $makePermissionMiddleware('inventory.manage', true), $csrfMiddleware, $originMiddleware],
