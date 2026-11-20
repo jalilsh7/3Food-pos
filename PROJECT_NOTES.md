@@ -1656,3 +1656,17 @@
 - Backend Validation روی commit کد 3561049d موفق شد (run 44723350561)؛ Frontend typecheck/build روی commit UI 0bcfda8c موفق شد (run 44722494804) و روی 3561049d نیز run 44723350566 موفق شد.
 - commitهای پس از 5cdb3c17 صرفاً مستندات/یادداشت handoff بوده‌اند؛ سورس POS و تست integration تغییر نکرده‌اند. اجرای CI جدید روی HEAD مستنداتی 318cf041 در حال انجام/باید refresh شود.
 - وضعیت POS-01A: **توسعه و تست یکپارچگی روی MySQL 8.4 و MariaDB 10.6 پذیرفته شد.** تست مرورگر/عملیاتی با داده واقعی و اتصال CatalogWorkspace هنوز در بسته‌های بعدی باقی است.
+
+## CAT-01A — اتصال صفحه منو و محصولات به Backend (2026-11-20)
+- [x] دریافت دسته‌بندی‌ها و محصولات از API واقعی V3؛ حذف seedProducts و اطلاعات نمونه از CatalogWorkspace.
+- [x] ایجاد دسته‌بندی از UI و ثبت آن در Backend.
+- [x] ایجاد محصول با نام، قیمت پایه، SKU اختیاری، دسته‌بندی، نوع محصول و نرخ مالیات؛ ثبت از طریق API و نمایش مجدد در فهرست واقعی.
+- [x] نمایش جزئیات واقعی محصول، گروه گزینه‌ها، افزودنی‌ها و variantها.
+- [x] تغییر وضعیت فعال/غیرفعال از طریق PATCH و بایگانی محصول از طریق DELETE؛ عملیات در Backend و audit log انجام می‌شود.
+- [x] mutationهای /catalog/* از همان idempotency-key retention در runtime استفاده می‌کنند تا retry همان درخواست کلید ثابت داشته باشد.
+- [x] contract check برای read/create/update/archive و حذف seedProducts به scripts/check-v3-backend-orders.php افزوده شد.
+- CI روی commit کد 540237d3: Frontend typecheck/build run 44724422045 موفق؛ Backend Validation run 44724421824 موفق؛ DB engine validation run 44724421825 موفق روی MySQL 8.4 و MariaDB 10.6.
+- محدودیت فعلی: ویرایش نام/قیمت/SKU محصول، مدیریت/ویرایش/بایگانی دسته‌بندی، ساخت و ویرایش variantها و گروه‌های گزینه از UI هنوز تکمیل نشده؛ جزئیات آن‌ها فعلاً read-only است.
+- تست مرورگر با کسب‌وکار دارای کاتالوگ واقعی هنوز اجرا نشده؛ CI در این بسته typecheck/build و source-contract را پوشش می‌دهد، DB workflow نیز مسیرهای integration موجود را اجرا می‌کند.
+- وضعیت: **اتصال read/create/status/archive صفحه کاتالوگ و CI فعلی پذیرفته شد؛ تکمیل CRUD کامل کاتالوگ و تست مرورگر در صف است.**
+- گام بعد: اتصال transitionهای سفارش و آشپزخانه به API واقعی با state machine، RBAC و idempotency؛ سفارش جدید نباید خودکار از draft به accepted یا preparing منتقل شود.
