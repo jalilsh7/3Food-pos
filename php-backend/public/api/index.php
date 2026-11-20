@@ -2509,6 +2509,15 @@ if ($method === 'POST' && $path === '/sms/send') {
         $providerResponse = trim((string)$raw);
         $providerCode = preg_match('/^-?[0-9]+$/D', $providerResponse) ? (int)$providerResponse : 0;
         $ok = $httpStatus >= 200 && $httpStatus < 300 && $providerCode > 0;
+        $providerDetails = [
+            4 => 'شناسه الگوی خدماتی معتبر یا تأییدشده نیست؛ bodyId را از پنل ملی‌پیامک بررسی کنید',
+            5 => 'تعداد یا ترتیب مقادیر متغیر با الگوی خدماتی مطابقت ندارد',
+            109 => 'IP سرور مجاز نشده است؛ IP خروجی هاست را در پنل ملی‌پیامک ثبت کنید',
+            110 => 'احراز هویت ناموفق است؛ در تنظیمات، روش ApiKey را انتخاب و کلید API را وارد کنید',
+        ];
+        $providerDetail = $providerCode < 0 && isset($providerDetails[abs($providerCode)])
+            ? 'کد ' . abs($providerCode) . ': ' . $providerDetails[abs($providerCode)]
+            : ($providerCode > 0 ? $providerResponse : 'پاسخ نامعتبر از سرویس پیامک: ' . substr($providerResponse, 0, 240));
         audit($pdo, (int)$actor['id'], 'sms_sent', 'sms', null, [
             'to' => $to,
             'ok' => $ok,
@@ -2516,7 +2525,7 @@ if ($method === 'POST' && $path === '/sms/send') {
             'body_id' => $isServiceRoute ? $bodyId : null,
             'provider_code' => $providerCode,
         ]);
-        json_response(['ok' => true, 'sent' => $ok, 'detail' => substr($providerResponse, 0, 300), 'route' => $route]);
+        json_response(['ok' => true, 'sent' => $ok, 'detail' => substr($providerDetail, 0, 300), 'provider_code' => $providerCode, 'route' => $route]);
     } catch (Throwable $e) {
         error_log('[3Food POS] SMS provider request failed: ' . $e->getMessage());
         $transportUnavailable = in_array($e->getMessage(), ['sms_transport_unavailable', 'sms_transport_failed'], true);
