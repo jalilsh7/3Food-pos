@@ -296,3 +296,46 @@ export async function postInventoryDocument(documentId: string): Promise<void> {
     { method: "POST", headers: idempotencyHeaders(), body: "{}" },
   );
 }
+
+
+export type InventoryDocumentLine = {
+  id: string;
+  stock_item_id: string;
+  stock_item_name: string;
+  quantity: string;
+  unit_code: string;
+  unit_name: string;
+  conversion_factor_snapshot: string;
+  base_quantity: string;
+  note: string | null;
+};
+export type InventoryDocumentDetail = InventoryDocumentSummary & {
+  lines: InventoryDocumentLine[];
+};
+
+export async function getInventoryDocument(documentId: string): Promise<InventoryDocumentDetail> {
+  const data = await request<{ stock_document: InventoryDocumentDetail }>(
+    `/inventory/documents/${encodeURIComponent(documentId)}`,
+  );
+  return data.stock_document;
+}
+
+export async function updateInventoryDocumentLine(documentId: string, lineId: string, payload: {
+  stock_item_id: string;
+  quantity: string;
+  unit_code: string;
+  total_cost_amount?: string;
+  note?: string;
+}): Promise<void> {
+  await request<{ stock_document_line: { id: string } }>(
+    `/inventory/documents/${encodeURIComponent(documentId)}/lines/${encodeURIComponent(lineId)}`,
+    { method: "PATCH", headers: idempotencyHeaders(), body: JSON.stringify(payload) },
+  );
+}
+
+export async function deleteInventoryDocumentLine(documentId: string, lineId: string): Promise<void> {
+  await request<{ deleted: boolean }>(
+    `/inventory/documents/${encodeURIComponent(documentId)}/lines/${encodeURIComponent(lineId)}`,
+    { method: "DELETE", headers: idempotencyHeaders(), body: "{}" },
+  );
+}
