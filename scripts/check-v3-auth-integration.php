@@ -290,4 +290,4 @@ $assert(str_contains(implode(';', $logout->headers['Set-Cookie']), 'Max-Age=0'),
 $activeSessions->execute(['user_id' => $userId]);
 $assert((int) $activeSessions->fetchColumn() === 0, 'Logout did not revoke the active session.');
 
-echo "V3 authentication/context integration checks passed: login, hashed cookies, session introspection, CSRF rotation, forced password change, session invalidation, logout, first-business setup, business membership discovery and branch discovery.\n";
+echo "V3 authentication/context integration checks passed: login, hashed cookies, session introspection, CSRF rotation, forced password change, session invalidation, logout, first-business setup, business membership discovery, branch discovery and branch-scoped order cursor pagination.\n";
