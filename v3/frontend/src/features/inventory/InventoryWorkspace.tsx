@@ -1,15 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Boxes, MapPin, Package, RefreshCw, Search } from "lucide-react";
+import { Activity, Boxes, ClipboardList, MapPin, Package, RefreshCw, Search } from "lucide-react";
 import {
   ApiError,
   getInventoryBalances,
   getInventoryLedger,
   getInventoryLocations,
   getInventoryStockItems,
+  getInventoryUnits,
+  getInventoryDocuments,
+  createInventoryDocument,
+  addInventoryDocumentLine,
+  postInventoryDocument,
   type InventoryBalance,
   type InventoryLedgerEntry,
   type InventoryLocation,
   type InventoryStockItem,
+  type InventoryUnit,
+  type InventoryDocumentSummary,
+  type InventoryDocumentType,
 } from "../../shared/api/client";
 import { Button, Notice, Surface } from "../../shared/ui";
 import "./inventory.css";
@@ -22,6 +30,16 @@ const dateTime = (value: string) => {
     ? value
     : new Intl.DateTimeFormat("fa-IR", { dateStyle: "short", timeStyle: "short" }).format(date);
 };
+const documentLabel: Record<string, string> = {
+  purchase_receipt: "رسید خرید",
+  consumption: "مصرف مواد",
+  transfer: "انتقال بین انبارک‌ها",
+  adjustment_in: "تعدیل افزایشی",
+  adjustment_out: "تعدیل کاهشی",
+  waste: "ثبت ضایعات",
+  return: "برگشت",
+};
+const documentStatus: Record<string, string> = { draft: "پیش‌نویس", posted: "ثبت نهایی", voided: "باطل‌شده" };
 const movementLabel: Record<string, string> = {
   purchase_receipt: "رسید خرید",
   adjustment_in: "تعدیل افزایشی",
@@ -38,6 +56,18 @@ export function InventoryWorkspace() {
   const [locations, setLocations] = useState<InventoryLocation[]>([]);
   const [balances, setBalances] = useState<InventoryBalance[]>([]);
   const [ledger, setLedger] = useState<InventoryLedgerEntry[]>([]);
+  const [units, setUnits] = useState<InventoryUnit[]>([]);
+  const [documents, setDocuments] = useState<InventoryDocumentSummary[]>([]);
+  const [documentType, setDocumentType] = useState<InventoryDocumentType>("consumption");
+  const [documentLocation, setDocumentLocation] = useState("");
+  const [destinationLocation, setDestinationLocation] = useState("");
+  const [documentItem, setDocumentItem] = useState("");
+  const [documentUnit, setDocumentUnit] = useState("");
+  const [documentQuantity, setDocumentQuantity] = useState("1");
+  const [documentCost, setDocumentCost] = useState("");
+  const [documentReason, setDocumentReason] = useState("");
+  const [documentBusy, setDocumentBusy] = useState(false);
+  const [documentMessage, setDocumentMessage] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [locationId, setLocationId] = useState("all");
   const [selectedId, setSelectedId] = useState("");
@@ -50,17 +80,25 @@ export function InventoryWorkspace() {
     else setLoading(true);
     setError(null);
     try {
-      const [stockItems, stockLocations, stockBalances, entries] = await Promise.all([
+      const [stockItems, stockLocations, stockBalances, entries, stockUnits, stockDocuments] = await Promise.all([
         getInventoryStockItems(),
         getInventoryLocations(),
         getInventoryBalances({ limit: 200 }),
         getInventoryLedger({ limit: 50 }),
+        getInventoryUnits(),
+        getInventoryDocuments(50),
       ]);
       setItems(stockItems);
       setLocations(stockLocations);
       setBalances(stockBalances);
       setLedger(entries);
+      setUnits(stockUnits);
+      setDocuments(stockDocuments);
       setSelectedId((current) => stockItems.some((item) => item.id === current) ? current : stockItems[0]?.id ?? "");
+      setDocumentLocation((current) => stockLocations.some((location) => location.id === current) ? current : stockLocations[0]?.id ?? "");
+      setDestinationLocation((current) => stockLocations.find((location) => location.id !== current)?.id ?? "");
+      setDocumentItem((current) => stockItems.some((item) => item.id === current) ? current : stockItems[0]?.id ?? "");
+      setDocumentUnit((current) => current || stockItems[0]?.base_unit.code || stockUnits[0]?.code || "");
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "دریافت اطلاعات واقعی انبار انجام نشد.");
     } finally {
@@ -83,6 +121,58 @@ export function InventoryWorkspace() {
   const selected = items.find((item) => item.id === selectedId) ?? null;
   const selectedBalances = balances.filter((balance) => balance.stock_item_id === selectedId && (locationId === "all" || balance.location_id === locationId));
   const selectedLedger = ledger.filter((entry) => entry.stock_item_id === selectedId && (locationId === "all" || entry.location_id === locationId));
+  const needsReason = ["adjustment_in", "adjustment_out", "waste"].includes(documentType);
+  const needsCost = documentType === "adjustment_in";
+  const selectedDocumentItem = items.find((item) => item.id === documentItem) ?? null;
+
+  async function submitStockDocument(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!documentLocation || !documentItem || !documentUnit || !documentQuantity.trim()) return;
+    if (documentType === "transfer" && (!destinationLocation || destinationLocation === documentLocation)) {
+      setDocumentMessage("انبارک مقصد باید با انبارک مبدأ متفاوت باشد.");
+      return;
+    }
+    if (needsReason && !documentReason.trim()) {
+      setDocumentMessage("برای تعدیل و ضایعات، ثبت دلیل الزامی است.");
+      return;
+    }
+    if (needsCost && !documentCost.trim()) {
+      setDocumentMessage("برای تعدیل افزایشی، مبلغ کل به تومان الزامی است.");
+      return;
+    }
+    setDocumentBusy(true);
+    setDocumentMessage(null);
+    let createdDocument: { id: string; document_no: string } | null = null;
+    try {
+      createdDocument = await createInventoryDocument({
+        document_type: documentType,
+        location_id: documentLocation,
+        ...(documentType === "transfer" ? { destination_location_id: destinationLocation } : {}),
+        ...(documentReason.trim() ? { reason: documentReason.trim() } : {}),
+      });
+      await addInventoryDocumentLine(createdDocument.id, {
+        stock_item_id: documentItem,
+        quantity: documentQuantity,
+        unit_code: documentUnit,
+        ...(needsCost ? { total_cost_amount: documentCost } : {}),
+      });
+      await postInventoryDocument(createdDocument.id);
+      setDocumentMessage(`سند ${createdDocument.document_no} با موفقیت ثبت نهایی شد.`);
+      setDocumentQuantity("1");
+      setDocumentCost("");
+      setDocumentReason("");
+      await loadData(true);
+    } catch (cause) {
+      const detail = cause instanceof ApiError ? cause.message : "ثبت سند انجام نشد.";
+      setDocumentMessage(createdDocument
+        ? `سند پیش‌نویس ${createdDocument.document_no} ایجاد شد، اما تکمیل/ثبت نهایی آن ناموفق بود: ${detail} برای جلوگیری از ثبت تکراری، پیش‌نویس را از فهرست اسناد بررسی کنید.`
+        : detail);
+      if (createdDocument) await loadData(true);
+    } finally {
+      setDocumentBusy(false);
+    }
+  }
+
   const totals = balances.reduce((result, balance) => ({
     onHand: result.onHand + Number(balance.quantity_on_hand),
     reserved: result.reserved + Number(balance.quantity_reserved),
@@ -110,6 +200,39 @@ export function InventoryWorkspace() {
         <Surface padding="sm"><span>موجودی فیزیکی (جمع واحدها)</span><strong>{loading ? "—" : quantity(totals.onHand)}</strong></Surface>
         <Surface padding="sm"><span>موجودی قابل استفاده</span><strong>{loading ? "—" : quantity(totals.available)}</strong></Surface>
       </div>
+
+      <Surface padding="md" className="inventory-document-composer">
+        <div className="inventory-panel-heading">
+          <div><h2><ClipboardList size={17} /> ثبت گردش انبار</h2><p>ثبت سند و اعمال موجودی از مسیر رسمی انبار</p></div>
+        </div>
+        <form className="inventory-document-form" onSubmit={submitStockDocument}>
+          <div className="inventory-document-fields">
+            <label>نوع سند<select value={documentType} onChange={(event) => setDocumentType(event.target.value as InventoryDocumentType)}>
+              <option value="consumption">مصرف مواد</option><option value="waste">ضایعات</option><option value="adjustment_in">تعدیل افزایشی</option><option value="adjustment_out">تعدیل کاهشی</option><option value="transfer">انتقال بین انبارک‌ها</option>
+            </select></label>
+            <label>انبارک مبدأ<select required value={documentLocation} onChange={(event) => setDocumentLocation(event.target.value)}>{locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label>
+            {documentType === "transfer" ? <label>انبارک مقصد<select required value={destinationLocation} onChange={(event) => setDestinationLocation(event.target.value)}>{locations.filter((location) => location.id !== documentLocation).map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label> : null}
+            <label>قلم انبار<select required value={documentItem} onChange={(event) => { const item = items.find((entry) => entry.id === event.target.value); setDocumentItem(event.target.value); if (item) setDocumentUnit(item.base_unit.code); }}>{items.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.code})</option>)}</select></label>
+            <label>واحد<select required value={documentUnit} onChange={(event) => setDocumentUnit(event.target.value)}>{units.filter((unit) => !selectedDocumentItem || unit.dimension === selectedDocumentItem.base_unit.dimension).map((unit) => <option key={unit.code} value={unit.code}>{unit.name} ({unit.code})</option>)}</select></label>
+            <label>مقدار<input required inputMode="decimal" pattern="^[0-9]+([.][0-9]{1,6})?$" value={documentQuantity} onChange={(event) => setDocumentQuantity(event.target.value)} /></label>
+            {needsCost ? <label>مبلغ کل (تومان)<input required inputMode="numeric" pattern="^[0-9]+$" value={documentCost} onChange={(event) => setDocumentCost(event.target.value)} /></label> : null}
+            {needsReason ? <label className="inventory-document-reason">دلیل ثبت<input required maxLength={500} value={documentReason} onChange={(event) => setDocumentReason(event.target.value)} placeholder="شرح دلیل تعدیل یا ضایعات" /></label> : null}
+          </div>
+          {documentMessage ? <p className="inventory-document-message" role="status">{documentMessage}</p> : null}
+          <div className="inventory-document-actions"><span>با ثبت نهایی، موجودی و دفتر گردش به‌صورت تراکنشی به‌روزرسانی می‌شوند.</span><Button type="submit" disabled={documentBusy || loading || !locations.length || !items.length || !units.length}>{documentBusy ? "در حال ثبت..." : "ثبت و نهایی‌سازی سند"}</Button></div>
+        </form>
+      </Surface>
+
+      <Surface padding="md" className="inventory-documents-panel">
+        <div className="inventory-panel-heading"><div><h2><ClipboardList size={17} /> اسناد اخیر انبار</h2><p>آخرین اسناد همین شعبه</p></div></div>
+        <div className="inventory-documents-list">
+          {documents.map((document) => <div className="inventory-document-row" key={document.id}>
+            <div><strong>{documentLabel[document.document_type] ?? document.document_type} · {document.document_no}</strong><small>{document.location.name}{document.destination ? ` ← ${document.destination.name}` : ""} · {dateTime(document.created_at)}</small>{document.reason ? <small>{document.reason}</small> : null}</div>
+            <span className={`inventory-document-status is-${document.status}`}>{documentStatus[document.status] ?? document.status}</span>
+          </div>)}
+          {!documents.length ? <div className="inventory-empty">هنوز سندی برای این شعبه ثبت نشده است.</div> : null}
+        </div>
+      </Surface>
 
       <div className="inventory-layout">
         <Surface padding="md" className="inventory-stock-panel">
