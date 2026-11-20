@@ -43,5 +43,5 @@ jobs:
         run: php scripts/check-v3-backend-recipe-routes.php
       - name: Inventory draft document contract checks
         run: php scripts/check-v3-backend-inventory-documents.php
-      - name: Order cursor pagination contract checks
+      - name: Order pagination and timezone-aware date filter contract checks
         run: php scripts/check-v3-backend-orders.php
