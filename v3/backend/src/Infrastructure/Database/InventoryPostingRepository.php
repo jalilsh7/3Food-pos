@@ -43,6 +43,19 @@ final readonly class InventoryPostingRepository
         ];
     }
 
+    public function locationIsActive(int $businessId, int $branchId, int $locationId): bool
+    {
+        $s = $this->connection->prepare(
+            'SELECT is_active FROM pos_stock_locations
+             WHERE business_id = :business_id AND branch_id = :branch_id AND id = :location_id
+             LIMIT 1'
+        );
+        $s->execute([
+            'business_id' => $businessId, 'branch_id' => $branchId, 'location_id' => $locationId,
+        ]);
+        return (int) $s->fetchColumn() === 1;
+    }
+
     public function unitCostFromTotal(string $totalCostAmount, string $baseQuantity): string
     {
         $s = $this->connection->prepare(
