@@ -1349,3 +1349,17 @@
 - Backup format v2 داده‌های BINARY/VARBINARY/BLOB را base64 می‌کند؛ restore نسخه‌های ۱ و ۲ را می‌پذیرد و طول nonce/tag رمزگذاری‌شده در CI تأیید شد.
 - آخرین code HEAD تست‌شده: `9e800c96f6c3f1f5aaee6d68ed18edeaf3529c8d`. تست‌ها فقط روی DBهای disposable CI اجرا شدند؛ هیچ migration روی مشتری/Production اجرا نشده.
 - موارد باز: return source-linked، اتصال مصرف به رزرو/سفارش، اتصال UI به API و تست‌های بار/حجم بالا و retry پس از deadlock.
+
+
+## FE-01A — اتصال احراز هویت Frontend به API (2026-11-20)
+- فایل `v3/frontend/src/shared/api/client.ts`: API client با `credentials: same-origin`، `cache: no-store`، base URL قابل تنظیم با `VITE_API_BASE_URL` (پیش‌فرض `/api/v1`) و CSRF token فقط در حافظه runtime؛ هیچ session/CSRF token در localStorage یا sessionStorage ذخیره نمی‌شود.
+- صفحه ورود فارسی RTL در `v3/frontend/src/features/auth/AuthScreen.tsx`؛ اتصال واقعی به `POST /auth/login` و بازیابی نشست با `GET /auth/me`.
+- خروج امن با `POST /auth/logout`؛ header CSRF از token حافظه‌ای و cookie مرورگر تأمین می‌شود. در صورت شکست درخواست خروج، shell نشست را حذف نمی‌کند و خطا را نشان می‌دهد.
+- تغییر اجباری رمز اولیه با `POST /auth/change-password`، حداقل ۱۲ نویسه، تأیید رمز و سپس ورود مجدد؛ backend پس از تغییر رمز همه نشست‌های قبلی را با افزایش session_version نامعتبر می‌کند.
+- shell نام نمایشی واقعی کاربر را نشان می‌دهد و وضعیت «نشست معتبر» را جایگزین حالت طراحی در نوار بالا کرده است. ماژول‌های عملیاتی هنوز prototype هستند و نباید به‌عنوان داده واقعی معرفی شوند.
+- فایل type declaration `v3/frontend/src/vite-env.d.ts` برای Vite env اضافه شد.
+- تست واقعی DB در `scripts/check-v3-auth-integration.php`: login، ذخیره hash نشست/CSRF، introspection، چرخش CSRF، تغییر اجباری رمز، invalidation نشست قبلی، ورود مجدد و logout.
+- CI روی commit `5f44d7e`: Backend PASS در PHP 8.2/8.3/8.4 ([44701020452](https://github.com/jalilsh7/3Food-pos/actions/runs/44701020452))؛ Frontend TypeScript/build PASS ([44701020496](https://github.com/jalilsh7/3Food-pos/actions/runs/44701020496))؛ MySQL 8.4 + MariaDB 10.6 PASS شامل auth integration و inventory posting integration ([44701012524](https://github.com/jalilsh7/3Food-pos/actions/runs/44701012524)).
+- در تست یکپارچه، audit snapshot تغییر رمز به علت نام فیلد `must_change_password` توسط secret-key filter رد می‌شد؛ کلید snapshot به `forced_change_required` تغییر کرد تا هیچ نام فیلد حاوی password وارد audit نشود. هر دو موتور DB بعد از اصلاح PASS شدند.
+- وضعیت FE-01A: **تکمیل‌شده در API client، login/session/logout و forced password change؛ تست build و DB integration موفق.**
+- گام بعدی: انتخاب business/branch context و اتصال InventoryWorkspace به balances، documents، ledger و posting API؛ سپس Orders و Catalog.
