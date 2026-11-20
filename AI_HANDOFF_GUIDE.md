@@ -228,3 +228,16 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 - Fix commits: `d5f23c0`, `ab3c639`, `b6553d7`. CI re-runs are pending; do not report them passed until completed.
 - Inventory package INV-02A1 exists in current branch: draft document header/list/detail and draft line creation only. No ledger or balance writes occur. Line update/delete and posting remain open.
 - Never execute migration 011 against a customer/production DB without explicit approval. MySQL/MariaDB CI uses disposable service databases only.
+
+
+## 16. Inventory draft line CRUD — INV-02A2 (2026-11-20)
+- Migration `012_stock-document-line-public-ids.sql` adds a UUID public ID to stock document lines, backfills existing rows with UUID(), then enforces NOT NULL and scoped uniqueness on business/branch/document/public_id.
+- Draft line create now returns its public `id`; document detail includes each line's public ID.
+- Update route: `PATCH /api/v1/inventory/documents/{documentPublicId}/lines/{linePublicId}`.
+- Delete route: `DELETE /api/v1/inventory/documents/{documentPublicId}/lines/{linePublicId}`.
+- Both require authenticated session, branch context, `inventory.manage`, CSRF, same-origin and Idempotency-Key. The service locks the scoped draft header and then the scoped line row, rejects non-draft documents, writes audit records and executes within the idempotent transaction.
+- Update revalidates stock item, unit dimension, conversion factor and positive decimal quantity; it stores a new conversion-factor snapshot/base quantity. No valuation/costing is performed.
+- Draft CRUD does not touch `pos_stock_ledger` or `pos_stock_balances`. Posting remains intentionally unimplemented pending costing/financial policy review.
+- Migration 012 is committed but not applied to any customer/production database. Database CI uses a disposable migration probe sequence 013.
+- Contract checks include migration backfill/public ID uniqueness, route handlers, idempotency scopes and no ledger/balance mutation. Real MySQL/MariaDB concurrency/rollback integration tests remain outstanding.
+- The V3 frontend typecheck and production build passed at code HEAD `a8560e4`; recheck Backend, DB and PHP migration workflows on the newest HEAD before marking the package green.
