@@ -188,6 +188,73 @@ export function InventoryWorkspace() {
   const needsCost = documentType === "adjustment_in";
   const selectedDocumentItem = items.find((item) => item.id === documentItem) ?? null;
 
+  async function createDraftOnly() {
+    if (!documentLocation) return;
+    if (needsReason && !documentReason.trim()) {
+      setDocumentMessage("برای تعدیل و ضایعات، ثبت دلیل الزامی است.");
+      return;
+    }
+    setDocumentBusy(true);
+    setDocumentMessage(null);
+    try {
+      const draft = await createInventoryDocument({
+        document_type: documentType,
+        location_id: documentLocation,
+        ...(documentType === "transfer" ? { destination_location_id: destinationLocation } : {}),
+        ...(documentReason.trim() ? { reason: documentReason.trim() } : {}),
+      });
+      setDocumentMessage(`پیش‌نویس سند ${draft.document_no} ایجاد شد. اکنون می‌توانید چند ردیف به آن اضافه کنید.`);
+      await loadData(true);
+      await openDocument(draft.id);
+    } catch (cause) {
+      setDocumentMessage(cause instanceof ApiError ? cause.message : "ایجاد پیش‌نویس انجام نشد.");
+    } finally {
+      setDocumentBusy(false);
+    }
+  }
+
+  async function addLineToActiveDraft() {
+    if (!activeDocument || activeDocument.status !== "draft" || !documentItem || !documentUnit || !documentQuantity.trim()) return;
+    if (activeDocument.document_type === "adjustment_in" && !documentCost.trim()) {
+      setDocumentMessage("برای تعدیل افزایشی، مبلغ کل به تومان الزامی است.");
+      return;
+    }
+    setDocumentDetailBusy(true);
+    setDocumentMessage(null);
+    try {
+      await addInventoryDocumentLine(activeDocument.id, {
+        stock_item_id: documentItem,
+        quantity: documentQuantity,
+        unit_code: documentUnit,
+        ...(activeDocument.document_type === "adjustment_in" ? { total_cost_amount: documentCost } : {}),
+      });
+      setActiveDocument(await getInventoryDocument(activeDocument.id));
+      setDocumentQuantity("1");
+      setDocumentCost("");
+      await loadData(true);
+    } catch (cause) {
+      setDocumentMessage(cause instanceof ApiError ? cause.message : "افزودن ردیف به پیش‌نویس انجام نشد.");
+    } finally {
+      setDocumentDetailBusy(false);
+    }
+  }
+
+  async function finalizeActiveDraft() {
+    if (!activeDocument || activeDocument.status !== "draft" || !activeDocument.lines.length) return;
+    setDocumentDetailBusy(true);
+    setDocumentMessage(null);
+    try {
+      await postInventoryDocument(activeDocument.id);
+      setActiveDocument(await getInventoryDocument(activeDocument.id));
+      setDocumentMessage(`سند ${activeDocument.document_no} با موفقیت ثبت نهایی شد.`);
+      await loadData(true);
+    } catch (cause) {
+      setDocumentMessage(cause instanceof ApiError ? cause.message : "ثبت نهایی سند انجام نشد.");
+    } finally {
+      setDocumentDetailBusy(false);
+    }
+  }
+
   async function submitStockDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!documentLocation || !documentItem || !documentUnit || !documentQuantity.trim()) return;
@@ -282,7 +349,7 @@ export function InventoryWorkspace() {
             {needsReason ? <label className="inventory-document-reason">دلیل ثبت<input required maxLength={500} value={documentReason} onChange={(event) => setDocumentReason(event.target.value)} placeholder="شرح دلیل تعدیل یا ضایعات" /></label> : null}
           </div>
           {documentMessage ? <p className="inventory-document-message" role="status">{documentMessage}</p> : null}
-          <div className="inventory-document-actions"><span>با ثبت نهایی، موجودی و دفتر گردش به‌صورت تراکنشی به‌روزرسانی می‌شوند.</span><Button type="submit" disabled={documentBusy || loading || !locations.length || !items.length || !units.length}>{documentBusy ? "در حال ثبت..." : "ثبت و نهایی‌سازی سند"}</Button></div>
+          <div className="inventory-document-actions"><span>می‌توانید پیش‌نویس چندردیفی بسازید یا یک سند تک‌ردیفی را مستقیم ثبت نهایی کنید.</span><div><Button variant="secondary" type="button" disabled={documentBusy || loading || !locations.length} onClick={() => void createDraftOnly()}>ایجاد پیش‌نویس</Button><Button type="submit" disabled={documentBusy || loading || !locations.length || !items.length || !units.length}>{documentBusy ? "در حال ثبت..." : "ثبت سریع سند"}</Button></div></div>
         </form>
       </Surface>
 
@@ -295,7 +362,7 @@ export function InventoryWorkspace() {
           </div>)}
           {!documents.length ? <div className="inventory-empty">هنوز سندی برای این شعبه ثبت نشده است.</div> : null}
           {activeDocument ? <div className="inventory-document-detail">
-            <div className="inventory-document-detail-heading"><strong>سند {activeDocument.document_no}</strong><button type="button" onClick={() => setActiveDocument(null)}>بستن</button></div>
+            <div className="inventory-document-detail-heading"><strong>سند {activeDocument.document_no}</strong><div>{activeDocument.status === "draft" ? <><button type="button" disabled={documentDetailBusy || !documentItem} onClick={() => void addLineToActiveDraft()}>افزودن قلم انتخاب‌شده</button><button type="button" disabled={documentDetailBusy || !activeDocument.lines.length} onClick={() => void finalizeActiveDraft()}>ثبت نهایی</button></> : null}<button type="button" onClick={() => setActiveDocument(null)}>بستن</button></div></div>
             <div className="inventory-document-lines">
               {activeDocument.lines.map((line) => <div className="inventory-document-line-detail" key={line.id}>
                 {editingLineId === line.id ? <>
