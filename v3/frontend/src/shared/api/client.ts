@@ -5,11 +5,6 @@ export type AuthenticatedUser = {
   must_change_password: boolean;
 };
 
-type ApiEnvelope<T> = {
-  data: T;
-  meta?: Record<string, unknown>;
-};
-
 export class ApiError extends Error {
   constructor(message: string, readonly status: number, readonly code: string) {
     super(message);
@@ -75,11 +70,8 @@ export async function signIn(username: string, password: string): Promise<Authen
 }
 
 export async function signOut(): Promise<void> {
-  try {
-    await request<{ logged_out: boolean }>("/auth/logout", { method: "POST", body: "{}" });
-  } finally {
-    setCsrfToken(null);
-  }
+  await request<{ logged_out: boolean }>("/auth/logout", { method: "POST", body: "{}" });
+  setCsrfToken(null);
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
