@@ -482,6 +482,8 @@ export async function getOrders(filters: {
   channel?: string;
   payment?: string;
   fulfillment?: string;
+  fromDate?: string;
+  toDate?: string;
   limit?: number;
   before?: string;
 } = {}): Promise<OrderPage> {
@@ -490,6 +492,8 @@ export async function getOrders(filters: {
   if (filters.channel) query.set("channel", filters.channel);
   if (filters.payment) query.set("payment", filters.payment);
   if (filters.fulfillment) query.set("fulfillment", filters.fulfillment);
+  if (filters.fromDate) query.set("from_date", filters.fromDate);
+  if (filters.toDate) query.set("to_date", filters.toDate);
   if (filters.before) query.set("before", filters.before);
   return request<OrderPage>(`/orders?${query.toString()}`);
 }
