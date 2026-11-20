@@ -496,10 +496,10 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
   await postSms(phone, text, event, "");
 }
 
-async function sendRaw(phone: string, text: string) {
+async function sendRaw(phone: string, text: string, event = "manual") {
   const normalized=normalizeIranPhone(phone);
-  if (!/^09[0-9]{9}$/.test(normalized) || !text) return false;
-  return await postSms(normalized, text, "manual", "");
+  if (!/^09[0-9]{9}$/.test(normalized) || !text.trim() || text.length > 950) return false;
+  return await postSms(normalized, text, event, "");
 }
 
 async function postSms(phone: string, text: string, event: string, bodyId: string, providerText = text, validationError = "") {
@@ -1728,6 +1728,14 @@ function SmsScreen() {
   const [campaignClock,setCampaignClock]=useState(INITIAL_RENDER_TIME);
   useEffect(() => { const timer=window.setInterval(()=>setCampaignClock(Date.now()),60000); return ()=>window.clearInterval(timer); }, []);
   const activeCampaignFilters = Object.entries(campaignFilters).filter(([,value])=>value!=="");
+  const smsReport = {
+    total: logs.length,
+    successful: logs.filter((log) => log.ok).length,
+    failed: logs.filter((log) => !log.ok).length,
+    service: logs.filter((log) => log.route === "service").length,
+    personal: logs.filter((log) => log.route !== "service").length,
+    campaigns: logs.filter((log) => log.event === "campaign").length,
+  };
   const campaignRecipientPhones = new Set<string>();
   const campaignRecipients=customers.filter(customer=>{
     const normalizedPhone = normalizeIranPhone(customer.phone);
@@ -1750,7 +1758,7 @@ function SmsScreen() {
     if(campaignText.length>950){window.alert("متن پیامک باید حداکثر ۹۵۰ نویسه باشد.");return;}
     if(!window.confirm(`پیامک برای ${campaignRecipients.length.toLocaleString("fa-IR")} مشتری ارسال شود؟`))return;
     setCampaignBusy(true);let sent=0,failed=0;
-    for(const customer of campaignRecipients){const ok=await sendRaw(customer.phone,campaignText);if(ok)sent++;else failed++;setCampaignProgress(`${(sent+failed).toLocaleString("fa-IR")} از ${campaignRecipients.length.toLocaleString("fa-IR")} · موفق ${sent.toLocaleString("fa-IR")} · ناموفق ${failed.toLocaleString("fa-IR")}`);}
+    for(const customer of campaignRecipients){const ok=await sendRaw(customer.phone,campaignText,"campaign");if(ok)sent++;else failed++;setCampaignProgress(`${(sent+failed).toLocaleString("fa-IR")} از ${campaignRecipients.length.toLocaleString("fa-IR")} · موفق ${sent.toLocaleString("fa-IR")} · ناموفق ${failed.toLocaleString("fa-IR")}`);}
     setCampaignBusy(false);setCampaignProgress(`پایان کمپین — موفق ${sent.toLocaleString("fa-IR")}، ناموفق ${failed.toLocaleString("fa-IR")}`);
   }
   return (
@@ -1838,7 +1846,7 @@ function SmsScreen() {
             setBirthdayPromptBusy(true);
             let sent = 0, failed = 0;
             for (const customer of targets) {
-              if (await sendRaw(customer.phone, settings.birthdaySmsPrompt ?? "")) sent++; else failed++;
+              if (await sendRaw(customer.phone, settings.birthdaySmsPrompt ?? "", "birthday_prompt")) sent++; else failed++;
               setBirthdayPromptProgress(`موفق ${sent.toLocaleString("fa-IR")} · ناموفق ${failed.toLocaleString("fa-IR")} از ${targets.length.toLocaleString("fa-IR")}`);
             }
             setBirthdayPromptBusy(false);
@@ -1879,9 +1887,20 @@ function SmsScreen() {
       </Card>
       </section>
       <Card>
-        <h3 className="mb-2 font-semibold">سوابق ارسال پیامک</h3>
-        {logs.length === 0 ? <Empty text="ارسالی ثبت نشده" /> : logs.slice(0, 20).map((l) => (
-          <p key={l.id} className="border-b border-line py-2 text-sm"><span className={l.ok ? "text-leaf" : "text-warn"}>{l.ok ? "موفق" : "ناموفق"}</span> — <span className="text-xs text-muted">{l.route === "service" ? "خط خدماتی" : "خط شخصی"} · {l.event}</span> — {l.to} — {l.detail}</p>
+        <h3 className="mb-3 font-semibold">گزارش و سوابق ارسال پیامک</h3>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          {[["کل ارسال‌ها",smsReport.total],["موفق",smsReport.successful],["ناموفق",smsReport.failed],["خط خدماتی",smsReport.service],["خط شخصی",smsReport.personal],["کمپین‌ها",smsReport.campaigns]].map(([label,value])=><div key={label} className="rounded-xl border border-line bg-bg p-3"><p className="text-xs text-muted">{label}</p><p className="mt-1 text-lg font-extrabold tabular-nums">{Number(value).toLocaleString("fa-IR")}</p></div>)}
+        </div>
+        <p className="mb-2 mt-3 text-xs text-muted">گزارش بر اساس سوابق ثبت‌شده در پنل؛ وضعیت موفقیت از پاسخ سرویس پیامک گرفته می‌شود.</p>
+        {logs.length === 0 ? <Empty text="ارسالی ثبت نشده" /> : logs.slice(0, 50).map((l) => (
+          <div key={l.id} className="border-b border-line py-2 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className={l.ok ? "text-leaf" : "text-warn"}>{l.ok ? "موفق" : "ناموفق"}</span>
+              <span className="text-xs text-muted">{l.route === "service" ? "خط خدماتی" : "خط شخصی"} · {({campaign:"کمپین",birthday_prompt:"درخواست تولد",manual:"ارسال دستی",order_invoice:"فاکتور سفارش",order_created:"ثبت سفارش",order_ready:"آماده شدن",order_delivered:"تحویل",points_earned:"کسب امتیاز",discount_used:"استفاده از کد"} as Record<string,string>)[l.event] ?? l.event}</span>
+            </div>
+            <p className="mt-1 text-xs" dir="ltr">{l.to}</p>
+            <p className="mt-1 text-xs text-muted">{l.detail}</p>
+          </div>
         ))}
       </Card>
     </div>
