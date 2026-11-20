@@ -68,4 +68,13 @@ $assert(str_contains($catalogWorkspace, 'createCatalogProduct') && str_contains(
 $assert(str_contains($catalogWorkspace, 'updateCatalogProduct') && str_contains($catalogWorkspace, 'archiveCatalogProduct'), 'Catalog workspace is not persisting product status and archive actions.');
 $assert(!str_contains($catalogWorkspace, 'seedProducts'), 'Catalog workspace still contains hard-coded sample products.');
 
+$orderCenter = file_get_contents(__DIR__ . '/../v3/frontend/src/features/orders/OrderCenter.tsx');
+$kitchenBoard = file_get_contents(__DIR__ . '/../v3/frontend/src/features/kitchen/KitchenBoard.tsx');
+$assert(str_contains($client, 'transitionOrder') && str_contains($client, '/status'), 'Order status transition API client is missing.');
+$assert(str_contains($client, 'transitionKitchenOrder') && str_contains($client, '/kitchen-status'), 'Kitchen status transition API client is missing.');
+$assert(str_contains($client, 'path.startsWith("/orders/")'), 'Order status mutations are missing automatic idempotency-key retention.');
+$assert(str_contains($orderCenter, 'transitionOrder(selectedOrder.id, toStatus)') && str_contains($orderCenter, 'پذیرش سفارش'), 'Order center does not expose backend acceptance/completion actions.');
+$assert(str_contains($kitchenBoard, 'getOrders({ status') && str_contains($kitchenBoard, 'transitionKitchenOrder(order.id, nextStatus)'), 'Kitchen board is not using the live order queue and kitchen transition API.');
+$assert(!str_contains($kitchenBoard, 'initialTickets'), 'Kitchen board still contains hard-coded sample tickets.');
+
 fwrite(STDOUT, "V3 order pagination, timezone filters and POS order submission contract checks passed.\n");
