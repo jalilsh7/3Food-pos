@@ -52,6 +52,12 @@ final readonly class InventoryPostingService
                 }
 
                 $type = (string) $document['document_type'];
+                if ($type === 'purchase_receipt') {
+                    $supplierId = (int) ($document['supplier_id'] ?? 0);
+                    if ($supplierId < 1 || !$this->documents->supplierIsActive($scope->businessId, $supplierId)) {
+                        throw new HttpException(409, 'stock_document_supplier_inactive', 'The purchase receipt supplier is no longer active in this business.');
+                    }
+                }
                 if ($type === 'return') {
                     throw new HttpException(409, 'stock_document_type_not_postable', 'Return posting requires a source-linked return valuation policy and is not enabled yet.');
                 }
