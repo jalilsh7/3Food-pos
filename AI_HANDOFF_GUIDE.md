@@ -252,3 +252,16 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 - INV-02A2 line create/update/delete contract passed Backend CI. It is not yet a full DB integration test of document lifecycle. Do not treat this as evidence that inventory posting, ledger writes or balance updates work.
 - Next: review inventory valuation/costing policy and financial amount semantics before implementing posting. Keep ledger append-only, balance mutation atomic, negative stock guarded, and concurrency/idempotency/rollback integration tests mandatory.
 - No migration was run on any customer/production database.
+
+
+## 18. Inventory posting and valuation — INV-02B1 (2026-11-20)
+- Implemented `POST /api/v1/inventory/documents/{documentPublicId}/post`. Requires session, CSRF, same-origin, branch-scoped `inventory.manage`, Idempotency-Key and audit. The entire post runs in one idempotent DB transaction.
+- The posting flow locks the draft header, line rows, then all affected stock balances in deterministic item/location order. It appends ledger rows, updates balances and marks the document posted. Any failure rolls back the complete posting.
+- Costing method: Moving Weighted Average per stock item per location. Monetary amounts are integer TOMAN; line `total_cost_amount` is supplied for purchase receipts and inbound adjustments; `unit_cost_snapshot` is cost per base unit. SQL DECIMAL arithmetic is used; do not introduce PHP floats.
+- Supported posting types: `purchase_receipt` -> `purchase_in`; `adjustment_in`; `adjustment_out`; `consumption` -> `consumption_out`; `waste` -> `waste_out`; `transfer` -> paired `transfer_out` and `transfer_in` with balanced value.
+- Outgoing movement is blocked if on-hand less reserved is insufficient. No negative stock. The ledger is append-only at application/API level; there are no ledger update/delete routes.
+- General document detail omits valuation. Protected endpoint `GET /api/v1/inventory/documents/{documentPublicId}/valuation` requires branch-scoped `inventory.manage` and returns TOMAN cost snapshots.
+- Document type `return` can be drafted but posting returns `stock_document_type_not_postable` until source-linked return semantics and historical cost restoration are implemented. Do not use current weighted average as a substitute for original sale/receipt cost.
+- Real DB integration test `scripts/check-v3-inventory-posting-integration.php` covers two purchase receipts, weighted average, valuation permission data service, cost privacy in general detail, consumption, transfer, idempotency replay, insufficient stock and atomic multi-line rollback. The DB workflow also verifies binary idempotency nonce/tag survive backup/restore v2.
+- Verified Backend run: [44697072239](https://github.com/jalilsh7/3Food-pos/actions/runs/44697072239). Verified DB engine run: [44697072230](https://github.com/jalilsh7/3Food-pos/actions/runs/44697072230), both MySQL 8.4 and MariaDB 10.6 passed. PHP migration workflow on the same latest code was still running at handoff update.
+- Remaining: race/concurrency test with separate connections, cross-business/branch negative tests, reserved stock scenarios, adjustment in/out scenarios, return source links, UI/API integration. Never run migrations on customer/production DB without explicit approval.
