@@ -445,6 +445,14 @@ try {
     $smsSettings = api('GET', '/api/v1/sms/settings');
     check($smsSettings['status'] === 200 && array_key_exists('inbox_enabled', $smsSettings['json']['settings'] ?? []), 'SMS settings expose explicit birthday inbox enable state');
 
+    $inboxSettingsSaved = api('POST', '/api/v1/sms/settings', [
+        'enabled' => false, 'username' => '', 'password' => '', 'credential_mode' => 'password',
+        'sender' => '', 'sender_support_one' => '', 'sender_support_two' => '',
+        'inbox_enabled' => false, 'inbox_location' => '', 'inbox_from' => '', 'inbox_index' => '1', 'inbox_count' => 50,
+    ], csrf_headers());
+    check($inboxSettingsSaved['status'] === 200 && ($inboxSettingsSaved['json']['settings']['inbox_enabled'] ?? true) === false, 'manager can save the birthday inbox disabled state');
+
+
     check($smsLogWrite['status'] === 201, 'manager can persist SMS delivery log');
     $smsSnapshot = api('GET', '/api/v1/bootstrap');
     check(($smsSnapshot['json']['data']['sms_logs'][0]['id'] ?? '') === 'ci-sms-log', 'manager bootstrap includes persistent SMS logs');
