@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace PersiaCoder\\PosV3\\Infrastructure\\Database;
+namespace PersiaCoder\PosV3\Infrastructure\Database;
 
 use PDO;
 
