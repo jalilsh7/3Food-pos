@@ -215,7 +215,7 @@ function AuthenticatedWorkspace({ user, business, branch, onLogout, actionError 
 
         <div className="content-area">
           {actionError ? <div className="auth-error" role="alert">{actionError}</div> : null}
-          {activeView === "overview" ? <Overview /> : activeView === "pos" ? <PosWorkspace /> : activeView === "orders" ? <OrderCenter timeZone={branch.timezone ?? business.timezone} /> : activeView === "kitchen" ? <KitchenBoard /> : activeView === "catalog" ? <CatalogWorkspace /> : activeView === "inventory" ? <InventoryWorkspace /> : activeView === "customers" ? <CustomersWorkspace /> : activeView === "finance" ? <FinanceWorkspace /> : activeView === "settings" ? <BusinessSettingsWorkspace /> : activeView === "storefront" ? <StorefrontWorkspace /> : (
+          {activeView === "overview" ? <Overview /> : activeView === "pos" ? <PosWorkspace /> : activeView === "orders" ? <OrderCenter timeZone={branch.timezone ?? business.timezone} /> : activeView === "kitchen" ? <KitchenBoard timeZone={branch.timezone ?? business.timezone} /> : activeView === "catalog" ? <CatalogWorkspace /> : activeView === "inventory" ? <InventoryWorkspace /> : activeView === "customers" ? <CustomersWorkspace /> : activeView === "finance" ? <FinanceWorkspace /> : activeView === "settings" ? <BusinessSettingsWorkspace /> : activeView === "storefront" ? <StorefrontWorkspace /> : (
             <div className="page-stack">
               <PageHeader
                 eyebrow={activeItem.description}
