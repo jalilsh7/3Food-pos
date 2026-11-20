@@ -64,9 +64,23 @@ try{
  }
  foreach($tables as $name=>$table)if($table['actual_rows']!==$table['expected_rows'])throw new RuntimeException("Restored row count mismatch for {$name}.");
  $pdo->exec('SET FOREIGN_KEY_CHECKS=1');
- $foreignKeys=$pdo->query("SELECT table_name,column_name,referenced_table_name,referenced_column_name,constraint_name,ordinal_position FROM information_schema.key_column_usage WHERE table_schema=DATABASE() AND referenced_table_name IS NOT NULL ORDER BY table_name,constraint_name,ordinal_position")->fetchAll();
+ $foreignKeys=$pdo->query(
+  "SELECT table_name AS fk_child_table, column_name AS fk_child_column,
+          referenced_table_name AS fk_parent_table,
+          referenced_column_name AS fk_parent_column,
+          constraint_name AS fk_constraint_name,
+          ordinal_position AS fk_ordinal_position
+   FROM information_schema.key_column_usage
+   WHERE table_schema=DATABASE() AND referenced_table_name IS NOT NULL
+   ORDER BY table_name,constraint_name,ordinal_position"
+ )->fetchAll(PDO::FETCH_ASSOC);
  $groups=[];
- foreach($foreignKeys as $fk){$key=$fk['table_name'].'/'.$fk['constraint_name'];$groups[$key]['child']=$fk['table_name'];$groups[$key]['parent']=$fk['referenced_table_name'];$groups[$key]['pairs'][]=[$fk['column_name'],$fk['referenced_column_name']];}
+ foreach($foreignKeys as $fk){
+  $key=$fk['fk_child_table'].'/'.$fk['fk_constraint_name'];
+  $groups[$key]['child']=$fk['fk_child_table'];
+  $groups[$key]['parent']=$fk['fk_parent_table'];
+  $groups[$key]['pairs'][]=[$fk['fk_child_column'],$fk['fk_parent_column']];
+ }
  foreach($groups as $group){
   $child=$group['child'];$parent=$group['parent'];$conditions=[];$notNull=[];
   foreach($group['pairs'] as [$childColumn,$parentColumn]){$conditions[]='c.'.PosV3DatabaseTools::quoteIdentifier($childColumn).' = p.'.PosV3DatabaseTools::quoteIdentifier($parentColumn);$notNull[]='c.'.PosV3DatabaseTools::quoteIdentifier($childColumn).' IS NOT NULL';}
