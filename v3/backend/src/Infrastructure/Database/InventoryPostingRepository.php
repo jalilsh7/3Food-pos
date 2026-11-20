@@ -57,7 +57,7 @@ final readonly class InventoryPostingRepository
     {
         $s = $this->connection->prepare(
             'SELECT CAST(ROUND(CAST(:base_quantity AS DECIMAL(18,6)) *
-                       CAST(:unit_cost AS DECIMAL(24,8)), 0) AS SIGNED)'
+                       CAST(:unit_cost AS DECIMAL(24,8)), 0) AS DECIMAL(20,0))'
         );
         $s->execute(['base_quantity' => $baseQuantity, 'unit_cost' => $unitCost]);
         $amount = $s->fetchColumn();
