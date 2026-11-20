@@ -20,7 +20,7 @@ const apiBase = (import.meta.env.VITE_API_BASE_URL || "/api/v1").replace(/\/$/, 
 let csrfToken: string | null = null;
 let businessContext: { businessId: string; branchId: string } | null = null;
 const contextStorageKey = "pos_v3_business_context";
-const pendingInventoryIdempotencyKeys = new Map<string, string>();
+const pendingMutationIdempotencyKeys = new Map<string, string>();
 
 export function getSavedBusinessContext(): SavedBusinessContext | null {
   try {
@@ -37,7 +37,7 @@ export function getSavedBusinessContext(): SavedBusinessContext | null {
 
 export function setBusinessContext(business: BusinessSummary, branch: BranchSummary): void {
   if (businessContext && (businessContext.businessId !== business.id || businessContext.branchId !== branch.id)) {
-    pendingInventoryIdempotencyKeys.clear();
+    pendingMutationIdempotencyKeys.clear();
   }
   businessContext = { businessId: business.id, branchId: branch.id };
   try {
@@ -49,7 +49,7 @@ export function setBusinessContext(business: BusinessSummary, branch: BranchSumm
 
 export function clearBusinessContext(): void {
   businessContext = null;
-  pendingInventoryIdempotencyKeys.clear();
+  pendingMutationIdempotencyKeys.clear();
   try {
     window.localStorage.removeItem(contextStorageKey);
   } catch {
@@ -69,13 +69,13 @@ async function request<T>(path: string, options: RequestInit = {}, context: { bu
   if (scope?.branchId && !headers.has("X-Branch-ID")) headers.set("X-Branch-ID", scope.branchId);
   if (options.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   let pendingIdempotencySignature: string | null = null;
-  if (path.startsWith("/inventory/") && !["GET", "HEAD", "OPTIONS"].includes(method)
+  if ((path.startsWith("/inventory/") || path.startsWith("/catalog/")) && !["GET", "HEAD", "OPTIONS"].includes(method)
     && !headers.has("Idempotency-Key")) {
     pendingIdempotencySignature = JSON.stringify([method, path, typeof options.body === "string" ? options.body : ""]);
-    let key = pendingInventoryIdempotencyKeys.get(pendingIdempotencySignature);
+    let key = pendingMutationIdempotencyKeys.get(pendingIdempotencySignature);
     if (!key) {
       key = globalThis.crypto.randomUUID();
-      pendingInventoryIdempotencyKeys.set(pendingIdempotencySignature, key);
+      pendingMutationIdempotencyKeys.set(pendingIdempotencySignature, key);
     }
     headers.set("Idempotency-Key", key);
   }
@@ -107,7 +107,7 @@ async function request<T>(path: string, options: RequestInit = {}, context: { bu
       payload?.error?.code || "request_failed",
     );
   }
-  if (pendingIdempotencySignature !== null) pendingInventoryIdempotencyKeys.delete(pendingIdempotencySignature);
+  if (pendingIdempotencySignature !== null) pendingMutationIdempotencyKeys.delete(pendingIdempotencySignature);
   return payload.data as T;
 }
 
@@ -129,7 +129,7 @@ export async function signIn(username: string, password: string): Promise<Authen
 export async function signOut(): Promise<void> {
   await request<{ logged_out: boolean }>("/auth/logout", { method: "POST", body: "{}" }, null);
   setCsrfToken(null);
-  pendingInventoryIdempotencyKeys.clear();
+  pendingMutationIdempotencyKeys.clear();
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
@@ -456,6 +456,73 @@ export async function getPosCatalogProducts(search = ""): Promise<PosCatalogProd
 export async function getPosCatalogProductDetails(productId: string): Promise<PosCatalogProductDetail> {
   const data = await request<{ product: PosCatalogProductDetail }>(`/catalog/products/${encodeURIComponent(productId)}`);
   return data.product;
+}
+
+export type CatalogCategory = {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  sort_order: number;
+  is_active: boolean;
+};
+
+export type CatalogProductInput = {
+  name: string;
+  base_price_amount: number;
+  category_id?: string | null;
+  sku?: string | null;
+  product_type?: "prepared" | "packaged" | "ingredient" | "service";
+  tax_rate_bps?: number;
+};
+
+export async function getCatalogCategories(): Promise<CatalogCategory[]> {
+  const data = await request<{ categories: CatalogCategory[] }>("/catalog/categories");
+  return data.categories.filter((category) => category.is_active);
+}
+
+export async function getCatalogProducts(): Promise<PosCatalogProduct[]> {
+  const data = await request<{ products: PosCatalogProduct[] }>("/catalog/products?limit=100");
+  return data.products;
+}
+
+export async function createCatalogCategory(name: string): Promise<CatalogCategory> {
+  const data = await request<{ category: CatalogCategory }>("/catalog/categories", {
+    method: "POST",
+    body: JSON.stringify({ name: name.trim(), sort_order: 0 }),
+  });
+  return data.category;
+}
+
+export async function createCatalogProduct(payload: CatalogProductInput): Promise<PosCatalogProduct> {
+  const data = await request<{ product: PosCatalogProduct }>("/catalog/products", {
+    method: "POST",
+    body: JSON.stringify({
+      name: payload.name.trim(),
+      base_price_amount: payload.base_price_amount,
+      category_id: payload.category_id ?? null,
+      sku: payload.sku ?? null,
+      product_type: payload.product_type ?? "prepared",
+      tax_rate_bps: payload.tax_rate_bps ?? 0,
+    }),
+  });
+  return data.product;
+}
+
+export async function updateCatalogProduct(
+  productId: string,
+  payload: Partial<CatalogProductInput> & { is_active?: boolean },
+): Promise<void> {
+  await request<{ product: { id: string } }>(`/catalog/products/${encodeURIComponent(productId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function archiveCatalogProduct(productId: string): Promise<void> {
+  await request<{ product: { id: string; archived: boolean } }>(
+    `/catalog/products/${encodeURIComponent(productId)}`,
+    { method: "DELETE", body: "{}" },
+  );
 }
 
 export type CreatePosOrderPayload = {
