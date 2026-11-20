@@ -433,3 +433,11 @@ v3/backend/
 - General stock-document detail must never return total_cost_amount or unit_cost_snapshot. These are commercially sensitive valuation fields.
 - Keep valuation data behind the dedicated document valuation endpoint and the inventory.manage permission middleware. Do not add cost fields to generic document/detail/list DTOs.
 - Integration coverage must assert that ordinary detail omits cost fields and that the protected valuation endpoint returns them for an authorized actor.
+
+
+## Installation owner lifecycle and tenant isolation — 2026-11-20
+- The global installation owner role is bootstrap-only. It is valid only while app_business_setup_state.initial_business_id is NULL.
+- On successful initial business setup, assign the owner role to that business in app_user_business_roles and remove the global app_user_roles owner assignment in the same transaction.
+- Business discovery must use explicit business or branch memberships only. A global installation owner must never enumerate unrelated business rows.
+- PermissionRepository must not honor global wildcard owner permission after initial setup. Business-scoped owner wildcard remains valid only for the assigned business.
+- Integration coverage verifies empty business discovery before setup, owner membership after setup, removal of the global role, and no lingering installer privilege.
