@@ -347,8 +347,8 @@ export function InventoryWorkspace() {
 
   async function addLineToActiveDraft() {
     if (!activeDocument || activeDocument.status !== "draft" || !documentItem || !documentUnit || !documentQuantity.trim()) return;
-    if (activeDocument.document_type === "adjustment_in" && !documentCost.trim()) {
-      setDocumentMessage("برای تعدیل افزایشی، مبلغ کل به تومان الزامی است.");
+    if (["adjustment_in", "purchase_receipt"].includes(activeDocument.document_type) && !documentCost.trim()) {
+      setDocumentMessage("برای این سند، مبلغ کل خرید/ورودی به تومان الزامی است.");
       return;
     }
     setDocumentDetailBusy(true);
