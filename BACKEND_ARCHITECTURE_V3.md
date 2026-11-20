@@ -369,3 +369,10 @@ v3/backend/
 - Line update/delete and posting are not implemented. No ledger entries or balance changes are made. Cost snapshot fields are intentionally not calculated in this phase; default zero must not be interpreted as a real cost.
 - Requires migration 011 to be applied before runtime use. Migration has not been executed on any real database.
 - `scripts/check-v3-backend-inventory-documents.php` is a source-contract regression check only, not a DB integration test.
+
+
+## CI findings and inventory draft status — 2026-11-20
+- Backend validation passed on the previous branch HEAD for PHP 8.2/8.3/8.4, including auth, inventory read scope, recipe routes and draft-document contract.
+- Three other workflow blockers were repaired in the frontend module, V3 frontend TypeScript pin, and SQL parser baseline threshold; see `PROJECT_NOTES.md` and `AI_HANDOFF_GUIDE.md`. Re-run outcomes remain authoritative.
+- INV-02A1 supports draft document headers and line creation with business/branch scope, idempotency, audit and conversion-factor snapshots. It must not mutate `pos_stock_ledger` or `pos_stock_balances`.
+- Remaining: draft line update/delete; transactional posting; append-only ledger; atomic balance updates; negative-stock guard; DB integration/concurrency/rollback tests.
