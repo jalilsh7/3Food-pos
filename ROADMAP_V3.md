@@ -838,3 +838,11 @@
 - CI passed on commit 540237d3: frontend typecheck/build, backend validation and both MySQL 8.4/MariaDB 10.6 DB workflow jobs.
 - Remaining: edit existing product fields, category update/archive, variant/option-group management UI, and populated-catalog browser smoke.
 - Next package: order and kitchen status transition controls through existing state-machine/RBAC/idempotent endpoints.
+
+## ORD-02A — Live order and kitchen state transitions (2026-11-20)
+- OrderCenter now accepts draft/awaiting_payment and completes ready orders through idempotent backend transitions.
+- KitchenBoard now reads accepted/preparing/ready orders and moves accepted -> preparing -> ready; final completion remains in OrderCenter.
+- Hard-coded tickets and unsupported station filtering were removed. No auto-accept of draft orders.
+- DB tests cover transition sequence, replay idempotency, kitchen-only restrictions and illegal state changes.
+- CI passed on code commit 4e0f6267: frontend build, backend validation, MySQL 8.4 and MariaDB 10.6.
+- Remaining: cancel/reject reason UI, permission-aware UI affordances, realtime refresh, station routing contract, and browser smoke tests.
