@@ -426,6 +426,8 @@ final readonly class OrderRepository
         ?int $beforeOrderNumber = null,
         ?string $paymentStatus = null,
         ?string $fulfillmentMethod = null,
+        ?string $createdFromUtc = null,
+        ?string $createdToUtc = null,
     ): array {
         $sql = 'SELECT o.public_id, o.order_number, o.source_channel, o.order_status, o.payment_status,
                        o.subtotal_amount, o.tax_amount, o.total_amount, o.currency_code,
@@ -450,6 +452,12 @@ final readonly class OrderRepository
         if ($fulfillmentMethod !== null) {
             $sql .= ' AND f.method = :fulfillment_method';
         }
+        if ($createdFromUtc !== null) {
+            $sql .= ' AND o.created_at >= :created_from_utc';
+        }
+        if ($createdToUtc !== null) {
+            $sql .= ' AND o.created_at < :created_to_utc';
+        }
         $sql .= ' ORDER BY o.order_number DESC LIMIT :fetch_limit';
         $statement = $this->connection->prepare($sql);
         $statement->bindValue(':business_id', $businessId, PDO::PARAM_INT);
@@ -468,6 +476,12 @@ final readonly class OrderRepository
         }
         if ($fulfillmentMethod !== null) {
             $statement->bindValue(':fulfillment_method', $fulfillmentMethod, PDO::PARAM_STR);
+        }
+        if ($createdFromUtc !== null) {
+            $statement->bindValue(':created_from_utc', $createdFromUtc, PDO::PARAM_STR);
+        }
+        if ($createdToUtc !== null) {
+            $statement->bindValue(':created_to_utc', $createdToUtc, PDO::PARAM_STR);
         }
         $statement->bindValue(':fetch_limit', $limit + 1, PDO::PARAM_INT);
         $statement->execute();
@@ -502,6 +516,21 @@ final readonly class OrderRepository
                 ? (string) $orders[array_key_last($orders)]['order_number']
                 : null,
         ];
+    }
+
+    public function findEffectiveTimezone(int $businessId, int $branchId): ?string
+    {
+        $statement = $this->connection->prepare(
+            'SELECT COALESCE(NULLIF(branch.timezone, \'\'), business.timezone)
+             FROM pos_branches branch
+             INNER JOIN pos_businesses business ON business.id = branch.business_id
+             WHERE branch.business_id = :business_id AND branch.id = :branch_id
+               AND branch.is_active = 1 AND business.is_active = 1
+             LIMIT 1'
+        );
+        $statement->execute(['business_id' => $businessId, 'branch_id' => $branchId]);
+        $timezone = $statement->fetchColumn();
+        return $timezone === false ? null : (string) $timezone;
     }
 
     /** @return array<string,mixed>|null */
