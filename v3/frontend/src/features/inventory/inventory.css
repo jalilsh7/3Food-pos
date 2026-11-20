@@ -113,3 +113,9 @@
 .inventory-line-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 6px; }
 .inventory-line-actions button { min-height: 25px; padding: 0 8px; border: 1px solid var(--pc-line); border-radius: 6px; background: #fff; color: var(--pc-brand); font: inherit; font-size: 8px; cursor: pointer; }
 .inventory-line-actions button:disabled { opacity: .5; cursor: wait; }
+
+
+.inventory-document-actions > div, .inventory-document-detail-heading > div { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.inventory-document-detail-heading > div { justify-content: flex-end; }
+.inventory-document-detail-heading > div button:nth-child(2) { border-color: var(--pc-brand); background: var(--pc-brand); color: #fff; }
+@media (max-width: 700px) { .inventory-document-actions > div { width: 100%; } .inventory-document-actions > div .ui-button { flex: 1; } .inventory-document-detail-heading { align-items: flex-start; flex-direction: column; } .inventory-document-detail-heading > div { width: 100%; justify-content: flex-start; } }
