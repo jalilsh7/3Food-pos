@@ -434,7 +434,8 @@ $blockedCount = count(array_filter(
     static fn (array $r): bool => $r['status'] === 'http_error'
         && str_contains((string) ($r['message'] ?? ''), 'Available stock is insufficient'),
 ));
-$assert($postedCount === 1 && $blockedCount === 1, 'Concurrent posting race must allow exactly one post and block the competing post.');
+echo 'Concurrent posting race results: ' . json_encode($raceResults, JSON_UNESCAPED_UNICODE) . "\\n";
+$assert($postedCount === 1 && $blockedCount === 1, 'Concurrent posting race must allow exactly one post and block the competing post: ' . json_encode($raceResults, JSON_UNESCAPED_UNICODE));
 
 $pdo = PosV3DatabaseTools::connect();
 $ledgerCount = static function () use ($pdo, $businessId, $branchId): int {
