@@ -1,97 +1,214 @@
-import { useMemo, useState } from "react";
-import { ChefHat, Clock3, Flame, RefreshCw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChefHat, Clock3, Eye, RefreshCw } from "lucide-react";
+import {
+  ApiError,
+  getOrderDetails,
+  getOrders,
+  transitionKitchenOrder,
+  type OrderDetail,
+  type OrderStatus,
+  type OrderSummary,
+} from "../../shared/api/client";
 import { Button, Notice, StatusBadge, Surface } from "../../shared/ui";
 import "./kitchen.css";
 
-type ItemState = "queued" | "preparing" | "ready";
-type KitchenItem = { id: string; name: string; quantity: number; station: string; options?: string[]; note?: string; state: ItemState };
-type KitchenTicket = { id: string; channel: string; orderType: string; table?: string; time: string; elapsed: string; priority: "normal" | "urgent"; items: KitchenItem[] };
+const statusLabels: Record<"accepted" | "preparing" | "ready", string> = {
+  accepted: "در انتظار شروع",
+  preparing: "در حال آماده‌سازی",
+  ready: "آماده تحویل",
+};
+const channelLabels: Record<string, string> = {
+  pos: "صندوق", phone: "تلفنی", manual: "ثبت دستی", table: "میز",
+  takeaway: "بیرون‌بر", storefront: "فروشگاه آنلاین",
+};
+const fulfillmentLabels: Record<string, string> = {
+  dine_in: "سرو داخل", takeaway: "بیرون‌بر", delivery: "ارسال",
+};
+const money = (value: number) => new Intl.NumberFormat("fa-IR").format(value);
+const dateTime = (value: string, timeZone: string) => {
+  const date = new Date(value.includes("Z") || /[+-]\\d\\d:\\d\\d$/.test(value) ? value : `${value.replace(" ", "T")}Z`);
+  if (Number.isNaN(date.getTime())) return value;
+  try {
+    return new Intl.DateTimeFormat("fa-IR", { dateStyle: "short", timeStyle: "short", timeZone }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat("fa-IR", { dateStyle: "short", timeStyle: "short" }).format(date);
+  }
+};
 
-const initialTickets: KitchenTicket[] = [
-  { id: "D-1048", channel: "صندوق", orderType: "سرو داخل", table: "میز ۴", time: "۱۴:۳۲", elapsed: "۶ دقیقه", priority: "urgent", items: [
-    { id: "a1", name: "برگر کلاسیک", quantity: 1, station: "گریل", options: ["دوبل", "پنیر اضافه"], note: "سس جداگانه", state: "preparing" },
-    { id: "a2", name: "سیب‌زمینی", quantity: 1, station: "سرخ‌کن", state: "queued" },
-  ] },
-  { id: "D-1047", channel: "تلفنی", orderType: "بیرون‌بر", time: "۱۴:۲۶", elapsed: "۱۲ دقیقه", priority: "normal", items: [
-    { id: "b1", name: "پیتزا مخصوص", quantity: 2, station: "فر", options: ["دو نفره"], state: "preparing" },
-  ] },
-  { id: "D-1046", channel: "صندوق", orderType: "ارسال", time: "۱۴:۱۸", elapsed: "۲۰ دقیقه", priority: "normal", items: [
-    { id: "c1", name: "ساندویچ مرغ", quantity: 1, station: "گریل", state: "ready" },
-    { id: "c2", name: "نوشابه", quantity: 1, station: "نوشیدنی", state: "ready" },
-  ] },
-  { id: "D-1043", channel: "تلفنی", orderType: "بیرون‌بر", time: "۱۳:۴۰", elapsed: "۵۸ دقیقه", priority: "urgent", items: [
-    { id: "d1", name: "برگر کلاسیک", quantity: 1, station: "گریل", state: "queued" },
-    { id: "d2", name: "سیب‌زمینی", quantity: 1, station: "سرخ‌کن", state: "queued" },
-    { id: "d3", name: "نوشابه", quantity: 1, station: "نوشیدنی", state: "ready" },
-  ] },
-];
+async function fetchKitchenOrders(): Promise<OrderSummary[]> {
+  const pages = await Promise.all(
+    (["accepted", "preparing", "ready"] as const).map((status) => getOrders({ status, limit: 100 })),
+  );
+  const unique = new Map<string, OrderSummary>();
+  for (const page of pages) {
+    for (const order of page.orders) unique.set(order.id, order);
+  }
+  return [...unique.values()].sort((left, right) => right.created_at.localeCompare(left.created_at));
+}
 
-const stateLabel: Record<ItemState, string> = { queued: "در صف", preparing: "در حال آماده‌سازی", ready: "آماده" };
+export function KitchenBoard({ timeZone }: { timeZone: string }) {
+  const [orders, setOrders] = useState<OrderSummary[]>([]);
+  const [statusFilter, setStatusFilter] = useState<"all" | "accepted" | "preparing" | "ready">("all");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<OrderDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [transitioningId, setTransitioningId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-export function KitchenBoard() {
-  const [tickets, setTickets] = useState(initialTickets);
-  const [station, setStation] = useState("همه");
-  const stations = ["همه", ...Array.from(new Set(initialTickets.flatMap((ticket) => ticket.items.map((item) => item.station))))];
-  const visibleTickets = useMemo(() => tickets.map((ticket) => ({
-    ...ticket,
-    items: station === "همه" ? ticket.items : ticket.items.filter((item) => item.station === station),
-  })).filter((ticket) => ticket.items.length > 0), [tickets, station]);
-  const counts = {
-    active: tickets.reduce((sum, ticket) => sum + ticket.items.filter((item) => item.state !== "ready").length, 0),
-    ready: tickets.reduce((sum, ticket) => sum + ticket.items.filter((item) => item.state === "ready").length, 0),
-    tickets: tickets.filter((ticket) => ticket.items.some((item) => item.state !== "ready")).length,
-  };
+  useEffect(() => {
+    let active = true;
+    fetchKitchenOrders()
+      .then((items) => { if (active) setOrders(items); })
+      .catch((cause: unknown) => {
+        if (active) setError(cause instanceof ApiError ? cause.message : "دریافت صف آشپزخانه انجام نشد.");
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
 
-  function advanceItem(ticketId: string, itemId: string) {
-    setTickets((current) => current.map((ticket) => ticket.id !== ticketId ? ticket : {
-      ...ticket,
-      items: ticket.items.map((item) => item.id !== itemId ? item : {
-        ...item,
-        state: item.state === "queued" ? "preparing" : item.state === "preparing" ? "ready" : "ready",
-      }),
-    }));
+  useEffect(() => {
+    if (!selectedId) return;
+    let active = true;
+    setDetailLoading(true);
+    getOrderDetails(selectedId)
+      .then((result) => { if (active) setDetail(result); })
+      .catch((cause: unknown) => {
+        if (active) {
+          setDetail(null);
+          setActionError(cause instanceof ApiError ? cause.message : "دریافت اقلام سفارش انجام نشد.");
+        }
+      })
+      .finally(() => { if (active) setDetailLoading(false); });
+    return () => { active = false; };
+  }, [selectedId]);
+
+  const visibleOrders = useMemo(
+    () => orders.filter((order) => statusFilter === "all" || order.order_status === statusFilter),
+    [orders, statusFilter],
+  );
+  const activeCount = orders.filter((order) => order.order_status === "accepted" || order.order_status === "preparing").length;
+  const preparingCount = orders.filter((order) => order.order_status === "preparing").length;
+  const readyCount = orders.filter((order) => order.order_status === "ready").length;
+
+  async function refreshOrders() {
+    setRefreshing(true);
+    setError(null);
+    try {
+      setOrders(await fetchKitchenOrders());
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "بروزرسانی صف آشپزخانه انجام نشد.");
+    } finally {
+      setRefreshing(false);
+    }
   }
 
-  function resetDemo() { setTickets(initialTickets); }
+  async function advanceOrder(order: OrderSummary) {
+    const nextStatus = order.order_status === "accepted" ? "preparing" : order.order_status === "preparing" ? "ready" : null;
+    if (!nextStatus || transitioningId) return;
+    setTransitioningId(order.id);
+    setActionError(null);
+    try {
+      await transitionKitchenOrder(order.id, nextStatus);
+      await refreshOrders();
+      if (selectedId === order.id) setDetail(await getOrderDetails(order.id));
+    } catch (cause) {
+      setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "تغییر وضعیت آماده‌سازی انجام نشد.");
+    } finally {
+      setTransitioningId(null);
+    }
+  }
+
+  function toggleDetails(orderId: string) {
+    setActionError(null);
+    setSelectedId((current) => current === orderId ? null : orderId);
+    if (selectedId === orderId) setDetail(null);
+  }
 
   return (
     <div className="page-stack kitchen-workspace">
       <div className="kitchen-heading">
-        <div><span className="ui-eyebrow">KITCHEN DISPLAY SYSTEM</span><h1>آشپزخانه و آماده‌سازی</h1><p>صف آماده‌سازی به تفکیک سفارش و ایستگاه کاری</p></div>
-        <div className="kitchen-heading-actions"><StatusBadge variant="warning">دموی تعاملی</StatusBadge><Button size="sm" variant="secondary" onClick={resetDemo}><RefreshCw size={14} /> بازنشانی نمونه</Button></div>
-      </div>
-      <Notice variant="warning">این برد فقط نمونه تعاملی است. تغییر وضعیت اقلام در حافظه همین صفحه انجام می‌شود و به سفارش، چاپگر یا نمایشگر آشپزخانه واقعی ارسال نمی‌شود.</Notice>
-      <div className="kitchen-metrics">
-        <Surface padding="sm"><span>سفارش‌های فعال</span><strong>{counts.tickets}</strong></Surface>
-        <Surface padding="sm"><span>اقلام در جریان</span><strong>{counts.active}</strong></Surface>
-        <Surface padding="sm"><span>اقلام آماده</span><strong>{counts.ready}</strong></Surface>
-      </div>
-      <div className="kitchen-toolbar">
-        <div><h2><ChefHat size={18} /> صف آماده‌سازی</h2><p>فیلتر بر اساس ایستگاه</p></div>
-        <div className="kitchen-stations" role="group" aria-label="فیلتر ایستگاه">
-          {stations.map((item) => <button type="button" key={item} className={station === item ? "is-active" : ""} aria-pressed={station === item} onClick={() => setStation(item)}>{item}</button>)}
+        <div><span className="ui-eyebrow">KITCHEN DISPLAY SYSTEM</span><h1>آشپزخانه و آماده‌سازی</h1><p>صف زنده سفارش‌های پذیرفته‌شده از مرکز سفارش‌ها</p></div>
+        <div className="kitchen-heading-actions">
+          <StatusBadge variant="success">متصل به Backend</StatusBadge>
+          <Button size="sm" variant="secondary" onClick={() => { void refreshOrders(); }} disabled={loading || refreshing}>
+            <RefreshCw size={14} /> {refreshing ? "در حال بروزرسانی..." : "بروزرسانی"}
+          </Button>
         </div>
       </div>
-      {visibleTickets.length ? <div className="kitchen-ticket-grid">
-        {visibleTickets.map((ticket) => {
-          const allReady = ticket.items.every((item) => item.state === "ready");
-          return <Surface padding="md" className={ticket.priority === "urgent" ? "kitchen-ticket is-urgent" : "kitchen-ticket"} key={ticket.id}>
-            <div className="kitchen-ticket-head">
-              <div><strong>{ticket.id}</strong><span>{ticket.channel} · {ticket.orderType}{ticket.table ? ` · ${ticket.table}` : ""}</span></div>
-              <div className="kitchen-ticket-time"><Clock3 size={13} /><span>{ticket.time}</span><small>{ticket.elapsed}</small></div>
-            </div>
-            <div className="kitchen-ticket-flags">{ticket.priority === "urgent" ? <StatusBadge variant="danger"><Flame size={11} /> اولویت بالا</StatusBadge> : <StatusBadge variant="neutral">عادی</StatusBadge>}{allReady ? <StatusBadge variant="success">همه اقلام آماده</StatusBadge> : <StatusBadge variant="warning">در جریان</StatusBadge>}</div>
-            <div className="kitchen-ticket-items">
-              {ticket.items.map((item) => <article className={`kitchen-item is-${item.state}`} key={item.id}>
-                <div className="kitchen-item-main"><strong>{item.name} <b>× {item.quantity}</b></strong><span>{item.station}</span></div>
-                {item.options?.length ? <small>گزینه‌ها: {item.options.join("، ")}</small> : null}
-                {item.note ? <small className="kitchen-item-note">یادداشت: {item.note}</small> : null}
-                <div className="kitchen-item-action"><StatusBadge variant={item.state === "ready" ? "success" : item.state === "preparing" ? "warning" : "neutral"}>{stateLabel[item.state]}</StatusBadge><Button size="sm" variant={item.state === "ready" ? "ghost" : "secondary"} disabled={item.state === "ready"} onClick={() => advanceItem(ticket.id, item.id)}>{item.state === "queued" ? "شروع آماده‌سازی" : item.state === "preparing" ? "علامت‌گذاری آماده" : "تکمیل‌شده"}</Button></div>
-              </article>)}
-            </div>
-          </Surface>;
-        })}
-      </div> : <Surface padding="lg"><div className="kitchen-empty"><ChefHat size={26} /><strong>در این ایستگاه موردی وجود ندارد</strong><span>ایستگاه دیگری را انتخاب کنید.</span></div></Surface>}
+      <Notice variant="info">تغییر وضعیت در سرور و با کنترل دسترسی انجام می‌شود. آشپزخانه فقط می‌تواند سفارش را به «در حال آماده‌سازی» یا «آماده تحویل» منتقل کند؛ تکمیل نهایی در مرکز سفارش‌ها انجام می‌شود.</Notice>
+      {error ? <Notice variant="warning">{error}</Notice> : null}
+      {actionError ? <Notice variant="warning">{actionError}</Notice> : null}
+      <div className="kitchen-metrics">
+        <Surface padding="sm"><span>سفارش‌های فعال</span><strong>{money(activeCount)}</strong></Surface>
+        <Surface padding="sm"><span>در حال آماده‌سازی</span><strong>{money(preparingCount)}</strong></Surface>
+        <Surface padding="sm"><span>آماده تحویل</span><strong>{money(readyCount)}</strong></Surface>
+      </div>
+      <div className="kitchen-toolbar">
+        <div><h2><ChefHat size={18} /> صف آماده‌سازی</h2><p>سفارش‌های پذیرفته‌شده و در جریان</p></div>
+        <div className="kitchen-stations" role="group" aria-label="فیلتر وضعیت سفارش">
+          {([
+            ["all", "همه"],
+            ["accepted", "در انتظار شروع"],
+            ["preparing", "در حال آماده‌سازی"],
+            ["ready", "آماده تحویل"],
+          ] as const).map(([value, label]) => (
+            <button type="button" key={value} className={statusFilter === value ? "is-active" : ""}
+              aria-pressed={statusFilter === value} onClick={() => setStatusFilter(value)}>{label}</button>
+          ))}
+        </div>
+      </div>
+      {loading ? <Surface padding="lg"><div className="kitchen-empty"><ChefHat size={26} /><strong>در حال دریافت سفارش‌ها...</strong></div></Surface> : visibleOrders.length ? (
+        <div className="kitchen-ticket-grid">
+          {visibleOrders.map((order) => {
+            const isSelected = selectedId === order.id;
+            const isReady = order.order_status === "ready";
+            const nextLabel = order.order_status === "accepted" ? "شروع آماده‌سازی" : order.order_status === "preparing" ? "علامت‌گذاری آماده" : "";
+            return (
+              <Surface padding="md" className={isReady ? "kitchen-ticket" : "kitchen-ticket is-urgent"} key={order.id}>
+                <div className="kitchen-ticket-head">
+                  <div><strong>#{money(order.order_number)}</strong><span>{channelLabels[order.source_channel] ?? order.source_channel} · {fulfillmentLabels[order.fulfillment_method ?? ""] ?? "نوع دریافت نامشخص"}</span></div>
+                  <div className="kitchen-ticket-time"><Clock3 size={13} /><span>{dateTime(order.created_at, timeZone)}</span></div>
+                </div>
+                <div className="kitchen-ticket-flags">
+                  <StatusBadge variant={isReady ? "success" : order.order_status === "preparing" ? "warning" : "info"}>
+                    {statusLabels[order.order_status as keyof typeof statusLabels] ?? order.order_status}
+                  </StatusBadge>
+                  <StatusBadge variant="neutral">{order.customer?.name ?? "مشتری مهمان"}</StatusBadge>
+                </div>
+                <div className="kitchen-ticket-summary">
+                  <strong>{money(order.total_amount)} تومان</strong>
+                  <span>وضعیت پرداخت: {order.payment_status === "paid" ? "پرداخت‌شده" : "پرداخت‌نشده / در انتظار"}</span>
+                </div>
+                {isSelected ? (
+                  <div className="kitchen-ticket-items">
+                    {detailLoading ? <div className="kitchen-empty">در حال دریافت اقلام سفارش...</div> : detail ? detail.items.map((item, index) => (
+                      <article className="kitchen-item" key={`${order.id}-${index}`}>
+                        <div className="kitchen-item-main"><strong>{item.name}{item.variant_name ? ` · ${item.variant_name}` : ""} <b>× {item.quantity}</b></strong><span>{money(item.line_total_amount)} تومان</span></div>
+                        {item.options.length ? <small>گزینه‌ها: {item.options.map((option) => `${option.group_name}: ${option.name}`).join("، ")}</small> : null}
+                      </article>
+                    )) : <div className="kitchen-empty">جزئیات اقلام در دسترس نیست.</div>}
+                  </div>
+                ) : null}
+                <div className="kitchen-ticket-actions">
+                  <Button size="sm" variant="ghost" onClick={() => toggleDetails(order.id)}>
+                    <Eye size={14} /> {isSelected ? "بستن اقلام" : "نمایش اقلام"}
+                  </Button>
+                  {nextLabel ? (
+                    <Button size="sm" variant="primary" disabled={transitioningId !== null} onClick={() => { void advanceOrder(order); }}>
+                      {transitioningId === order.id ? "در حال ثبت..." : nextLabel}
+                    </Button>
+                  ) : <span className="kitchen-ready-note">آماده تحویل؛ تکمیل نهایی در مرکز سفارش‌ها</span>}
+                </div>
+              </Surface>
+            );
+          })}
+        </div>
+      ) : (
+        <Surface padding="lg"><div className="kitchen-empty"><ChefHat size={26} /><strong>{orders.length ? "سفارشی در این وضعیت نیست" : "صف آشپزخانه خالی است"}</strong><span>سفارش‌های پذیرفته‌شده پس از تأیید در این صفحه نمایش داده می‌شوند.</span></div></Surface>
+      )}
     </div>
   );
 }
