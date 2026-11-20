@@ -664,3 +664,16 @@
 - اصلاحات در commitهای `d5f23c0`, `ab3c639`, `b6553d7` ثبت شدند.
 - وضعیت: **اصلاح کد ثبت شده؛ اجرای مجدد workflowها در انتظار نتیجه**.
 - تست integration دیتابیس V3 روی MySQL 8.4 و MariaDB 10.6 باید در CI تکمیل شود؛ migration 011 همچنان روی دیتابیس واقعی اجرا نشده است.
+
+
+## INV-02A2 — مدیریت ردیف‌های Draft
+- [x] شناسه عمومی UUID برای ردیف‌ها با migration 012 و backfill داده‌های قبلی.
+- [x] افزودن ردیف با پاسخ دارای شناسه عمومی.
+- [x] ویرایش ردیف draft با lock سند و ردیف، idempotency و audit.
+- [x] حذف ردیف draft با lock سند و ردیف، idempotency و audit.
+- [x] بازگشت line IDs در جزئیات سند.
+- [x] تست قرارداد route/migration و تضمین عدم تغییر ledger/balance در draft CRUD.
+- [ ] CI نهایی برای آخرین commitها؛ نتیجه‌های قبلی را به HEAD جدید تعمیم نده.
+- [ ] تست integration واقعی MySQL/MariaDB برای race، scope، conversion snapshot و rollback.
+- [ ] posting تراکنشی و append-only ledger؛ پس از تعیین قواعد costing و negative stock.
+- مرز ایمنی: draft update/delete فقط ردیف‌های draft را تغییر می‌دهد؛ موجودی فقط در posting سند معتبر تغییر خواهد کرد.
