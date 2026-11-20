@@ -6,7 +6,6 @@ import {
   getOrders,
   transitionKitchenOrder,
   type OrderDetail,
-  type OrderStatus,
   type OrderSummary,
 } from "../../shared/api/client";
 import { Button, Notice, StatusBadge, Surface } from "../../shared/ui";
