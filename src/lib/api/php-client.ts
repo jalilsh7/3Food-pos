@@ -244,7 +244,7 @@ export const phpApi = {
   saveSmsSettings: (settings:{enabled:boolean;username:string;password:string;sender:string;inbox_location:string;inbox_from:string;inbox_index:string;inbox_count:number;credential_mode:'password'|'apikey'}) =>
     request<ApiEnvelope<{settings:{enabled:boolean;username:string;sender:string;inbox_location:string;inbox_from:string;inbox_index:string;inbox_count:number;has_password:boolean}}>>("/sms/settings",{method:"POST",csrf:true,body:settings}),
 
-  sendSms: (input: { to: string; text: string; bodyId?: string }) =>
+  sendSms: (input: { to: string; text: string; bodyId?: string; event?: string; customerId?: string }) =>
     request<ApiEnvelope<{ sent: boolean; detail: string }>>("/sms/send", {
       method: "POST",
       csrf: true,
