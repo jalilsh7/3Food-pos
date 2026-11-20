@@ -396,8 +396,14 @@ $createdOrderPublicId = (string) $createdOrderData['id'];
 $replayedOrder = $orderService->create(
     $newPrincipal, $orderScope, $orderPayload, $orderIdempotencyKey, $requestId(), '127.0.0.1',
 );
+$replayedOrderBody = json_decode(
+    json_encode($replayedOrder['body'], JSON_THROW_ON_ERROR),
+    true,
+    32,
+    JSON_THROW_ON_ERROR,
+);
 $assert($replayedOrder['replayed'] === true
-    && $replayedOrder['body']['data']['order']['id'] === $createdOrderPublicId,
+    && $replayedOrderBody['data']['order']['id'] === $createdOrderPublicId,
     'POS order idempotency replay did not return the original order.');
 $orderCount = $pdo->prepare('SELECT COUNT(*) FROM pos_orders WHERE business_id = :business_id AND branch_id = :branch_id AND public_id = :public_id');
 $orderCount->execute(['business_id' => $businessId, 'branch_id' => $branchId, 'public_id' => $createdOrderPublicId]);
