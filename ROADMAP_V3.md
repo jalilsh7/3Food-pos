@@ -728,3 +728,18 @@
 - API client و صفحه ورود/تغییر رمز اولیه به Auth API متصل شدند؛ CSRF token فقط در حافظه runtime نگهداری می‌شود.
 - تست Frontend build و Backend validation موفق؛ DB integration برای login/me/CSRF rotation/password change/session invalidation/logout روی MySQL 8.4 و MariaDB 10.6 موفق.
 - باقی‌مانده FE-01: انتخاب business/branch context و اتصال واقعی InventoryWorkspace.
+
+
+## FE-02A / ORD-01A — اتصال خواندنی مرکز سفارش‌ها (2026-11-20)
+- وضعیت: **در حال انجام**؛ بخش read-only پیاده‌سازی و CI پایه موفق شده است.
+- [x] افزودن API client برای فهرست و جزئیات سفارش با قرارداد واقعی Backend.
+- [x] حذف سفارش‌های نمونه از OrderCenter و دریافت فهرست، اقلام و status history از API.
+- [x] نمایش مستقل order_status و payment_status و فیلترهای وضعیت/کانال/پرداخت/نوع دریافت.
+- [x] Frontend typecheck و production build موفق روی commit `f6ab1a6a9b8e47674f5a01e2c322567c9c15d612` (run `44705608244`).
+- [x] Backend validation روی PHP 8.2/8.3/8.4 موفق (run `44705608241`).
+- [ ] تست API سفارش‌ها روی MySQL/MariaDB موقت و بررسی نقش‌های متفاوت.
+- [ ] pagination/cursor و فیلتر تاریخ.
+- [ ] transitionهای سفارش و آشپزخانه با idempotency، RBAC و خطای امن.
+- [ ] workflow جامع PHP migration/legacy integration در run `44705608232` هنگام ثبت این یادداشت هنوز در حال اجرا بود.
+
+گام بعدی: تکمیل تست integration و pagination سفارش‌ها؛ سپس transitionهای مجاز سفارش/آشپزخانه. تا آن زمان صفحه مرکز سفارش فقط خواندنی است و نباید برای عملیات تغییر وضعیت استفاده شود.
