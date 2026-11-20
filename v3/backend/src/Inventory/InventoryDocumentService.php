@@ -195,7 +195,7 @@ final readonly class InventoryDocumentService
                     throw new HttpException(422, 'stock_document_line_unit_dimension_mismatch', 'The selected unit does not match the stock item base unit dimension.');
                 }
                 $factor = $this->documents->findConversionFactor((int) $unit['id'], (int) $item['base_unit_id']);
-                if ($factor === null || (float) $factor <= 0) {
+                if ($factor === null || trim(str_replace('.', '', $factor), '0') === '') {
                     throw new HttpException(422, 'stock_document_line_conversion_missing', 'No valid conversion exists from the selected unit to the stock item base unit.');
                 }
                 $this->documents->addLine(
@@ -284,7 +284,7 @@ final readonly class InventoryDocumentService
                     throw new HttpException(422, 'stock_document_line_unit_invalid', 'The selected unit is missing or has a different dimension.');
                 }
                 $factor = $this->documents->findConversionFactor((int) $unit['id'], (int) $item['base_unit_id']);
-                if ($factor === null || (float) $factor <= 0) {
+                if ($factor === null || trim(str_replace('.', '', $factor), '0') === '') {
                     throw new HttpException(422, 'stock_document_line_conversion_missing', 'No valid conversion exists from the selected unit to the stock item base unit.');
                 }
                 $before = [
