@@ -917,7 +917,10 @@ if ($method === 'GET' && $path === '/bootstrap') {
     $resources = $user['role'] === 'kitchen' ? ['categories','products'] : ($user['role'] === 'cashier' ? ['categories','products','customers','discounts','sms_logs'] : ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings','sms_logs']);
     $result = [];
     foreach ($resources as $resource) {
-        $q = $pdo->prepare('SELECT id, payload FROM pos_records WHERE resource = ? ORDER BY created_at ASC');
+        $query = $resource === 'sms_logs'
+            ? 'SELECT id, payload FROM pos_records WHERE resource = ? ORDER BY created_at DESC LIMIT 500'
+            : 'SELECT id, payload FROM pos_records WHERE resource = ? ORDER BY created_at ASC';
+        $q = $pdo->prepare($query);
         $q->execute([$resource]);
         $result[$resource] = array_map(static function(array $row) use ($resource): array {
             $value = json_decode((string)$row['payload'], true);
