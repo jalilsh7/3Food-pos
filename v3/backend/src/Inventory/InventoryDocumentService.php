@@ -48,6 +48,29 @@ final readonly class InventoryDocumentService
         return $document;
     }
 
+    public function getValuation(BusinessScope $scope, string $publicId): array
+    {
+        $branchId = self::branch($scope);
+        if (!self::isUuid($publicId)) {
+            throw new HttpException(422, 'stock_document_id_invalid', 'The stock document identifier is invalid.');
+        }
+        $document = $this->documents->find($scope->businessId, $branchId, $publicId);
+        if ($document === null) {
+            throw new HttpException(404, 'stock_document_not_found', 'The stock document was not found.');
+        }
+        $documentId = $this->documents->findId($scope->businessId, $branchId, $publicId);
+        if ($documentId === null) {
+            throw new HttpException(404, 'stock_document_not_found', 'The stock document was not found.');
+        }
+        return [
+            'document_id' => $publicId,
+            'document_no' => (string) $document['document_no'],
+            'status' => (string) $document['status'],
+            'currency' => 'TOMAN',
+            'lines' => $this->documents->listValuationLines($scope->businessId, $branchId, $documentId),
+        ];
+    }
+
     public function create(
         AuthenticatedPrincipal $actor, BusinessScope $scope, array $payload,
         string $key, string $requestId, string $ip,
