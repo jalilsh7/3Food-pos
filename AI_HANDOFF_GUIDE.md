@@ -352,7 +352,7 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 This section supersedes any older phase/status snapshots above when they conflict.
 
 - Current active branch: `feature/3food-pos-next-release-v2`. Do not modify `main` and do not merge PR #4.
-- Latest implementation commit before documentation-only commits: `73bfbc5120f5d133fc04e2ac548f7b419febca2d`.
+- Latest implementation commit before documentation-only commits: `b98f872c607dafb04a315c968dfc64de21556300` (includes the schema-aligned payment-status contract and source-level assertions).
 - Current work: Phase 4, order-center API integration, ORD-01C. Phase 4 is in progress; order center read/list/detail and cursor pagination exist.
 - ORD-01C adds server-side `payment` and `fulfillment` filters to GET orders. Allowed payment values: `unpaid`, `partially_paid`, `paid`, `refunded`. Allowed fulfillment values: `dine_in`, `takeaway`, `delivery`. Validation is in OrderService; SQL filtering is scoped by business and branch and works with the order-number cursor.
 - Frontend sends payment/fulfillment filters on both initial and cursor requests. Changing either invalidates older list requests and starts a new first page. Text search remains client-side over loaded pages.
@@ -362,3 +362,12 @@ This section supersedes any older phase/status snapshots above when they conflic
 - Next package: ORD-01D, date-range filtering. Define and enforce date/timezone semantics before coding; preserve cursor, business/branch scope and page-request race protection. Then proceed to POS order creation API wiring.
 - Testing policy: critical tests during implementation; low-priority tests remain in the final QA queue. Pending/queued/cancelled is never PASS.
 - Never execute migrations on customer/production databases. Do not claim the POS prototype is operational until API wiring and integration are complete.
+
+
+### Latest CI snapshot for ORD-01C (2026-11-20)
+The documentation-only head after the ORD-01C implementation is `de0d1da9950eb58ad841c272a7b649682e9fc2c7`. Its workflow runs were queued when checked:
+- V3 Backend Validation: `44710889604` — queued.
+- V3 Frontend Validation: `44710889589` — queued.
+- PHP migration checks: `44710889686` — queued.
+- V3 database engine validation: `44710884253` — queued; MySQL 8.4 and MariaDB 10.6 jobs were also queued.
+No PASS is claimed for ORD-01C. Fetch current run states before deciding whether to retry or debug. The prior frontend cancellations on intermediate commits do not represent a failed test result.
