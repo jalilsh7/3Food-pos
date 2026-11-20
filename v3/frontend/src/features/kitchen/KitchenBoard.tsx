@@ -122,8 +122,13 @@ export function KitchenBoard({ timeZone }: { timeZone: string }) {
 
   function toggleDetails(orderId: string) {
     setActionError(null);
-    setSelectedId((current) => current === orderId ? null : orderId);
-    if (selectedId === orderId) setDetail(null);
+    if (selectedId === orderId) {
+      setSelectedId(null);
+      setDetail(null);
+      return;
+    }
+    setDetail(null);
+    setSelectedId(orderId);
   }
 
   return (
@@ -179,7 +184,7 @@ export function KitchenBoard({ timeZone }: { timeZone: string }) {
                 </div>
                 <div className="kitchen-ticket-summary">
                   <strong>{money(order.total_amount)} تومان</strong>
-                  <span>وضعیت پرداخت: {order.payment_status === "paid" ? "پرداخت‌شده" : "پرداخت‌نشده / در انتظار"}</span>
+                  <span>وضعیت پرداخت: {order.payment_status === "paid" ? "پرداخت‌شده" : ["partially_paid", "partial"].includes(order.payment_status) ? "پرداخت بخشی" : order.payment_status === "refunded" ? "مستردشده" : "پرداخت‌نشده"}</span>
                 </div>
                 {isSelected ? (
                   <div className="kitchen-ticket-items">
