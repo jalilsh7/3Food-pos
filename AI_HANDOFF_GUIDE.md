@@ -313,3 +313,13 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 - The DB integration script already asserts that ordinary detail does not contain total_cost_amount and that protected valuation does. CI runs on the corrected HEAD must complete before marking the privacy regression resolved.
 - Do not expose costs in general stock document payloads or UI. Draft purchase/adjustment line edits require the operator to re-enter total cost where the API contract requires it.
 - No customer/production database was modified; no migration was executed against a live installation; main remains untouched.
+
+
+## Continuation update — AUTH-SETUP-SEC (2026-11-20)
+- DB engine workflow 44706975872 and follow-up 44707263210 exposed two separate issues: generic inventory detail cost exposure (fixed in INV-02B1-SEC) and global installation owner access after setup.
+- Root cause of owner issue: BusinessRepository::listAccessibleBusinesses included every active business for any user with the global owner role; PermissionRepository also treated that role as wildcard across all business scopes. This is incompatible with tenant isolation.
+- Fix: installation owner privilege is valid only while app_business_setup_state.initial_business_id is NULL. Initial setup now assigns the owner role to app_user_business_roles for the newly created business and removes the global app_user_roles owner assignment in the same transaction. Business discovery now uses only explicit business/branch memberships. Global wildcard permission is gated by the uninitialized setup state.
+- Updated integration script scripts/check-v3-auth-integration.php to assert owner membership, retirement of installer privilege and removal of global owner role.
+- Code commits: BusinessRepository 9df7748f7113e008b566415bfcd44a8ce5995d59, corrected repository syntax 8a4099c8a907dbcfbee8d4922422c9a3f48aab6f, BusinessSetupService b5344f6f602cf02c4ec3f6f5475e999af62a57bd, PermissionRepository 967012e8457be77ae4d505a259123fe0df2d71f8, integration test c3ce68e68547420427e9b328b9c4dbb9e55b1341.
+- CI on latest code HEAD is queued/in progress; do not mark the security correction complete until MySQL 8.4 and MariaDB 10.6 auth integration both pass.
+- No live customer database, production environment or main branch was modified.
