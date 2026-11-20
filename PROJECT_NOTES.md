@@ -1544,6 +1544,6 @@
 ## AUTH-SETUP-SEC — اصلاح جداسازی نقش مالک نصب (2026-11-20)
 - تست DB کشف کرد owner سراسری می‌توانست کسب‌وکارهای بدون عضویت را ببیند و wildcard permission را روی scopeهای دیگر اعمال کند.
 - پس از setup اولیه، owner به app_user_business_roles برای همان business منتقل و رکورد global owner حذف می‌شود؛ فهرست کسب‌وکارها فقط عضویت‌های صریح را می‌خواند.
-- can_initialize و wildcard global owner فقط زمانی معتبرند که initial_business_id هنوز NULL باشد.
+- can_initialize فقط تا پیش از مقداردهی initial_business_id معتبر است؛ PermissionRepository نقش global owner را برای هیچ مجوز دامنه‌ای قبول نمی‌کند.
 - تست integration احراز هویت اکنون انتقال نقش، حذف global owner و پایان اختیار setup را بررسی می‌کند. نتیجه نهایی MySQL/MariaDB هنوز در انتظار CI است.
 - اولویت: **بحرانی امنیت چندمستاجری**.
