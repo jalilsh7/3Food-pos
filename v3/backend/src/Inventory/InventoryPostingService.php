@@ -110,7 +110,7 @@ final readonly class InventoryPostingService
 
                     if (in_array($type, ['purchase_receipt', 'adjustment_in'], true)) {
                         $totalCost = (string) $line['total_cost_amount'];
-                        $unitCost = $this->posting->unitCostFromTotal($totalCost, $quantity);
+                        $unitCost = (string) $line['unit_cost_snapshot'];
                         $averageCost = $this->posting->weightedAverageFromTotalCost(
                             $sourceBalance['quantity_on_hand'],
                             $sourceBalance['average_unit_cost'],
