@@ -15,7 +15,35 @@ final readonly class InventoryController
         private InventoryService $inventory,
         private InventoryDocumentService $documents,
         private InventoryPostingService $posting,
+        private SupplierService $suppliers,
     ) {}
+
+    public function suppliers(Request $request): Response
+    {
+        $includeInactive = ($request->query('include_inactive') ?? '1') !== '0';
+        return Response::success(['suppliers' => $this->suppliers->list(
+            $this->scope($request), $includeInactive,
+        )]);
+    }
+
+    public function createSupplier(Request $request): Response
+    {
+        return $this->idempotentResponse($this->suppliers->create(
+            $this->principal($request), $this->scope($request), $this->jsonPayload($request),
+            $request->header('idempotency-key') ?? '', $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
+        ));
+    }
+
+    public function updateSupplier(Request $request, array $parameters): Response
+    {
+        return $this->idempotentResponse($this->suppliers->update(
+            $this->principal($request), $this->scope($request),
+            (string) ($parameters['supplierPublicId'] ?? ''), $this->jsonPayload($request),
+            $request->header('idempotency-key') ?? '', $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
+        ));
+    }
 
     public function units(Request $request): Response
     {
