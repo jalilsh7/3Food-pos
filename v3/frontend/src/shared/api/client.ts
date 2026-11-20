@@ -298,7 +298,7 @@ export async function updateInventoryStockItem(itemId: string, payload: {
 
 export type InventoryUnit = { code: string; name: string; dimension: string };
 export type InventoryDocumentType =
-  | "consumption" | "transfer" | "adjustment_in" | "adjustment_out" | "waste";
+  | "purchase_receipt" | "consumption" | "transfer" | "adjustment_in" | "adjustment_out" | "waste";
 export type InventoryDocumentSummary = {
   id: string;
   document_no: string;
