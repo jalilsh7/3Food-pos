@@ -22,11 +22,17 @@ $assert(str_contains($repository, 'FOR UPDATE'), 'Document numbering must lock t
 $assert(str_contains($repository, 'findDraftForUpdate'), 'Draft line writes must lock the scoped document row.');
 $assert(str_contains($repository, 'conversion_factor_snapshot'), 'Document lines must persist a conversion factor snapshot.');
 $assert(str_contains($repository, 'base_quantity'), 'Document lines must persist converted base quantity.');
+$assert(str_contains($repository, 'findLineForUpdate'), 'Draft line edits must lock a scoped line row.');
+$assert(str_contains($repository, 'l.public_id AS line_id'), 'Line responses must expose a stable public identifier.');
 $assert(str_contains($repository, "INSERT INTO pos_stock_documents"), 'Draft creation must persist a stock document header.');
 $assert(str_contains($repository, "'draft'"), 'New stock documents must be created as drafts.');
 $assert(str_contains($service, "inventory.stock-document.create"), 'Draft creation must use a dedicated idempotency scope.');
 $assert(str_contains($service, 'public function addLine'), 'Draft document line creation must be implemented.');
 $assert(str_contains($service, "inventory.stock-document.line.create"), 'Line creation must use a dedicated idempotency scope.');
+$assert(str_contains($service, "inventory.stock-document.line.update"), 'Line updates must use a dedicated idempotency scope.');
+$assert(str_contains($service, "inventory.stock-document.line.delete"), 'Line deletion must use a dedicated idempotency scope.');
+$assert(str_contains($service, 'public function updateLine'), 'Draft line update must be implemented.');
+$assert(str_contains($service, 'public function deleteLine'), 'Draft line deletion must be implemented.');
 $assert(str_contains($service, '$this->audit->record('), 'Draft creation must append an audit record.');
 $assert(str_contains($service, "'transfer'"), 'Transfer documents must be supported.');
 $assert(str_contains($service, "'purchase_receipt'"), 'Purchase receipt documents must be supported.');
@@ -37,6 +43,11 @@ $assert(!preg_match('/INSERT INTO\s+pos_stock_ledger/i', $repository), 'Draft do
 $assert(str_contains($frontController, "'/api/v1/inventory/documents'"), 'Document routes must be registered.');
 $assert(str_contains($controller, 'public function createDocument'), 'Document create handler must be present.');
 $assert(str_contains($controller, 'public function createDocumentLine'), 'Document line handler must be present.');
+$assert(str_contains($controller, 'public function updateDocumentLine'), 'Document line update handler must be present.');
+$assert(str_contains($controller, 'public function deleteDocumentLine'), 'Document line delete handler must be present.');
 $assert(str_contains($frontController, '/api/v1/inventory/documents/{documentPublicId}/lines'), 'Document line route must be registered.');
+$assert(str_contains($frontController, '/api/v1/inventory/documents/{documentPublicId}/lines/{linePublicId}'), 'Document line update/delete routes must be registered.');
+$assert(!preg_match('/(?:UPDATE|INSERT INTO)\\s+pos_stock_balances/i', $repository), 'Draft line CRUD must not mutate stock balances.');
+$assert(!preg_match('/INSERT INTO\\s+pos_stock_ledger/i', $repository), 'Draft line CRUD must not append stock ledger entries.');
 
 echo "V3 inventory draft document contract checks passed.\n";
