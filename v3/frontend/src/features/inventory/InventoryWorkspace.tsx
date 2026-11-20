@@ -177,7 +177,7 @@ export function InventoryWorkspace() {
     setEditingItemId(line.stock_item_id);
     setEditingQuantity(line.quantity);
     setEditingUnit(line.unit_code);
-    setEditingCost(line.total_cost_amount);
+    setEditingCost("");
   }
 
   async function saveDocumentLine() {
@@ -519,7 +519,7 @@ export function InventoryWorkspace() {
                   {["purchase_receipt", "adjustment_in"].includes(activeDocument.document_type) ? <label><span>مبلغ کل (تومان)</span><input required inputMode="numeric" pattern="^[0-9]+$" value={editingCost} onChange={(event) => setEditingCost(event.target.value)} /></label> : null}
                   <div className="inventory-line-actions"><button type="button" disabled={documentDetailBusy} onClick={() => void saveDocumentLine()}>ذخیره</button><button type="button" onClick={() => setEditingLineId(null)}>انصراف</button></div>
                 </> : <>
-                  <span>{line.stock_item_name}</span><b>{quantity(line.quantity)} {line.unit_name}</b><small>مقدار پایه: {quantity(line.base_quantity)}</small>{["purchase_receipt", "adjustment_in"].includes(activeDocument.document_type) ? <small>مبلغ کل: {quantity(line.total_cost_amount)} تومان</small> : null}
+                  <span>{line.stock_item_name}</span><b>{quantity(line.quantity)} {line.unit_name}</b><small>مقدار پایه: {quantity(line.base_quantity)}</small>
                   {activeDocument.status === "draft" ? <div className="inventory-line-actions"><button type="button" disabled={documentDetailBusy} onClick={() => beginEditLine(line)}>ویرایش</button><button type="button" disabled={documentDetailBusy} onClick={() => void removeDocumentLine(line.id)}>حذف</button></div> : null}
                 </>}
               </div>)}
