@@ -701,3 +701,24 @@
 - [ ] تست concurrency/race دو سند، isolation business/branch و reserved stock.
 - [ ] تعریف برگشت source-linked و ارزش‌گذاری تاریخی؛ نوع `return` تا آن زمان post نمی‌شود.
 - [ ] اتصال UI انبار به APIهای واقعی و نمایش خطا/وضعیت سند.
+
+
+### INV-02B1 — وضعیت نهایی
+- [x] Moving Weighted Average در سطح item/location و هزینه TOMAN.
+- [x] خرید، تعدیل ورودی/خروجی، مصرف، ضایعات و انتقال با posting تراکنشی.
+- [x] موجودی رزروشده محافظت می‌شود؛ منفی شدن موجودی ممنوع.
+- [x] idempotency، audit، append-only ledger و rollback کامل.
+- [x] concurrency race دو posting روی MySQL و MariaDB؛ فقط یک خروجی از موجودی محدود موفق می‌شود.
+- [x] business/branch isolation، transfer symmetry، valuation permission و cost privacy.
+- [x] backup/restore باینری v2؛ nonce/tag رمزگذاری‌شده حفظ می‌شوند.
+- [x] CI نهایی در PHP 8.2/8.3/8.4، MySQL 8.4، MariaDB 10.6، Frontend build و PHP migration workflow.
+- [ ] return source-linked و بازیابی هزینه تاریخی.
+- [ ] اتصال مصرف رسپی/سفارش به reservation و posting.
+- [ ] اتصال InventoryWorkspace و سایر صفحات به API واقعی؛ حذف داده‌های نمونه از مسیر عملیاتی.
+- [ ] تست load/soak و deadlock retry در شرایط چندکاربره پرتراکنش.
+
+## FE-01 — اتصال احراز هویت و API client
+- [ ] API client با credentials same-origin و CSRF token حافظه‌ای.
+- [ ] Login/Me/Logout/Change-password UI متصل به V3 Auth API.
+- [ ] نمایش کاربر واقعی و وضعیت session؛ حذف حالت طراحی از shell پس از احراز هویت.
+- [ ] سپس اتصال InventoryWorkspace به balances/documents/ledger/valuation APIها.
