@@ -1894,7 +1894,7 @@ function SmsScreen() {
       <Card>
         <h3 className="mb-2 font-semibold">کمپین باشگاه مشتریان</h3>
         <p className="mb-2 rounded-xl bg-soft p-3 text-xs">مسیر ارسال: شماره شخصی فروشگاه. فقط مشتریانی با رضایت پیامکی ثبت‌شده وارد فهرست گیرندگان می‌شوند؛ در صورت خطا، ارسال به مسیر خدماتی جایگزین نخواهد شد.</p>
-        <p className="mb-2 text-xs text-muted">فقط اعضایی انتخاب می‌شوند که رضایت دریافت پیامک تبلیغاتی را ثبت کرده باشند. می‌توانید چند شرط را ترکیب کنید.</p>
+        <p className="mb-2 text-xs text-muted">فقط اعضایی انتخاب می‌شوند که رضایت تبلیغاتی آن‌ها صریحاً تأیید شده باشد. مشتریان قدیمی بدون تأیید صریح تا زمان تأیید مجدد وارد فهرست نمی‌شوند. می‌توانید چند شرط را ترکیب کنید.</p>
         <Field label="نحوه ترکیب شروط"><select className={inputCls} value={campaignLogic} onChange={e=>setCampaignLogic(e.target.value as "all"|"any")}><option value="all">همه شروط برقرار باشند (AND)</option><option value="any">حداقل یکی از شروط برقرار باشد (OR)</option></select></Field>
         <div className="grid gap-2 sm:grid-cols-2">
           <Field label="سطح عضویت"><select className={inputCls} value={campaignFilters.tier} onChange={e=>setCampaignFilters({...campaignFilters,tier:e.target.value})}><option value="">همه سطوح</option><option value="bronze">برنز</option><option value="silver">نقره</option><option value="gold">طلا</option><option value="platinum">پلاتین</option></select></Field>
