@@ -179,6 +179,13 @@ $secondBalance = $balance($sourceLocationId);
 $assert($secondBalance['quantity_on_hand'] === '4.000000', 'Second receipt quantity is incorrect.');
 $assert($secondBalance['average_unit_cost'] === '2000.00000000', 'Moving weighted average cost is incorrect.');
 
+$ordinaryDetail = $documents->get($scope, $receiptTwo);
+$assert(!array_key_exists('total_cost_amount', $ordinaryDetail['lines'][0]), 'General inventory document detail must not expose cost snapshots.');
+$valuation = $documents->getValuation($scope, $receiptTwo);
+$assert($valuation['currency'] === 'TOMAN', 'Valuation response currency is incorrect.');
+$assert($valuation['lines'][0]['total_cost_amount'] === '5000', 'Protected valuation response did not return the line total cost.');
+$assert($valuation['lines'][0]['unit_cost_snapshot'] === '2500.00000000', 'Protected valuation response did not return the base-unit cost snapshot.');
+
 $replay = $posting->post(
     $actor, $scope, $receiptTwo, $prefix . '-post-receipt-two-key', $requestId, $ip,
 );
