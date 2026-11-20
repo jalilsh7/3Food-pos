@@ -14,6 +14,9 @@ import {
   getInventoryUnits,
   getInventoryDocuments,
   getInventoryDocument,
+  getInventorySuppliers,
+  createInventorySupplier,
+  updateInventorySupplier,
   createInventoryDocument,
   addInventoryDocumentLine,
   updateInventoryDocumentLine,
@@ -27,6 +30,7 @@ import {
   type InventoryDocumentSummary,
   type InventoryDocumentDetail,
   type InventoryDocumentType,
+  type InventorySupplier,
 } from "../../shared/api/client";
 import { Button, Notice, Surface } from "../../shared/ui";
 import "./inventory.css";
@@ -67,6 +71,13 @@ export function InventoryWorkspace() {
   const [ledger, setLedger] = useState<InventoryLedgerEntry[]>([]);
   const [units, setUnits] = useState<InventoryUnit[]>([]);
   const [documents, setDocuments] = useState<InventoryDocumentSummary[]>([]);
+  const [suppliers, setSuppliers] = useState<InventorySupplier[]>([]);
+  const [documentSupplier, setDocumentSupplier] = useState("");
+  const [supplierEditorId, setSupplierEditorId] = useState<string | null>(null);
+  const [supplierName, setSupplierName] = useState("");
+  const [supplierPhone, setSupplierPhone] = useState("");
+  const [supplierNotes, setSupplierNotes] = useState("");
+  const [supplierActive, setSupplierActive] = useState(true);
   const [activeDocument, setActiveDocument] = useState<InventoryDocumentDetail | null>(null);
   const [documentDetailBusy, setDocumentDetailBusy] = useState(false);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
@@ -107,13 +118,14 @@ export function InventoryWorkspace() {
     else setLoading(true);
     setError(null);
     try {
-      const [stockItems, stockLocations, stockBalances, entries, stockUnits, stockDocuments] = await Promise.all([
+      const [stockItems, stockLocations, stockBalances, entries, stockUnits, stockDocuments, stockSuppliers] = await Promise.all([
         getInventoryStockItems("", true),
         getInventoryLocations(true),
         getInventoryBalances({ limit: 200 }),
         getInventoryLedger({ limit: 50 }),
         getInventoryUnits(),
         getInventoryDocuments(50),
+        getInventorySuppliers(true),
       ]);
       setItems(stockItems);
       setLocations(stockLocations);
@@ -121,6 +133,8 @@ export function InventoryWorkspace() {
       setLedger(entries);
       setUnits(stockUnits);
       setDocuments(stockDocuments);
+      setSuppliers(stockSuppliers);
+      setDocumentSupplier((current) => stockSuppliers.some((supplier) => supplier.id === current && supplier.is_active) ? current : stockSuppliers.find((supplier) => supplier.is_active)?.id ?? "");
       const activeItems = stockItems.filter((item) => item.is_active);
       const activeLocations = stockLocations.filter((location) => location.is_active);
       setSelectedId((current) => stockItems.some((item) => item.id === current) ? current : activeItems[0]?.id ?? "");
@@ -205,7 +219,7 @@ export function InventoryWorkspace() {
   }
 
   const needsReason = ["adjustment_in", "adjustment_out", "waste"].includes(documentType);
-  const needsCost = documentType === "adjustment_in";
+  const needsCost = ["adjustment_in", "purchase_receipt"].includes(documentType);
   const selectedDocumentItem = activeItems.find((item) => item.id === documentItem) ?? null;
 
   function editStockItem(item: InventoryStockItem) {
@@ -271,8 +285,42 @@ export function InventoryWorkspace() {
     } finally { setManagementBusy(false); }
   }
 
+  async function saveSupplier(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supplierName.trim()) return;
+    setManagementBusy(true);
+    setManagementMessage(null);
+    try {
+      if (supplierEditorId) {
+        await updateInventorySupplier(supplierEditorId, {
+          name: supplierName.trim(), phone: supplierPhone.trim() || null,
+          notes: supplierNotes.trim() || null, is_active: supplierActive,
+        });
+        setManagementMessage("مشخصات تأمین‌کننده به‌روزرسانی شد.");
+      } else {
+        await createInventorySupplier({
+          name: supplierName.trim(),
+          ...(supplierPhone.trim() ? { phone: supplierPhone.trim() } : {}),
+          ...(supplierNotes.trim() ? { notes: supplierNotes.trim() } : {}),
+        });
+        setManagementMessage("تأمین‌کننده جدید ثبت شد.");
+      }
+      setSupplierEditorId(null); setSupplierName(""); setSupplierPhone(""); setSupplierNotes(""); setSupplierActive(true);
+      await loadData(true);
+    } catch (cause) {
+      setManagementMessage(cause instanceof ApiError ? cause.message : "ذخیره تأمین‌کننده انجام نشد.");
+    } finally { setManagementBusy(false); }
+  }
+
+  function editSupplier(supplier: InventorySupplier) {
+    setSupplierEditorId(supplier.id); setSupplierName(supplier.name);
+    setSupplierPhone(supplier.phone ?? ""); setSupplierNotes(supplier.notes ?? "");
+    setSupplierActive(supplier.is_active); setManagementMessage(null);
+  }
+
   async function createDraftOnly() {
     if (!documentLocation) return;
+    if (documentType === "purchase_receipt" && !documentSupplier) { setDocumentMessage("برای رسید خرید، ابتدا تأمین‌کننده فعال انتخاب کنید."); return; }
     if (needsReason && !documentReason.trim()) {
       setDocumentMessage("برای تعدیل و ضایعات، ثبت دلیل الزامی است.");
       return;
@@ -283,6 +331,7 @@ export function InventoryWorkspace() {
       const draft = await createInventoryDocument({
         document_type: documentType,
         location_id: documentLocation,
+        ...(documentType === "purchase_receipt" ? { supplier_id: documentSupplier } : {}),
         ...(documentType === "transfer" ? { destination_location_id: destinationLocation } : {}),
         ...(documentReason.trim() ? { reason: documentReason.trim() } : {}),
       });
@@ -309,7 +358,7 @@ export function InventoryWorkspace() {
         stock_item_id: documentItem,
         quantity: documentQuantity,
         unit_code: documentUnit,
-        ...(activeDocument.document_type === "adjustment_in" ? { total_cost_amount: documentCost } : {}),
+        ...(["adjustment_in", "purchase_receipt"].includes(activeDocument.document_type) ? { total_cost_amount: documentCost } : {}),
       });
       setActiveDocument(await getInventoryDocument(activeDocument.id));
       setDocumentQuantity("1");
@@ -341,6 +390,7 @@ export function InventoryWorkspace() {
   async function submitStockDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!documentLocation || !documentItem || !documentUnit || !documentQuantity.trim()) return;
+    if (documentType === "purchase_receipt" && !documentSupplier) { setDocumentMessage("برای رسید خرید، انتخاب تأمین‌کننده الزامی است."); return; }
     if (documentType === "transfer" && (!destinationLocation || destinationLocation === documentLocation)) {
       setDocumentMessage("انبارک مقصد باید با انبارک مبدأ متفاوت باشد.");
       return;
@@ -360,6 +410,7 @@ export function InventoryWorkspace() {
       createdDocument = await createInventoryDocument({
         document_type: documentType,
         location_id: documentLocation,
+        ...(documentType === "purchase_receipt" ? { supplier_id: documentSupplier } : {}),
         ...(documentType === "transfer" ? { destination_location_id: destinationLocation } : {}),
         ...(documentReason.trim() ? { reason: documentReason.trim() } : {}),
       });
@@ -421,8 +472,9 @@ export function InventoryWorkspace() {
         <form className="inventory-document-form" onSubmit={submitStockDocument}>
           <div className="inventory-document-fields">
             <label>نوع سند<select value={documentType} onChange={(event) => setDocumentType(event.target.value as InventoryDocumentType)}>
-              <option value="consumption">مصرف مواد</option><option value="waste">ضایعات</option><option value="adjustment_in">تعدیل افزایشی</option><option value="adjustment_out">تعدیل کاهشی</option><option value="transfer">انتقال بین انبارک‌ها</option>
+              <option value="consumption">مصرف مواد</option><option value="purchase_receipt">رسید خرید</option><option value="waste">ضایعات</option><option value="adjustment_in">تعدیل افزایشی</option><option value="adjustment_out">تعدیل کاهشی</option><option value="transfer">انتقال بین انبارک‌ها</option>
             </select></label>
+            {documentType === "purchase_receipt" ? <label>تأمین‌کننده<select required value={documentSupplier} onChange={(event) => setDocumentSupplier(event.target.value)}><option value="">انتخاب تأمین‌کننده</option>{suppliers.filter((supplier) => supplier.is_active).map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}{supplier.phone ? ` · ${supplier.phone}` : ""}</option>)}</select></label> : null}
             <label>انبارک مبدأ<select required value={documentLocation} onChange={(event) => setDocumentLocation(event.target.value)}>{activeLocations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label>
             {documentType === "transfer" ? <label>انبارک مقصد<select required value={destinationLocation} onChange={(event) => setDestinationLocation(event.target.value)}>{activeLocations.filter((location) => location.id !== documentLocation).map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}</select></label> : null}
             <label>قلم انبار<select required value={documentItem} onChange={(event) => { const item = items.find((entry) => entry.id === event.target.value); setDocumentItem(event.target.value); if (item) setDocumentUnit(item.base_unit.code); }}>{activeItems.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.code})</option>)}</select></label>
@@ -483,9 +535,18 @@ export function InventoryWorkspace() {
             {locationEditorId ? <label className="inventory-management-check"><input type="checkbox" checked={locationActive} onChange={(event) => setLocationActive(event.target.checked)} /> انبارک فعال باشد</label> : null}
             <div className="inventory-management-actions"><button type="submit" disabled={managementBusy || !locationCode.trim() || !locationName.trim()}>{managementBusy ? "در حال ذخیره..." : locationEditorId ? "ذخیره تغییرات" : "ایجاد انبارک"}</button>{locationEditorId ? <button type="button" onClick={() => setLocationEditorId(null)}>انصراف</button> : null}</div>
           </form>
+          <form className="inventory-management-form" onSubmit={saveSupplier}>
+            <strong>{supplierEditorId ? "ویرایش تأمین‌کننده" : "افزودن تأمین‌کننده"}</strong>
+            <label>نام تأمین‌کننده<input required maxLength={180} value={supplierName} onChange={(event) => setSupplierName(event.target.value)} placeholder="نام شخص یا شرکت" /></label>
+            <label>شماره تماس<input maxLength={32} value={supplierPhone} onChange={(event) => setSupplierPhone(event.target.value)} placeholder="شماره تماس (اختیاری)" /></label>
+            <label>یادداشت<textarea maxLength={1000} rows={2} value={supplierNotes} onChange={(event) => setSupplierNotes(event.target.value)} placeholder="اطلاعات تکمیلی" /></label>
+            {supplierEditorId ? <label className="inventory-management-check"><input type="checkbox" checked={supplierActive} onChange={(event) => setSupplierActive(event.target.checked)} /> تأمین‌کننده فعال باشد</label> : null}
+            <div className="inventory-management-actions"><button type="submit" disabled={managementBusy || !supplierName.trim()}>{managementBusy ? "در حال ذخیره..." : supplierEditorId ? "ذخیره تغییرات" : "ثبت تأمین‌کننده"}</button>{supplierEditorId ? <button type="button" onClick={() => setSupplierEditorId(null)}>انصراف</button> : null}</div>
+          </form>
         </div>
         {managementMessage ? <p className="inventory-document-message" role="status">{managementMessage}</p> : null}
         <div className="inventory-management-list">
+          <div><strong>تأمین‌کنندگان</strong>{suppliers.map((supplier) => <div className="inventory-management-row" key={supplier.id}><span>{supplier.name}<small>{supplier.phone || "بدون شماره تماس"}</small></span><span className={supplier.is_active ? "is-enabled" : "is-disabled"}>{supplier.is_active ? "فعال" : "غیرفعال"}</span><button type="button" onClick={() => editSupplier(supplier)}>ویرایش</button></div>)}</div>
           <div><strong>اقلام ثبت‌شده</strong>{items.map((item) => <div className="inventory-management-row" key={item.id}><span>{item.name} <small>{item.code} · {item.base_unit.name}</small></span><span className={item.is_active ? "is-enabled" : "is-disabled"}>{item.is_active ? "فعال" : "غیرفعال"}</span><button type="button" onClick={() => editStockItem(item)}>ویرایش</button></div>)}</div>
           <div><strong>انبارک‌های این شعبه</strong>{locations.map((location) => <div className="inventory-management-row" key={location.id}><span>{location.name} <small>{location.code} · {location.location_type}</small></span><span className={location.is_active ? "is-enabled" : "is-disabled"}>{location.is_active ? "فعال" : "غیرفعال"}</span><button type="button" onClick={() => editLocation(location)}>ویرایش</button></div>)}</div>
         </div>
