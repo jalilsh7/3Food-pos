@@ -4,6 +4,7 @@ declare(strict_types=1);
 use PersiaCoder\PosV3\Auth\AuthController;
 use PersiaCoder\PosV3\Auth\BusinessContextController;
 use PersiaCoder\PosV3\Auth\BusinessScope;
+use PersiaCoder\PosV3\Auth\PermissionService;
 use PersiaCoder\PosV3\Auth\BusinessSetupController;
 use PersiaCoder\PosV3\Auth\BusinessSetupService;
 use PersiaCoder\PosV3\Auth\BranchManagementController;
@@ -16,6 +17,7 @@ use PersiaCoder\PosV3\Infrastructure\Database\SessionRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\BusinessRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\PermissionRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\OrderRepository;
+use PersiaCoder\PosV3\Orders\OrderService;
 use PersiaCoder\PosV3\Security\CsrfGuard;
 
 $root = dirname(__DIR__);
@@ -331,7 +333,7 @@ $invalidDateRejected = false;
 try {
     $orderService->list($orderScope, null, null, 10, null, null, null, '2026-02-30', null);
 } catch (HttpException $error) {
-    $invalidDateRejected = $error->getCode() === 422 || str_contains($error->getMessage(), 'calendar date');
+    $invalidDateRejected = $error->status === 422 || str_contains($error->getMessage(), 'calendar date');
 }
 $assert($invalidDateRejected, 'Invalid calendar date was not rejected.');
 $reversedRangeRejected = false;
