@@ -1298,6 +1298,7 @@ function CustomersScreen({ role }: { role: Role }) {
         </form>
       </Card>
       <input className={inputCls} placeholder="جستجو با شماره موبایل یا نام خانوادگی" value={q} onChange={(e) => setQ(e.target.value)} />
+      {customers.some(customer => customer.smsConsent === true && customer.smsConsentConfirmed !== true) ? <p className="text-xs text-muted">رضایت مشتریان قدیمی که فقط تیک آن‌ها از نسخه قبلی ثبت شده، برای کمپین معتبر نیست. پس از تأیید مشتری، تیک را یک‌بار بردارید و دوباره فعال کنید تا تأیید صریح ثبت شود.</p> : null}
       {list.map((c) => (
         <Card key={c.id}>
           <div className="flex flex-wrap justify-between gap-2">
