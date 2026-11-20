@@ -368,6 +368,15 @@ $raceDocumentTwo = $createDocument([
 ], 'race-two');
 $addLine($raceDocumentTwo, '2', null, 'race-two');
 $ledgerBeforeRace = $ledgerCount();
+
+// Do not fork with a live PDO connection: a child destructor could send COM_QUIT
+// over the inherited socket and invalidate the parent's connection.
+unset(
+    $createDocument, $addLine, $postDocument, $documents, $posting,
+    $balance, $ledgerCount, $insert, $insertBranch, $transferLedger, $status, $pdo,
+);
+gc_collect_cycles();
+
 $raceChildren = [];
 foreach ([
     [$raceDocumentOne, 'race-one'],
@@ -426,6 +435,28 @@ $blockedCount = count(array_filter(
         && str_contains((string) ($r['message'] ?? ''), 'Available stock is insufficient'),
 ));
 $assert($postedCount === 1 && $blockedCount === 1, 'Concurrent posting race must allow exactly one post and block the competing post.');
+
+$pdo = PosV3DatabaseTools::connect();
+$ledgerCount = static function () use ($pdo, $businessId, $branchId): int {
+    $s = $pdo->prepare('SELECT COUNT(*) FROM pos_stock_ledger WHERE business_id = :business_id AND branch_id = :branch_id');
+    $s->execute(['business_id' => $businessId, 'branch_id' => $branchId]);
+    return (int) $s->fetchColumn();
+};
+$balance = static function (int $locationId) use ($pdo, $businessId, $branchId, $stockItemId): array {
+    $s = $pdo->prepare(
+        'SELECT quantity_on_hand, quantity_reserved, average_unit_cost
+         FROM pos_stock_balances
+         WHERE business_id = :business_id AND branch_id = :branch_id
+           AND stock_item_id = :stock_item_id AND location_id = :location_id'
+    );
+    $s->execute([
+        'business_id' => $businessId, 'branch_id' => $branchId,
+        'stock_item_id' => $stockItemId, 'location_id' => $locationId,
+    ]);
+    $row = $s->fetch(PDO::FETCH_ASSOC);
+    if (!$row) throw new RuntimeException('Expected stock balance row is missing after concurrency test.');
+    return $row;
+};
 $assert($ledgerCount() === $ledgerBeforeRace + 1, 'Concurrent posting race appended an unexpected number of ledger entries.');
 $raceBalance = $balance($sourceLocationId);
 $assert($raceBalance['quantity_on_hand'] === '0.000000', 'Concurrent posting race produced an incorrect final quantity.');
