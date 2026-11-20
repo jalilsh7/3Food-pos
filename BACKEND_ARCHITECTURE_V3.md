@@ -441,3 +441,9 @@ v3/backend/
 - Business discovery must use explicit business or branch memberships only. A global installation owner must never enumerate unrelated business rows.
 - PermissionRepository must never honor the global installation-owner wildcard for domain permissions. The installer capability is handled only by isInstallationOwner while initial_business_id is NULL; the business-scoped owner wildcard remains valid only for its assigned business.
 - Integration coverage verifies empty business discovery before setup, owner membership after setup, removal of the global role, and no lingering installer privilege.
+
+## Order list pagination contract — 2026-11-20
+- Order list uses descending branch-local order_number as an opaque pagination cursor. The unique key is (business_id, branch_id, order_number).
+- Every page query must retain both business_id and branch_id predicates before applying the cursor predicate; cursor input is a positive integer string and must be validated server-side.
+- Fetch limit + 1 rows to derive has_more; return at most limit records and next_cursor equal to the final returned order_number only when another page exists.
+- Do not expose internal numeric order primary keys. Add MySQL and MariaDB integration coverage for pagination boundaries and cross-business/branch isolation before treating this feature as fully verified.
