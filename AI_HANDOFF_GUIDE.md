@@ -402,3 +402,8 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 - The previously queued V3 database workflow run `44710884253` is now confirmed successful on both MySQL 8.4 and MariaDB 10.6.
 - Both engine jobs passed schema checks, guarded install, checksum migration runner, and the comprehensive database step. That step runs real inventory posting integration and authentication/context/order pagination integration tests.
 - This PASS belongs to the prior ORD-01C baseline (`de0d1da9950eb58ad841c272a7b649682e9fc2c7`), not the newer ORD-01D or inventory retry-key changes. Current package CI must be checked separately.
+
+
+### ORD-01D DST integration hardening
+- The MySQL/MariaDB integration suite now also covers the Europe/Amsterdam spring-forward day 2026-03-29. It verifies the local day begins at 2026-03-28 23:00 UTC and ends exclusively at 2026-03-29 22:00 UTC, with start included and next-day boundary excluded.
+- This proves date boundaries are derived from IANA local calendar dates rather than assuming every local day is 24 hours. The new test remains pending CI on the current branch head.
