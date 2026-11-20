@@ -468,7 +468,7 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
   const s = usePos.getState();
   const tpl = s.templates.find((t) => t.event === event);
   if (!tpl?.enabled || !phone) return;
-  const templateVars = { ...vars, shop: s.settings.shopName };
+  const templateVars: Record<string, string> = { ...vars, shop: s.settings.shopName };
   const text = fillTemplate(tpl.body, templateVars);
   if (tpl.bodyId) {
     // National Payamak shared service numbers receive variable values, not the rendered message.
