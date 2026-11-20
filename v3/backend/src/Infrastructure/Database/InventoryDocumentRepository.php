@@ -193,7 +193,7 @@ final readonly class InventoryDocumentRepository
 
     public function addLine(
         int $businessId, int $branchId, int $documentId, string $linePublicId, int $stockItemId,
-        string $quantity, int $unitId, string $conversionFactor, ?string $note,
+        string $quantity, int $unitId, string $conversionFactor, string $totalCostAmount, ?string $note,
     ): void {
         $s = $this->connection->prepare(
             'INSERT INTO pos_stock_document_lines
@@ -201,14 +201,20 @@ final readonly class InventoryDocumentRepository
               conversion_factor_snapshot, base_quantity, unit_cost_snapshot, total_cost_amount, note)
              VALUES
              (:business_id, :branch_id, :document_id, :public_id, :stock_item_id, :quantity_value, :unit_id,
-              :factor_value, CAST(:quantity_calc AS DECIMAL(18,6)) * CAST(:factor_calc AS DECIMAL(18,8)), 0, 0, :note)'
+              :factor_value, CAST(:quantity_calc AS DECIMAL(18,6)) * CAST(:factor_calc AS DECIMAL(18,8)),
+              CASE WHEN CAST(:total_cost_calc AS DECIMAL(20,0)) = 0 THEN 0
+                   ELSE ROUND(CAST(:total_cost_unit AS DECIMAL(20,0)) /
+                     (CAST(:quantity_unit AS DECIMAL(18,6)) * CAST(:factor_unit AS DECIMAL(18,8))), 8) END,
+              :total_cost_amount, :note)'
         );
         $s->execute([
             'business_id' => $businessId, 'branch_id' => $branchId, 'document_id' => $documentId,
             'public_id' => $linePublicId, 'stock_item_id' => $stockItemId,
             'quantity_value' => $quantity, 'unit_id' => $unitId,
             'factor_value' => $conversionFactor, 'quantity_calc' => $quantity,
-            'factor_calc' => $conversionFactor, 'note' => $note,
+            'factor_calc' => $conversionFactor, 'total_cost_calc' => $totalCostAmount,
+            'total_cost_unit' => $totalCostAmount, 'quantity_unit' => $quantity,
+            'factor_unit' => $conversionFactor, 'total_cost_amount' => $totalCostAmount, 'note' => $note,
         ]);
     }
 
@@ -218,7 +224,7 @@ final readonly class InventoryDocumentRepository
         $s = $this->connection->prepare(
             'SELECT l.id, l.public_id, si.public_id AS stock_item_public_id,
                     l.quantity, u.code AS unit_code, l.conversion_factor_snapshot,
-                    l.base_quantity, l.note
+                    l.base_quantity, l.total_cost_amount, l.note
              FROM pos_stock_document_lines l
              INNER JOIN pos_stock_items si
                ON si.id = l.stock_item_id AND si.business_id = l.business_id
@@ -237,13 +243,17 @@ final readonly class InventoryDocumentRepository
 
     public function updateLine(
         int $businessId, int $branchId, int $documentId, int $lineId, int $stockItemId,
-        string $quantity, int $unitId, string $conversionFactor, ?string $note,
+        string $quantity, int $unitId, string $conversionFactor, string $totalCostAmount, ?string $note,
     ): void {
         $s = $this->connection->prepare(
             'UPDATE pos_stock_document_lines
              SET stock_item_id = :stock_item_id, quantity = :quantity_value, unit_id = :unit_id,
                  conversion_factor_snapshot = :factor_value,
                  base_quantity = CAST(:quantity_calc AS DECIMAL(18,6)) * CAST(:factor_calc AS DECIMAL(18,8)),
+                 unit_cost_snapshot = CASE WHEN CAST(:total_cost_calc AS DECIMAL(20,0)) = 0 THEN 0
+                   ELSE ROUND(CAST(:total_cost_unit AS DECIMAL(20,0)) /
+                     (CAST(:quantity_unit AS DECIMAL(18,6)) * CAST(:factor_unit AS DECIMAL(18,8))), 8) END,
+                 total_cost_amount = :total_cost_amount,
                  note = :note
              WHERE business_id = :business_id AND branch_id = :branch_id
                AND document_id = :document_id AND id = :line_id'
@@ -252,7 +262,10 @@ final readonly class InventoryDocumentRepository
             'business_id' => $businessId, 'branch_id' => $branchId, 'document_id' => $documentId,
             'line_id' => $lineId, 'stock_item_id' => $stockItemId, 'quantity_value' => $quantity,
             'unit_id' => $unitId, 'factor_value' => $conversionFactor,
-            'quantity_calc' => $quantity, 'factor_calc' => $conversionFactor, 'note' => $note,
+            'quantity_calc' => $quantity, 'factor_calc' => $conversionFactor,
+            'total_cost_calc' => $totalCostAmount, 'total_cost_unit' => $totalCostAmount,
+            'quantity_unit' => $quantity, 'factor_unit' => $conversionFactor,
+            'total_cost_amount' => $totalCostAmount, 'note' => $note,
         ]);
     }
 
