@@ -44,6 +44,10 @@ final readonly class PermissionRepository
              INNER JOIN app_role_permissions rp ON rp.role_id = r.id
              INNER JOIN app_permissions p ON p.id = rp.permission_id
              WHERE ur.user_id = :user_id AND r.code = 'owner' AND p.code = '*'
+               AND EXISTS (
+                   SELECT 1 FROM app_business_setup_state state
+                   WHERE state.id = 1 AND state.initial_business_id IS NULL
+               )
              LIMIT 1"
         );
         $owner->execute(['user_id' => $userId]);
