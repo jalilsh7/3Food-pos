@@ -20,6 +20,11 @@ final readonly class OrderController
         $channel = $request->query('channel');
         $paymentStatus = $request->query('payment');
         $fulfillmentMethod = $request->query('fulfillment');
+        $fromDate = $request->query('from_date');
+        $toDate = $request->query('to_date');
+        if (($fromDate !== null && !is_string($fromDate)) || ($toDate !== null && !is_string($toDate))) {
+            throw new HttpException(422, 'invalid_order_date_filter', 'Order dates must be strings in YYYY-MM-DD format.');
+        }
         $rawLimit = $request->query('limit') ?? '50';
         if (!preg_match('/^[0-9]{1,3}$/', $rawLimit)) {
             throw new HttpException(422, 'invalid_order_limit', 'Limit must be an integer between 1 and 100.');
@@ -36,6 +41,8 @@ final readonly class OrderController
             $before,
             $paymentStatus,
             $fulfillmentMethod,
+            $fromDate,
+            $toDate,
         );
         return Response::success($page);
     }
