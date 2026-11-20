@@ -100,6 +100,8 @@ final readonly class BusinessSetupService
                 $timezone,
             );
             $this->businesses->markInitialBusinessCreated($businessId);
+            $this->businesses->assignBusinessOwner($ownerUserId, $businessId);
+            $this->businesses->removeInstallationOwnerRole($ownerUserId);
             $this->audit->record(
                 $ownerUserId,
                 'business.initialized',
