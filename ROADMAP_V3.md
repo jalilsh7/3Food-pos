@@ -652,6 +652,7 @@
 - [x] API ساخت پیش‌نویس سند با idempotency و audit.
 - [x] API فهرست و جزئیات سربرگ سند با business/branch scope.
 - [x] شماره‌گذاری اتمیک به تفکیک business و branch.
-- [ ] API افزودن/ویرایش/حذف ردیف‌های draft و snapshot تبدیل واحد.
+- [x] API افزودن ردیف draft و snapshot تبدیل واحد.
+- [ ] API ویرایش/حذف ردیف‌های draft.
 - [ ] posting تراکنشی و ledger append-only؛ موجودی تا آن زمان نباید تغییر کند.
 - [ ] تست integration واقعی MySQL/MariaDB برای قفل شماره سند، idempotency race، scope و rollback.
