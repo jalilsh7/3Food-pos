@@ -156,6 +156,29 @@ final readonly class InventoryController
         ));
     }
 
+
+    public function updateDocumentLine(Request $request, array $parameters): Response
+    {
+        return $this->idempotentResponse($this->documents->updateLine(
+            $this->principal($request), $this->scope($request),
+            (string) ($parameters['documentPublicId'] ?? ''),
+            (string) ($parameters['linePublicId'] ?? ''), $this->jsonPayload($request),
+            $request->header('idempotency-key') ?? '', $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
+        ));
+    }
+
+    public function deleteDocumentLine(Request $request, array $parameters): Response
+    {
+        return $this->idempotentResponse($this->documents->deleteLine(
+            $this->principal($request), $this->scope($request),
+            (string) ($parameters['documentPublicId'] ?? ''),
+            (string) ($parameters['linePublicId'] ?? ''),
+            $request->header('idempotency-key') ?? '', $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
+        ));
+    }
+
     private function jsonPayload(Request $request): array
     {
         $contentType = strtolower(trim($request->header('content-type') ?? ''));
