@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import { Activity, Boxes, ClipboardList, MapPin, Package, RefreshCw, Search } from "lucide-react";
 import {
   ApiError,
@@ -125,7 +126,7 @@ export function InventoryWorkspace() {
   const needsCost = documentType === "adjustment_in";
   const selectedDocumentItem = items.find((item) => item.id === documentItem) ?? null;
 
-  async function submitStockDocument(event: React.FormEvent<HTMLFormElement>) {
+  async function submitStockDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!documentLocation || !documentItem || !documentUnit || !documentQuantity.trim()) return;
     if (documentType === "transfer" && (!destinationLocation || destinationLocation === documentLocation)) {
