@@ -4,6 +4,7 @@ import {
   ApiError,
   getOrderDetails,
   getOrders,
+  transitionOrder,
   type OrderDetail,
   type OrderSummary,
   type OrderStatus,
@@ -79,6 +80,8 @@ export function OrderCenter({ timeZone }: { timeZone: string }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [transitioning, setTransitioning] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const listRequestVersion = useRef(0);
 
   async function fetchOrders() {
@@ -210,6 +213,22 @@ export function OrderCenter({ timeZone }: { timeZone: string }) {
   }, [orders, query]);
 
   const selectedOrder = detail?.order ?? null;
+
+  async function changeOrderStatus(toStatus: OrderStatus) {
+    if (!selectedOrder || transitioning) return;
+    setTransitioning(true);
+    setActionError(null);
+    try {
+      await transitionOrder(selectedOrder.id, toStatus);
+      await fetchOrders();
+      const updated = await getOrderDetails(selectedOrder.id);
+      setDetail(updated);
+    } catch (cause) {
+      setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "تغییر وضعیت سفارش انجام نشد.");
+    } finally {
+      setTransitioning(false);
+    }
+  }
   const columns = [
     {
       key: "number",
@@ -381,6 +400,7 @@ export function OrderCenter({ timeZone }: { timeZone: string }) {
           </div>
           {detailLoading ? <Notice variant="info">در حال دریافت جزئیات سفارش...</Notice> : null}
           {detailError ? <Notice variant="warning">{detailError}</Notice> : null}
+          {actionError ? <Notice variant="warning">{actionError}</Notice> : null}
           {selectedOrder && detail ? (
             <>
               <div className="orders-detail-grid">
@@ -423,6 +443,22 @@ export function OrderCenter({ timeZone }: { timeZone: string }) {
               <div className="orders-detail-total">
                 <span>جمع جزء {money(selectedOrder.subtotal_amount)} · مالیات {money(selectedOrder.tax_amount)}</span>
                 <strong>{money(selectedOrder.total_amount)} تومان</strong>
+              </div>
+              <div className="orders-detail-actions">
+                {selectedOrder.order_status === "draft" || selectedOrder.order_status === "awaiting_payment" ? (
+                  <Button variant="primary" disabled={transitioning} onClick={() => { void changeOrderStatus("accepted"); }}>
+                    {transitioning ? "در حال ثبت..." : "پذیرش سفارش"}
+                  </Button>
+                ) : null}
+                {selectedOrder.order_status === "accepted" ? <span>برای شروع آماده‌سازی، این سفارش در برد آشپزخانه قرار دارد.</span> : null}
+                {selectedOrder.order_status === "ready" ? (
+                  <Button variant="primary" disabled={transitioning} onClick={() => { void changeOrderStatus("completed"); }}>
+                    {transitioning ? "در حال ثبت..." : "تکمیل و تحویل سفارش"}
+                  </Button>
+                ) : null}
+                {selectedOrder.order_status === "draft" || selectedOrder.order_status === "awaiting_payment" ? (
+                  <span>پذیرش سفارش وضعیت پرداخت را تغییر نمی‌دهد.</span>
+                ) : null}
               </div>
             </>
           ) : null}
