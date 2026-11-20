@@ -1335,3 +1335,17 @@
 - تست یکپارچه واقعی DB روی MySQL 8.4 و MariaDB 10.6 موفق شد: دو رسید خرید با میانگین موزون، مصرف، انتقال، idempotency replay، جلوگیری از موجودی منفی و rollback چندردیفی. تست DB همچنین Backup/Restore باینری Idempotency را تأیید کرد.
 - آخرین Backend موفق: [44697072239](https://github.com/jalilsh7/3Food-pos/actions/runs/44697072239). آخرین Database موفق: [44697072230](https://github.com/jalilsh7/3Food-pos/actions/runs/44697072230). PHP migration workflow برای همین commit هنوز در حال اجرا است.
 - موارد تکمیلی: تست race هم‌زمان دو posting، isolation چند business/branch، reservation integration، تعدیل خروجی/ورودی و برگشت source-linked؛ UI واقعی هنوز به API متصل نشده است.
+
+
+## INV-02B1 — تأیید نهایی CI و آزمون رقابت هم‌زمان (2026-11-20)
+- وضعیت: **تکمیل‌شده در لایه Backend/API و DB integration؛ اتصال UI هنوز باقی است.**
+- Backend Validation: PASS در PHP 8.2/8.3/8.4 — [run 44698948479](https://github.com/jalilsh7/3Food-pos/actions/runs/44698948479).
+- V3 Frontend Validation: PASS، TypeScript و production build — [run 44698948599](https://github.com/jalilsh7/3Food-pos/actions/runs/44698948599).
+- V3 Database: PASS روی MySQL 8.4 و MariaDB 10.6 — [run 44698942685](https://github.com/jalilsh7/3Food-pos/actions/runs/44698942685).
+- PHP migration workflow: PASS شامل API integration، TypeScript، Unit، Lint، cPanel build، Chromium smoke، performance budget و artifact — [run 44698948522](https://github.com/jalilsh7/3Food-pos/actions/runs/44698948522).
+- تست واقعی posting روی هر دو DB: خرید با Moving Weighted Average، تعدیل ورودی/خروجی، مصرف، انتقال متوازن، ضایعات، reserved-stock guard، برگشت غیرقابل‌ثبت، business/branch isolation، idempotency replay، rollback چندردیفی و race دو posting هم‌زمان.
+- تست concurrency: دقیقاً یک خروجی از دو سند هم‌زمان موفق و دیگری با موجودی آزاد ناکافی رد شد؛ balance و ledger نهایی صحیح ماندند. برای رفع deadlock ناشی از upsert اولیه، ایجاد balance به `INSERT ... ON DUPLICATE KEY UPDATE` تغییر کرد تا قفل انحصاری از ابتدا گرفته شود.
+- قفل‌گذاری نهایی: document و line با `FOR UPDATE`، item/location با `LOCK IN SHARE MODE`، balance با `FOR UPDATE`؛ جفت انتقال و همه عملیات در یک transaction idempotent.
+- Backup format v2 داده‌های BINARY/VARBINARY/BLOB را base64 می‌کند؛ restore نسخه‌های ۱ و ۲ را می‌پذیرد و طول nonce/tag رمزگذاری‌شده در CI تأیید شد.
+- آخرین code HEAD تست‌شده: `9e800c96f6c3f1f5aaee6d68ed18edeaf3529c8d`. تست‌ها فقط روی DBهای disposable CI اجرا شدند؛ هیچ migration روی مشتری/Production اجرا نشده.
+- موارد باز: return source-linked، اتصال مصرف به رزرو/سفارش، اتصال UI به API و تست‌های بار/حجم بالا و retry پس از deadlock.
