@@ -485,6 +485,10 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
       await postSms(phone, text, event, tpl.bodyId, "", "الگوی خدماتی باید حداقل یک متغیر داشته باشد تا مقدار آن به سرویس ارسال شود.");
       return;
     }
+    if (orderedKeys.length > 10) {
+      await postSms(phone, text, event, tpl.bodyId, "", "الگوی خدماتی حداکثر می‌تواند ۱۰ متغیر داشته باشد.");
+      return;
+    }
     const values = orderedKeys.map((key) => (/^\d+$/.test(key) ? indexedVars[Number(key)] : templateVars[key]) ?? "");
     if (values.some((value) => !value.trim())) {
       await postSms(phone, text, event, tpl.bodyId, "", "متغیرهای الگوی خدماتی کامل نیستند؛ ترتیب و مقادیر الگو را بررسی کنید.");
