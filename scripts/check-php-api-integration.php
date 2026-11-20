@@ -433,6 +433,16 @@ try {
 
     $campaignWithoutCustomer = api('POST', '/api/v1/sms/send', ['to' => '09120000000', 'text' => 'CI only', 'event' => 'campaign'], csrf_headers());
     check($campaignWithoutCustomer['status'] === 403 && ($campaignWithoutCustomer['json']['error'] ?? '') === 'sms_consent_required', 'campaign SMS requires customer identity and consent');
+
+    $campaignUnknownCustomer = api('POST', '/api/v1/sms/send', ['to' => '09120000000', 'text' => 'CI only', 'event' => 'campaign', 'customerId' => 'ci-unknown-customer'], csrf_headers());
+    check($campaignUnknownCustomer['status'] === 403 && ($campaignUnknownCustomer['json']['error'] ?? '') === 'sms_consent_required', 'campaign SMS rejects unknown customer records');
+
+    $operationalWithoutBodyId = api('POST', '/api/v1/sms/send', ['to' => '09120000000', 'text' => '1258', 'event' => 'order_created'], csrf_headers());
+    check($operationalWithoutBodyId['status'] === 422 && ($operationalWithoutBodyId['json']['error'] ?? '') === 'sms_service_template_required', 'operational SMS requires an approved service template');
+
+    $manualWithBodyId = api('POST', '/api/v1/sms/send', ['to' => '09120000000', 'text' => '1258', 'event' => 'manual', 'bodyId' => '344438'], csrf_headers());
+    check($manualWithBodyId['status'] === 422 && ($manualWithBodyId['json']['error'] ?? '') === 'sms_personal_route_required', 'manual SMS rejects service template routing');
+
     check($smsLogWrite['status'] === 201, 'manager can persist SMS delivery log');
     $smsSnapshot = api('GET', '/api/v1/bootstrap');
     check(($smsSnapshot['json']['data']['sms_logs'][0]['id'] ?? '') === 'ci-sms-log', 'manager bootstrap includes persistent SMS logs');
