@@ -466,6 +466,17 @@ export type CatalogCategory = {
   is_active: boolean;
 };
 
+export type CreatedCatalogProduct = {
+  id: string;
+  name: string;
+  sku: string | null;
+  product_type: string;
+  base_price_amount: number;
+  tax_rate_bps: number;
+  category_id: string | null;
+  is_active: boolean;
+};
+
 export type CatalogProductInput = {
   name: string;
   base_price_amount: number;
@@ -493,8 +504,8 @@ export async function createCatalogCategory(name: string): Promise<CatalogCatego
   return data.category;
 }
 
-export async function createCatalogProduct(payload: CatalogProductInput): Promise<PosCatalogProduct> {
-  const data = await request<{ product: PosCatalogProduct }>("/catalog/products", {
+export async function createCatalogProduct(payload: CatalogProductInput): Promise<CreatedCatalogProduct> {
+  const data = await request<{ product: CreatedCatalogProduct }>("/catalog/products", {
     method: "POST",
     body: JSON.stringify({
       name: payload.name.trim(),
