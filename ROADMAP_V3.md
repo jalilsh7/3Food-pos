@@ -815,3 +815,14 @@
 ### CI follow-up — 2026-11-20
 - V3 database workflow run `44710884253` passed on MySQL 8.4 and MariaDB 10.6, including guarded installation, checksum migration runner and real inventory/auth/order integration suites. This closes the earlier smoke-sequence failure for that ORD-01C baseline.
 - ORD-01D and inventory retry-key changes were committed afterward; their Backend, Frontend and database CI results remain pending.
+
+## Phase 4 — POS cashier API wiring update (2026-11-20)
+
+### POS-01A — cashier catalog and order creation
+- Frontend cashier now reads active products and product configuration from V3 catalog endpoints and submits orders through the existing transactional order API.
+- Server remains authoritative for product availability, variant/option validation, price, tax and order total. POS uses explicit idempotency keys for safe same-payload retries.
+- Dine-in, takeaway and delivery fulfillment are mapped; delivery captures recipient details and address.
+- New orders remain draft/unpaid. Payment, discounts, customer identity lookup, table session selection and kitchen transitions are not included in this package.
+- Contract checks added; Frontend build passed on commit 0bcfda8c. Latest HEAD CI runs must be refreshed before acceptance.
+- Catalog management screen is still demo/local and must be connected to APIs before the whole catalog workflow can be accepted.
+- Next gates: disposable MySQL/MariaDB order-creation integration; current-HEAD CI acceptance; CatalogWorkspace API wiring; then order status and kitchen transitions.
