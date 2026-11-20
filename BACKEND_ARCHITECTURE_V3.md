@@ -365,6 +365,7 @@ v3/backend/
 - Every operation requires branch context. Document/location queries enforce business+branch; supplier lookup enforces business.
 - Document numbers use a branch/business-specific `pos_sequences` key and a row lock inside the idempotent transaction.
 - Create requires `inventory.manage`, session, CSRF, Origin, idempotency and audit. Reads require `inventory.read`.
-- This is header-only: no document lines, stock ledger entries, or balance changes are implemented in this slice. The detail response returns an empty `lines` list until line management is delivered.
+- Draft line creation is available at `POST /api/v1/inventory/documents/{documentPublicId}/lines`. It locks the scoped draft header, validates the stock item and unit dimension, and stores quantity, conversion factor snapshot and converted base quantity. Detail reads return branch-scoped lines.
+- Line update/delete and posting are not implemented. No ledger entries or balance changes are made. Cost snapshot fields are intentionally not calculated in this phase; default zero must not be interpreted as a real cost.
 - Requires migration 011 to be applied before runtime use. Migration has not been executed on any real database.
 - `scripts/check-v3-backend-inventory-documents.php` is a source-contract regression check only, not a DB integration test.
