@@ -40,7 +40,12 @@ final readonly class OrderService
         ?string $beforeCursor = null,
         ?string $paymentStatus = null,
         ?string $fulfillmentMethod = null,
+        ?string $fromDate = null,
+        ?string $toDate = null,
     ): array {
+        if ($scope->branchId === null || $scope->branchId < 1) {
+            throw new HttpException(400, 'branch_context_required', 'A branch context is required to list orders.');
+        }
         if ($status !== null && !in_array($status, self::statuses(), true)) {
             throw new HttpException(422, 'invalid_order_status_filter', 'The order status filter is invalid.');
         }
@@ -71,16 +76,74 @@ final readonly class OrderService
             }
             $beforeOrderNumber = $validatedCursor;
         }
+        [$createdFromUtc, $createdToUtc] = $this->normalizeDateRange(
+            $scope, $fromDate, $toDate,
+        );
         return $this->orders->listOrders(
             $scope->businessId,
-            (int) $scope->branchId,
+            $scope->branchId,
             $status,
             $channel,
             $limit,
             $beforeOrderNumber,
             $paymentStatus,
             $fulfillmentMethod,
+            $createdFromUtc,
+            $createdToUtc,
         );
+    }
+
+    /** @return array{?string,?string} UTC DATETIME bounds; the upper bound is exclusive. */
+    private function normalizeDateRange(
+        BusinessScope $scope, ?string $fromDate, ?string $toDate,
+    ): array {
+        if ($fromDate === null && $toDate === null) {
+            return [null, null];
+        }
+        $timezoneName = $this->orders->findEffectiveTimezone(
+            $scope->businessId, (int) $scope->branchId,
+        );
+        if ($timezoneName === null) {
+            throw new HttpException(409, 'order_timezone_unavailable', 'The business or branch timezone is unavailable.');
+        }
+        try {
+            $timezone = new \\DateTimeZone($timezoneName);
+        } catch (\\Throwable) {
+            throw new HttpException(409, 'order_timezone_invalid', 'The configured business or branch timezone is invalid.');
+        }
+
+        $from = $fromDate === null ? null : self::parseLocalDate($fromDate, $timezone);
+        $to = $toDate === null ? null : self::parseLocalDate($toDate, $timezone);
+        if ($from !== null && $to !== null) {
+            if ($from > $to) {
+                throw new HttpException(422, 'invalid_order_date_range', 'The start date must not be after the end date.');
+            }
+            $inclusiveDays = $from->diff($to)->days + 1;
+            if ($inclusiveDays > 366) {
+                throw new HttpException(422, 'order_date_range_too_large', 'The order date range must not exceed 366 local calendar days.');
+            }
+        }
+
+        $utc = new \\DateTimeZone('UTC');
+        return [
+            $from?->setTimezone($utc)->format('Y-m-d H:i:s.u'),
+            $to?->modify('+1 day')->setTimezone($utc)->format('Y-m-d H:i:s.u'),
+        ];
+    }
+
+    private static function parseLocalDate(string $value, \\DateTimeZone $timezone): \\DateTimeImmutable
+    {
+        if (!preg_match('/^\\\\d{4}-\\\\d{2}-\\\\d{2}$/', $value)) {
+            throw new HttpException(422, 'invalid_order_date_filter', 'Order dates must use YYYY-MM-DD format.');
+        }
+        $date = \\DateTimeImmutable::createFromFormat('!Y-m-d', $value, $timezone);
+        $errors = \\DateTimeImmutable::getLastErrors();
+        if ($date === false
+            || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))
+            || $date->format('Y-m-d') !== $value) {
+            throw new HttpException(422, 'invalid_order_date_filter', 'The order date is not a valid calendar date.');
+        }
+        return $date;
     }
 
     public function get(BusinessScope $scope, string $orderPublicId): array
