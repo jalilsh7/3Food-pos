@@ -856,3 +856,5 @@
 - OrderCenter now requires a reason for cancellation and sends it to the backend; paid/partially-paid orders do not show direct cancellation.
 - Backend remains authoritative for status transitions, refund guard and RBAC.
 - Remaining: expose permission grants safely in session for role-aware action affordances; await CI and browser smoke.
+
+- ORD-02B CI accepted on code commit 34ffa458: frontend, backend and MySQL/MariaDB DB engine validation passed. Browser smoke remains outstanding.
