@@ -2498,6 +2498,8 @@ if ($method === 'POST' && $path === '/sms/send') {
     $username = trim((string)($sms['username'] ?? ''));
     $password = trim((string)($sms['password'] ?? ''));
     $sender = trim((string)($sms['sender'] ?? ''));
+    $senderSupportOne = trim((string)($sms['sender_support_one'] ?? ''));
+    $senderSupportTwo = trim((string)($sms['sender_support_two'] ?? ''));
     if (($sms['provider'] ?? 'none') !== 'national_payamak' || $username === '' || $password === '' || (!$isServiceRoute && $sender === '')) {
         json_response(['ok' => false, 'error' => 'sms_not_configured', 'message' => 'سرویس پیامک در تنظیمات سرور فعال نشده است'], 503);
     }
