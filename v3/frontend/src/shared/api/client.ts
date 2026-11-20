@@ -20,6 +20,7 @@ const apiBase = (import.meta.env.VITE_API_BASE_URL || "/api/v1").replace(/\/$/, 
 let csrfToken: string | null = null;
 let businessContext: { businessId: string; branchId: string } | null = null;
 const contextStorageKey = "pos_v3_business_context";
+const pendingInventoryIdempotencyKeys = new Map<string, string>();
 
 export function getSavedBusinessContext(): SavedBusinessContext | null {
   try {
@@ -63,6 +64,17 @@ async function request<T>(path: string, options: RequestInit = {}, context: { bu
   if (scope?.businessId && !headers.has("X-Business-ID")) headers.set("X-Business-ID", scope.businessId);
   if (scope?.branchId && !headers.has("X-Branch-ID")) headers.set("X-Branch-ID", scope.branchId);
   if (options.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  let pendingIdempotencySignature: string | null = null;
+  if (path.startsWith("/inventory/") && !["GET", "HEAD", "OPTIONS"].includes(method)
+    && !headers.has("Idempotency-Key")) {
+    pendingIdempotencySignature = `${method}\\n${path}\\n${typeof options.body === "string" ? options.body : ""}`;
+    let key = pendingInventoryIdempotencyKeys.get(pendingIdempotencySignature);
+    if (!key) {
+      key = globalThis.crypto.randomUUID();
+      pendingInventoryIdempotencyKeys.set(pendingIdempotencySignature, key);
+    }
+    headers.set("Idempotency-Key", key);
+  }
   if (!["GET", "HEAD", "OPTIONS"].includes(method) && csrfToken) {
     headers.set("X-CSRF-Token", csrfToken);
   }
@@ -91,6 +103,7 @@ async function request<T>(path: string, options: RequestInit = {}, context: { bu
       payload?.error?.code || "request_failed",
     );
   }
+  if (pendingIdempotencySignature !== null) pendingInventoryIdempotencyKeys.delete(pendingIdempotencySignature);
   return payload.data as T;
 }
 
@@ -112,6 +125,7 @@ export async function signIn(username: string, password: string): Promise<Authen
 export async function signOut(): Promise<void> {
   await request<{ logged_out: boolean }>("/auth/logout", { method: "POST", body: "{}" }, null);
   setCsrfToken(null);
+  pendingInventoryIdempotencyKeys.clear();
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
@@ -174,7 +188,7 @@ export async function createInventorySupplier(payload: {
   name: string; phone?: string; notes?: string;
 }): Promise<void> {
   await request<{ supplier: { id: string } }>("/inventory/suppliers", {
-    method: "POST", headers: idempotencyHeaders(), body: JSON.stringify(payload),
+    method: "POST", body: JSON.stringify(payload),
   });
 }
 
@@ -182,7 +196,7 @@ export async function updateInventorySupplier(supplierId: string, payload: {
   name: string; phone?: string | null; notes?: string | null; is_active: boolean;
 }): Promise<void> {
   await request<{ supplier: { id: string } }>(`/inventory/suppliers/${encodeURIComponent(supplierId)}`, {
-    method: "PATCH", headers: idempotencyHeaders(), body: JSON.stringify(payload),
+    method: "PATCH", body: JSON.stringify(payload),
   });
 }
 
@@ -226,7 +240,7 @@ export async function createInventoryLocation(payload: {
   code: string; name: string; location_type: "storage" | "kitchen" | "bar" | "freezer" | "other";
 }): Promise<void> {
   await request<{ location: { id: string } }>("/inventory/locations", {
-    method: "POST", headers: idempotencyHeaders(), body: JSON.stringify(payload),
+    method: "POST", body: JSON.stringify(payload),
   });
 }
 
@@ -234,7 +248,7 @@ export async function updateInventoryLocation(locationId: string, payload: {
   code: string; name: string; location_type: "storage" | "kitchen" | "bar" | "freezer" | "other"; is_active: boolean;
 }): Promise<void> {
   await request<{ location: { id: string } }>(`/inventory/locations/${encodeURIComponent(locationId)}`, {
-    method: "PATCH", headers: idempotencyHeaders(), body: JSON.stringify(payload),
+    method: "PATCH", body: JSON.stringify(payload),
   });
 }
 
@@ -283,7 +297,7 @@ export async function createInventoryStockItem(payload: {
   code: string; name: string; base_unit_code: string; negative_stock_policy?: "block";
 }): Promise<void> {
   await request<{ stock_item: { id: string } }>("/inventory/items", {
-    method: "POST", headers: idempotencyHeaders(), body: JSON.stringify(payload),
+    method: "POST", body: JSON.stringify(payload),
   });
 }
 
@@ -291,7 +305,7 @@ export async function updateInventoryStockItem(itemId: string, payload: {
   code: string; name: string; is_active: boolean;
 }): Promise<void> {
   await request<{ stock_item: { id: string } }>(`/inventory/items/${encodeURIComponent(itemId)}`, {
-    method: "PATCH", headers: idempotencyHeaders(), body: JSON.stringify(payload),
+    method: "PATCH", body: JSON.stringify(payload),
   });
 }
 
@@ -311,10 +325,6 @@ export type InventoryDocumentSummary = {
   created_at: string;
   posted_at: string | null;
 };
-
-function idempotencyHeaders(): HeadersInit {
-  return { "Idempotency-Key": globalThis.crypto.randomUUID() };
-}
 
 export async function getInventoryUnits(): Promise<InventoryUnit[]> {
   const data = await request<{ units: InventoryUnit[] }>("/inventory/units");
@@ -336,7 +346,7 @@ export async function createInventoryDocument(payload: {
 }): Promise<{ id: string; document_no: string; document_type: string; status: string }> {
   const data = await request<{ stock_document: { id: string; document_no: string; document_type: string; status: string } }>(
     "/inventory/documents",
-    { method: "POST", headers: idempotencyHeaders(), body: JSON.stringify(payload) },
+    { method: "POST", body: JSON.stringify(payload) },
   );
   return data.stock_document;
 }
@@ -350,14 +360,14 @@ export async function addInventoryDocumentLine(documentId: string, payload: {
 }): Promise<void> {
   await request<{ stock_document_line: { id: string } }>(
     `/inventory/documents/${encodeURIComponent(documentId)}/lines`,
-    { method: "POST", headers: idempotencyHeaders(), body: JSON.stringify(payload) },
+    { method: "POST", body: JSON.stringify(payload) },
   );
 }
 
 export async function postInventoryDocument(documentId: string): Promise<void> {
   await request<{ stock_document: { id: string; status: string } }>(
     `/inventory/documents/${encodeURIComponent(documentId)}/post`,
-    { method: "POST", headers: idempotencyHeaders(), body: "{}" },
+    { method: "POST", body: "{}" },
   );
 }
 
@@ -393,14 +403,14 @@ export async function updateInventoryDocumentLine(documentId: string, lineId: st
 }): Promise<void> {
   await request<{ stock_document_line: { id: string } }>(
     `/inventory/documents/${encodeURIComponent(documentId)}/lines/${encodeURIComponent(lineId)}`,
-    { method: "PATCH", headers: idempotencyHeaders(), body: JSON.stringify(payload) },
+    { method: "PATCH", body: JSON.stringify(payload) },
   );
 }
 
 export async function deleteInventoryDocumentLine(documentId: string, lineId: string): Promise<void> {
   await request<{ deleted: boolean }>(
     `/inventory/documents/${encodeURIComponent(documentId)}/lines/${encodeURIComponent(lineId)}`,
-    { method: "DELETE", headers: idempotencyHeaders(), body: "{}" },
+    { method: "DELETE", body: "{}" },
   );
 }
 
