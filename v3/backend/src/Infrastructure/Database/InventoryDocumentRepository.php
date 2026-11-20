@@ -143,7 +143,8 @@ final readonly class InventoryDocumentRepository
     public function findDraftForUpdate(int $businessId, int $branchId, string $publicId): ?array
     {
         $s = $this->connection->prepare(
-            "SELECT id, public_id, document_no, document_type, status
+            "SELECT id, public_id, document_no, document_type, status,
+                    location_id, destination_location_id, supplier_id
              FROM pos_stock_documents
              WHERE business_id = :business_id AND branch_id = :branch_id AND public_id = :public_id
              LIMIT 1 FOR UPDATE"
@@ -151,6 +152,58 @@ final readonly class InventoryDocumentRepository
         $s->execute(['business_id' => $businessId, 'branch_id' => $branchId, 'public_id' => $publicId]);
         $row = $s->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
+    }
+
+    public function listLinesForPostingForUpdate(int $businessId, int $branchId, int $documentId): array
+    {
+        $s = $this->connection->prepare(
+            'SELECT l.id, l.public_id, l.stock_item_id, si.base_unit_id,
+                    l.base_quantity, l.total_cost_amount
+             FROM pos_stock_document_lines l
+             INNER JOIN pos_stock_items si
+               ON si.id = l.stock_item_id AND si.business_id = l.business_id
+             WHERE l.business_id = :business_id AND l.branch_id = :branch_id
+               AND l.document_id = :document_id
+             ORDER BY l.stock_item_id ASC, l.id ASC
+             FOR UPDATE'
+        );
+        $s->execute([
+            'business_id' => $businessId, 'branch_id' => $branchId, 'document_id' => $documentId,
+        ]);
+        return $s->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function updateLineValuation(
+        int $businessId, int $branchId, int $documentId, int $lineId,
+        string $unitCostSnapshot, string $totalCostAmount,
+    ): void {
+        $s = $this->connection->prepare(
+            'UPDATE pos_stock_document_lines
+             SET unit_cost_snapshot = :unit_cost_snapshot, total_cost_amount = :total_cost_amount
+             WHERE business_id = :business_id AND branch_id = :branch_id
+               AND document_id = :document_id AND id = :line_id'
+        );
+        $s->execute([
+            'unit_cost_snapshot' => $unitCostSnapshot, 'total_cost_amount' => $totalCostAmount,
+            'business_id' => $businessId, 'branch_id' => $branchId,
+            'document_id' => $documentId, 'line_id' => $lineId,
+        ]);
+    }
+
+    public function markPosted(int $businessId, int $branchId, int $documentId): void
+    {
+        $s = $this->connection->prepare(
+            "UPDATE pos_stock_documents
+             SET status = 'posted', posted_at = UTC_TIMESTAMP(3)
+             WHERE business_id = :business_id AND branch_id = :branch_id
+               AND id = :document_id AND status = 'draft'"
+        );
+        $s->execute([
+            'business_id' => $businessId, 'branch_id' => $branchId, 'document_id' => $documentId,
+        ]);
+        if ($s->rowCount() !== 1) {
+            throw new \RuntimeException('The stock document state changed while posting.');
+        }
     }
 
     public function findStockItemForLine(int $businessId, string $publicId): ?array
