@@ -201,7 +201,7 @@ export function CatalogWorkspace() {
       setNewProductType("prepared");
       setEditingProductId(null);
       setShowNew(false);
-      setSuccessMessage(editingProductId ? "اطلاعات محصول در سرور به‌روزرسانی شد." : "محصول در کاتالوگ سرور ثبت شد و در صندوق قابل انتخاب است.");
+      setSuccessMessage(savedId ? "اطلاعات محصول در سرور به‌روزرسانی شد." : "محصول در کاتالوگ سرور ثبت شد و در صندوق قابل انتخاب است.");
     } catch (cause) {
       setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "ثبت محصول انجام نشد.");
     } finally {
