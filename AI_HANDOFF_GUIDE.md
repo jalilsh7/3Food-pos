@@ -8,7 +8,7 @@
 - Product: **PersiaCoder POS V3 — Commercial Edition**
 - Product brand is fixed: **PersiaCoder.ir**; every application page must carry the subtle footer text **Powered by PersiaCoder.ir**.
 - Audience: restaurants, cafés, fast-food, juice bars and ice-cream shops.
-- Current code baseline: `d364efc9d72f66b680401f8ec53f7fa34d183df0` on 2026-11-20. Documentation records the prior order-integration code baseline `f6ab1a6a9b8e47674f5a01e2c322567c9c15d612`; always fetch the live branch head before relying on either SHA.
+- Current code baseline: implementation commit `73bfbc5120f5d133fc04e2ac548f7b419febca2d` on 2026-11-20; later commits may update project documentation. Documentation records the prior order-integration code baseline `f6ab1a6a9b8e47674f5a01e2c322567c9c15d612`; always fetch the live branch head before relying on either SHA.
 
 ## 1. Mandatory working rules
 
@@ -346,3 +346,19 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 - Cursor validation additionally uses FILTER_VALIDATE_INT with min_range=1 after the decimal-string regex to reject values outside the supported PHP integer range.
 - Latest relevant commits: OrderService overflow validation 89f9ade07babb6f8df140141de4f840466af41d2; static contract update a46e801f1be86186a3d7e1961e9021e5da28780c; DB pagination fixture fa0b2d8fec6e166532b94d1626df8c20050b2069; integration output e536dae41865b33dfd46951f80ed64369c3f5d28.
 - All tests on this final patch are pending until GitHub Actions completes on the new HEAD.
+
+
+## Authoritative continuation state — 2026-11-20 (ORD-01C)
+This section supersedes any older phase/status snapshots above when they conflict.
+
+- Current active branch: `feature/3food-pos-next-release-v2`. Do not modify `main` and do not merge PR #4.
+- Latest implementation commit before documentation-only commits: `73bfbc5120f5d133fc04e2ac548f7b419febca2d`.
+- Current work: Phase 4, order-center API integration, ORD-01C. Phase 4 is in progress; order center read/list/detail and cursor pagination exist.
+- ORD-01C adds server-side `payment` and `fulfillment` filters to GET orders. Allowed payment values: `unpaid`, `partially_paid`, `paid`, `refunded`. Allowed fulfillment values: `dine_in`, `takeaway`, `delivery`. Validation is in OrderService; SQL filtering is scoped by business and branch and works with the order-number cursor.
+- Frontend sends payment/fulfillment filters on both initial and cursor requests. Changing either invalidates older list requests and starts a new first page. Text search remains client-side over loaded pages.
+- Contract coverage: `scripts/check-v3-backend-orders.php` includes source-level assertions for the new filters. Do not describe this as runtime integration.
+- Real DB coverage: `scripts/check-v3-auth-integration.php` inserts paid/unpaid/partially-paid orders and a dine-in fulfillment, then exercises OrderRepository filters over PDO. It is configured in the MySQL 8.4/MariaDB 10.6 database workflow. Do not mark PASS until those jobs complete successfully on the relevant HEAD.
+- CI on HEAD `024a97bd4d8f7fc3fad03799d269f3e59668f89a` was queued/in progress at the last check: Backend Validation run `44709890763` queued; V3 database engine validation run `44709881216` queued; PHP migration checks `44709891041` in progress; a separate Frontend Validation run `44709890815` was cancelled. These runs predate ORD-01C code changes and are not validation of ORD-01C. Fetch fresh runs for the latest branch head before reporting.
+- Next package: ORD-01D, date-range filtering. Define and enforce date/timezone semantics before coding; preserve cursor, business/branch scope and page-request race protection. Then proceed to POS order creation API wiring.
+- Testing policy: critical tests during implementation; low-priority tests remain in the final QA queue. Pending/queued/cancelled is never PASS.
+- Never execute migrations on customer/production databases. Do not claim the POS prototype is operational until API wiring and integration are complete.
