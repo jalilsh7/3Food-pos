@@ -2459,26 +2459,31 @@ if ($method === 'POST' && $path === '/sms/send') {
     $route = $isServiceRoute ? 'service' : 'personal';
     $endpoint = $isServiceRoute
         ? 'https://rest.payamak-panel.com/api/SendSMS/BaseServiceNumber'
-        : 'https://rest.payamak-panel.com/api/SendSMS/SendSMS';
+        : 'https://rest.payamak-panel.com/api/SmartSMS/Send';
     $credentialField = (($sms['credential_mode'] ?? 'password') === 'apikey') ? ['ApiKey' => $password] : ['password' => $password];
     $fields = $isServiceRoute
         ? array_merge(['username' => $username], $credentialField, ['text' => $message, 'to' => $to, 'bodyId' => $bodyId])
         : array_merge(['username' => $username], $credentialField, ['to' => $to, 'from' => $sender, 'text' => $message, 'isFlash' => 'false']);
 
     try {
-        $encodedFields = http_build_query($fields, '', '&', PHP_QUERY_RFC3986);
+        // The shared service route uses the legacy form contract; campaigns and
+        // manual messages use the provider's dedicated SmartSMS JSON contract.
+        $requestBody = $isServiceRoute
+            ? http_build_query($fields, '', '&', PHP_QUERY_RFC3986)
+            : json_encode($fields, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        $contentType = $isServiceRoute ? 'application/x-www-form-urlencoded' : 'application/json';
         $httpStatus = 0;
         if (function_exists('curl_init')) {
             $ch = curl_init($endpoint);
             curl_setopt_array($ch, [
                 CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => $encodedFields,
+                CURLOPT_POSTFIELDS => $requestBody,
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_CONNECTTIMEOUT => 8,
                 CURLOPT_TIMEOUT => 20,
                 CURLOPT_SSL_VERIFYPEER => true,
                 CURLOPT_SSL_VERIFYHOST => 2,
-                CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+                CURLOPT_HTTPHEADER => ['Content-Type: ' . $contentType, 'Accept: application/json'],
             ]);
             $raw = curl_exec($ch);
             $httpStatus = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -2494,8 +2499,8 @@ if ($method === 'POST' && $path === '/sms/send') {
             }
             $context = stream_context_create(['http' => [
                 'method' => 'POST',
-                'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
-                'content' => $encodedFields,
+                'header' => "Content-Type: " . $contentType . "\r\nAccept: application/json\r\n",
+                'content' => $requestBody,
                 'timeout' => 20,
                 'ignore_errors' => true,
             ], 'ssl' => ['verify_peer' => true, 'verify_peer_name' => true]]);
@@ -2507,8 +2512,20 @@ if ($method === 'POST' && $path === '/sms/send') {
         }
 
         $providerResponse = trim((string)$raw);
-        $providerCode = preg_match('/^-?[0-9]+$/D', $providerResponse) ? (int)$providerResponse : 0;
-        $ok = $httpStatus >= 200 && $httpStatus < 300 && $providerCode > 0;
+        $providerCode = 0;
+        if ($isServiceRoute) {
+            $providerCode = preg_match('/^-?[0-9]+$/D', $providerResponse) ? (int)$providerResponse : 0;
+            $ok = $httpStatus >= 200 && $httpStatus < 300 && $providerCode > 0;
+        } else {
+            $smartResult = json_decode($providerResponse, true);
+            $smartId = is_array($smartResult) ? ($smartResult['Value'] ?? $smartResult['value'] ?? $smartResult['id'] ?? $smartResult['messageId'] ?? $smartResult['message_id'] ?? null) : null;
+            $smartStatus = is_array($smartResult) ? ($smartResult['RetStatus'] ?? $smartResult['retStatus'] ?? null) : null;
+            $providerCode = is_numeric($smartStatus) ? (int)$smartStatus : (is_numeric($smartId) ? (int)$smartId : 0);
+            $ok = $httpStatus >= 200 && $httpStatus < 300 && is_numeric($smartId) && (int)$smartId > 0;
+            if (!$ok && is_array($smartResult)) {
+                $providerResponse = (string)($smartResult['StrRetStatus'] ?? $smartResult['message'] ?? $smartResult['error'] ?? $providerResponse);
+            }
+        }
         $providerDetails = [
             4 => 'شناسه الگوی خدماتی معتبر یا تأییدشده نیست؛ bodyId را از پنل ملی‌پیامک بررسی کنید',
             5 => 'تعداد یا ترتیب مقادیر متغیر با الگوی خدماتی مطابقت ندارد',
