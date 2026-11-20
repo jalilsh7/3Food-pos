@@ -69,10 +69,7 @@ export function OrderCenter() {
   const [error, setError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  async function loadOrders(refresh = false) {
-    if (refresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
+  async function fetchOrders() {
     try {
       const result = await getOrders({
         status: status === "all" ? undefined : status,
@@ -83,31 +80,49 @@ export function OrderCenter() {
       if (selectedId && !result.some((order) => order.id === selectedId)) {
         setSelectedId(null);
         setDetail(null);
+        setDetailLoading(false);
       }
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "دریافت سفارش‌ها انجام نشد.");
       setOrders([]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function refreshOrders() {
+    setRefreshing(true);
+    setError(null);
+    try {
+      await fetchOrders();
+    } finally {
       setRefreshing(false);
     }
   }
 
+  function toggleOrder(orderId: string) {
+    if (selectedId === orderId) {
+      setSelectedId(null);
+      setDetail(null);
+      setDetailError(null);
+      setDetailLoading(false);
+      return;
+    }
+    setDetail(null);
+    setDetailError(null);
+    setDetailLoading(true);
+    setSelectedId(orderId);
+  }
+
   useEffect(() => {
-    void loadOrders();
+    void fetchOrders();
     // The active business/branch context is applied by the shared API client.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, channel]);
 
   useEffect(() => {
-    if (!selectedId) {
-      setDetail(null);
-      setDetailError(null);
-      return;
-    }
+    if (!selectedId) return;
     let active = true;
-    setDetailLoading(true);
-    setDetailError(null);
     getOrderDetails(selectedId)
       .then((result) => { if (active) setDetail(result); })
       .catch((cause: unknown) => {
@@ -178,7 +193,7 @@ export function OrderCenter() {
       header: "جزئیات",
       render: (order: OrderSummary) => (
         <Button size="sm" variant={selectedId === order.id ? "primary" : "secondary"}
-          onClick={() => setSelectedId(selectedId === order.id ? null : order.id)}
+          onClick={() => toggleOrder(order.id)}
           aria-label={`نمایش جزئیات سفارش ${order.order_number}`}>
           <Eye size={14} /> مشاهده
         </Button>
@@ -200,7 +215,7 @@ export function OrderCenter() {
           <h1>مرکز یکپارچه سفارش‌ها</h1>
           <p>نمایش سفارش‌های صندوق، تلفنی، بیرون‌بر و فروشگاه آنلاین در یک محل</p>
         </div>
-        <Button size="sm" variant="secondary" onClick={() => void loadOrders(true)} disabled={loading || refreshing}>
+        <Button size="sm" variant="secondary" onClick={() => void refreshOrders()} disabled={loading || refreshing}>
           <RefreshCw size={14} /> {refreshing ? "در حال بروزرسانی..." : "بروزرسانی"}
         </Button>
       </div>
@@ -223,7 +238,7 @@ export function OrderCenter() {
           </div>
           <Button size="sm" variant="ghost" onClick={() => {
             setQuery(""); setStatus("all"); setChannel("all"); setPayment("all");
-            setFulfillment("all"); setSelectedId(null);
+            setFulfillment("all"); setSelectedId(null); setDetail(null); setDetailError(null);
           }}>
             <FilterX size={14} /> پاک‌کردن فیلترها
           </Button>
@@ -232,7 +247,7 @@ export function OrderCenter() {
         <div className="orders-filters">
           <TextField label="جست‌وجو" value={query} onChange={(event) => setQuery(event.target.value)}
             placeholder="شماره سفارش، مشتری یا کانال" />
-          <SelectField label="وضعیت سفارش" value={status} onChange={(event) => setStatus(event.target.value)}
+          <SelectField label="وضعیت سفارش" value={status} onChange={(event) => { setLoading(true); setStatus(event.target.value); }}
             options={[
               { value: "all", label: "همه وضعیت‌ها" },
               { value: "draft", label: "پیش‌نویس" },
@@ -244,7 +259,7 @@ export function OrderCenter() {
               { value: "cancelled", label: "لغوشده" },
               { value: "rejected", label: "ردشده" },
             ]} />
-          <SelectField label="کانال سفارش" value={channel} onChange={(event) => setChannel(event.target.value)}
+          <SelectField label="کانال سفارش" value={channel} onChange={(event) => { setLoading(true); setChannel(event.target.value); }}
             options={[
               { value: "all", label: "همه کانال‌ها" },
               { value: "pos", label: "صندوق" },
