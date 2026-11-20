@@ -1568,9 +1568,9 @@
 
 ## ORD-01C — فیلترهای server-side مرکز سفارش‌ها (2026-11-20)
 - وضعیت: **پیاده‌سازی روی شاخه توسعه؛ پذیرش CI/DB روی HEAD بسته در انتظار**.
-- Backend: `OrderController` پارامترهای `payment` و `fulfillment` را می‌خواند؛ `OrderService` مقادیر را با allow-listهای `unpaid/partially_paid/paid/refunded` و `dine_in/takeaway/delivery` اعتبارسنجی می‌کند؛ `OrderRepository` آن‌ها را در SQL و هم‌زمان با business_id/branch_id scope و cursor اعمال می‌کند.
+- Backend: `OrderController` پارامترهای `payment` و `fulfillment` را می‌خواند؛ `OrderService` مقادیر را با allow-listهای پرداخت مطابق CHECK دیتابیس (`unpaid/partial/paid/refunded/partially_refunded/failed/pending`) و نوع دریافت (`dine_in/takeaway/delivery`) اعتبارسنجی می‌کند؛ `OrderRepository` آن‌ها را در SQL و هم‌زمان با business_id/branch_id scope و cursor اعمال می‌کند.
 - Frontend: `getOrders` فیلترها را در query string ارسال می‌کند؛ صفحه اول و صفحه بعد هر دو از همان فیلترها استفاده می‌کنند؛ تغییر فیلتر باعث invalidation درخواست قدیمی و شروع صفحه‌بندی از ابتدا می‌شود. جست‌وجوی متنی همچنان روی سفارش‌های بارگذاری‌شده اعمال می‌شود.
 - Contract test: `scripts/check-v3-backend-orders.php` پوشش فیلترهای API، allow-list و ارسال از UI را اضافه کرد؛ این تست source-level است و جای integration واقعی را نمی‌گیرد.
-- DB integration: `scripts/check-v3-auth-integration.php` سفارش‌های unpaid/paid/partially_paid و fulfillment نوع dine_in درج می‌کند و queryهای paid و dine_in را مستقیماً از OrderRepository روی PDO بررسی می‌کند؛ نتیجه اجرا روی MySQL 8.4 و MariaDB 10.6 تا زمان CI سبز pending است.
+- DB integration: `scripts/check-v3-auth-integration.php` سفارش‌های unpaid/paid/partial و fulfillment نوع dine_in درج می‌کند و queryهای paid و dine_in را مستقیماً از OrderRepository روی PDO بررسی می‌کند؛ نتیجه اجرا روی MySQL 8.4 و MariaDB 10.6 تا زمان CI سبز pending است.
 - فایل‌های کد: `v3/backend/src/Infrastructure/Database/OrderRepository.php`, `v3/backend/src/Orders/OrderService.php`, `v3/backend/src/Orders/OrderController.php`, `v3/frontend/src/shared/api/client.ts`, `v3/frontend/src/features/orders/OrderCenter.tsx`.
 - گام بعد: ORD-01D فیلتر بازه تاریخ با قرارداد روشن timezone، اعتبارسنجی تاریخ و حفظ رفتار cursor در تمام فیلترها؛ سپس تکمیل اتصال جریان ایجاد سفارش POS به Backend.
