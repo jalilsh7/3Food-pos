@@ -83,6 +83,7 @@ export function OrderCenter({ timeZone }: { timeZone: string }) {
 
   async function fetchOrders() {
     const requestVersion = ++listRequestVersion.current;
+    setError(null);
     if (fromDate && toDate && fromDate > toDate) {
       setError("تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد.");
       setOrders([]);
