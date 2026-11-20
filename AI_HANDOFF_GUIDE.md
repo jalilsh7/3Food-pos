@@ -8,7 +8,7 @@
 - Product: **PersiaCoder POS V3 — Commercial Edition**
 - Product brand is fixed: **PersiaCoder.ir**; every application page must carry the subtle footer text **Powered by PersiaCoder.ir**.
 - Audience: restaurants, cafés, fast-food, juice bars and ice-cream shops.
-- Current code baseline: implementation commit `92b36dad93702fd5da0bcd915258c9559261f97c` on 2026-11-20 (inventory retry-key context cleanup; includes ORD-01D order date/timezone filtering). Later commits in the active branch update handoff/project documentation. Always fetch the live branch head before relying on this SHA.
+- Current code baseline: implementation/test commit `070e1e15281f941f4676afee275123dbdf65d0cc` on 2026-11-20 (inventory retry-key context cleanup; ORD-01D date/timezone filtering and DST integration coverage). Later commits in the active branch update handoff/project documentation. Always fetch the live branch head before relying on this SHA.
 
 ## 1. Mandatory working rules
 
