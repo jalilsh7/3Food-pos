@@ -463,3 +463,15 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 - CI on code commit 540237d3 passed: Frontend typecheck/build run 44724422045; Backend Validation run 44724421824; DB engine validation run 44724421825 on both MySQL 8.4 and MariaDB 10.6.
 - Remaining catalog limitations: editing existing product name/price/SKU, category edit/archive, and creating/editing variants or option groups from the UI are not implemented. Variant and option detail display is read-only. Browser smoke test with a populated business catalog remains outstanding.
 - Next: connect order status transitions and kitchen state controls to existing APIs, enforce UI-side RBAC affordances while relying on backend RBAC, preserve idempotency and legal state transitions, and never auto-accept a newly created draft order.
+
+## Latest implementation update — ORD-02A (2026-11-20)
+
+- Frontend API client now exposes idempotent PATCH operations for /orders/{id}/status and /orders/{id}/kitchen-status. The shared request layer retains the idempotency key for same-payload retries during the current runtime.
+- OrderCenter can accept draft/awaiting_payment orders and complete ready orders. Acceptance does not create a payment or change payment_status.
+- KitchenBoard now loads actual accepted/preparing/ready orders from the selected branch. It loads order items/options/variants on demand and supports accepted -> preparing -> ready only.
+- Kitchen cannot mark an order completed; final completion stays in OrderCenter. No draft order is automatically accepted.
+- Hard-coded kitchen tickets and station filters were removed because the current order model does not yet assign individual order lines to kitchen stations.
+- DB integration now tests acceptance, replay idempotency, preparing, ready, kitchen-only completion rejection, final completion, invalid post-completion transition and status-event count.
+- CI on code commit 4e0f6267 passed: Frontend typecheck/build run 44725365935; Backend Validation run 44725353920; DB engine validation run 44725353894 on MySQL 8.4 and MariaDB 10.6.
+- Remaining: UI actions are not permission-filtered (backend remains authoritative and returns 403); cancel/reject with reason is not yet exposed in UI; KitchenBoard refresh is manual and there is no station routing or realtime push; populated-data browser smoke and role-based UI testing remain outstanding.
+- Next work should add role-aware action affordances and cancellation/rejection reason flows, then address kitchen station assignment/realtime only after their domain/API contracts are defined.
