@@ -1588,3 +1588,16 @@
 - فایل workflow فعلی `.github/workflows/v3-database-validation.yml` اکنون از `013_ci-smoke.sql` استفاده می‌کند و همان workflow تست‌های واقعی `scripts/check-v3-inventory-posting-integration.php` و `scripts/check-v3-auth-integration.php` را اجرا می‌کند.
 - شکست run قدیمی به نسخه workflow در آن SHA مربوط است؛ اصلاح 013 در سورس فعلی دیده و fetch شد، اما تا اجرای مجدد MySQL/MariaDB روی commit فعلی، این مورد «اصلاح‌شده در کد، پذیرش CI در انتظار» می‌ماند.
 - Backend Validation run `44710600371` روی PHP 8.2/8.3/8.4 موفق شد؛ PHP migration/legacy checks run `44710600140` نیز موفق شد. Frontend run `44710600172` به‌علت cancellation هنگام Install dependencies لغو شد و PASS محسوب نمی‌شود.
+
+
+## ORD-01D — فیلتر بازه تاریخ سفارش با timezone کسب‌وکار/شعبه (2026-11-20)
+- [x] API فهرست سفارش‌ها پارامترهای اختیاری `from_date` و `to_date` با قالب strict `YYYY-MM-DD` را می‌پذیرد؛ هر کدام می‌تواند مستقل استفاده شود.
+- [x] timezone مؤثر از timezone اختصاصی شعبه و در نبود آن از timezone کسب‌وکار resolve می‌شود؛ Frontend همان timezone مؤثر را برای نمایش زمان سفارش استفاده می‌کند.
+- [x] تاریخ شروع در نیمه‌شب محلی inclusive و تاریخ پایان با نیمه‌شب روز بعد exclusive به UTC تبدیل می‌شود؛ بازه حداکثر ۳۶۶ روز است و تاریخ نامعتبر/بازه معکوس با 422 رد می‌شود.
+- [x] SQL تاریخ را با `created_at >= from` و `created_at < toExclusive` همراه business_id/branch_id، فیلترهای قبلی و cursor اعمال می‌کند.
+- [x] فیلترهای تاریخ در صفحه بعدی cursor نیز حفظ می‌شوند؛ تغییر تاریخ cursor قبلی را invalid می‌کند و پاسخ‌های دیررس فیلتر قبلی نادیده گرفته می‌شوند.
+- [x] UI دو ورودی تاریخ با hint timezone شعبه اضافه کرد؛ زمان‌های فهرست و جزئیات بر اساس timezone شعبه نمایش داده می‌شوند.
+- [x] تست integration روی MySQL/MariaDB برای fallback business timezone، override timezone شعبه، مرز شروع inclusive، مرز پایان exclusive، cursor continuity و رد تاریخ نامعتبر/بازه معکوس اضافه شد.
+- [ ] اجرای جدید Backend Validation و Frontend typecheck/build و DB integration روی commit این بسته در انتظار است؛ هیچ PASS جدیدی اعلام نشده.
+- فایل‌های اصلی: `OrderService.php`, `OrderRepository.php`, `OrderController.php`, `OrderCenter.tsx`, `client.ts`, `scripts/check-v3-auth-integration.php`, `scripts/check-v3-backend-orders.php`.
+- وضعیت: **پیاده‌سازی و تست‌ها ثبت‌شده؛ پذیرش CI روی HEAD این بسته در انتظار**.
