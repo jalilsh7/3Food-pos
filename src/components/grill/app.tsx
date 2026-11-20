@@ -1753,16 +1753,36 @@ function SmsScreen() {
       <Card>
         <p className="text-sm">تنظیمات اتصال ملی‌پیامک از بخش «تنظیمات فروشگاه» مدیریت می‌شود؛ این بخش برای قالب‌ها، کمپین‌ها و ارسال پیامک است.</p>
       </Card>
-      {templates.map((t) => (
-        <Card key={t.event}>
+      {templates.map((t) => {
+        const placeholders = [...new Set([...t.body.matchAll(/\\{(\\d+)\\}/g)].map((match) => match[1]))];
+        const preview = t.body.replace(/\\{(\\d+)\\}/g, (_, index: string) => index === "0" ? "۱۲۵۸" : `مقدار ${Number(index) + 1}`);
+        const persist = () => {
+          const item = usePos.getState().templates.find((x) => x.event === t.event);
+          if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item));
+        };
+        return <Card key={t.event} className="space-y-2">
           <label className="flex items-center gap-2 font-semibold">
             <input type="checkbox" checked={t.enabled} onChange={(e) => { const item = { ...t, enabled: e.target.checked }; void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
             {EVENT_LABEL[t.event]}
           </label>
-          <textarea className={`${inputCls} mt-2`} rows={2} value={t.body} onChange={(e) => saveTemplate({ ...t, body: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
-          <Field label="شناسه پترن (اختیاری)"><input className={inputCls} value={t.bodyId} onChange={(e) => saveTemplate({ ...t, bodyId: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} /></Field>
-        </Card>
-      ))}
+          <p className="text-xs text-muted">متن را دقیقاً مطابق الگوی تأییدشده در پنل ملی‌پیامک وارد کنید. شناسه الگو را پنل صادر می‌کند.</p>
+          <Field label="متن الگو">
+            <textarea className={inputCls} rows={2} value={t.body} onChange={(e) => saveTemplate({ ...t, body: e.target.value })} onBlur={persist} />
+          </Field>
+          <Field label="شناسه الگوی خدماتی (bodyId)">
+            <input className={inputCls} inputMode="numeric" dir="ltr" placeholder="مثلاً 344438" value={t.bodyId} onChange={(e) => saveTemplate({ ...t, bodyId: e.target.value.replace(/[^0-9]/g, "") })} onBlur={persist} />
+          </Field>
+          {placeholders.length ? <div className="rounded-xl bg-soft p-3 text-xs">
+            <b>متغیرهای شناسایی‌شده</b>
+            <div className="mt-1 flex flex-wrap gap-2">{placeholders.map((index) => <span key={index} className="rounded-lg border border-line px-2 py-1">{`{${index}}`} ← {index === "0" ? "شماره سفارش" : `متغیر ${Number(index) + 1}`}</span>)}</div>
+          </div> : null}
+          <div className="rounded-xl border border-line p-3">
+            <p className="text-xs text-muted">پیش‌نمایش نمونه</p>
+            <p className="mt-1 text-sm">{preview || "متن الگو هنوز وارد نشده است."}</p>
+          </div>
+          {t.bodyId && !/^\\d+$/.test(t.bodyId) ? <p className="text-xs text-danger">شناسه الگو باید فقط شامل رقم باشد.</p> : null}
+        </Card>;
+      })}
       <Card>
         <h3 className="mb-2 font-semibold">دریافت تاریخ تولد از پیامک</h3>
         <p className="mb-2 text-xs text-muted">پس از تکمیل تنظیم صندوق ورودی ملی‌پیامک در بخش تنظیمات، پاسخ‌های «تولد ۱۳۷۰/۰۵/۱۲» را دریافت و فقط برای شماره مشتری یکتای منطبق ثبت می‌کند. تاریخ تولد موجود بازنویسی نمی‌شود.</p>
