@@ -36,6 +36,9 @@ export function getSavedBusinessContext(): SavedBusinessContext | null {
 }
 
 export function setBusinessContext(business: BusinessSummary, branch: BranchSummary): void {
+  if (businessContext && (businessContext.businessId !== business.id || businessContext.branchId !== branch.id)) {
+    pendingInventoryIdempotencyKeys.clear();
+  }
   businessContext = { businessId: business.id, branchId: branch.id };
   try {
     window.localStorage.setItem(contextStorageKey, JSON.stringify(businessContext));
@@ -46,6 +49,7 @@ export function setBusinessContext(business: BusinessSummary, branch: BranchSumm
 
 export function clearBusinessContext(): void {
   businessContext = null;
+  pendingInventoryIdempotencyKeys.clear();
   try {
     window.localStorage.removeItem(contextStorageKey);
   } catch {
