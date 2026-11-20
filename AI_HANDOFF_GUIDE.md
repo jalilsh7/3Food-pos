@@ -339,3 +339,10 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 - Added centered load-more action styling in orders.css.
 - Additional commits after initial ORD-01B implementation: OrderService cursor bound 881771ca1668f1cffbdd34a0233ca82701688bd2; pagination contract bound c0dd18f42a72de58000c82b9f2e123fa3699336f; OrderCenter summary/error handling 43ed772f54366571ac5f83004ce7b6681de967af; pagination CSS e58d9405613d20abf03548d2971c8026c2019831; stale-response guard 5b2850fa4d5503721318b10747549a36b353b21b.
 - Re-check CI on the final documentation HEAD; all new code remains unverified until those runs complete.
+
+## ORD-01B — database integration follow-up (2026-11-20)
+- Extended scripts/check-v3-auth-integration.php with real PDO OrderRepository pagination checks. It creates a second branch, inserts three orders in the primary branch and one control order in the second branch, then verifies 2-row first page, descending order, next_cursor=80002, one-row terminal page, has_more=false, and no cross-branch leakage.
+- The existing V3 database workflow runs check-v3-auth-integration.php on both MySQL 8.4 and MariaDB 10.6 after fresh installer setup. This is a real DB integration test, unlike scripts/check-v3-backend-orders.php which remains a static contract check.
+- Cursor validation additionally uses FILTER_VALIDATE_INT with min_range=1 after the decimal-string regex to reject values outside the supported PHP integer range.
+- Latest relevant commits: OrderService overflow validation 89f9ade07babb6f8df140141de4f840466af41d2; static contract update a46e801f1be86186a3d7e1961e9021e5da28780c; DB pagination fixture fa0b2d8fec6e166532b94d1626df8c20050b2069; integration output e536dae41865b33dfd46951f80ed64369c3f5d28.
+- All tests on this final patch are pending until GitHub Actions completes on the new HEAD.
