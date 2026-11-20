@@ -429,3 +429,10 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 3. Connect CatalogWorkspace to catalog APIs so an authorized user can create/manage the real products that POS consumes.
 4. Then wire order acceptance/status transitions and kitchen workflow through existing order and kitchen endpoints with RBAC, state-machine and idempotency tests. Do not auto-accept newly created draft orders.
 5. Keep payment, discounts and customer linking separate until their backend workflows and UI contracts are implemented.
+
+### POS-01A database integration test follow-up — 2026-11-20
+
+- scripts/check-v3-auth-integration.php now provisions a test catalog product, a required variant and a required option through CatalogService, then creates a POS order through OrderService using the disposable PDO database.
+- Expected server calculation: base 10,000 + variant delta 2,000 + option delta 500, quantity 2 => subtotal 25,000; tax rate 10% => tax 2,500; total 27,500.
+- Assertions cover initial draft/unpaid status, idempotent replay returning the same order ID, rejection of the same key with a changed payload (409), rejection of a missing required option (422), and no duplicate order row.
+- The V3 database engine workflow executes this integration on MySQL 8.4 and MariaDB 10.6. Runs for HEAD 97c5fda5642d51fe1e6983a544a7568a83e75d4c were in progress at the time of this note. Do not mark the DB integration accepted until both engines pass.
