@@ -53,6 +53,7 @@ export function CatalogWorkspace() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showNew, setShowNew] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
@@ -150,6 +151,19 @@ export function CatalogWorkspace() {
     }
   }
 
+  function startProductEdit(product: PosCatalogProduct) {
+    setEditingProductId(product.id);
+    setNewName(product.name);
+    setNewPrice(String(product.base_price_amount));
+    setNewSku(product.sku ?? "");
+    setNewTaxRate(String(product.tax_rate_bps / 100));
+    setNewCategoryId(product.category?.id ?? "none");
+    setNewProductType(product.product_type);
+    setActionError(null);
+    setSuccessMessage(null);
+    setShowNew(true);
+  }
+
   async function addProduct() {
     const name = newName.trim();
     const price = parsePrice(newPrice);
@@ -163,23 +177,31 @@ export function CatalogWorkspace() {
     setActionError(null);
     setSuccessMessage(null);
     try {
-      const created = await createCatalogProduct({
+      const payload = {
         name,
         base_price_amount: price,
         category_id: newCategoryId === "none" ? null : newCategoryId,
         sku,
         product_type: newProductType as "prepared" | "packaged" | "ingredient" | "service",
         tax_rate_bps: taxRate,
-      });
-      await refreshCatalog(created.id);
+      };
+      const savedId = editingProductId;
+      if (savedId) {
+        await updateCatalogProduct(savedId, payload);
+      } else {
+        const created = await createCatalogProduct(payload);
+        await refreshCatalog(created.id);
+      }
+      if (savedId) await refreshCatalog(savedId);
       setNewName("");
       setNewPrice("");
       setNewSku("");
       setNewTaxRate("0");
       setNewCategoryId("none");
       setNewProductType("prepared");
+      setEditingProductId(null);
       setShowNew(false);
-      setSuccessMessage("محصول در کاتالوگ سرور ثبت شد و در صندوق قابل انتخاب است.");
+      setSuccessMessage(editingProductId ? "اطلاعات محصول در سرور به‌روزرسانی شد." : "محصول در کاتالوگ سرور ثبت شد و در صندوق قابل انتخاب است.");
     } catch (cause) {
       setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "ثبت محصول انجام نشد.");
     } finally {
@@ -265,7 +287,7 @@ export function CatalogWorkspace() {
 
       {showNew ? (
         <Surface padding="md" className="catalog-create">
-          <div className="catalog-create-heading"><strong>افزودن محصول به کاتالوگ</strong><button type="button" onClick={() => setShowNew(false)} aria-label="بستن"><X size={16} /></button></div>
+          <div className="catalog-create-heading"><strong>{editingProductId ? "ویرایش محصول" : "افزودن محصول به کاتالوگ"}</strong><button type="button" onClick={() => { setShowNew(false); setEditingProductId(null); }} aria-label="بستن"><X size={16} /></button></div>
           <div className="catalog-create-fields">
             <TextField label="نام محصول" value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="مثلاً سالاد سزار" />
             <TextField label="قیمت پایه به تومان" value={newPrice} onChange={(event) => setNewPrice(event.target.value)} placeholder="مثلاً ۱۸۵۰۰۰" />
@@ -276,7 +298,7 @@ export function CatalogWorkspace() {
               options={Object.entries(productTypeLabels).map(([value, label]) => ({ value, label }))} />
             <TextField label="نرخ مالیات (درصد)" value={newTaxRate} onChange={(event) => setNewTaxRate(event.target.value)} placeholder="مثلاً ۱۰" />
           </div>
-          <div className="catalog-create-footer"><span>قیمت و مالیات در زمان ثبت سفارش توسط سرور محاسبه می‌شوند.</span><Button variant="primary" onClick={() => { void addProduct(); }} disabled={!newName.trim() || !newPrice.trim() || saving}>{saving ? "در حال ثبت..." : "ثبت محصول"}</Button></div>
+          <div className="catalog-create-footer"><span>قیمت و مالیات در زمان ثبت سفارش توسط سرور محاسبه می‌شوند.</span><Button variant="primary" onClick={() => { void addProduct(); }} disabled={!newName.trim() || !newPrice.trim() || saving}>{saving ? "در حال ذخیره..." : editingProductId ? "ذخیره تغییرات" : "ثبت محصول"}</Button></div>
         </Surface>
       ) : null}
 
@@ -329,6 +351,7 @@ export function CatalogWorkspace() {
               </div>
             ) : null}
             <div className="catalog-detail-actions">
+              <Button variant="secondary" disabled={saving} onClick={() => startProductEdit(selected)}>ویرایش محصول</Button>
               <Button variant={selected.is_active ? "secondary" : "primary"} disabled={saving} onClick={() => { void toggleAvailability(selected); }}>
                 {selected.is_active ? <Archive size={14} /> : <Check size={14} />}{selected.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}
               </Button>
