@@ -490,3 +490,6 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 - The direct cancel action is hidden for paid/partially-paid orders; the backend independently enforces the refund-before-cancellation rule. Terminal statuses cannot be cancelled again.
 - Source-contract checks now assert the reason prompt, reason payload and payment guard.
 - Important remaining: frontend session currently does not expose permission grants, so cancellation/acceptance/completion action visibility is not yet role-aware. Backend RBAC remains authoritative. CI and populated-data browser smoke for this change are pending.
+
+- CI for the final cancellation-flow code commit 34ffa458 passed: Frontend Validation run 44726660794, Backend Validation run 44726660883, and DB engine validation run 44726652129. A stale source-contract assertion from the prior function signature failed in an earlier parallel run and was corrected; the final run passed.
+- Cancellation UX is implemented and CI-accepted; real browser smoke testing remains outstanding.
