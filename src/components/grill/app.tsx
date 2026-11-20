@@ -496,13 +496,13 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
   await postSms(phone, text, event, "");
 }
 
-async function sendRaw(phone: string, text: string, event = "manual") {
+async function sendRaw(phone: string, text: string, event = "manual", customerId?: string) {
   const normalized=normalizeIranPhone(phone);
   if (!/^09[0-9]{9}$/.test(normalized) || !text.trim() || text.length > 950) return false;
-  return await postSms(normalized, text, event, "");
+  return await postSms(normalized, text, event, "", text, "", customerId);
 }
 
-async function postSms(phone: string, text: string, event: string, bodyId: string, providerText = text, validationError = "") {
+async function postSms(phone: string, text: string, event: string, bodyId: string, providerText = text, validationError = "", customerId?: string) {
   let log: SmsLog = {
     id: uid("sm"),
     at: new Date().toISOString(),
@@ -523,7 +523,7 @@ async function postSms(phone: string, text: string, event: string, bodyId: strin
     return false;
   }
   try {
-    const data = await phpApi.sendSms({ to: phone, text: providerText, bodyId });
+    const data = await phpApi.sendSms({ to: phone, text: providerText, bodyId, event, customerId });
     log = { ...log, ok: data.sent, detail: data.detail };
   } catch (err) {
     log = { ...log, detail: err instanceof Error ? err.message : "خطا در ارسال پیامک" };
@@ -1758,7 +1758,7 @@ function SmsScreen() {
     if(campaignText.length>950){window.alert("متن پیامک باید حداکثر ۹۵۰ نویسه باشد.");return;}
     if(!window.confirm(`پیامک برای ${campaignRecipients.length.toLocaleString("fa-IR")} مشتری ارسال شود؟`))return;
     setCampaignBusy(true);let sent=0,failed=0;
-    for(const customer of campaignRecipients){const ok=await sendRaw(customer.phone,campaignText,"campaign");if(ok)sent++;else failed++;setCampaignProgress(`${(sent+failed).toLocaleString("fa-IR")} از ${campaignRecipients.length.toLocaleString("fa-IR")} · موفق ${sent.toLocaleString("fa-IR")} · ناموفق ${failed.toLocaleString("fa-IR")}`);}
+    for(const customer of campaignRecipients){const ok=await sendRaw(customer.phone,campaignText,"campaign",customer.id);if(ok)sent++;else failed++;setCampaignProgress(`${(sent+failed).toLocaleString("fa-IR")} از ${campaignRecipients.length.toLocaleString("fa-IR")} · موفق ${sent.toLocaleString("fa-IR")} · ناموفق ${failed.toLocaleString("fa-IR")}`);}
     setCampaignBusy(false);setCampaignProgress(`پایان کمپین — موفق ${sent.toLocaleString("fa-IR")}، ناموفق ${failed.toLocaleString("fa-IR")}`);
   }
   return (
@@ -1846,7 +1846,7 @@ function SmsScreen() {
             setBirthdayPromptBusy(true);
             let sent = 0, failed = 0;
             for (const customer of targets) {
-              if (await sendRaw(customer.phone, settings.birthdaySmsPrompt ?? "", "birthday_prompt")) sent++; else failed++;
+              if (await sendRaw(customer.phone, settings.birthdaySmsPrompt ?? "", "birthday_prompt", customer.id)) sent++; else failed++;
               setBirthdayPromptProgress(`موفق ${sent.toLocaleString("fa-IR")} · ناموفق ${failed.toLocaleString("fa-IR")} از ${targets.length.toLocaleString("fa-IR")}`);
             }
             setBirthdayPromptBusy(false);
