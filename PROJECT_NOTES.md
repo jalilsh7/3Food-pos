@@ -1601,3 +1601,8 @@
 - [ ] اجرای جدید Backend Validation و Frontend typecheck/build و DB integration روی commit این بسته در انتظار است؛ هیچ PASS جدیدی اعلام نشده.
 - فایل‌های اصلی: `OrderService.php`, `OrderRepository.php`, `OrderController.php`, `OrderCenter.tsx`, `client.ts`, `scripts/check-v3-auth-integration.php`, `scripts/check-v3-backend-orders.php`.
 - وضعیت: **پیاده‌سازی و تست‌ها ثبت‌شده؛ پذیرش CI روی HEAD این بسته در انتظار**.
+
+
+### INV-02B1-RETRY follow-up — تغییر context شعبه
+- cache کلیدهای pending علاوه بر logout، هنگام تغییر business/branch context و پاک‌سازی context نیز خالی می‌شود تا کلید یک فرمان ناموفق از شعبه قبلی در context جدید استفاده نشود.
+- این cache همچنان فقط در حافظه runtime است؛ برای recovery پس از reload باید وضعیت سند از سرور خوانده شود.
