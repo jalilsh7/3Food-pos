@@ -241,3 +241,14 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 - Migration 012 is committed but not applied to any customer/production database. Database CI uses a disposable migration probe sequence 013.
 - Contract checks include migration backfill/public ID uniqueness, route handlers, idempotency scopes and no ledger/balance mutation. Real MySQL/MariaDB concurrency/rollback integration tests remain outstanding.
 - The V3 frontend typecheck and production build passed at code HEAD `a8560e4`; recheck Backend, DB and PHP migration workflows on the newest HEAD before marking the package green.
+
+
+## 17. CI green confirmation — code HEAD 88cc9a9 (2026-11-20)
+- Backend Validation passed on PHP 8.2/8.3/8.4: [run 44693350404](https://github.com/jalilsh7/3Food-pos/actions/runs/44693350404).
+- V3 Frontend TypeScript and production build passed: [run 44693350646](https://github.com/jalilsh7/3Food-pos/actions/runs/44693350646).
+- V3 schema/engine validation passed on MySQL 8.4 and MariaDB 10.6: [run 44693342518](https://github.com/jalilsh7/3Food-pos/actions/runs/44693342518). Both engines applied migrations 001–013 in disposable CI DBs and passed installer, migration checksum/idempotency, backup/restore and tamper rejection checks.
+- PHP migration workflow passed: [run 44693350474](https://github.com/jalilsh7/3Food-pos/actions/runs/44693350474), including MySQL API integration, TS, unit, lint, cPanel build, Chromium smoke and performance budget.
+- MySQL restore FK validation now uses explicit lower-case aliases with PDO::FETCH_ASSOC. Migration 006 separates the composite self-referencing category FK into a subsequent ALTER for MariaDB 10.6 compatibility. Migration smoke fixture is `013_ci-smoke.sql`; real migration 012 is stock line public IDs.
+- INV-02A2 line create/update/delete contract passed Backend CI. It is not yet a full DB integration test of document lifecycle. Do not treat this as evidence that inventory posting, ledger writes or balance updates work.
+- Next: review inventory valuation/costing policy and financial amount semantics before implementing posting. Keep ledger append-only, balance mutation atomic, negative stock guarded, and concurrency/idempotency/rollback integration tests mandatory.
+- No migration was run on any customer/production database.
