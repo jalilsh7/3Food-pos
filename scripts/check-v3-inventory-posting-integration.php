@@ -247,13 +247,23 @@ $transfer = $createDocument([
     'document_type' => 'transfer', 'location_id' => $sourceLocationPublicId,
     'destination_location_id' => $destinationLocationPublicId,
 ], 'transfer');
-$addLine($transfer, '1', null, 'transfer');
+$transferLine = $addLine($transfer, '1', null, 'transfer');
 $postDocument($transfer, 'transfer');
 $sourceAfterTransfer = $balance($sourceLocationId);
 $destinationAfterTransfer = $balance($destinationLocationId);
 $assert($sourceAfterTransfer['quantity_on_hand'] === '2.000000', 'Transfer did not reduce source stock.');
 $assert($destinationAfterTransfer['quantity_on_hand'] === '1.000000', 'Transfer did not increase destination stock.');
 $assert($destinationAfterTransfer['average_unit_cost'] === '2000.00000000', 'Transfer did not preserve source weighted cost.');
+$transferLedger = $pdo->prepare(
+    'SELECT COUNT(*) AS row_count, SUM(quantity_delta) AS quantity_sum, SUM(total_cost_amount) AS value_sum
+     FROM pos_stock_ledger
+     WHERE document_line_id = (SELECT id FROM pos_stock_document_lines WHERE public_id = :line_public_id)'
+);
+$transferLedger->execute(['line_public_id' => $transferLine]);
+$transferEvents = $transferLedger->fetch(PDO::FETCH_ASSOC);
+$assert((int) $transferEvents['row_count'] === 2, 'Transfer must create exactly two ledger events.');
+$assert(trim((string) $transferEvents['quantity_sum'], '0.') === '', 'Transfer ledger quantity deltas must net to zero.');
+$assert((string) $transferEvents['value_sum'] === '0', 'Transfer ledger value deltas must net to zero.');
 
 $adjustmentIn = $createDocument([
     'document_type' => 'adjustment_in', 'location_id' => $sourceLocationPublicId,
