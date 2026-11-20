@@ -261,8 +261,7 @@ export function InventoryWorkspace() {
         await updateInventoryLocation(locationEditorId, payload);
         setManagementMessage("مشخصات انبارک به‌روزرسانی شد.");
       } else {
-        const { is_active: _active, ...createPayload } = payload;
-        await createInventoryLocation(createPayload);
+        await createInventoryLocation({ code: payload.code, name: payload.name, location_type: payload.location_type });
         setManagementMessage("انبارک جدید ایجاد شد.");
       }
       setLocationEditorId(null); setLocationCode(""); setLocationName(""); setLocationType("storage"); setLocationActive(true);
@@ -433,7 +432,7 @@ export function InventoryWorkspace() {
             {needsReason ? <label className="inventory-document-reason">دلیل ثبت<input required maxLength={500} value={documentReason} onChange={(event) => setDocumentReason(event.target.value)} placeholder="شرح دلیل تعدیل یا ضایعات" /></label> : null}
           </div>
           {documentMessage ? <p className="inventory-document-message" role="status">{documentMessage}</p> : null}
-          <div className="inventory-document-actions"><span>می‌توانید پیش‌نویس چندردیفی بسازید یا یک سند تک‌ردیفی را مستقیم ثبت نهایی کنید.</span><div><Button variant="secondary" type="button" disabled={documentBusy || loading || !locations.length} onClick={() => void createDraftOnly()}>ایجاد پیش‌نویس</Button><Button type="submit" disabled={documentBusy || loading || !locations.length || !items.length || !units.length}>{documentBusy ? "در حال ثبت..." : "ثبت سریع سند"}</Button></div></div>
+          <div className="inventory-document-actions"><span>می‌توانید پیش‌نویس چندردیفی بسازید یا یک سند تک‌ردیفی را مستقیم ثبت نهایی کنید.</span><div><Button variant="secondary" type="button" disabled={documentBusy || loading || !activeLocations.length} onClick={() => void createDraftOnly()}>ایجاد پیش‌نویس</Button><Button type="submit" disabled={documentBusy || loading || !activeLocations.length || !activeItems.length || !units.length}>{documentBusy ? "در حال ثبت..." : "ثبت سریع سند"}</Button></div></div>
         </form>
       </Surface>
 
