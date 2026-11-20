@@ -43,7 +43,7 @@
 }
 
 /* Expanded order details and independent operational/payment filters */
-.orders-filters { grid-template-columns: 1.35fr repeat(4, minmax(0, 1fr)); }
+.orders-filters { grid-template-columns: 1.35fr repeat(6, minmax(0, 1fr)); }
 .orders-detail-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
 .orders-detail-items > strong { grid-column: 1 / -1; }
 .orders-detail-item { min-width: 0; display: flex; flex-direction: column; gap: 7px; padding: 12px; border: 1px solid var(--pc-line); border-radius: 10px; background: #fff; }
