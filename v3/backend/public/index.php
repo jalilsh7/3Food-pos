@@ -480,6 +480,16 @@ try {
         [$sessionMiddleware, $makePermissionMiddleware('inventory.manage', true), $csrfMiddleware, $originMiddleware],
     );
 
+    $router->add('PATCH', '/api/v1/inventory/documents/{documentPublicId}/lines/{linePublicId}',
+        static fn (Request $request, array $parameters): Response => $getInventoryController()->updateDocumentLine($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.manage', true), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('DELETE', '/api/v1/inventory/documents/{documentPublicId}/lines/{linePublicId}',
+        static fn (Request $request, array $parameters): Response => $getInventoryController()->deleteDocumentLine($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.manage', true), $csrfMiddleware, $originMiddleware],
+    );
+
     $router->add('GET', '/api/v1/inventory/documents/{documentPublicId}',
         static fn (Request $request, array $parameters): Response => $getInventoryController()->document($request, $parameters),
         [$sessionMiddleware, $makePermissionMiddleware('inventory.read', true)],
