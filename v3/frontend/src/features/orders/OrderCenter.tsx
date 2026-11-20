@@ -19,11 +19,14 @@ import {
 } from "../../shared/ui";
 
 const money = (value: number) => new Intl.NumberFormat("fa-IR").format(value);
-const dateTime = (value: string) => {
+const dateTime = (value: string, timeZone: string) => {
   const date = new Date(value.includes("Z") || /[+-]\\d\\d:\\d\\d$/.test(value) ? value : `${value.replace(" ", "T")}Z`);
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat("fa-IR", { dateStyle: "short", timeStyle: "short" }).format(date);
+  if (Number.isNaN(date.getTime())) return value;
+  try {
+    return new Intl.DateTimeFormat("fa-IR", { dateStyle: "short", timeStyle: "short", timeZone }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat("fa-IR", { dateStyle: "short", timeStyle: "short" }).format(date);
+  }
 };
 const statusLabels: Record<OrderStatus, { label: string; variant: "info" | "warning" | "success" | "danger" | "neutral" }> = {
   draft: { label: "پیش‌نویس", variant: "neutral" },
@@ -57,8 +60,10 @@ function paymentBadge(status: string) {
   return <StatusBadge variant={value.variant}>{value.label}</StatusBadge>;
 }
 
-export function OrderCenter() {
+export function OrderCenter({ timeZone }: { timeZone: string }) {
   const [query, setQuery] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [status, setStatus] = useState("all");
   const [channel, setChannel] = useState("all");
   const [payment, setPayment] = useState("all");
@@ -78,12 +83,22 @@ export function OrderCenter() {
 
   async function fetchOrders() {
     const requestVersion = ++listRequestVersion.current;
+    if (fromDate && toDate && fromDate > toDate) {
+      setError("تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد.");
+      setOrders([]);
+      setNextCursor(null);
+      setHasMore(false);
+      setLoading(false);
+      return;
+    }
     try {
       const result = await getOrders({
         status: status === "all" ? undefined : status,
         channel: channel === "all" ? undefined : channel,
         payment: payment === "all" ? undefined : payment,
         fulfillment: fulfillment === "all" ? undefined : fulfillment,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
         limit: 50,
       });
       if (requestVersion !== listRequestVersion.current) return;
@@ -116,6 +131,8 @@ export function OrderCenter() {
         channel: channel === "all" ? undefined : channel,
         payment: payment === "all" ? undefined : payment,
         fulfillment: fulfillment === "all" ? undefined : fulfillment,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
         limit: 50,
         before: nextCursor,
       });
@@ -165,7 +182,7 @@ export function OrderCenter() {
     void fetchOrders();
     // The active business/branch context is applied by the shared API client.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, channel, payment, fulfillment]);
+  }, [status, channel, payment, fulfillment, fromDate, toDate]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -211,7 +228,7 @@ export function OrderCenter() {
     {
       key: "time",
       header: "زمان ثبت",
-      render: (order: OrderSummary) => dateTime(order.created_at),
+      render: (order: OrderSummary) => dateTime(order.created_at, timeZone),
       align: "center" as const,
     },
     {
@@ -283,7 +300,7 @@ export function OrderCenter() {
           </div>
           <Button size="sm" variant="ghost" onClick={() => {
             setQuery(""); setStatus("all"); setChannel("all"); setPayment("all");
-            setFulfillment("all"); setSelectedId(null); setDetail(null); setDetailError(null);
+            setFulfillment("all"); setFromDate(""); setToDate(""); setSelectedId(null); setDetail(null); setDetailError(null);
           }}>
             <FilterX size={14} /> پاک‌کردن فیلترها
           </Button>
@@ -332,6 +349,12 @@ export function OrderCenter() {
               { value: "takeaway", label: "بیرون‌بر" },
               { value: "delivery", label: "ارسال" },
             ]} />
+          <TextField label="از تاریخ" type="date" value={fromDate}
+            onChange={(event) => { listRequestVersion.current += 1; setLoadingMore(false); setNextCursor(null); setHasMore(false); setLoading(true); setFromDate(event.target.value); }}
+            max={toDate || undefined} hint={`بر اساس ساعت محلی شعبه: ${timeZone}`} />
+          <TextField label="تا تاریخ" type="date" value={toDate}
+            onChange={(event) => { listRequestVersion.current += 1; setLoadingMore(false); setNextCursor(null); setHasMore(false); setLoading(true); setToDate(event.target.value); }}
+            min={fromDate || undefined} hint={`بازه شامل تمام روز انتخاب‌شده است`} />
         </div>
 
         <DataTable columns={columns} rows={filteredOrders} getRowKey={(order) => order.id}
@@ -363,7 +386,7 @@ export function OrderCenter() {
                 <div><span>مشتری</span><strong>{selectedOrder.customer?.name ?? "مشتری مهمان"}</strong></div>
                 <div><span>کانال ثبت</span><strong>{channelLabels[selectedOrder.source_channel] ?? selectedOrder.source_channel}</strong></div>
                 <div><span>نوع دریافت</span><strong>{fulfillmentLabels[selectedOrder.fulfillment_method ?? ""] ?? "ثبت نشده"}</strong></div>
-                <div><span>زمان ثبت</span><strong>{dateTime(selectedOrder.created_at)}</strong></div>
+                <div><span>زمان ثبت</span><strong>{dateTime(selectedOrder.created_at, timeZone)}</strong></div>
                 <div><span>وضعیت سفارش</span><StatusBadge variant={statusLabels[selectedOrder.order_status]?.variant ?? "neutral"}>{statusLabels[selectedOrder.order_status]?.label ?? selectedOrder.order_status}</StatusBadge></div>
                 <div><span>وضعیت پرداخت</span>{paymentBadge(selectedOrder.payment_status)}</div>
               </div>
@@ -392,7 +415,7 @@ export function OrderCenter() {
                     <span className="orders-timeline-marker" />
                     <div><b>{statusLabels[event.to_status as OrderStatus]?.label ?? event.to_status}</b>
                       <small>{event.reason_text || event.actor?.name || channelLabels[event.source_channel] || event.source_channel}</small></div>
-                    <time>{dateTime(event.created_at)}</time>
+                    <time>{dateTime(event.created_at, timeZone)}</time>
                   </li>
                 ))}</ol>
               </div>
