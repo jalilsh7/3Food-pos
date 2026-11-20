@@ -18,8 +18,9 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button, EmptyState, PageHeader, StatusBadge, Surface } from "../shared/ui/primitives";
-import { ApiError, getCurrentSession, signOut, type AuthenticatedUser } from "../shared/api/client";
+import { ApiError, clearBusinessContext, getCurrentSession, signOut, type AuthenticatedUser, type BranchSummary, type BusinessSummary } from "../shared/api/client";
 import { AuthScreen } from "../features/auth/AuthScreen";
+import { BusinessContextScreen } from "../features/auth/BusinessContextScreen";
 import { PosWorkspace } from "../features/pos/PosWorkspace";
 import { OrderCenter } from "../features/orders/OrderCenter";
 import { KitchenBoard } from "../features/kitchen/KitchenBoard";
@@ -134,7 +135,7 @@ function Overview() {
   );
 }
 
-function AuthenticatedWorkspace({ user, onLogout, actionError }: { user: AuthenticatedUser; onLogout: () => void; actionError: string | null }) {
+function AuthenticatedWorkspace({ user, business, branch, onLogout, actionError }: { user: AuthenticatedUser; business: BusinessSummary; branch: BranchSummary; onLogout: () => void; actionError: string | null }) {
   const [activeView, setActiveView] = useState<ViewId>("overview");
   const [search, setSearch] = useState("");
   const activeItem = allItems.find((item) => item.id === activeView) ?? allItems[0];
@@ -208,7 +209,7 @@ function AuthenticatedWorkspace({ user, onLogout, actionError }: { user: Authent
             </label>
             <span className="topbar-divider" />
             <StatusBadge variant="success" className="compact">نشست معتبر</StatusBadge>
-            <div className="account-menu"><span className="account-name">{user.display_name}</span><span className="avatar" aria-label={user.display_name}>{user.display_name.trim().slice(0, 1) || "؟"}</span><Button size="sm" variant="ghost" onClick={onLogout}><LogOut size={14} /> خروج</Button></div>
+            <div className="account-menu"><span className="context-name">{business.name} · {branch.name}</span><span className="account-name">{user.display_name}</span><span className="avatar" aria-label={user.display_name}>{user.display_name.trim().slice(0, 1) || "؟"}</span><Button size="sm" variant="ghost" onClick={onLogout}><LogOut size={14} /> خروج</Button></div>
           </div>
         </header>
 
@@ -240,6 +241,7 @@ function AuthenticatedWorkspace({ user, onLogout, actionError }: { user: Authent
 
 export function App() {
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
+  const [workspaceContext, setWorkspaceContext] = useState<{ business: BusinessSummary; branch: BranchSummary } | null>(null);
   const [loading, setLoading] = useState(true);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -252,6 +254,7 @@ export function App() {
       .then((currentUser) => {
         if (!active) return;
         setUser(currentUser);
+        setWorkspaceContext(null);
         setLoading(false);
       })
       .catch((cause: unknown) => {
@@ -271,6 +274,8 @@ export function App() {
     setBootstrapError(null);
     try {
       await signOut();
+      clearBusinessContext();
+      setWorkspaceContext(null);
       setUser(null);
     } catch (cause) {
       setBootstrapError(cause instanceof Error ? cause.message : "خروج از حساب انجام نشد. دوباره تلاش کنید.");
@@ -286,12 +291,27 @@ export function App() {
       <AuthScreen
         mustChangePassword={Boolean(user?.must_change_password)}
         bootstrapError={bootstrapError}
-        onAuthenticated={(authenticatedUser) => { setUser(authenticatedUser); setBootstrapError(null); }}
-        onPasswordChanged={() => { setUser(null); setBootstrapError("رمز عبور تغییر کرد. برای ادامه با رمز جدید دوباره وارد شوید."); }}
+        onAuthenticated={(authenticatedUser) => { setUser(authenticatedUser); setWorkspaceContext(null); setBootstrapError(null); }}
+        onPasswordChanged={() => { setUser(null); setWorkspaceContext(null); setBootstrapError("رمز عبور تغییر کرد. برای ادامه با رمز جدید دوباره وارد شوید."); }}
         onRetry={() => setAttempt((value) => value + 1)}
       />
     );
   }
 
-  return <AuthenticatedWorkspace user={user} onLogout={() => { void handleLogout(); }} actionError={bootstrapError} />;
+  if (!workspaceContext) {
+    return (
+      <BusinessContextScreen
+        onSelected={(business, branch) => { setWorkspaceContext({ business, branch }); setBootstrapError(null); }}
+        onLogout={() => { void handleLogout(); }}
+      />
+    );
+  }
+
+  return <AuthenticatedWorkspace
+    user={user}
+    business={workspaceContext.business}
+    branch={workspaceContext.branch}
+    onLogout={() => { void handleLogout(); }}
+    actionError={bootstrapError}
+  />;
 }
