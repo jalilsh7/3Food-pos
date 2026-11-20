@@ -215,3 +215,20 @@ export async function getInventoryLedger(filters: {
   const data = await request<{ entries: InventoryLedgerEntry[] }>(`/inventory/ledger?${query.toString()}`);
   return data.entries;
 }
+
+
+export type InventoryStockItem = {
+  id: string;
+  code: string;
+  name: string;
+  base_unit: { code: string; name: string; dimension: string };
+  negative_stock_policy: string;
+  is_active: boolean;
+};
+
+export async function getInventoryStockItems(search = ""): Promise<InventoryStockItem[]> {
+  const query = new URLSearchParams({ limit: "100" });
+  if (search.trim()) query.set("search", search.trim());
+  const data = await request<{ stock_items: InventoryStockItem[] }>(`/inventory/items?${query.toString()}`);
+  return data.stock_items.filter((item) => item.is_active);
+}
