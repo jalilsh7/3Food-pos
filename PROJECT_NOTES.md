@@ -1618,3 +1618,22 @@
 - تست integration اکنون روز 2026-03-29 در timezone `Europe/Amsterdam` را نیز بررسی می‌کند: شروع روز محلی در 23:00 UTC روز قبل و پایان انحصاری در 22:00 UTC همان روز است.
 - رکورد دقیقاً در شروع روز باید شامل و رکورد دقیقاً در شروع روز بعد باید خارج از بازه باشد؛ این تست مانع فرض اشتباه «هر روز محلی دقیقاً ۲۴ ساعت» می‌شود.
 - اجرای واقعی MySQL/MariaDB روی commit جدید هنوز pending است.
+
+## POS-01A — اتصال واقعی صندوق به کاتالوگ و ثبت سفارش (2026-11-20)
+- [x] کلاینت Frontend برای فهرست محصولات فعال کاتالوگ، دریافت جزئیات محصول/گروه گزینه‌ها/variantها و ثبت سفارش به APIهای V3 اضافه شد.
+- [x] صفحه صندوق دیگر از فهرست محصولات hard-coded استفاده نمی‌کند؛ محصولات و گزینه‌ها را از API همان business context دریافت می‌کند.
+- [x] سبد خرید شناسه عمومی محصول، variant و option را نگه می‌دارد؛ قیمت پیش‌نمایش صرفاً تخمینی است و قیمت/مالیات نهایی فقط از Backend می‌آید.
+- [x] ثبت سفارش از POST /api/v1/orders با Idempotency-Key پایدار در retry همان payload انجام می‌شود؛ سفارش با وضعیت draft و unpaid ایجاد می‌شود.
+- [x] نوع دریافت سرو داخل، بیرون‌بر و ارسال به fulfillment_method نگاشت می‌شود؛ ارسال نام گیرنده، تلفن و نشانی را نیز می‌فرستد.
+- [x] UI صریحاً اعلام می‌کند پرداخت، تخفیف و اتصال مشتری در این بسته انجام نمی‌شود و هیچ پرداختی ثبت نمی‌شود.
+- [x] contract check در scripts/check-v3-backend-orders.php برای اتصال کاتالوگ، payload ثبت سفارش، شناسه‌های عمومی و idempotency اضافه شد.
+- Commits: 463995c8 (API client), d41714e2 (POS wiring), 0bcfda8c (preserve category metadata), f08bef0f / 171bd557 (contract assertions).
+- Frontend typecheck/build: run 44722494804 روی commit 0bcfda8c موفق؛ run 44722552759 روی HEAD جدید هنگام ثبت این یادداشت در حال اجراست.
+- Backend Validation: run 44722543475 روی HEAD 171bd557 در حال اجرا؛ این run شامل contract check جدید است.
+- DB engine validation: run 44722543378 روی HEAD 171bd557 در حال اجرا؛ هنوز integration واقعی POST /orders با MySQL/MariaDB برای این بسته اضافه نشده است.
+- محدودیت فعلی: CatalogWorkspace هنوز UI نمونه/محلی است؛ مدیریت محصول از این صفحه هنوز به API وصل نیست. POS فقط داده‌هایی را می‌فروشد که واقعاً در کاتالوگ Backend فعال باشند.
+- محدودیت فعلی: شناسه مشتری از جست‌وجوی واقعی مشتری دریافت نمی‌شود؛ برای ارسال فقط recipient name/phone/address ذخیره می‌شود. پرداخت، تخفیف، table-session picker و transition آشپزخانه در این بسته فعال نشده‌اند.
+- P0 در صف: integration واقعی ایجاد سفارش روی دیتابیس موقت MySQL 8.4 و MariaDB 10.6؛ بررسی قیمت سرور، مالیات، variant/option validation، replay همان idempotency key، key reuse پس از network failure، rollback و عدم نشت business/branch.
+- P1 در صف: اتصال CatalogWorkspace به API و افزودن تست مرورگر صندوق با محصولات واقعی و سناریوهای delivery.
+- P2 در صف نهایی: جزئیات ظاهری کم‌اهمیت، ماتریس کامل دستگاه/مرورگر و regression کامل تمام نقش‌ها.
+- وضعیت: اتصال Frontend و contract check پیاده‌سازی شده؛ پذیرش نهایی بسته منوط به CI روی HEAD و integration واقعی ثبت سفارش است.
