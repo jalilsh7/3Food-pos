@@ -417,8 +417,14 @@ final readonly class OrderRepository
     }
 
     /** @return list<array<string,mixed>> */
-    public function listOrders(int $businessId, int $branchId, ?string $status, ?string $channel, int $limit): array
-    {
+    public function listOrders(
+        int $businessId,
+        int $branchId,
+        ?string $status,
+        ?string $channel,
+        int $limit,
+        ?int $beforeOrderNumber = null,
+    ): array {
         $sql = 'SELECT o.public_id, o.order_number, o.source_channel, o.order_status, o.payment_status,
                        o.subtotal_amount, o.tax_amount, o.total_amount, o.currency_code,
                        o.created_at, f.method AS fulfillment_method,
@@ -427,29 +433,37 @@ final readonly class OrderRepository
                 LEFT JOIN pos_order_fulfillments f ON f.order_id = o.id AND f.business_id = o.business_id AND f.branch_id = o.branch_id
                 LEFT JOIN pos_customers c ON c.id = o.customer_id AND c.business_id = o.business_id
                 WHERE o.business_id = :business_id AND o.branch_id = :branch_id';
-        $parameters = ['business_id' => $businessId, 'branch_id' => $branchId];
+        if ($beforeOrderNumber !== null) {
+            $sql .= ' AND o.order_number < :before_order_number';
+        }
         if ($status !== null) {
             $sql .= ' AND o.order_status = :order_status';
-            $parameters['order_status'] = $status;
         }
         if ($channel !== null) {
             $sql .= ' AND o.source_channel = :source_channel';
-            $parameters['source_channel'] = $channel;
         }
-        $sql .= ' ORDER BY o.id DESC LIMIT :limit';
+        $sql .= ' ORDER BY o.order_number DESC LIMIT :fetch_limit';
         $statement = $this->connection->prepare($sql);
         $statement->bindValue(':business_id', $businessId, PDO::PARAM_INT);
         $statement->bindValue(':branch_id', $branchId, PDO::PARAM_INT);
+        if ($beforeOrderNumber !== null) {
+            $statement->bindValue(':before_order_number', $beforeOrderNumber, PDO::PARAM_INT);
+        }
         if ($status !== null) {
             $statement->bindValue(':order_status', $status, PDO::PARAM_STR);
         }
         if ($channel !== null) {
             $statement->bindValue(':source_channel', $channel, PDO::PARAM_STR);
         }
-        $statement->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $statement->bindValue(':fetch_limit', $limit + 1, PDO::PARAM_INT);
         $statement->execute();
 
-        return array_map(static fn (array $row): array => [
+        $rows = $statement->fetchAll(PDO::FETCH_ASSOC);
+        $hasMore = count($rows) > $limit;
+        if ($hasMore) {
+            array_pop($rows);
+        }
+        $orders = array_map(static fn (array $row): array => [
             'id' => (string) $row['public_id'],
             'order_number' => (int) $row['order_number'],
             'source_channel' => (string) $row['source_channel'],
@@ -465,7 +479,15 @@ final readonly class OrderRepository
                 'id' => (string) $row['customer_public_id'],
                 'name' => (string) $row['customer_name'],
             ],
-        ], $statement->fetchAll(PDO::FETCH_ASSOC));
+        ], $rows);
+
+        return [
+            'orders' => $orders,
+            'has_more' => $hasMore,
+            'next_cursor' => $hasMore && $orders !== []
+                ? (string) $orders[array_key_last($orders)]['order_number']
+                : null,
+        ];
     }
 
     /** @return array<string,mixed>|null */
