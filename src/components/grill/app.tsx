@@ -482,7 +482,7 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
     const placeholders = [...tpl.body.matchAll(/\\{([0-9]+|[a-zA-Z_][a-zA-Z0-9_]*)\\}/g)];
     const orderedKeys = [...new Set(placeholders.map((match) => match[1]))];
     if (!orderedKeys.length) {
-      await postSms(phone, text, event, tpl.bodyId, "");
+      await postSms(phone, text, event, tpl.bodyId, "", "الگوی خدماتی باید حداقل یک متغیر داشته باشد تا مقدار آن به سرویس ارسال شود.");
       return;
     }
     const values = orderedKeys.map((key) => (/^\\d+$/.test(key) ? indexedVars[Number(key)] : templateVars[key]) ?? "");
@@ -493,7 +493,7 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
     await postSms(phone, text, event, tpl.bodyId, values.join(";"));
     return;
   }
-  await postSms(phone, text, event, "");
+  await postSms(phone, text, event, "missing", "", "برای پیامک عملیاتی، شناسه bodyId الگوی خدماتی تنظیم نشده است؛ ارسال از خط شخصی مجاز نیست.");
 }
 
 async function sendRaw(phone: string, text: string, event = "manual", customerId?: string) {
