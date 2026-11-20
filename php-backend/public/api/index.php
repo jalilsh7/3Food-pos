@@ -2463,6 +2463,7 @@ if ($method === 'POST' && $path === '/sms/send') {
         $customerPhone = is_array($customer) ? threefood_normalize_iran_mobile((string)($customer['phone'] ?? '')) : null;
         $recipientPhone = threefood_normalize_iran_mobile($to);
         if (!is_array($customer) || ($customer['smsConsent'] ?? false) !== true
+            || ($customer['smsConsentConfirmed'] ?? false) !== true
             || $customerPhone === null || $recipientPhone === null || $customerPhone !== $recipientPhone) {
             json_response(['ok' => false, 'error' => 'sms_consent_required', 'message' => 'رضایت پیامکی مشتری ثبت نشده یا شماره گیرنده با پرونده مشتری مطابقت ندارد'], 403);
         }
