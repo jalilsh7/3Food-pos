@@ -20,7 +20,7 @@ $assert(str_contains($repository, 'ORDER BY o.order_number DESC LIMIT :fetch_lim
 $assert(str_contains($repository, '$limit + 1'), 'Order pagination must fetch one extra row to calculate has_more.');
 $assert(str_contains($repository, "'has_more' => \$hasMore"), 'Order pagination has_more metadata is missing.');
 $assert(str_contains($repository, "'next_cursor' => \$hasMore"), 'Order pagination next cursor metadata is missing.');
-$assert(str_contains($service, "'/^[1-9][0-9]{0,8}$/'"), 'Order cursor validation is missing.');
+$assert(str_contains($service, "'/^[1-9][0-9]{0,18}$/'"), 'Order cursor validation is missing.');
 $assert(str_contains($controller, "query('before')"), 'Order controller does not accept the before cursor.');
 $assert(str_contains($client, 'before?: string;') && str_contains($client, 'has_more: boolean;'), 'Frontend order page contract is incomplete.');
 $assert(str_contains($workspace, 'loadMoreOrders') && str_contains($workspace, 'نمایش سفارش‌های قدیمی‌تر'), 'Order center does not expose the next page action.');
