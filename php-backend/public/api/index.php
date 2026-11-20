@@ -2542,7 +2542,9 @@ if ($method === 'POST' && $path === '/sms/send') {
             $smartStatus = is_array($smartResult) ? ($smartResult['RetStatus'] ?? $smartResult['retStatus'] ?? null) : null;
             $providerCode = is_numeric($smartStatus) ? (int)$smartStatus : (is_numeric($smartId) ? (int)$smartId : 0);
             $ok = $httpStatus >= 200 && $httpStatus < 300 && is_numeric($smartId) && (int)$smartId > 0;
-            if (!$ok && is_array($smartResult)) {
+            if ($ok) {
+                $providerResponse = (string)$smartId;
+            } elseif (is_array($smartResult)) {
                 $providerResponse = (string)($smartResult['StrRetStatus'] ?? $smartResult['message'] ?? $smartResult['error'] ?? $providerResponse);
             }
         }
