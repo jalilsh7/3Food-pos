@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Activity,
   Boxes,
@@ -7,6 +7,7 @@ import {
   ClipboardList,
   LayoutDashboard,
   Globe,
+  LogOut,
   Search,
   Settings,
   ShoppingCart,
@@ -17,6 +18,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button, EmptyState, PageHeader, StatusBadge, Surface } from "../shared/ui/primitives";
+import { ApiError, getCurrentSession, signOut, type AuthenticatedUser } from "../shared/api/client";
+import { AuthScreen } from "../features/auth/AuthScreen";
 import { PosWorkspace } from "../features/pos/PosWorkspace";
 import { OrderCenter } from "../features/orders/OrderCenter";
 import { KitchenBoard } from "../features/kitchen/KitchenBoard";
@@ -131,7 +134,7 @@ function Overview() {
   );
 }
 
-export function App() {
+function AuthenticatedWorkspace({ user, onLogout }: { user: AuthenticatedUser; onLogout: () => void }) {
   const [activeView, setActiveView] = useState<ViewId>("overview");
   const [search, setSearch] = useState("");
   const activeItem = allItems.find((item) => item.id === activeView) ?? allItems[0];
@@ -184,8 +187,8 @@ export function App() {
         <div className="sidebar-foot">
           <span className="connection-mark" />
           <div>
-            <strong>محیط طراحی مستقل</strong>
-            <small>بدون اتصال به داده عملیاتی</small>
+            <strong>نشست امن فعال</strong>
+            <small>داده عملیاتی ماژول‌ها در حال اتصال است</small>
           </div>
         </div>
       </aside>
@@ -204,8 +207,8 @@ export function App() {
               {search ? <Button variant="ghost" size="icon" onClick={() => setSearch("")} aria-label="پاک کردن جست‌وجو">×</Button> : null}
             </label>
             <span className="topbar-divider" />
-            <StatusBadge variant="warning" className="compact">حالت طراحی</StatusBadge>
-            <span className="avatar" aria-label="حساب نمایشی">PC</span>
+            <StatusBadge variant="success" className="compact">نشست معتبر</StatusBadge>
+            <div className="account-menu"><span className="account-name">{user.display_name}</span><span className="avatar" aria-label={user.display_name}>{user.display_name.trim().slice(0, 1) || "؟"}</span><Button size="sm" variant="ghost" onClick={onLogout}><LogOut size={14} /> خروج</Button></div>
           </div>
         </header>
 
@@ -231,4 +234,62 @@ export function App() {
       </main>
     </div>
   );
+}
+
+
+export function App() {
+  const [user, setUser] = useState<AuthenticatedUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setBootstrapError(null);
+    getCurrentSession()
+      .then((currentUser) => {
+        if (!active) return;
+        setUser(currentUser);
+        setLoading(false);
+      })
+      .catch((cause: unknown) => {
+        if (!active) return;
+        if (cause instanceof ApiError && cause.status === 401) {
+          setUser(null);
+          setBootstrapError(null);
+        } else {
+          setBootstrapError(cause instanceof Error ? cause.message : "اتصال به سرویس احراز هویت برقرار نشد.");
+        }
+        setLoading(false);
+      });
+    return () => { active = false; };
+  }, [attempt]);
+
+  async function handleLogout() {
+    try {
+      await signOut();
+    } finally {
+      setUser(null);
+      setBootstrapError(null);
+    }
+  }
+
+  if (loading) {
+    return <main className="auth-screen" dir="rtl"><section className="auth-card auth-loading" aria-live="polite"><span className="auth-brand__mark"><Store size={23} /></span><strong>در حال بررسی نشست امن...</strong><span>PersiaCoder POS V3</span></section></main>;
+  }
+
+  if (!user || user.must_change_password) {
+    return (
+      <AuthScreen
+        mustChangePassword={Boolean(user?.must_change_password)}
+        bootstrapError={bootstrapError}
+        onAuthenticated={(authenticatedUser) => { setUser(authenticatedUser); setBootstrapError(null); }}
+        onPasswordChanged={() => { setUser(null); setBootstrapError("رمز عبور تغییر کرد. برای ادامه با رمز جدید دوباره وارد شوید."); }}
+        onRetry={() => setAttempt((value) => value + 1)}
+      />
+    );
+  }
+
+  return <AuthenticatedWorkspace user={user} onLogout={() => { void handleLogout(); }} />;
 }
