@@ -79,6 +79,8 @@ export function OrderCenter() {
       const result = await getOrders({
         status: status === "all" ? undefined : status,
         channel: channel === "all" ? undefined : channel,
+        payment: payment === "all" ? undefined : payment,
+        fulfillment: fulfillment === "all" ? undefined : fulfillment,
         limit: 50,
       });
       if (requestVersion !== listRequestVersion.current) return;
@@ -109,6 +111,8 @@ export function OrderCenter() {
       const result = await getOrders({
         status: status === "all" ? undefined : status,
         channel: channel === "all" ? undefined : channel,
+        payment: payment === "all" ? undefined : payment,
+        fulfillment: fulfillment === "all" ? undefined : fulfillment,
         limit: 50,
         before: nextCursor,
       });
@@ -158,7 +162,7 @@ export function OrderCenter() {
     void fetchOrders();
     // The active business/branch context is applied by the shared API client.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, channel]);
+  }, [status, channel, payment, fulfillment]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -180,11 +184,9 @@ export function OrderCenter() {
       const customer = order.customer?.name ?? "مشتری مهمان";
       const matchesQuery = !normalized
         || `${order.order_number} ${customer} ${channelLabels[order.source_channel] ?? order.source_channel}`.toLocaleLowerCase("fa-IR").includes(normalized);
-      return matchesQuery
-        && (payment === "all" || order.payment_status === payment)
-        && (fulfillment === "all" || order.fulfillment_method === fulfillment);
+      return matchesQuery;
     });
-  }, [orders, query, payment, fulfillment]);
+  }, [orders, query]);
 
   const selectedOrder = detail?.order ?? null;
   const columns = [
@@ -309,7 +311,7 @@ export function OrderCenter() {
               { value: "takeaway", label: "بیرون‌بر" },
               { value: "storefront", label: "فروشگاه آنلاین" },
             ]} />
-          <SelectField label="وضعیت پرداخت" value={payment} onChange={(event) => setPayment(event.target.value)}
+          <SelectField label="وضعیت پرداخت" value={payment} onChange={(event) => { listRequestVersion.current += 1; setLoadingMore(false); setNextCursor(null); setHasMore(false); setLoading(true); setPayment(event.target.value); }}
             options={[
               { value: "all", label: "همه وضعیت‌ها" },
               { value: "paid", label: "پرداخت‌شده" },
@@ -317,7 +319,7 @@ export function OrderCenter() {
               { value: "unpaid", label: "پرداخت‌نشده" },
               { value: "refunded", label: "مستردشده" },
             ]} />
-          <SelectField label="نوع دریافت" value={fulfillment} onChange={(event) => setFulfillment(event.target.value)}
+          <SelectField label="نوع دریافت" value={fulfillment} onChange={(event) => { listRequestVersion.current += 1; setLoadingMore(false); setNextCursor(null); setHasMore(false); setLoading(true); setFulfillment(event.target.value); }}
             options={[
               { value: "all", label: "همه انواع" },
               { value: "dine_in", label: "سرو داخل" },
