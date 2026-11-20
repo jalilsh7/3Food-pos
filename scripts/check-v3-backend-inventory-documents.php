@@ -63,9 +63,11 @@ $assert(str_contains($controller, 'public function createDocumentLine'), 'Docume
 $assert(str_contains($controller, 'public function updateDocumentLine'), 'Document line update handler must be present.');
 $assert(str_contains($controller, 'public function deleteDocumentLine'), 'Document line delete handler must be present.');
 $assert(str_contains($controller, 'public function postDocument'), 'Document posting handler must be present.');
+$assert(str_contains($controller, 'public function documentValuation'), 'Valuation handler must be present.');
 $assert(str_contains($frontController, '/api/v1/inventory/documents/{documentPublicId}/lines'), 'Document line route must be registered.');
 $assert(str_contains($frontController, '/api/v1/inventory/documents/{documentPublicId}/lines/{linePublicId}'), 'Document line update/delete routes must be registered.');
 $assert(str_contains($frontController, '/api/v1/inventory/documents/{documentPublicId}/post'), 'Document posting route must be registered.');
+$assert(str_contains($frontController, '/api/v1/inventory/documents/{documentPublicId}/valuation'), 'Protected valuation route must be registered.');
 $assert(str_contains($frontController, "makePermissionMiddleware('inventory.manage', true)"), 'Document mutations must require branch-scoped inventory.manage permission.');
 $assert(!preg_match('/(?:UPDATE|INSERT INTO)\\s+pos_stock_balances/i', $repository), 'Draft line CRUD must not mutate stock balances.');
 $assert(!preg_match('/INSERT INTO\\s+pos_stock_ledger/i', $repository), 'Draft line CRUD must not append stock ledger entries.');
