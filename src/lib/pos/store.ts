@@ -37,10 +37,18 @@ function seed(): PosState {
       phone: "",
       taxPercent: 0,
       taxEnabled: true,
+      stockPolicy: "warn_and_allow",
       pointsPerToman: 100000,
       tomanPerPoint: 1000,
       paperWidth: 80,
       autoPrint: false,
+      invoiceSmsEnabledDefault: false,
+      loyaltySilverPoints: 500,
+      loyaltyGoldPoints: 1500,
+      loyaltyPlatinumPoints: 4000,
+      loyaltySilverDiscount: 3,
+      loyaltyGoldDiscount: 5,
+      loyaltyPlatinumDiscount: 8,
       printCustomer: true,
       printKitchen: true,
       headerNote: "",
@@ -48,6 +56,7 @@ function seed(): PosState {
       smsUser: "",
       smsKey: "",
       smsFrom: "",
+      birthdaySmsPrompt: "برای ثبت تاریخ تولد در باشگاه مشتریان، لطفاً پاسخ دهید: تولد ۱۳۷۰/۰۵/۱۲",
       role: "manager",
     },
     nextOrder: 1,
@@ -67,6 +76,7 @@ type Actions = {
   saveDiscount: (d: DiscountCode) => void;
   removeDiscount: (id: string) => void;
   addExpense: (e: Omit<Expense, "id"> & { id?: string }) => void;
+  saveExpense: (e: Expense) => void;
   removeExpense: (id: string) => void;
   saveTemplate: (t: SmsTemplate) => void;
   placeOrder: (input: {
@@ -78,7 +88,7 @@ type Actions = {
     payment: Order["payment"];
     guestName: string;
     guestPhone: string;
-    serverOrder?: { id: string; number: number };
+    serverOrder?: { id: string; number: number; createdAt?: string };
   }) => { ok: true; order: Order } | { ok: false; error: string };
   setStatus: (id: string, status: OrderStatus) => Order | null;
   logSms: (log: SmsLog) => void;
@@ -129,6 +139,7 @@ export const usePos = create<PosState & Actions>()(
         })),
       removeDiscount: (id) => set((s) => ({ discounts: s.discounts.filter((d) => d.id !== id) })),
       addExpense: (e) => set((s) => ({ expenses: [{ ...e, id: e.id ?? uid("ex") }, ...s.expenses] })),
+      saveExpense: (e) => set((s) => ({ expenses: s.expenses.some((x) => x.id === e.id) ? s.expenses.map((x) => x.id === e.id ? e : x) : [e, ...s.expenses] })),
       removeExpense: (id) => set((s) => ({ expenses: s.expenses.filter((e) => e.id !== id) })),
       saveTemplate: (t) =>
         set((s) => ({ templates: s.templates.map((x) => (x.event === t.event ? t : x)) })),
@@ -149,6 +160,7 @@ export const usePos = create<PosState & Actions>()(
           taxEnabled: input.taxEnabled,
           tomanPerPoint: s.settings.tomanPerPoint,
           usesSoFar: uses,
+          settings: s.settings,
         });
         if (input.code && q.codeError) return { ok: false, error: q.codeError };
         if (input.pointsToUse > 0 && q.pointsError) return { ok: false, error: q.pointsError };
@@ -179,7 +191,7 @@ export const usePos = create<PosState & Actions>()(
         const order: Order = {
           id: input.serverOrder?.id ?? uid("or"),
           number: input.serverOrder?.number ?? s.nextOrder,
-          createdAt: new Date().toISOString(),
+          createdAt: input.serverOrder?.createdAt ?? new Date().toISOString(),
           status: "new",
           lines: input.lines,
           subtotal: q.subtotal,
@@ -204,7 +216,7 @@ export const usePos = create<PosState & Actions>()(
             if (rec) need += rec.qty * line.qty;
             if (line.optionLabels.some((l) => l.includes("پنیر")) && ing.id === "i3") need += line.qty;
           }
-          return { ...ing, stock: Math.max(0, +(ing.stock - need).toFixed(2)) };
+          return { ...ing, stock: +(ing.stock - need).toFixed(2) };
         });
         customers = customers.map((c) =>
           c.id === customerId

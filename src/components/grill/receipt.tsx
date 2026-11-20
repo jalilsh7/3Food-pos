@@ -1,4 +1,6 @@
 import { money, type Order, type Settings } from "@/lib/pos/model";
+import { useAppearance } from "@/lib/appearance";
+import { ReceiptQr } from "@/components/grill/receipt-qr";
 
 const pay: Record<Order["payment"], string> = {
   cash: "نقد",
@@ -16,9 +18,21 @@ export function ReceiptView({
   kind: "customer" | "kitchen";
 }) {
   const width = settings.paperWidth === 58 ? "max-w-56" : "max-w-80";
+  const { settings: appearance } = useAppearance();
+  const qrPayload = [
+    `${settings.shopName} | فاکتور ${order.number}`,
+    `تاریخ: ${new Date(order.createdAt).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}`,
+    ...order.lines.map(line => `${line.name} × ${line.qty} — ${money(line.unitPrice * line.qty)}`),
+    `جمع: ${money(order.subtotal)}`,
+    `تخفیف: ${money(order.tierDiscount + order.codeDiscount + order.pointsDiscount)}`,
+    `مالیات: ${money(order.tax)}`,
+    `قابل پرداخت: ${money(order.total)}`,
+    `پرداخت: ${pay[order.payment]}`,
+  ].join("\n");
   return (
     <article className={`mx-auto bg-surface p-3 text-ink ${width}`} dir="rtl">
       <header className="border-b border-dashed border-line pb-2 text-center">
+        {appearance.logoUrl ? <img src={appearance.logoUrl} alt="لوگوی فروشگاه" className="mx-auto mb-2 max-h-12 max-w-32 object-contain" /> : null}
         <p className="text-lg font-bold">{settings.shopName}</p>
         {kind === "customer" ? (
           <>
@@ -32,7 +46,7 @@ export function ReceiptView({
       </header>
       <p className="mt-2 flex justify-between text-sm">
         <span>سفارش {order.number.toLocaleString("fa-IR")}</span>
-        <span>{new Date(order.createdAt).toLocaleString("fa-IR")}</span>
+        <span>{new Date(order.createdAt).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}</span>
       </p>
       <p className="text-sm">
         {order.customerName}
@@ -74,7 +88,13 @@ export function ReceiptView({
         </dl>
       ) : null}
       {kind === "customer" ? (
-        <p className="mt-3 text-center text-xs">{settings.footerNote}</p>
+        <>
+          <p className="mt-3 text-center text-xs">{settings.footerNote}</p>
+          <div className="mt-3 flex flex-col items-center gap-1">
+            <ReceiptQr value={qrPayload} size={settings.paperWidth === 58 ? 88 : 112} />
+            <p className="text-center text-[10px] text-muted">برای مشاهده ریز فاکتور، کد را اسکن کنید</p>
+          </div>
+        </>
       ) : null}
     </article>
   );

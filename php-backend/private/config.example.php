@@ -28,6 +28,12 @@ return [
         'username' => '',
         'password' => '',
         'sender' => '',
+        // Inbox settings for GetMessages. Set inbox_location to the value
+        // assigned by National Payamak for the receiving mailbox/line.
+        'inbox_location' => null,
+        'inbox_from' => '',
+        'inbox_index' => '1',
+        'inbox_count' => 50,
     ],
 
     'session' => [

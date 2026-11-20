@@ -5,13 +5,14 @@ on:
     branches:
       - migration/php-mysql
       - cleanup/remove-grok-dependencies
+      - feature/3food-pos-next-release-v2
   pull_request:
     branches:
       - migration/php-mysql
       - cleanup/remove-grok-dependencies
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   checks:
@@ -29,11 +30,15 @@ jobs:
           --health-timeout=5s
           --health-retries=10
     runs-on: ubuntu-latest
+    env:
+      GIT_CONFIG_COUNT: 1
+      GIT_CONFIG_KEY_0: init.defaultBranch
+      GIT_CONFIG_VALUE_0: main
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -45,6 +50,16 @@ jobs:
       - name: Regenerate lockfile for the isolated cleanup branch
         if: github.event_name == 'pull_request' && github.head_ref == 'cleanup/remove-grok-dependencies'
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Refresh dependency lockfile
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && ! git diff --quiet -- package-lock.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "chore(deps): refresh npm lockfile [skip ci]"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
       - name: Install dependencies
         run: npm ci
       - name: PHP syntax
@@ -53,6 +68,12 @@ jobs:
           php -l scripts/check-mysql-schema.php
           php -l scripts/check-mysql-transaction-invariants.php
           php -l scripts/check-php-api-integration.php
+          php -l php-backend/private/birthday-sms.php
+          php -l scripts/check-birthday-sms-parser.php
+          php -l php-backend/private/birthday-sms-inbox.php
+          php -l scripts/check-birthday-sms-inbox.php
+          php scripts/check-birthday-sms-parser.php
+          php scripts/check-birthday-sms-inbox.php
       - name: Install and verify fresh MySQL schema
         env:
           MYSQL_TEST_HOST: 127.0.0.1
@@ -60,8 +81,9 @@ jobs:
           MYSQL_TEST_DATABASE: threefood_test
           MYSQL_TEST_USERNAME: root
           MYSQL_TEST_PASSWORD: root-ci-password
+          MYSQL_PWD: root-ci-password
         run: |
-          mysql --host=127.0.0.1 --user=root --password="$MYSQL_TEST_PASSWORD" threefood_test < php-backend/schema.sql
+          mysql --host=127.0.0.1 --user=root threefood_test < php-backend/schema.sql
           php scripts/check-mysql-schema.php
           php scripts/check-mysql-transaction-invariants.php
       - name: Run PHP API integration tests
@@ -140,14 +162,14 @@ jobs:
           mkdir -p performance-results
           node scripts/performance-smoke.mjs http://127.0.0.1:8099/ | tee performance-results/performance.json
       - name: Upload performance report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: 3food-pos-performance-report
           path: performance-results/performance.json
           if-no-files-found: error
           retention-days: 14
       - name: Upload cPanel deployment package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: 3food-pos-cpanel
           path: dist-cpanel/

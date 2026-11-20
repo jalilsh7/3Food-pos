@@ -31,6 +31,12 @@ mkdirSync(resolve(publicRoot, "uploads"), { recursive: true });
 cpSync(resolve(root, "php-backend/public/uploads/.htaccess"), resolve(publicRoot, "uploads/.htaccess"));
 cpSync(resolve(root, "php-backend/public/api"), resolve(publicRoot, "api"), { recursive: true });
 cpSync(resolve(root, "php-backend/private/.htaccess"), resolve(privateRoot, ".htaccess"));
+for (const helper of ["birthday-sms.php", "birthday-sms-inbox.php"]) {
+  cpSync(
+    resolve(root, "php-backend/private", helper),
+    resolve(privateRoot, helper),
+  );
+}
 cpSync(
   resolve(root, "php-backend/private/config.example.php"),
   resolve(privateRoot, "config.example.php"),
@@ -79,6 +85,8 @@ const packagedFiles = [
   "public/api/index.php",
   "private/.htaccess",
   "private/config.example.php",
+  "private/birthday-sms.php",
+  "private/birthday-sms-inbox.php",
   "database/schema.sql",
   "DEPLOYMENT-FA.md",
 ];

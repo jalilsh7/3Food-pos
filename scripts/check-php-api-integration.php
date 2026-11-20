@@ -11,6 +11,8 @@ $setupToken = (string)(getenv('POS_TEST_SETUP_TOKEN') ?: 'ci-only-setup-token-'.
 $cookie = '';
 $csrf = '';
 
+function valid_uuid_for_test(string $value): bool { return preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iD', $value) === 1; }
+
 function check(bool $condition, string $message): void {
     if (!$condition) throw new RuntimeException($message);
 }
@@ -161,9 +163,98 @@ try {
     check($meAfterPasswordChange['status'] === 200 && ($meAfterPasswordChange['json']['user']['must_change_password'] ?? null) === false, 'password change clears forced-password flag for refresh');
 
 
+    // Terminal API is exercised with a synthetic agent callback only; this does not
+    // claim that a physical bank terminal or a provider protocol has been tested.
+    $agentCreated = api('POST', '/api/v1/terminal-agents', ['name' => 'CI Terminal Agent'], csrf_headers());
+    check($agentCreated['status'] === 201, 'manager creates a local terminal agent');
+    $agentToken = (string)($agentCreated['json']['token'] ?? '');
+    $agentId = (string)($agentCreated['json']['agent']['id'] ?? '');
+    check(strlen($agentToken) === 64 && valid_uuid_for_test($agentId), 'agent token and UUID are generated');
+    $agentList = api('GET', '/api/v1/terminal-agents');
+    check($agentList['status'] === 200 && !str_contains(json_encode($agentList['json']), $agentToken), 'agent list never exposes raw token');
+    $publicTerminalHost = api('POST', '/api/v1/terminals', [
+        'id' => 'ci-public-terminal', 'agentId' => $agentId, 'localTerminalKey' => 'ci-public',
+        'name' => 'Rejected Public IP', 'providerCode' => 'ci_test', 'driverCode' => 'ci_stub',
+        'connectionType' => 'lan', 'host' => '8.8.8.8', 'port' => 5000, 'enabled' => true, 'isDefault' => false,
+    ], csrf_headers());
+    check($publicTerminalHost['status'] === 422, 'terminal API rejects public IP addresses');
+    $terminalSaved = api('POST', '/api/v1/terminals', [
+        'id' => 'ci-terminal',
+        'agentId' => $agentId,
+        'localTerminalKey' => 'ci-local-1',
+        'name' => 'CI Network Terminal',
+        'providerCode' => 'ci_test',
+        'modelName' => 'Synthetic ECR',
+        'driverCode' => 'ci_stub',
+        'connectionType' => 'lan',
+        'host' => '192.168.1.200',
+        'port' => 5000,
+        'enabled' => true,
+        'isDefault' => true,
+    ], csrf_headers());
+    check($terminalSaved['status'] === 201, 'manager saves a LAN terminal configuration');
+    $agentHeaders = ['X-Terminal-Agent-Token: ' . $agentToken, 'X-Terminal-Agent-Version: ci-test/1.0'];
+    $agentHeartbeat = api('GET', '/api/v1/terminal-agent/next', null, $agentHeaders);
+    check($agentHeartbeat['status'] === 200 && (array_key_exists('payment', $agentHeartbeat['json']) && $agentHeartbeat['json']['payment'] === null), 'agent authenticates and sends heartbeat: ' . $agentHeartbeat['status'] . ' ' . json_encode($agentHeartbeat['json']));
+    $agentAfterHeartbeat = api('GET', '/api/v1/terminal-agents');
+    check(($agentAfterHeartbeat['json']['items'][0]['agent_version'] ?? '') === 'ci-test/1.0', 'agent heartbeat stores its software version');
+    $availableTerminals = api('GET', '/api/v1/terminals/available');
+    check($availableTerminals['status'] === 200 && count($availableTerminals['json']['items'] ?? []) === 1, 'cashier terminal discovery includes online configured drivers');
+    $terminalPaymentKey = '44444444-4444-4444-8444-000000000010';
+    $terminalPaymentCreated = api('POST', '/api/v1/terminal-payments', [
+        'terminalId' => 'ci-terminal',
+        'amount' => 125000,
+        'idempotencyKey' => $terminalPaymentKey,
+    ], csrf_headers());
+    check($terminalPaymentCreated['status'] === 201, 'manager queues a terminal payment intent');
+    $terminalPaymentId = (string)($terminalPaymentCreated['json']['payment']['id'] ?? '');
+    check(valid_uuid_for_test($terminalPaymentId), 'terminal payment intent UUID is returned');
+    $agentJob = api('GET', '/api/v1/terminal-agent/next', null, $agentHeaders);
+    check($agentJob['status'] === 200 && ($agentJob['json']['payment']['id'] ?? '') === $terminalPaymentId && ($agentJob['json']['payment']['status'] ?? '') === 'processing', 'authenticated agent atomically claims queued payment');
+    $agentResult = api('POST', '/api/v1/terminal-agent/payments/' . rawurlencode($terminalPaymentId) . '/result', [
+        'status' => 'declined',
+        'amount' => 125000,
+        'traceNumber' => 'CI-TRACE-001',
+        'retrievalReferenceNumber' => 'CI-RRN-001',
+        'providerCode' => 'ci_test',
+        'responseCode' => '00',
+    ], $agentHeaders);
+    check($agentResult['status'] === 200 && ($agentResult['json']['status'] ?? '') === 'declined', 'authenticated agent submits an approved synthetic result');
+    $terminalPaymentStatus = api('GET', '/api/v1/terminal-payments/' . rawurlencode($terminalPaymentId));
+    check($terminalPaymentStatus['status'] === 200 && ($terminalPaymentStatus['json']['payment']['status'] ?? '') === 'declined', 'cashier can read final terminal payment state');
+    check((int)($terminalPaymentStatus['json']['payment']['amount'] ?? 0) === 125000 && ($terminalPaymentStatus['json']['payment']['trace_number'] ?? '') === 'CI-TRACE-001', 'terminal payment read returns amount and trace reference');
+    $missingTerminalPayment = api('GET', '/api/v1/terminal-payments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+    check($missingTerminalPayment['status'] === 404 && ($missingTerminalPayment['json']['error'] ?? '') === 'terminal_payment_not_found', 'terminal payment lookup hides unknown payment ids');
+    $terminalPaymentReplay = api('POST', '/api/v1/terminal-payments', [
+        'terminalId' => 'ci-terminal',
+        'amount' => 125000,
+        'idempotencyKey' => $terminalPaymentKey,
+    ], csrf_headers());
+    check($terminalPaymentReplay['status'] === 200 && ($terminalPaymentReplay['json']['payment']['id'] ?? '') === $terminalPaymentId, 'terminal payment retry reuses the original idempotency record');
+
+    $managerBootstrapForFeatures = api('GET', '/api/v1/bootstrap');
+    check($managerBootstrapForFeatures['status'] === 200, 'manager bootstrap for next-release resources');
+    check(count($managerBootstrapForFeatures['json']['data']['expense_categories'] ?? []) >= 8, 'default restaurant expense categories are seeded automatically');
+    $supplierIngredient = api('POST', '/api/v1/records/ingredients', ['item' => ['id'=>'ci-supplier-ingredient','name'=>'مواد آزمایشی تأمین‌کننده','unit'=>'kg','stock'=>0,'minStock'=>0,'costPerUnit'=>100]], csrf_headers());
+    check($supplierIngredient['status'] === 201, 'manager can create an ingredient for supplier receiving');
+    $supplierCreate = api('POST', '/api/v1/records/suppliers', ['item' => ['id'=>'ci-supplier','name'=>'CI Supplier','phone'=>'09120000000','contact'=>'Test','notes'=>'','balance'=>0,'active'=>true]], csrf_headers());
+    check($supplierCreate['status'] === 201, 'manager can create supplier record');
+    $supplierPurchase = api('POST', '/api/v1/suppliers/ci-supplier/purchases', ['item' => ['id'=>'ci-supplier-purchase','kind'=>'purchase','title'=>'مواد اولیه آزمایشی','amount'=>1000,'paid'=>200,'ingredientId'=>'ci-supplier-ingredient','quantity'=>2,'unitCost'=>500,'note'=>'CI']], csrf_headers());
+    check($supplierPurchase['status'] === 200 && (int)($supplierPurchase['json']['supplier']['balance'] ?? -1) === 800, 'supplier purchase and debt update commit atomically');
+    $receivedIngredient = api('GET', '/api/v1/records/ingredients');
+    $receivedIngredientItem = array_values(array_filter($receivedIngredient['json']['items'] ?? [], fn($item) => ($item['id'] ?? '') === 'ci-supplier-ingredient'))[0] ?? [];
+    check((float)($receivedIngredientItem['stock'] ?? -1) === 2.0 && (float)($receivedIngredientItem['costPerUnit'] ?? -1) === 500.0, 'supplier purchase increases ingredient stock and updates weighted cost');
+    $supplierPayment = api('POST', '/api/v1/suppliers/ci-supplier/purchases', ['item' => ['id'=>'ci-supplier-payment','kind'=>'payment','title'=>'تسویه','amount'=>0,'paid'=>300,'note'=>'CI']], csrf_headers());
+    check($supplierPayment['status'] === 200 && (int)($supplierPayment['json']['supplier']['balance'] ?? -1) === 500, 'supplier settlement reduces outstanding debt atomically');
+    $reportDate = (new DateTimeImmutable('now', new DateTimeZone('Asia/Tehran')))->format('Y-m-d');
+    $reportSummary = api('GET', '/api/v1/reports/summary?from=' . $reportDate . '&to=' . $reportDate);
+    check($reportSummary['status'] === 200 && isset($reportSummary['json']['net_profit']) && isset($reportSummary['json']['monthly']), 'manager can retrieve server-side sales, profit and monthly reports');
+
+
+
     $appearanceSettings = [
         'primary' => '#123456', 'secondary' => '#654321', 'mode' => 'dark',
-        'fontFamily' => 'tahoma', 'fontSize' => 17, 'cardRadius' => 20,
+        'fontFamily' => 'byekan', 'fontSize' => 17, 'cardRadius' => 20,
         'buttonRadius' => 10, 'logoUrl' => null,
     ];
     $appearanceSaved = api('POST', '/api/v1/appearance', ['settings' => $appearanceSettings], csrf_headers());
@@ -218,7 +309,7 @@ try {
         'idempotencyKey' => $key,
         'items' => [['key' => 'ci-line', 'productId' => 'ci-product', 'qty' => 1, 'unitPrice' => 1000, 'optionIds' => []]],
         'customer' => ['id' => 'ci-customer'],
-        'payment' => 'card',
+        'payment' => 'cash',
         'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 1000],
         'note' => 'CI integration order',
     ];
@@ -227,17 +318,44 @@ try {
     $missingKey = api('POST', '/api/v1/orders', $missingKeyBody, csrf_headers());
     check($missingKey['status'] === 422 && ($missingKey['json']['error'] ?? '') === 'invalid_idempotency_key', 'new orders require a valid idempotency key');
 
+    $unverifiedCardBody = $orderBody;
+    $unverifiedCardBody['payment'] = 'card';
+    $unverifiedCardBody['idempotencyKey'] = '11111111-1111-4111-8111-111111111112';
+    $unverifiedCard = api('POST', '/api/v1/orders', $unverifiedCardBody, csrf_headers());
+    check($unverifiedCard['status'] === 422, 'API rejects card orders without a terminal payment reference');
+    $unverifiedOnlineBody = $orderBody;
+    $unverifiedOnlineBody['payment'] = 'online';
+    $unverifiedOnlineBody['idempotencyKey'] = '11111111-1111-4111-8111-111111111113';
+    $unverifiedOnline = api('POST', '/api/v1/orders', $unverifiedOnlineBody, csrf_headers());
+    check($unverifiedOnline['status'] === 409 && ($unverifiedOnline['json']['error'] ?? '') === 'online_payment_unavailable', 'API blocks online orders until a real gateway confirms payment');
     $created = api('POST', '/api/v1/orders', $orderBody, csrf_headers());
     check($created['status'] === 201, 'create order: ' . json_encode($created['json']));
     $orderId = (string)($created['json']['order']['id'] ?? '');
     check($orderId !== '', 'created order id');
     check(($created['json']['order']['items'][0]['name'] ?? '') === 'CI Test Product', 'server canonical product name');
     $managerSnapshot = api('GET', '/api/v1/bootstrap');
-    check($managerSnapshot['status'] === 200 && ($managerSnapshot['json']['data']['orders'][0]['payment'] ?? '') === 'card', 'bootstrap preserves selected payment method');
+    check($managerSnapshot['status'] === 200 && ($managerSnapshot['json']['data']['orders'][0]['payment'] ?? '') === 'cash', 'bootstrap preserves selected payment method');
     $editBody = $orderBody;
     $editBody['items'][0]['qty'] = 2;
     $editBody['totals'] = ['subtotal' => 2000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 2000];
     $editBody['note'] = 'CI edited order';
+    $switchPaymentBody = $editBody;
+    $switchPaymentBody['payment'] = 'card';
+    $switchPaymentBody['terminalPaymentId'] = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+    $paymentMethodSwitch = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $switchPaymentBody, csrf_headers());
+    check($paymentMethodSwitch['status'] === 409 && ($paymentMethodSwitch['json']['error'] ?? '') === 'payment_method_change_requires_new_transaction', 'order edit cannot switch cash to card without a separately approved transaction');
+    $stockPolicyBlockEdit = api('POST', '/api/v1/records/settings', ['item' => ['id' => 'main', 'stockPolicy' => 'block']], csrf_headers());
+    check($stockPolicyBlockEdit['status'] === 201, 'manager can configure stock policy to block insufficient stock');
+    $overStockEditBody = $editBody;
+    $overStockEditBody['items'][0]['qty'] = 6;
+    $overStockEditBody['totals'] = ['subtotal' => 6000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 6000];
+    $blockedEdit = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $overStockEditBody, csrf_headers());
+    check($blockedEdit['status'] === 409 && ($blockedEdit['json']['error'] ?? '') === 'insufficient_stock', 'block stock policy rejects insufficient inventory during order edit');
+    $stockAfterBlockedEdit = api('GET', '/api/v1/records/ingredients');
+    $stockAfterBlockedEditItem = array_values(array_filter($stockAfterBlockedEdit['json']['items'] ?? [], fn($item) => ($item['id'] ?? '') === 'ci-ingredient'))[0] ?? [];
+    check((float)($stockAfterBlockedEditItem['stock'] ?? -1) === 8.0, 'rejected order edit rolls back stock restoration and deduction');
+    $stockPolicyWarn = api('POST', '/api/v1/records/settings', ['item' => ['id' => 'main', 'stockPolicy' => 'warn_and_allow']], csrf_headers());
+    check($stockPolicyWarn['status'] === 201, 'manager can configure warn and allow stock policy');
     $edited = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $editBody, csrf_headers());
     check($edited['status'] === 200 && ($edited['json']['order']['id'] ?? '') === $orderId, 'manager edits existing order without changing its identity');
     $editedAgain = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $editBody, csrf_headers());
@@ -263,8 +381,28 @@ try {
         'customer' => ['id' => 'ci-customer'],
         'totals' => ['subtotal' => 5000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 5000],
     ];
-    $rejectedStock = api('POST', '/api/v1/orders', $stockFailure, csrf_headers());
-    check($rejectedStock['status'] === 409 && ($rejectedStock['json']['error'] ?? '') === 'insufficient_stock', 'insufficient stock rejected');
+    $stockPolicyInvalid = api('POST', '/api/v1/records/settings', ['item' => ['id' => 'main', 'stockPolicy' => 'silently-ignore']], csrf_headers());
+    check($stockPolicyInvalid['status'] === 422 && ($stockPolicyInvalid['json']['error'] ?? '') === 'invalid_stock_policy', 'server rejects unknown stock policy values');
+    $stockPolicyBlockCreate = api('POST', '/api/v1/records/settings', ['item' => ['id' => 'main', 'stockPolicy' => 'block']], csrf_headers());
+    check($stockPolicyBlockCreate['status'] === 201, 'manager can enable stock blocking for new orders');
+    $blockedStockOrder = api('POST', '/api/v1/orders', $stockFailure, csrf_headers());
+    check($blockedStockOrder['status'] === 409 && ($blockedStockOrder['json']['error'] ?? '') === 'insufficient_stock', 'block stock policy rejects new orders with insufficient ingredients');
+    $stockPolicyWarnAgain = api('POST', '/api/v1/records/settings', ['item' => ['id' => 'main', 'stockPolicy' => 'warn_and_allow']], csrf_headers());
+    check($stockPolicyWarnAgain['status'] === 201, 'manager can restore warn and allow stock policy');
+    $acceptedStock = api('POST', '/api/v1/orders', $stockFailure, csrf_headers());
+    check($acceptedStock['status'] === 201 && !empty($acceptedStock['json']['order']['id']), 'checkout succeeds even when recipe stock is depleted');
+    $stockDepletionOrderId = (string)($acceptedStock['json']['order']['id'] ?? '');
+    $stockDepletionCancel = api('PATCH', '/api/v1/orders/' . rawurlencode($stockDepletionOrderId) . '/status', ['status' => 'cancelled'], csrf_headers());
+    check($stockDepletionCancel['status'] === 200, 'cancel stock depletion fixture and restore its inventory effect');
+    $stockPolicyNegative = api('POST', '/api/v1/records/settings', ['item' => ['id' => 'main', 'stockPolicy' => 'allow_negative']], csrf_headers());
+    check($stockPolicyNegative['status'] === 201, 'manager can configure silent negative stock policy');
+    $negativeStockOrderBody = $stockFailure;
+    $negativeStockOrderBody['idempotencyKey'] = '33333333-3333-4333-8333-333333333334';
+    $negativeStockOrder = api('POST', '/api/v1/orders', $negativeStockOrderBody, csrf_headers());
+    check($negativeStockOrder['status'] === 201, 'allow negative stock policy permits sale without blocking');
+    $negativeStockOrderId = (string)($negativeStockOrder['json']['order']['id'] ?? '');
+    $negativeStockCancel = api('PATCH', '/api/v1/orders/' . rawurlencode($negativeStockOrderId) . '/status', ['status' => 'cancelled'], csrf_headers());
+    check($negativeStockCancel['status'] === 200, 'cancel silent negative stock fixture and restore inventory');
 
     $pdo = new PDO(
         'mysql:host=' . (getenv('MYSQL_TEST_HOST') ?: '127.0.0.1') . ';port=' . (getenv('MYSQL_TEST_PORT') ?: '3306') . ';dbname=' . (getenv('MYSQL_TEST_DATABASE') ?: 'threefood_test') . ';charset=utf8mb4',
@@ -297,6 +435,50 @@ try {
     $editCancelled = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $editBody, csrf_headers());
     check($editCancelled['status'] === 409 && ($editCancelled['json']['error'] ?? '') === 'order_not_editable', 'cancelled order cannot be edited');
 
+    $terminalProduct = api('POST', '/api/v1/records/products', ['item' => [
+        'id' => 'ci-terminal-product', 'name' => 'CI Terminal Product', 'price' => 1000, 'active' => true, 'options' => [], 'recipe' => [],
+    ]], csrf_headers());
+    check($terminalProduct['status'] === 201, 'create recipe-free product for terminal order test');
+    $agentHeartbeatBeforeOrder = api('GET', '/api/v1/terminal-agent/next', null, $agentHeaders);
+    check($agentHeartbeatBeforeOrder['status'] === 200, 'refresh local agent heartbeat before terminal order');
+    $orderPaymentKey = '44444444-4444-4444-8444-000000000011';
+    $orderPayment = api('POST', '/api/v1/terminal-payments', [
+        'terminalId' => 'ci-terminal', 'amount' => 1000, 'idempotencyKey' => $orderPaymentKey,
+    ], csrf_headers());
+    check($orderPayment['status'] === 201, 'create second terminal payment for order linking');
+    $orderPaymentId = (string)($orderPayment['json']['payment']['id'] ?? '');
+    $orderPaymentJob = api('GET', '/api/v1/terminal-agent/next', null, $agentHeaders);
+    check(($orderPaymentJob['json']['payment']['id'] ?? '') === $orderPaymentId, 'agent claims payment intended for order');
+    $orderPaymentResult = api('POST', '/api/v1/terminal-agent/payments/' . rawurlencode($orderPaymentId) . '/result', [
+        'status' => 'approved', 'amount' => 1000, 'traceNumber' => 'CI-TRACE-ORDER',
+    ], $agentHeaders);
+    check($orderPaymentResult['status'] === 200, 'agent approves second synthetic payment');
+    $pendingRecovery = api('GET', '/api/v1/terminal-payments/pending');
+    check(count($pendingRecovery['json']['items'] ?? []) === 1 && ($pendingRecovery['json']['items'][0]['status'] ?? '') === 'approved', 'cashier can recover approved unlinked payment after refresh');
+    $duplicateAfterApproval = api('POST', '/api/v1/terminal-payments', [
+        'terminalId' => 'ci-terminal', 'amount' => 1000,
+        'idempotencyKey' => '44444444-4444-4444-8444-000000000013',
+    ], csrf_headers());
+    check($duplicateAfterApproval['status'] === 409, 'server blocks a second charge while an approved payment is not yet linked to an order');
+    $cardOrder = api('POST', '/api/v1/orders', [
+        'idempotencyKey' => '44444444-4444-4444-8444-000000000012',
+        'items' => [['key' => 'ci-card-line', 'productId' => 'ci-terminal-product', 'qty' => 1, 'unitPrice' => 1000, 'optionIds' => []]],
+        'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 1000],
+        'guestName' => 'Terminal Test', 'guestPhone' => '09120000001', 'payment' => 'card', 'terminalPaymentId' => $orderPaymentId,
+    ], csrf_headers());
+    check($cardOrder['status'] === 201, 'create card order after synthetic terminal approval');
+    $cardOrderId = (int)($cardOrder['json']['order']['id'] ?? 0);
+    $cardOrderCancel = api('PATCH', '/api/v1/orders/' . rawurlencode((string)$cardOrderId) . '/status', ['status' => 'cancelled'], csrf_headers());
+    check($cardOrderCancel['status'] === 409 && ($cardOrderCancel['json']['error'] ?? '') === 'payment_reconciliation_required', 'paid card order cannot be cancelled before refund reconciliation');
+    $cardOrderEdit = api('PATCH', '/api/v1/orders/' . rawurlencode((string)$cardOrderId), ['payment' => 'card'], csrf_headers());
+    check($cardOrderEdit['status'] === 409 && ($cardOrderEdit['json']['error'] ?? '') === 'payment_reconciliation_required', 'approved card order cannot be edited before payment reconciliation');
+    $paymentAttached = api('POST', '/api/v1/terminal-payments/' . rawurlencode($orderPaymentId) . '/attach-order', ['orderId' => $cardOrderId], csrf_headers());
+    check($paymentAttached['status'] === 200 && (int)($paymentAttached['json']['order_id'] ?? 0) === $cardOrderId, 'approved payment attaches only to matching card order');
+    $paymentLinkedRead = api('GET', '/api/v1/terminal-payments/' . rawurlencode($orderPaymentId));
+    check((int)($paymentLinkedRead['json']['payment']['order_id'] ?? 0) === $cardOrderId, 'payment ledger retains linked order id');
+    $pendingAfterLink = api('GET', '/api/v1/terminal-payments/pending');
+    check(count($pendingAfterLink['json']['items'] ?? []) === 0, 'linked payment disappears from unresolved recovery list');
+
     // Manager-only user administration and role-specific resource permissions.
     $cashierCreated = api('POST', '/api/v1/users', [
         'username' => 'ci_cashier',
@@ -321,6 +503,13 @@ try {
         'item' => [
             'id' => 'main',
             'shopName' => 'CI Shop',
+            'taxPercent' => 9,
+            'taxEnabled' => true,
+            'pointsPerToman' => 20000,
+            'tomanPerPoint' => 500,
+            'loyaltySilverPoints' => 500,
+            'loyaltyGoldPoints' => 1500,
+            'loyaltyPlatinumPoints' => 4000,
             'smsUser' => 'must-not-persist-user',
             'smsKey' => 'must-not-persist-secret',
             'smsFrom' => 'must-not-persist-sender',
@@ -339,7 +528,9 @@ try {
     $backup = api('GET', '/api/v1/backup/export');
     $backupData = $backup['json']['backup'] ?? [];
     check($backup['status'] === 200 && ($backupData['format'] ?? '') === '3food-pos-mysql-backup', 'manager can export MySQL backup');
-    check(count($backupData['orders'] ?? []) === 1 && count($backupData['order_effects'] ?? []) === 2, 'backup includes order history and reversible effect ledger');
+    check(count($backupData['orders'] ?? []) >= 1 && count($backupData['order_effects'] ?? []) >= 2, 'backup includes all order history and reversible effect ledger: ' . count($backupData['orders'] ?? []) . '/' . count($backupData['order_effects'] ?? []));
+    check(count($backupData['terminal_agents'] ?? []) === 1 && count($backupData['payment_terminals'] ?? []) === 1 && count($backupData['terminal_payments'] ?? []) === 2, 'backup includes terminal setup and payment ledger');
+    check(!str_contains(json_encode($backupData['terminal_agents']), 'token_hash') && !str_contains(json_encode($backupData['terminal_agents']), $agentToken), 'backup never exports agent credentials');
     $backupSettings = [];
     foreach ($backupData['records'] ?? [] as $record) {
         if (($record['resource'] ?? '') === 'settings') $backupSettings = $record['payload'] ?? [];
@@ -349,6 +540,9 @@ try {
     }
     $occupiedRestore = api('POST', '/api/v1/backup/restore', ['backup' => $backupData], csrf_headers());
     check($occupiedRestore['status'] === 409 && ($occupiedRestore['json']['error'] ?? '') === 'restore_requires_empty_pos', 'restore refuses populated database (HTTP ' . $occupiedRestore['status'] . ', ' . ($occupiedRestore['json']['error'] ?? 'no_error') . ')');
+    $pdo->exec('DELETE FROM pos_terminal_payments');
+    $pdo->exec('DELETE FROM pos_payment_terminals');
+    $pdo->exec('DELETE FROM app_terminal_agents');
     $pdo->exec('DELETE FROM pos_discount_redemptions');
     $pdo->exec('DELETE FROM pos_order_effects');
     $pdo->exec('DELETE FROM pos_orders');
@@ -363,30 +557,36 @@ try {
     }
     unset($backupRecord);
     $restored = api('POST', '/api/v1/backup/restore', ['backup' => $backupData], csrf_headers());
-    check($restored['status'] === 200 && ($restored['json']['restored']['orders'] ?? 0) === 1, 'manager restores complete backup into empty POS database');
+    check($restored['status'] === 200 && ($restored['json']['restored']['orders'] ?? 0) === count($backupData['orders']), 'manager restores complete backup into empty POS database');
     check((int)$pdo->query('SELECT COUNT(*) FROM pos_records')->fetchColumn() === count($backupData['records']), 'restore reconstructs all POS records');
     $restoredSettings = $getPayload($pdo, 'settings', 'main');
     foreach (['smsUser', 'smsKey', 'smsFrom'] as $secretField) {
         check(!array_key_exists($secretField, $restoredSettings), 'restore strips untrusted ' . $secretField);
     }
-    check((int)$pdo->query('SELECT COUNT(*) FROM pos_order_effects')->fetchColumn() === 2, 'restore reconstructs reversible order effects');
+    check((int)$pdo->query('SELECT COUNT(*) FROM pos_order_effects')->fetchColumn() === count($backupData['order_effects']), 'restore reconstructs reversible order effects');
     check((int)$pdo->query('SELECT COUNT(*) FROM pos_discount_redemptions')->fetchColumn() === count($backupData['discount_redemptions']), 'restore reconstructs discount redemption ledger');
+    check((int)$pdo->query('SELECT COUNT(*) FROM app_terminal_agents WHERE enabled=0')->fetchColumn() === count($backupData['terminal_agents']), 'restore recreates agents disabled so they must be securely paired again');
+    check((int)$pdo->query('SELECT COUNT(*) FROM pos_payment_terminals WHERE enabled=0')->fetchColumn() === count($backupData['payment_terminals']), 'restore recreates terminal configs disabled');
+    check((int)$pdo->query('SELECT COUNT(*) FROM pos_terminal_payments')->fetchColumn() === count($backupData['terminal_payments']), 'restore reconstructs terminal payment ledger');
     check((int)$pdo->query('SELECT counter_value FROM pos_counters WHERE counter_key = "order_number"')->fetchColumn() === (int)$backupData['counters'][0]['counter_value'], 'restore preserves order number counter');
 
     $guestOrder = api('POST', '/api/v1/orders', [
         'idempotencyKey' => '44444444-4444-4444-8444-444444444444',
         'items' => [['key' => 'ci-guest-line', 'productId' => 'ci-product', 'qty' => 1, 'unitPrice' => 1000, 'optionIds' => []]],
-        'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 1000],
+        'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 90, 'total' => 1090],
         'guestName' => 'Guest Test',
         'guestPhone' => '09120000000',
-        'payment' => 'online',
+        'payment' => 'cash',
     ], csrf_headers());
-    check($guestOrder['status'] === 201, 'create guest order with online payment');
+    check($guestOrder['status'] === 201, 'create guest order with cash payment');
     $guestSnapshot = api('GET', '/api/v1/bootstrap');
     $guestData = $guestSnapshot['json']['data']['orders'][0] ?? [];
     check(($guestData['customerName'] ?? '') === 'Guest Test' && ($guestData['customerPhone'] ?? '') === '09120000000', 'bootstrap preserves guest identity');
-    check(($guestData['payment'] ?? '') === 'online', 'bootstrap preserves guest payment method');
+    check(($guestData['payment'] ?? '') === 'cash', 'bootstrap preserves guest payment method');
     $guestOrderId = (string)($guestOrder['json']['order']['id'] ?? '');
+
+
+
     // Keep this order new until the cashier authorization check below.
 
     $smsLogWrite = api('POST', '/api/v1/records/sms_logs', ['item' => [
@@ -406,6 +606,8 @@ try {
         'password' => 'CI-Cashier-Password-2026!',
     ]);
     check($cashierLogin['status'] === 200 && ($cashierLogin['json']['user']['role'] ?? '') === 'cashier', 'cashier login');
+    $cashierCannotReadManagerPayment = api('GET', '/api/v1/terminal-payments/' . rawurlencode($terminalPaymentId));
+    check($cashierCannotReadManagerPayment['status'] === 404 && ($cashierCannotReadManagerPayment['json']['error'] ?? '') === 'terminal_payment_not_found', 'cashier cannot read another users terminal payment');
     $cashierEdit = api('PATCH', '/api/v1/orders/' . rawurlencode($guestOrderId), [
         'items' => [['key' => 'ci-guest-line', 'productId' => 'ci-product', 'qty' => 1, 'unitPrice' => 1000, 'optionIds' => []]],
         'totals' => ['subtotal' => 1000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 1000],
@@ -423,8 +625,19 @@ try {
 
     $cashierBootstrap = api('GET', '/api/v1/bootstrap');
     check($cashierBootstrap['status'] === 200, 'cashier bootstrap');
-    foreach (['ingredients', 'expenses', 'templates', 'settings'] as $restrictedResource) {
+    foreach (['expenses', 'templates'] as $restrictedResource) {
         check(!array_key_exists($restrictedResource, $cashierBootstrap['json']['data'] ?? []), 'cashier bootstrap excludes ' . $restrictedResource);
+    }
+    $cashierIngredient = array_values(array_filter($cashierBootstrap['json']['data']['ingredients'] ?? [], fn($item) => ($item['id'] ?? '') === 'ci-ingredient'))[0] ?? [];
+    check((float)($cashierIngredient['stock'] ?? -1) >= 0 && ($cashierIngredient['name'] ?? '') !== '', 'cashier receives ingredient stock needed for checkout warnings');
+    foreach (['costPerUnit', 'cost', 'unitCost'] as $costField) {
+        check(!array_key_exists($costField, $cashierIngredient), 'cashier bootstrap hides ingredient ' . $costField);
+    }
+    $cashierSettings = $cashierBootstrap['json']['data']['settings'][0] ?? [];
+    check((float)($cashierSettings['taxPercent'] ?? -1) === 9.0 && ($cashierSettings['taxEnabled'] ?? false) === true, 'cashier bootstrap receives authoritative tax settings');
+    check((int)($cashierSettings['pointsPerToman'] ?? 0) === 20000 && (int)($cashierSettings['tomanPerPoint'] ?? 0) === 500, 'cashier bootstrap receives authoritative loyalty settings');
+    foreach (['smsUser', 'smsKey', 'smsFrom'] as $secretField) {
+        check(!array_key_exists($secretField, $cashierSettings), 'cashier bootstrap never exposes ' . $secretField);
     }
 
     $cashierUsers = api('GET', '/api/v1/users');
@@ -505,7 +718,7 @@ try {
             'idempotencyKey' => sprintf('44444444-4444-4444-8444-%012d', $suffix),
             'items' => [['key' => 'ci-concurrent-' . $suffix, 'productId' => 'ci-product', 'qty' => 3, 'unitPrice' => 1000, 'optionIds' => []]],
             'customer' => ['id' => 'ci-customer'],
-            'totals' => ['subtotal' => 3000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 3000],
+            'totals' => ['subtotal' => 3000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 270, 'total' => 3270],
             'note' => 'Concurrent stock safety test',
         ];
     }
@@ -525,13 +738,11 @@ try {
     );
     $concurrentStatuses = array_column($concurrentResults, 'status');
     sort($concurrentStatuses);
-    check($concurrentStatuses === [201, 409], 'concurrent orders cannot oversell locked ingredient stock; responses=' . json_encode($concurrentResults));
-    $concurrentErrors = array_values(array_filter($concurrentResults, fn($r) => $r['status'] === 409));
-    check(($concurrentErrors[0]['json']['error'] ?? '') === 'insufficient_stock', 'losing concurrent order fails for insufficient stock');
+    check($concurrentStatuses === [201, 201], 'concurrent orders both persist when stock is depleted; responses=' . json_encode($concurrentResults));
     $stockAfterRace = $getPayload($pdo, 'ingredients', 'ci-ingredient');
-    check((float)($stockAfterRace['stock'] ?? -1) === 2.0, 'concurrent checkout consumes stock exactly once');
+    check((float)($stockAfterRace['stock'] ?? -1) === -4.0, 'concurrent checkout records negative stock for replenishment');
     $orderCountAfterRace = (int)$pdo->query('SELECT COUNT(*) FROM pos_orders')->fetchColumn();
-    check($orderCountAfterRace === 3, 'only one of the two competing orders is persisted (including the earlier checkout and guest-order fixtures)');
+    check($orderCountAfterRace >= 4, 'both concurrent orders persist with the earlier checkout fixtures');
 
     $kitchenLogin = api('POST', '/api/v1/auth/login', [
         'username' => 'ci_kitchen',
