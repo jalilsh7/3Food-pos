@@ -277,3 +277,13 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 - Backup format v2 encodes binary columns as tagged base64 values; restore supports legacy v1 and new v2. Binary idempotency nonce/tag lengths are verified after restore.
 - Return document draft is allowed, but posting deliberately rejects it until a source order/receipt line and historical cost restoration are available.
 - Remaining critical work: connect frontend login/session to Auth API, then inventory UI to real APIs; integrate order reservations/recipe consumption; implement source-linked return. No customer/production migrations were executed.
+
+
+## 20. Frontend authentication integration — FE-01A (2026-11-20)
+- Added `v3/frontend/src/shared/api/client.ts`: same-origin fetch, no-store, configurable `VITE_API_BASE_URL` defaulting to `/api/v1`, CSRF token held only in module memory. Never persist session or CSRF credentials to localStorage/sessionStorage.
+- Added Persian RTL `AuthScreen` for login and forced initial password change. App bootstraps with `GET /auth/me`; authenticated shell displays the real user and supports CSRF-protected logout.
+- Logout errors keep the authenticated shell visible rather than falsely claiming logout. Password change clears cookies server-side and invalidates previous sessions via session_version; user signs in again.
+- Added `scripts/check-v3-auth-integration.php`, executed in the disposable MySQL/MariaDB database workflow after migrations and inventory posting integration. It verifies login, hashed session/CSRF storage, session introspection, CSRF rotation, forced password change, old-session invalidation, re-login and logout.
+- CI at code HEAD `5f44d7e`: Backend PASS PHP 8.2/8.3/8.4 [44701020452](https://github.com/jalilsh7/3Food-pos/actions/runs/44701020452); Frontend TypeScript/build PASS [44701020496](https://github.com/jalilsh7/3Food-pos/actions/runs/44701020496); MySQL 8.4 + MariaDB 10.6 PASS including auth and inventory posting integration [44701012524](https://github.com/jalilsh7/3Food-pos/actions/runs/44701012524).
+- Auth integration found and fixed an audit snapshot key rejected by the sensitive-field filter: use `forced_change_required`, not a key containing `password`. No credentials or raw session tokens are written to audit snapshots.
+- Remaining: business/branch context selection; connect InventoryWorkspace to real inventory APIs; then integrate orders/catalog. Existing POS/order/kitchen/customer/finance/storefront prototypes still contain local demo state and must remain clearly marked until API-backed.
