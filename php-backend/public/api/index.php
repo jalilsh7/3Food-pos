@@ -2234,6 +2234,10 @@ if ($path === '/sms/settings' && $method === 'POST') {
     $inboxIndex = trim((string)($body['inbox_index'] ?? '1'));
     $inboxCount = (int)($body['inbox_count'] ?? 50);
     $currentSms = $config['sms'] ?? [];
+    $currentCredentialMode = ($currentSms['credential_mode'] ?? 'password') === 'apikey' ? 'apikey' : 'password';
+    if ($password === '' && $credentialMode !== $currentCredentialMode) {
+        json_response(['ok' => false, 'error' => 'sms_credential_required', 'message' => 'با تغییر روش احراز هویت، ApiKey یا رمز جدید را وارد کنید؛ اعتبارنامه قبلی قابل استفاده خودکار در روش جدید نیست'], 422);
+    }
     if ($password === '') $password = (string)($currentSms['password'] ?? '');
     if (($enabled && ($username === '' || $password === '' || $sender === ''))
         || strlen($username) > 160 || strlen($password) > 512 || strlen($sender) > 40
