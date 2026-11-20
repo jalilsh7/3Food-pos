@@ -1776,8 +1776,9 @@ function SmsScreen() {
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-semibold">۱. پیامک‌های عملیاتی فروش</h3><p className="text-xs text-muted">ارسال از خط خدماتی ملی‌پیامک؛ هر رویداد فقط با الگوی تأییدشده و شناسه bodyId خودش ارسال می‌شود.</p></div><span className="rounded-full bg-soft px-3 py-1 text-xs">مسیر خدماتی</span></div>
       {templates.map((t) => {
-        const placeholders = [...new Set([...t.body.matchAll(/\\{(\\d+)\\}/g)].map((match) => match[1]))];
-        const preview = t.body.replace(/\\{(\\d+)\\}/g, (_, index: string) => index === "0" ? "۱۲۵۸" : `مقدار ${Number(index) + 1}`);
+        const placeholders = [...new Set([...t.body.matchAll(/\\{([0-9]+|[a-zA-Z_][a-zA-Z0-9_]*)\\}/g)].map((match) => match[1]))];
+        const previewValues: Record<string,string> = { order:"۱۲۵۸", name:"مشتری نمونه", total:"۲۵۰٬۰۰۰", points:"۲۵", code:"TEST", balance:"۵۰۰", shop:settings.shopName || "فروشگاه" };
+        const preview = t.body.replace(/\\{([0-9]+|[a-zA-Z_][a-zA-Z0-9_]*)\\}/g, (_, key: string) => /^\\d+$/.test(key) ? (key === "0" ? "۱۲۵۸" : `مقدار ${Number(key) + 1}`) : (previewValues[key] ?? `مقدار ${key}`));
         const testServiceTemplate = async () => {
           const phone = normalizeIranPhone(serviceTestPhone);
           if (!/^09[0-9]{9}$/.test(phone)) { window.alert("ابتدا شماره موبایل آزمایشی معتبر را وارد کنید."); return; }
@@ -1812,7 +1813,7 @@ function SmsScreen() {
           </Field>
           {placeholders.length ? <div className="rounded-xl bg-soft p-3 text-xs">
             <b>متغیرهای شناسایی‌شده</b>
-            <div className="mt-1 flex flex-wrap gap-2">{placeholders.map((index) => <span key={index} className="rounded-lg border border-line px-2 py-1">{`{${index}}`} ← {index === "0" ? "شماره سفارش" : `متغیر ${Number(index) + 1}`}</span>)}</div>
+            <div className="mt-1 flex flex-wrap gap-2">{placeholders.map((key) => <span key={key} className="rounded-lg border border-line px-2 py-1">{`{${key}}`} ← {({order:"شماره سفارش",name:"نام مشتری",total:"مبلغ کل",points:"امتیاز",code:"کد تخفیف",balance:"مانده",shop:"نام فروشگاه"} as Record<string,string>)[key] ?? (/^\\d+$/.test(key) ? (key === "0" ? "شماره سفارش" : `متغیر ${Number(key) + 1}`) : "متغیر سفارشی")}</span>)}</div>
           </div> : null}
           <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-0 flex-1"><Field label="شماره موبایل برای تست این الگو"><input className={inputCls} dir="ltr" inputMode="tel" placeholder="09123456789" value={serviceTestPhone} onChange={e=>setServiceTestPhone(e.target.value)}/></Field></div>
