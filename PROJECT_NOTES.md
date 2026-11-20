@@ -1606,3 +1606,9 @@
 ### INV-02B1-RETRY follow-up — تغییر context شعبه
 - cache کلیدهای pending علاوه بر logout، هنگام تغییر business/branch context و پاک‌سازی context نیز خالی می‌شود تا کلید یک فرمان ناموفق از شعبه قبلی در context جدید استفاده نشود.
 - این cache همچنان فقط در حافظه runtime است؛ برای recovery پس از reload باید وضعیت سند از سرور خوانده شود.
+
+
+### CI-DB-013 — نتیجه اجرای مجدد پس از اصلاح smoke migration
+- اجرای `44710884253` اکنون کامل شده و هر دو job `V3 schema / MySQL 8.4` و `V3 schema / MariaDB 10.6` موفق‌اند.
+- در هر دو engine، مراحل schema metadata، installer، checksum migration runner و step جامع دیتابیس موفق شدند؛ step جامع شامل تست واقعی `check-v3-inventory-posting-integration.php` و `check-v3-auth-integration.php` است.
+- این PASS مربوط به baseline قبلی ORD-01C است، نه تغییرات جدید ORD-01D یا idempotency retry. پذیرش CI برای commit فعلی همچنان pending است.
