@@ -48,7 +48,7 @@ final readonly class InventoryPostingRepository
         $s = $this->connection->prepare(
             'SELECT is_active FROM pos_stock_locations
              WHERE business_id = :business_id AND branch_id = :branch_id AND id = :location_id
-             LIMIT 1'
+             LIMIT 1 FOR UPDATE'
         );
         $s->execute([
             'business_id' => $businessId, 'branch_id' => $branchId, 'location_id' => $locationId,
