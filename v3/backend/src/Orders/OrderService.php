@@ -133,7 +133,7 @@ final readonly class OrderService
 
     private static function parseLocalDate(string $value, \DateTimeZone $timezone): \DateTimeImmutable
     {
-        if (!preg_match('/^\\\d{4}-\\\d{2}-\\\d{2}$/', $value)) {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
             throw new HttpException(422, 'invalid_order_date_filter', 'Order dates must use YYYY-MM-DD format.');
         }
         $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value, $timezone);
