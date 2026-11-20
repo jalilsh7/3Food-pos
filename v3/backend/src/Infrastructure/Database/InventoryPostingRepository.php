@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace PersiaCoder\\PosV3\\Infrastructure\\Database;
+namespace PersiaCoder\PosV3\Infrastructure\Database;
 
 use PDO;
 
@@ -34,7 +34,7 @@ final readonly class InventoryPostingRepository
         ]);
         $row = $select->fetch(PDO::FETCH_ASSOC);
         if (!$row) {
-            throw new \\RuntimeException('The scoped stock balance row could not be locked.');
+            throw new \RuntimeException('The scoped stock balance row could not be locked.');
         }
         return [
             'quantity_on_hand' => (string) $row['quantity_on_hand'],
@@ -61,7 +61,7 @@ final readonly class InventoryPostingRepository
         );
         $s->execute(['base_quantity' => $baseQuantity, 'unit_cost' => $unitCost]);
         $amount = $s->fetchColumn();
-        if ($amount === false) throw new \\RuntimeException('Unable to calculate stock movement cost.');
+        if ($amount === false) throw new \RuntimeException('Unable to calculate stock movement cost.');
         return (string) $amount;
     }
 
@@ -119,7 +119,7 @@ final readonly class InventoryPostingRepository
             'business_id' => $businessId, 'branch_id' => $branchId,
             'stock_item_id' => $stockItemId, 'location_id' => $locationId,
         ]);
-        if ($s->rowCount() !== 1) throw new \\RuntimeException('The scoped stock balance could not be increased.');
+        if ($s->rowCount() !== 1) throw new \RuntimeException('The scoped stock balance could not be increased.');
     }
 
     public function issueBalance(
