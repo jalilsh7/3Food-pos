@@ -38,12 +38,20 @@ final readonly class OrderService
         ?string $channel,
         int $limit,
         ?string $beforeCursor = null,
+        ?string $paymentStatus = null,
+        ?string $fulfillmentMethod = null,
     ): array {
         if ($status !== null && !in_array($status, self::statuses(), true)) {
             throw new HttpException(422, 'invalid_order_status_filter', 'The order status filter is invalid.');
         }
         if ($channel !== null && !in_array($channel, self::channels(), true)) {
             throw new HttpException(422, 'invalid_order_channel_filter', 'The order channel filter is invalid.');
+        }
+        if ($paymentStatus !== null && !in_array($paymentStatus, self::paymentStatuses(), true)) {
+            throw new HttpException(422, 'invalid_order_payment_filter', 'The order payment filter is invalid.');
+        }
+        if ($fulfillmentMethod !== null && !in_array($fulfillmentMethod, self::fulfillmentMethods(), true)) {
+            throw new HttpException(422, 'invalid_order_fulfillment_filter', 'The order fulfillment filter is invalid.');
         }
         if ($limit < 1 || $limit > 100) {
             throw new HttpException(422, 'invalid_order_limit', 'Limit must be between 1 and 100.');
@@ -70,6 +78,8 @@ final readonly class OrderService
             $channel,
             $limit,
             $beforeOrderNumber,
+            $paymentStatus,
+            $fulfillmentMethod,
         );
     }
 
@@ -748,6 +758,18 @@ final readonly class OrderService
     private static function channels(): array
     {
         return ['pos', 'phone', 'manual', 'table', 'takeaway', 'storefront'];
+    }
+
+    /** @return list<string> */
+    private static function paymentStatuses(): array
+    {
+        return ['unpaid', 'partially_paid', 'paid', 'refunded'];
+    }
+
+    /** @return list<string> */
+    private static function fulfillmentMethods(): array
+    {
+        return ['dine_in', 'takeaway', 'delivery'];
     }
 
     /** @return array<string,list<string>> */
