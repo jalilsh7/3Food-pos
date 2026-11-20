@@ -53,7 +53,15 @@ final readonly class OrderService
             if (!preg_match('/^[1-9][0-9]{0,18}$/', $beforeCursor)) {
                 throw new HttpException(422, 'invalid_order_cursor', 'The order pagination cursor is invalid.');
             }
-            $beforeOrderNumber = (int) $beforeCursor;
+            $validatedCursor = filter_var(
+                $beforeCursor,
+                FILTER_VALIDATE_INT,
+                ['options' => ['min_range' => 1]],
+            );
+            if ($validatedCursor === false) {
+                throw new HttpException(422, 'invalid_order_cursor', 'The order pagination cursor is outside the supported range.');
+            }
+            $beforeOrderNumber = $validatedCursor;
         }
         return $this->orders->listOrders(
             $scope->businessId,
