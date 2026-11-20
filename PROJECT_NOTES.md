@@ -1670,3 +1670,14 @@
 - تست مرورگر با کسب‌وکار دارای کاتالوگ واقعی هنوز اجرا نشده؛ CI در این بسته typecheck/build و source-contract را پوشش می‌دهد، DB workflow نیز مسیرهای integration موجود را اجرا می‌کند.
 - وضعیت: **اتصال read/create/status/archive صفحه کاتالوگ و CI فعلی پذیرفته شد؛ تکمیل CRUD کامل کاتالوگ و تست مرورگر در صف است.**
 - گام بعد: اتصال transitionهای سفارش و آشپزخانه به API واقعی با state machine، RBAC و idempotency؛ سفارش جدید نباید خودکار از draft به accepted یا preparing منتقل شود.
+
+## ORD-02A — اتصال گردش وضعیت سفارش و آشپزخانه (2026-11-20)
+- [x] API client برای PATCH /orders/{id}/status و PATCH /orders/{id}/kitchen-status اضافه شد؛ کلید idempotency برای هر mutation سفارش در runtime نگه داشته می‌شود.
+- [x] مرکز سفارش‌ها برای draft و awaiting_payment دکمه پذیرش سفارش دارد؛ وضعیت پرداخت را تغییر نمی‌دهد. برای ready امکان تکمیل و تحویل نهایی فراهم شد.
+- [x] KitchenBoard از سفارش‌های واقعی accepted، preparing و ready تغذیه می‌شود؛ اقلام، variant و گزینه‌ها هنگام بازکردن جزئیات از API دریافت می‌شوند.
+- [x] آشپزخانه فقط accepted→preparing و preparing→ready را انجام می‌دهد؛ تکمیل نهایی در مرکز سفارش‌ها انجام می‌شود. هیچ سفارشی خودکار از draft پذیرفته نمی‌شود.
+- [x] فیلترهای ساختگی ایستگاه و تیکت‌های hard-coded حذف شدند؛ چون مدل فعلی سفارش هنوز تخصیص ایستگاه کاری برای هر قلم ندارد.
+- [x] تست DB یکپارچگی transitionها اضافه شد: پذیرش، replay idempotency، شروع آماده‌سازی، آماده‌تحویل، ممنوعیت kitchen-only برای completed، تکمیل نهایی، رد transition غیرمجاز و شمارش رویدادهای وضعیت.
+- CI روی commit کد 4e0f6267: Frontend typecheck/build run 44725365935 موفق؛ Backend Validation run 44725353920 موفق؛ DB engine validation run 44725353894 موفق روی MySQL 8.4 و MariaDB 10.6.
+- محدودیت‌ها: لغو/رد سفارش با دلیل از UI هنوز اضافه نشده؛ کنترل نمایش دکمه‌ها بر اساس permission در UI انجام نمی‌شود و Backend مرجع نهایی RBAC است؛ برد آشپزخانه فعلاً refresh دستی دارد و ایستگاه/زمان‌سنج/اعلان real-time ندارد.
+- وضعیت: **اتصال وضعیت سفارش و صف آشپزخانه و تست state-machine در هر دو DB پذیرفته شد.** تست مرورگر با داده واقعی و نقش‌های مختلف هنوز باقی است.
