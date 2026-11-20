@@ -22,8 +22,12 @@ final readonly class OrderController
         if (!preg_match('/^[0-9]{1,3}$/', $rawLimit)) {
             throw new HttpException(422, 'invalid_order_limit', 'Limit must be an integer between 1 and 100.');
         }
-        $orders = $this->orders->list($scope, $status, $channel, (int) $rawLimit);
-        return Response::success(['orders' => $orders]);
+        $before = $request->query('before');
+        if ($before !== null && !is_string($before)) {
+            throw new HttpException(422, 'invalid_order_cursor', 'The order pagination cursor is invalid.');
+        }
+        $page = $this->orders->list($scope, $status, $channel, (int) $rawLimit, $before);
+        return Response::success($page);
     }
 
     public function show(Request $request, array $parameters): Response
