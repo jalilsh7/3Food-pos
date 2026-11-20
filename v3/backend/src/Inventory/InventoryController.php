@@ -172,6 +172,13 @@ final readonly class InventoryController
         ));
     }
 
+    public function documentValuation(Request $request, array $parameters): Response
+    {
+        return Response::success(['valuation' => $this->documents->getValuation(
+            $this->scope($request), (string) ($parameters['documentPublicId'] ?? ''),
+        )]);
+    }
+
     public function postDocument(Request $request, array $parameters): Response
     {
         return $this->idempotentResponse($this->posting->post(
