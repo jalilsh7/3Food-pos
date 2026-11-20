@@ -82,6 +82,8 @@ export function OrderCenter({ timeZone }: { timeZone: string }) {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [transitioning, setTransitioning] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [showCancelForm, setShowCancelForm] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const listRequestVersion = useRef(0);
 
   async function fetchOrders() {
@@ -214,15 +216,17 @@ export function OrderCenter({ timeZone }: { timeZone: string }) {
 
   const selectedOrder = detail?.order ?? null;
 
-  async function changeOrderStatus(toStatus: OrderStatus) {
+  async function changeOrderStatus(toStatus: OrderStatus, reasonText?: string) {
     if (!selectedOrder || transitioning) return;
     setTransitioning(true);
     setActionError(null);
     try {
-      await transitionOrder(selectedOrder.id, toStatus);
+      await transitionOrder(selectedOrder.id, toStatus, reasonText);
       await fetchOrders();
       const updated = await getOrderDetails(selectedOrder.id);
       setDetail(updated);
+      setShowCancelForm(false);
+      setCancelReason("");
     } catch (cause) {
       setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "تغییر وضعیت سفارش انجام نشد.");
     } finally {
@@ -444,6 +448,29 @@ export function OrderCenter({ timeZone }: { timeZone: string }) {
                 <span>جمع جزء {money(selectedOrder.subtotal_amount)} · مالیات {money(selectedOrder.tax_amount)}</span>
                 <strong>{money(selectedOrder.total_amount)} تومان</strong>
               </div>
+              {showCancelForm ? (
+                <div className="orders-cancel-form">
+                  <label htmlFor="order-cancel-reason">دلیل لغو سفارش (اجباری)</label>
+                  <textarea
+                    id="order-cancel-reason"
+                    value={cancelReason}
+                    onChange={(event) => setCancelReason(event.target.value)}
+                    maxLength={500}
+                    rows={3}
+                    placeholder="دلیل لغو را وارد کنید..."
+                    disabled={transitioning}
+                  />
+                  <small>{cancelReason.length}/500</small>
+                  <div className="orders-detail-actions">
+                    <Button variant="secondary" disabled={transitioning} onClick={() => { setShowCancelForm(false); setCancelReason(""); }}>
+                      انصراف
+                    </Button>
+                    <Button variant="danger" disabled={transitioning || !cancelReason.trim()} onClick={() => { void changeOrderStatus("cancelled", cancelReason.trim()); }}>
+                      {transitioning ? "در حال ثبت..." : "تأیید لغو سفارش"}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
               <div className="orders-detail-actions">
                 {selectedOrder.order_status === "draft" || selectedOrder.order_status === "awaiting_payment" ? (
                   <Button variant="primary" disabled={transitioning} onClick={() => { void changeOrderStatus("accepted"); }}>
@@ -454,6 +481,12 @@ export function OrderCenter({ timeZone }: { timeZone: string }) {
                 {selectedOrder.order_status === "ready" ? (
                   <Button variant="primary" disabled={transitioning} onClick={() => { void changeOrderStatus("completed"); }}>
                     {transitioning ? "در حال ثبت..." : "تکمیل و تحویل سفارش"}
+                  </Button>
+                ) : null}
+                {!showCancelForm && !["completed", "cancelled", "rejected"].includes(selectedOrder.order_status)
+                  && !["paid", "partially_paid"].includes(selectedOrder.payment_status) ? (
+                  <Button variant="danger" disabled={transitioning} onClick={() => { setCancelReason(""); setShowCancelForm(true); }}>
+                    لغو سفارش
                   </Button>
                 ) : null}
                 {selectedOrder.order_status === "draft" || selectedOrder.order_status === "awaiting_payment" ? (
