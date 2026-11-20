@@ -846,3 +846,8 @@
 - DB tests cover transition sequence, replay idempotency, kitchen-only restrictions and illegal state changes.
 - CI passed on code commit 4e0f6267: frontend build, backend validation, MySQL 8.4 and MariaDB 10.6.
 - Remaining: cancel/reject reason UI, permission-aware UI affordances, realtime refresh, station routing contract, and browser smoke tests.
+
+### ORD-02A validation update
+- Kitchen board stale-detail and partial-payment display polish completed.
+- Current code commit 58054837 passed frontend build, backend validation and MySQL 8.4/MariaDB 10.6 integration workflow.
+- Browser smoke, permission-role UX, cancel/reject reason flow, kitchen stations and realtime push remain future QA/features.
