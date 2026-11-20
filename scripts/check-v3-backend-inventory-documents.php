@@ -43,6 +43,10 @@ $assert(str_contains($postingService, 'public function post'), 'Transactional in
 $assert(str_contains($postingService, 'inventory.stock-document.post'), 'Posting must be idempotent.');
 $assert(str_contains($postingService, 'stock_document_not_draft'), 'Posting must reject non-draft documents.');
 $assert(str_contains($postingService, 'stock_insufficient'), 'Posting must enforce available stock.');
+$assert(str_contains($postingService, 'weightedAverageFromTotalCost'), 'Purchase receipts must use moving weighted average valuation.');
+$assert(str_contains($postingService, 'transfer_out'), 'Transfers must create a paired outbound ledger event.');
+$assert(str_contains($postingService, 'stock_document_type_not_postable'), 'Unsupported return valuation must be rejected explicitly.');
+$assert(str_contains($service, 'total_cost_amount'), 'Purchase receipt draft lines must capture total TOMAN cost.');
 $assert(str_contains($postingRepository, 'FOR UPDATE'), 'Posting must lock balance rows.');
 $assert(str_contains($postingRepository, 'INSERT INTO pos_stock_ledger'), 'Posting must append ledger entries.');
 $assert(str_contains($postingRepository, 'quantity_reserved'), 'Posting must protect reserved quantities.');
