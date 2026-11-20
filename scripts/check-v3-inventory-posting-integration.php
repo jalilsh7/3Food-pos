@@ -354,4 +354,80 @@ $status = $pdo->prepare(
 $status->execute(['business_id' => $businessId, 'branch_id' => $branchId, 'public_id' => $waste]);
 $assert($status->fetchColumn() === 'draft', 'Failed posting changed the document status.');
 
+if (!extension_loaded('pcntl')) {
+    throw new RuntimeException('The pcntl extension is required for inventory posting concurrency checks.');
+}
+$raceDocumentOne = $createDocument([
+    'document_type' => 'waste', 'location_id' => $sourceLocationPublicId,
+    'reason' => 'CI concurrent posting race',
+], 'race-one');
+$addLine($raceDocumentOne, '2', null, 'race-one');
+$raceDocumentTwo = $createDocument([
+    'document_type' => 'waste', 'location_id' => $sourceLocationPublicId,
+    'reason' => 'CI concurrent posting race',
+], 'race-two');
+$addLine($raceDocumentTwo, '2', null, 'race-two');
+$ledgerBeforeRace = $ledgerCount();
+$raceChildren = [];
+foreach ([
+    [$raceDocumentOne, 'race-one'],
+    [$raceDocumentTwo, 'race-two'],
+] as [$raceDocumentId, $raceSuffix]) {
+    $pair = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, 0);
+    if ($pair === false) throw new RuntimeException('Unable to create the concurrency test barrier.');
+    $resultFile = tempnam(sys_get_temp_dir(), 'pos-v3-stock-race-');
+    if ($resultFile === false) throw new RuntimeException('Unable to create concurrency result file.');
+    $pid = pcntl_fork();
+    if ($pid === -1) throw new RuntimeException('Unable to fork inventory posting worker.');
+    if ($pid === 0) {
+        fclose($pair[0]);
+        fread($pair[1], 1);
+        fclose($pair[1]);
+        $pdo = null;
+        try {
+            $workerPdo = PosV3DatabaseTools::connect();
+            $workerPosting = new InventoryPostingService($workerPdo, $appKey);
+            $result = $workerPosting->post(
+                $actor, $scope, $raceDocumentId,
+                $prefix . '-post-' . $raceSuffix . '-key',
+                'ci-race-' . bin2hex(random_bytes(4)), $ip,
+            );
+            file_put_contents($resultFile, json_encode(['status' => 'posted', 'replayed' => $result['replayed']], JSON_THROW_ON_ERROR));
+        } catch (HttpException $error) {
+            file_put_contents($resultFile, json_encode(['status' => 'http_error', 'message' => $error->getMessage()], JSON_THROW_ON_ERROR));
+        } catch (Throwable $error) {
+            file_put_contents($resultFile, json_encode(['status' => 'error', 'message' => $error->getMessage()], JSON_THROW_ON_ERROR));
+        }
+        exit(0);
+    }
+    fclose($pair[1]);
+    $raceChildren[] = ['pid' => $pid, 'socket' => $pair[0], 'file' => $resultFile];
+}
+foreach ($raceChildren as $child) {
+    fwrite($child['socket'], 'G');
+    fclose($child['socket']);
+}
+foreach ($raceChildren as $child) {
+    pcntl_waitpid($child['pid'], $waitStatus);
+    $assert(pcntl_wifexited($waitStatus) && pcntl_wexitstatus($waitStatus) === 0, 'Concurrent inventory posting worker exited unexpectedly.');
+}
+$raceResults = [];
+foreach ($raceChildren as $child) {
+    $raw = file_get_contents($child['file']);
+    @unlink($child['file']);
+    $result = is_string($raw) ? json_decode($raw, true) : null;
+    $assert(is_array($result) && isset($result['status']), 'Concurrent inventory posting worker returned no result.');
+    $raceResults[] = $result;
+}
+$postedCount = count(array_filter($raceResults, static fn (array $r): bool => $r['status'] === 'posted'));
+$blockedCount = count(array_filter(
+    $raceResults,
+    static fn (array $r): bool => $r['status'] === 'http_error'
+        && str_contains((string) ($r['message'] ?? ''), 'Available stock is insufficient'),
+));
+$assert($postedCount === 1 && $blockedCount === 1, 'Concurrent posting race must allow exactly one post and block the competing post.');
+$assert($ledgerCount() === $ledgerBeforeRace + 1, 'Concurrent posting race appended an unexpected number of ledger entries.');
+$raceBalance = $balance($sourceLocationId);
+$assert($raceBalance['quantity_on_hand'] === '0.000000', 'Concurrent posting race produced an incorrect final quantity.');
+
 echo "V3 inventory posting integration checks passed.\n";
