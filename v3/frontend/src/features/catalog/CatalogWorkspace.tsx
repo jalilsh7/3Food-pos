@@ -13,7 +13,7 @@ import {
   type PosCatalogProduct,
   type PosCatalogProductDetail,
 } from "../../shared/api/client";
-import { Button, Notice, SelectField, StatusBadge, Surface, TextField } from "../../shared/ui";
+import { Button, SelectField, StatusBadge, Surface, TextField } from "../../shared/ui";
 import "./catalog.css";
 
 const money = (value: number) => new Intl.NumberFormat("fa-IR").format(value);
