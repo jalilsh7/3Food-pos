@@ -90,6 +90,8 @@ export function OrderCenter() {
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "دریافت سفارش‌ها انجام نشد.");
       setOrders([]);
+      setNextCursor(null);
+      setHasMore(false);
     } finally {
       setLoading(false);
     }
@@ -254,7 +256,7 @@ export function OrderCenter() {
       {!error && loading ? <Notice variant="info">در حال دریافت سفارش‌های واقعی شعبه...</Notice> : null}
 
       <div className="orders-summary-grid">
-        <Surface padding="sm"><span>سفارش‌های دریافتی</span><strong>{money(totalOrders)}</strong></Surface>
+        <Surface padding="sm"><span>سفارش‌های بارگذاری‌شده</span><strong>{money(totalOrders)}</strong></Surface>
         <Surface padding="sm"><span>در حال آماده‌سازی</span><strong>{money(preparingOrders)}</strong></Surface>
         <Surface padding="sm"><span>آماده تحویل</span><strong>{money(readyOrders)}</strong></Surface>
         <Surface padding="sm"><span>پرداخت‌نشده / بخشی</span><strong>{money(awaitingPayment)}</strong></Surface>
