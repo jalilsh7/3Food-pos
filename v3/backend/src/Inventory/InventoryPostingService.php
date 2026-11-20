@@ -136,7 +136,7 @@ final readonly class InventoryPostingService
 
                     if ($type === 'transfer') {
                         $unitCost = $sourceBalance['average_unit_cost'];
-                        $cost = $this->posting->costForQuantity($quantity, $unitCost);
+                        $cost = self::requireLedgerAmount($this->posting->costForQuantity($quantity, $unitCost));
                         if (!$this->posting->issueBalance(
                             $scope->businessId, $branchId, $itemId, $sourceLocationId, $quantity,
                         )) {
@@ -214,6 +214,17 @@ final readonly class InventoryPostingService
                 ]];
             },
         );
+    }
+
+    private static function requireLedgerAmount(string $amount): string
+    {
+        $maximum = '9223372036854775807';
+        if (!preg_match('/^(?:0|[1-9][0-9]{0,19})$/', $amount)
+            || strlen($amount) > strlen($maximum)
+            || (strlen($amount) === strlen($maximum) && strcmp($amount, $maximum) > 0)) {
+            throw new HttpException(409, 'stock_cost_amount_overflow', 'The calculated stock movement cost exceeds the supported TOMAN range.');
+        }
+        return $amount;
     }
 
     private static function branch(BusinessScope $scope): int
