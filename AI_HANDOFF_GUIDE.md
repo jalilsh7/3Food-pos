@@ -396,3 +396,9 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 
 ### Inventory retry-key context boundary follow-up
 - Pending inventory idempotency keys are also cleared when the active business/branch context changes or is cleared, not only on logout. The cache remains memory-only; reload recovery must reconcile server-side document state.
+
+
+## CI-DB-013 follow-up result
+- The previously queued V3 database workflow run `44710884253` is now confirmed successful on both MySQL 8.4 and MariaDB 10.6.
+- Both engine jobs passed schema checks, guarded install, checksum migration runner, and the comprehensive database step. That step runs real inventory posting integration and authentication/context/order pagination integration tests.
+- This PASS belongs to the prior ORD-01C baseline (`de0d1da9950eb58ad841c272a7b649682e9fc2c7`), not the newer ORD-01D or inventory retry-key changes. Current package CI must be checked separately.
