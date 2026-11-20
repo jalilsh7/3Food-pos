@@ -656,3 +656,11 @@
 - [ ] API ویرایش/حذف ردیف‌های draft.
 - [ ] posting تراکنشی و ledger append-only؛ موجودی تا آن زمان نباید تغییر کند.
 - [ ] تست integration واقعی MySQL/MariaDB برای قفل شماره سند، idempotency race، scope و rollback.
+
+
+### 5.10 — CI اصلاحات و تثبیت خط مبنا (2026-11-20)
+- CI Backend روی HEAD قبلی `c0ccb5c` در هر سه نسخه PHP موفق شد.
+- سه مانع مستقل در workflowهای فرعی شناسایی و اصلاح شدند: فایل OrderCenter تکراری/ناقص و خطای ESLint، نسخه منتشرنشده TypeScript 5.7.0 در frontend V3، و حداقل تعداد statement منسوخ در SQL parser.
+- اصلاحات در commitهای `d5f23c0`, `ab3c639`, `b6553d7` ثبت شدند.
+- وضعیت: **اصلاح کد ثبت شده؛ اجرای مجدد workflowها در انتظار نتیجه**.
+- تست integration دیتابیس V3 روی MySQL 8.4 و MariaDB 10.6 باید در CI تکمیل شود؛ migration 011 همچنان روی دیتابیس واقعی اجرا نشده است.
