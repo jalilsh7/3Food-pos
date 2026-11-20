@@ -384,3 +384,11 @@ v3/backend/
 - Line updates re-resolve business-scoped stock item and unit conversion, then persist quantity, conversion-factor snapshot and base quantity. Public line IDs are returned by create and document detail.
 - Draft lifecycle operations never append ledger entries or mutate balances. Only a future posting transaction may do so.
 - Migration is not applied to real databases. CI migration fixture is numbered 013 to avoid sequence collision with migration 012.
+
+
+## CI verified baseline — 2026-11-20
+- Code HEAD `88cc9a91c25fc1eb59942bccc965dc4462b15c3b` passed Backend Validation on PHP 8.2/8.3/8.4 and schema engine validation on MySQL 8.4/MariaDB 10.6.
+- Migration 006 creates the category composite self-reference in a second ALTER after its columns/indexes exist, verified on MariaDB 10.6.
+- Migration 012 adds public UUIDs to stock document lines; the database CI applied it on both engines. The temporary migration probe is sequence 013.
+- Backup restore foreign-key validation uses explicit aliases and associative fetch mode to normalize MySQL information_schema metadata casing.
+- Draft line CRUD passed the source-contract Backend check; no real inventory posting lifecycle or concurrency integration test has been completed yet.
