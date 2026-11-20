@@ -763,7 +763,7 @@ final readonly class OrderService
     /** @return list<string> */
     private static function paymentStatuses(): array
     {
-        return ['unpaid', 'partially_paid', 'paid', 'refunded'];
+        return ['unpaid', 'partial', 'paid', 'refunded', 'partially_refunded', 'failed', 'pending'];
     }
 
     /** @return list<string> */
