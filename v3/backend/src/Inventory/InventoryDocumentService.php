@@ -78,7 +78,9 @@ final readonly class InventoryDocumentService
         if ($supplierPublicId !== null && (!is_string($supplierPublicId) || !self::isUuid($supplierPublicId))) {
             throw new HttpException(422, 'stock_document_supplier_invalid', 'The supplier identifier is invalid.');
         }
-        $reason = trim((string) ($payload['reason'] ?? ''));
+        $reasonValue = $payload['reason'] ?? '';
+        if (!is_string($reasonValue)) throw new HttpException(422, 'stock_document_reason_invalid', 'The reason must be text.');
+        $reason = trim($reasonValue);
         if (in_array($type, ['adjustment_in', 'adjustment_out', 'waste'], true) && $reason === '') {
             throw new HttpException(422, 'stock_document_reason_required', 'A reason is required for adjustments and waste.');
         }
@@ -151,7 +153,9 @@ final readonly class InventoryDocumentService
             || trim(str_replace('.', '', $quantity), '0') === '') {
             throw new HttpException(422, 'stock_document_line_quantity_invalid', 'Quantity must be a positive decimal with up to 6 decimal places.');
         }
-        $note = trim((string) ($payload['note'] ?? ''));
+        $noteValue = $payload['note'] ?? '';
+        if (!is_string($noteValue)) throw new HttpException(422, 'stock_document_line_note_invalid', 'The line note must be text.');
+        $note = trim($noteValue);
         if (self::unicodeLength($note) > 500) {
             throw new HttpException(422, 'stock_document_line_note_invalid', 'The line note must not exceed 500 characters.');
         }
