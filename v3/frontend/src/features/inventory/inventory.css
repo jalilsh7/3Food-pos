@@ -102,3 +102,14 @@
 .inventory-document-lines small { grid-column: 1 / -1; color: var(--pc-muted); font-size: 8px; }
 .inventory-document-lines p { margin: 0; color: var(--pc-muted); font-size: 9px; text-align: center; }
 @media (max-width: 420px) { .inventory-document-row { align-items: flex-start; flex-direction: column; } .inventory-document-row-actions { width: 100%; justify-content: space-between; } }
+
+
+.inventory-document-line-detail { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 10px; padding: 9px; border-radius: 7px; background: #fff; }
+.inventory-document-line-detail > span { color: var(--pc-ink); font-size: 9px; }
+.inventory-document-line-detail > b { color: var(--pc-brand); font-size: 9px; }
+.inventory-document-line-detail > small { grid-column: 1 / -1; color: var(--pc-muted); font-size: 8px; }
+.inventory-document-line-detail label { min-width: 0; display: flex; flex-direction: column; gap: 4px; color: var(--pc-muted); font-size: 8px; }
+.inventory-document-line-detail label select, .inventory-document-line-detail label input { width: 100%; min-height: 30px; padding: 0 7px; border: 1px solid var(--pc-line); border-radius: 6px; background: #fff; color: var(--pc-ink); font: inherit; font-size: 9px; }
+.inventory-line-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 6px; }
+.inventory-line-actions button { min-height: 25px; padding: 0 8px; border: 1px solid var(--pc-line); border-radius: 6px; background: #fff; color: var(--pc-brand); font: inherit; font-size: 8px; cursor: pointer; }
+.inventory-line-actions button:disabled { opacity: .5; cursor: wait; }
