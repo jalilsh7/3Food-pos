@@ -323,3 +323,12 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 - Code commits: BusinessRepository 9df7748f7113e008b566415bfcd44a8ce5995d59, corrected repository syntax 8a4099c8a907dbcfbee8d4922422c9a3f48aab6f, BusinessSetupService b5344f6f602cf02c4ec3f6f5475e999af62a57bd, PermissionRepository 967012e8457be77ae4d505a259123fe0df2d71f8, integration test c3ce68e68547420427e9b328b9c4dbb9e55b1341.
 - CI on latest code HEAD is queued/in progress; do not mark the security correction complete until MySQL 8.4 and MariaDB 10.6 auth integration both pass.
 - No live customer database, production environment or main branch was modified.
+
+## Continuation update — ORD-01B cursor pagination (2026-11-20)
+- Fresh branch HEAD before this batch: 3302acfa7b0127f3f5498ed6c4af2e63f19b1961. All main validation workflows on that exact HEAD had completed successfully: Backend Validation 44708098149, Frontend Validation 44708098094, PHP migration checks 44708097996, V3 database validation 44708089670.
+- Added cursor pagination to OrderRepository::listOrders, OrderService::list, and OrderController::list. Cursor is a positive branch-local order_number, not an internal DB id. SQL keeps business_id and branch_id filters and uses order_number < cursor, sorted descending; limit+1 determines has_more.
+- Frontend API getOrders now returns {orders, has_more, next_cursor}; OrderCenter requests 50 rows and appends the next page with duplicate public IDs filtered.
+- Added scripts/check-v3-backend-orders.php and wired it into .github/workflows/v3-backend-validation.yml.
+- Commits: repository a93ad5c91379395fd84d71a332cb6460826e1c1e; service 84dc3672b2b62f028cdbeb22ba24197c049dfebc; controller 11226d94acd352e392a4bdb3d82e559ed65c95e6; API client d1418eac065e716e6507c7d10b02772d6f9d2552; OrderCenter 1a447a8fb44c365892702f4ab49acba4c62918d6; contract 569973214207ace99d83ba4cd650f7910ab0ae06; workflow 5bf9a8209dc31ed7608e8907c77a94225bb4cf30.
+- New code has not yet passed CI at this update. Contract test is static/source-level and must not be reported as real DB integration. Next: verify backend/frontend CI; then add MySQL/MariaDB page-boundary and scope integration, date filters, and eventually status transition actions.
+- No main/production changes; no customer database or migration was touched.
