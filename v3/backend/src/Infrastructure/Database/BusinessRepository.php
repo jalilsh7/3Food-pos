@@ -69,7 +69,7 @@ final readonly class BusinessRepository
             "SELECT id FROM app_roles WHERE code = 'owner' AND is_active = 1 LIMIT 1"
         )->fetchColumn();
         if ($roleId === false) {
-            throw new \\RuntimeException('The business owner role is missing.');
+            throw new \RuntimeException('The business owner role is missing.');
         }
 
         $statement = $this->connection->prepare(
