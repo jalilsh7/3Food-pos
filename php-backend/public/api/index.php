@@ -2509,7 +2509,7 @@ if ($method === 'POST' && $path === '/sms/send') {
     $credentialField = (($sms['credential_mode'] ?? 'password') === 'apikey') ? ['ApiKey' => $password] : ['password' => $password];
     $fields = $isServiceRoute
         ? array_merge(['username' => $username], $credentialField, ['text' => $message, 'to' => $to, 'bodyId' => $bodyId])
-        : array_merge(['username' => $username], $credentialField, ['to' => $to, 'from' => $sender, 'text' => $message, 'isFlash' => 'false'],
+        : array_merge(['username' => $username], $credentialField, ['to' => $to, 'from' => $sender, 'text' => $message],
             $senderSupportOne !== '' ? ['fromSupportOne' => $senderSupportOne] : [],
             $senderSupportTwo !== '' ? ['fromSupportTwo' => $senderSupportTwo] : []);
 
