@@ -2215,6 +2215,7 @@ if ($path === '/sms/settings' && $method === 'GET') {
         'inbox_from' => (string)($sms['inbox_from'] ?? ''),
         'inbox_index' => (string)($sms['inbox_index'] ?? '1'),
         'inbox_count' => (int)($sms['inbox_count'] ?? 50),
+        'credential_mode' => ($sms['credential_mode'] ?? 'password') === 'apikey' ? 'apikey' : 'password',
         'has_password' => trim((string)($sms['password'] ?? '')) !== '',
     ]]);
 }
@@ -2226,6 +2227,7 @@ if ($path === '/sms/settings' && $method === 'POST') {
     $enabled = ($body['enabled'] ?? false) === true;
     $username = trim((string)($body['username'] ?? ''));
     $password = trim((string)($body['password'] ?? ''));
+    $credentialMode = ($body['credential_mode'] ?? ($config['sms']['credential_mode'] ?? 'password')) === 'apikey' ? 'apikey' : 'password';
     $sender = trim((string)($body['sender'] ?? ''));
     $locationRaw = trim((string)($body['inbox_location'] ?? ''));
     $inboxFrom = trim((string)($body['inbox_from'] ?? ''));
@@ -2244,6 +2246,7 @@ if ($path === '/sms/settings' && $method === 'POST') {
         'provider' => $enabled ? 'national_payamak' : 'none',
         'username' => $username,
         'password' => $password,
+        'credential_mode' => $credentialMode,
         'sender' => $sender,
         'inbox_location' => $locationRaw === '' ? null : (int)$locationRaw,
         'inbox_from' => $inboxFrom,
@@ -2265,6 +2268,7 @@ if ($path === '/sms/settings' && $method === 'POST') {
         'enabled' => $enabled, 'username' => $username, 'sender' => $sender,
         'inbox_location' => $locationRaw, 'inbox_from' => $inboxFrom,
         'inbox_index' => $inboxIndex, 'inbox_count' => $inboxCount,
+        'credential_mode' => $credentialMode,
         'has_password' => $password !== '',
     ]]);
 }
@@ -2279,10 +2283,10 @@ if ($method === 'POST' && $path === '/sms/birthday-sync') {
     $from = trim((string)($sms['inbox_from'] ?? ''));
     $index = trim((string)($sms['inbox_index'] ?? '1'));
     $count = (int)($sms['inbox_count'] ?? 50);
-    if (($sms['provider'] ?? 'none') !== 'national_payamak' || $username === '' || $password === ''
+    if (($sms['provider'] ?? 'none') !== 'national_payamak' || ($sms['credential_mode'] ?? 'password') === 'apikey' || $username === '' || $password === ''
         || !is_numeric($location) || (int)$location < 0 || (int)$location > 99
         || !preg_match('/^[0-9]{1,12}$/D', $index) || $count < 1 || $count > 100) {
-        json_response(['ok' => false, 'error' => 'sms_inbox_not_configured', 'message' => 'تنظیم دریافت پیامک ورودی در private/config.php کامل نیست'], 503);
+        json_response(['ok' => false, 'error' => 'sms_inbox_not_configured', 'message' => (($sms['credential_mode'] ?? 'password') === 'apikey' ? 'دریافت صندوق ورودی در حالت ApiKey پشتیبانی نشده است؛ برای دریافت پیامک ورودی از رمز عبور پنل استفاده کنید' : 'تنظیم دریافت پیامک ورودی در تنظیمات ملی‌پیامک کامل نیست')], 503);
     }
     $endpoint = 'https://rest.payamak-panel.com/api/SendSMS/GetMessages';
     $fields = [
@@ -2456,9 +2460,10 @@ if ($method === 'POST' && $path === '/sms/send') {
     $endpoint = $isServiceRoute
         ? 'https://rest.payamak-panel.com/api/SendSMS/BaseServiceNumber'
         : 'https://rest.payamak-panel.com/api/SendSMS/SendSMS';
+    $credentialField = (($sms['credential_mode'] ?? 'password') === 'apikey') ? ['ApiKey' => $password] : ['password' => $password];
     $fields = $isServiceRoute
-        ? ['username' => $username, 'password' => $password, 'text' => $message, 'to' => $to, 'bodyId' => $bodyId]
-        : ['username' => $username, 'password' => $password, 'to' => $to, 'from' => $sender, 'text' => $message, 'isFlash' => 'false'];
+        ? array_merge(['username' => $username], $credentialField, ['text' => $message, 'to' => $to, 'bodyId' => $bodyId])
+        : array_merge(['username' => $username], $credentialField, ['to' => $to, 'from' => $sender, 'text' => $message, 'isFlash' => 'false']);
 
     try {
         $encodedFields = http_build_query($fields, '', '&', PHP_QUERY_RFC3986);
