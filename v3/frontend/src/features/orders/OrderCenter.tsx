@@ -44,7 +44,10 @@ const fulfillmentLabels: Record<string, string> = {
 };
 const paymentLabels: Record<string, { label: string; variant: "success" | "warning" | "danger" | "neutral" }> = {
   unpaid: { label: "پرداخت‌نشده", variant: "warning" },
-  partially_paid: { label: "پرداخت بخشی", variant: "warning" },
+  partial: { label: "پرداخت بخشی", variant: "warning" },
+  pending: { label: "در انتظار تأیید", variant: "warning" },
+  failed: { label: "ناموفق", variant: "danger" },
+  partially_refunded: { label: "استرداد بخشی", variant: "warning" },
   paid: { label: "پرداخت‌شده", variant: "success" },
   refunded: { label: "مستردشده", variant: "danger" },
 };
@@ -247,7 +250,7 @@ export function OrderCenter() {
   const totalOrders = orders.length;
   const preparingOrders = orders.filter((order) => order.order_status === "preparing").length;
   const readyOrders = orders.filter((order) => order.order_status === "ready").length;
-  const awaitingPayment = orders.filter((order) => ["unpaid", "partially_paid"].includes(order.payment_status)).length;
+  const awaitingPayment = orders.filter((order) => ["unpaid", "partial", "pending"].includes(order.payment_status)).length;
 
   return (
     <div className="page-stack orders-workspace">
@@ -315,7 +318,10 @@ export function OrderCenter() {
             options={[
               { value: "all", label: "همه وضعیت‌ها" },
               { value: "paid", label: "پرداخت‌شده" },
-              { value: "partially_paid", label: "پرداخت بخشی" },
+              { value: "partial", label: "پرداخت بخشی" },
+              { value: "pending", label: "در انتظار تأیید" },
+              { value: "failed", label: "ناموفق" },
+              { value: "partially_refunded", label: "استرداد بخشی" },
               { value: "unpaid", label: "پرداخت‌نشده" },
               { value: "refunded", label: "مستردشده" },
             ]} />
