@@ -35,6 +35,7 @@ export type Customer = {
   points: number;
   birthday: string;
   smsConsent?: boolean;
+  smsConsentConfirmed?: boolean;
   totalSpent: number;
   visits: number;
   createdAt: string;
