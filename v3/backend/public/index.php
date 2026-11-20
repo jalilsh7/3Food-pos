@@ -233,6 +233,7 @@ try {
         if (!$inventoryController instanceof InventoryController) {
             $inventoryController = new InventoryController(
                 new InventoryService($getConnection(), $configuration->applicationKey),
+                new InventoryDocumentService($getConnection(), $configuration->applicationKey),
             );
         }
         return $inventoryController;
@@ -465,6 +466,22 @@ try {
         [$sessionMiddleware, $makePermissionMiddleware('catalog.manage', false), $csrfMiddleware, $originMiddleware],
     );
 
+
+
+    $router->add('GET', '/api/v1/inventory/documents',
+        static fn (Request $request): Response => $getInventoryController()->documents($request),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.read', true)],
+    );
+
+    $router->add('GET', '/api/v1/inventory/documents/{documentPublicId}',
+        static fn (Request $request, array $parameters): Response => $getInventoryController()->document($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.read', true)],
+    );
+
+    $router->add('POST', '/api/v1/inventory/documents',
+        static fn (Request $request): Response => $getInventoryController()->createDocument($request),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.manage', true), $csrfMiddleware, $originMiddleware],
+    );
 
     $router->add('GET', '/api/v1/inventory/units',
         static fn (Request $request): Response => $getInventoryController()->units($request),
