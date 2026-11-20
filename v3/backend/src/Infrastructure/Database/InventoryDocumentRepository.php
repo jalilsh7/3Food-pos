@@ -134,9 +134,107 @@ final readonly class InventoryDocumentRepository
             'destination' => $r['destination_location_id'] === null ? null : [
                 'id' => (string) $r['destination_location_id'], 'name' => (string) $r['destination_location_name'],
             ],
-            'lines' => [],
+            'lines' => $this->listLines($businessId, $branchId, (int) $r['id']),
             'created_at' => (string) $r['created_at'],
             'posted_at' => $r['posted_at'] === null ? null : (string) $r['posted_at'],
         ];
     }
+
+    public function findDraftForUpdate(int $businessId, int $branchId, string $publicId): ?array
+    {
+        $s = $this->connection->prepare(
+            "SELECT id, public_id, document_no, document_type, status
+             FROM pos_stock_documents
+             WHERE business_id = :business_id AND branch_id = :branch_id AND public_id = :public_id
+             LIMIT 1 FOR UPDATE"
+        );
+        $s->execute(['business_id' => $businessId, 'branch_id' => $branchId, 'public_id' => $publicId]);
+        $row = $s->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function findStockItemForLine(int $businessId, string $publicId): ?array
+    {
+        $s = $this->connection->prepare(
+            'SELECT si.id, si.public_id, si.name, si.base_unit_id, bu.dimension AS base_dimension
+             FROM pos_stock_items si
+             INNER JOIN pos_units bu ON bu.id = si.base_unit_id
+             WHERE si.business_id = :business_id AND si.public_id = :public_id AND si.is_active = 1
+             LIMIT 1'
+        );
+        $s->execute(['business_id' => $businessId, 'public_id' => $publicId]);
+        $row = $s->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function findUnitForLine(string $unitCode): ?array
+    {
+        $s = $this->connection->prepare(
+            'SELECT id, code, name, dimension FROM pos_units WHERE code = :code LIMIT 1'
+        );
+        $s->execute(['code' => $unitCode]);
+        $row = $s->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function findConversionFactor(int $fromUnitId, int $toUnitId): ?string
+    {
+        if ($fromUnitId === $toUnitId) return '1.00000000';
+        $s = $this->connection->prepare(
+            'SELECT factor FROM pos_unit_conversions
+             WHERE from_unit_id = :from_unit_id AND to_unit_id = :to_unit_id
+               AND effective_from <= CURRENT_TIMESTAMP(3)
+             ORDER BY effective_from DESC, id DESC LIMIT 1'
+        );
+        $s->execute(['from_unit_id' => $fromUnitId, 'to_unit_id' => $toUnitId]);
+        $factor = $s->fetchColumn();
+        return $factor === false ? null : (string) $factor;
+    }
+
+    public function addLine(
+        int $businessId, int $branchId, int $documentId, int $stockItemId,
+        string $quantity, int $unitId, string $conversionFactor, ?string $note,
+    ): void {
+        $s = $this->connection->prepare(
+            'INSERT INTO pos_stock_document_lines
+             (business_id, branch_id, document_id, stock_item_id, quantity, unit_id,
+              conversion_factor_snapshot, base_quantity, unit_cost_snapshot, total_cost_amount, note)
+             VALUES
+             (:business_id, :branch_id, :document_id, :stock_item_id, :quantity, :unit_id,
+              :factor, CAST(:quantity AS DECIMAL(18,6)) * CAST(:factor AS DECIMAL(18,8)), 0, 0, :note)'
+        );
+        $s->execute([
+            'business_id' => $businessId, 'branch_id' => $branchId, 'document_id' => $documentId,
+            'stock_item_id' => $stockItemId, 'quantity' => $quantity, 'unit_id' => $unitId,
+            'factor' => $conversionFactor, 'note' => $note,
+        ]);
+    }
+
+    private function listLines(int $businessId, int $branchId, int $documentId): array
+    {
+        $s = $this->connection->prepare(
+            'SELECT si.public_id AS stock_item_id, si.name AS stock_item_name,
+                    l.quantity, u.code AS unit_code, u.name AS unit_name,
+                    l.conversion_factor_snapshot, l.base_quantity, l.note
+             FROM pos_stock_document_lines l
+             INNER JOIN pos_stock_items si
+               ON si.id = l.stock_item_id AND si.business_id = l.business_id
+             INNER JOIN pos_units u ON u.id = l.unit_id
+             WHERE l.business_id = :business_id AND l.branch_id = :branch_id
+               AND l.document_id = :document_id
+             ORDER BY l.id ASC'
+        );
+        $s->execute(['business_id' => $businessId, 'branch_id' => $branchId, 'document_id' => $documentId]);
+        return array_map(static fn (array $r): array => [
+            'stock_item_id' => (string) $r['stock_item_id'],
+            'stock_item_name' => (string) $r['stock_item_name'],
+            'quantity' => (string) $r['quantity'],
+            'unit_code' => (string) $r['unit_code'],
+            'unit_name' => (string) $r['unit_name'],
+            'conversion_factor_snapshot' => (string) $r['conversion_factor_snapshot'],
+            'base_quantity' => (string) $r['base_quantity'],
+            'note' => $r['note'] === null ? null : (string) $r['note'],
+        ], $s->fetchAll(PDO::FETCH_ASSOC));
+    }
+
 }
