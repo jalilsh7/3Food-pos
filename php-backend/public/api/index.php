@@ -2211,6 +2211,8 @@ if ($path === '/sms/settings' && $method === 'GET') {
         'enabled' => ($sms['provider'] ?? 'none') === 'national_payamak',
         'username' => (string)($sms['username'] ?? ''),
         'sender' => (string)($sms['sender'] ?? ''),
+        'sender_support_one' => (string)($sms['sender_support_one'] ?? ''),
+        'sender_support_two' => (string)($sms['sender_support_two'] ?? ''),
         'inbox_location' => isset($sms['inbox_location']) ? (string)$sms['inbox_location'] : '',
         'inbox_from' => (string)($sms['inbox_from'] ?? ''),
         'inbox_index' => (string)($sms['inbox_index'] ?? '1'),
@@ -2229,6 +2231,8 @@ if ($path === '/sms/settings' && $method === 'POST') {
     $password = trim((string)($body['password'] ?? ''));
     $credentialMode = ($body['credential_mode'] ?? ($config['sms']['credential_mode'] ?? 'password')) === 'apikey' ? 'apikey' : 'password';
     $sender = trim((string)($body['sender'] ?? ''));
+    $senderSupportOne = trim((string)($body['sender_support_one'] ?? ($config['sms']['sender_support_one'] ?? '')));
+    $senderSupportTwo = trim((string)($body['sender_support_two'] ?? ($config['sms']['sender_support_two'] ?? '')));
     $locationRaw = trim((string)($body['inbox_location'] ?? ''));
     $inboxFrom = trim((string)($body['inbox_from'] ?? ''));
     $inboxIndex = trim((string)($body['inbox_index'] ?? '1'));
@@ -2241,6 +2245,7 @@ if ($path === '/sms/settings' && $method === 'POST') {
     if ($password === '') $password = (string)($currentSms['password'] ?? '');
     if (($enabled && ($username === '' || $password === '' || $sender === ''))
         || strlen($username) > 160 || strlen($password) > 512 || strlen($sender) > 40
+        || strlen($senderSupportOne) > 40 || strlen($senderSupportTwo) > 40
         || ($locationRaw !== '' && (!ctype_digit($locationRaw) || (int)$locationRaw > 99))
         || !preg_match('/^[0-9]{1,12}$/D', $inboxIndex) || $inboxCount < 1 || $inboxCount > 100
         || strlen($inboxFrom) > 40) {
@@ -2252,6 +2257,8 @@ if ($path === '/sms/settings' && $method === 'POST') {
         'password' => $password,
         'credential_mode' => $credentialMode,
         'sender' => $sender,
+        'sender_support_one' => $senderSupportOne,
+        'sender_support_two' => $senderSupportTwo,
         'inbox_location' => $locationRaw === '' ? null : (int)$locationRaw,
         'inbox_from' => $inboxFrom,
         'inbox_index' => $inboxIndex,
@@ -2270,6 +2277,7 @@ if ($path === '/sms/settings' && $method === 'POST') {
     $config['sms'] = $smsToStore;
     json_response(['ok' => true, 'settings' => [
         'enabled' => $enabled, 'username' => $username, 'sender' => $sender,
+        'sender_support_one' => $senderSupportOne, 'sender_support_two' => $senderSupportTwo,
         'inbox_location' => $locationRaw, 'inbox_from' => $inboxFrom,
         'inbox_index' => $inboxIndex, 'inbox_count' => $inboxCount,
         'credential_mode' => $credentialMode,
@@ -2501,7 +2509,9 @@ if ($method === 'POST' && $path === '/sms/send') {
     $credentialField = (($sms['credential_mode'] ?? 'password') === 'apikey') ? ['ApiKey' => $password] : ['password' => $password];
     $fields = $isServiceRoute
         ? array_merge(['username' => $username], $credentialField, ['text' => $message, 'to' => $to, 'bodyId' => $bodyId])
-        : array_merge(['username' => $username], $credentialField, ['to' => $to, 'from' => $sender, 'text' => $message, 'isFlash' => 'false']);
+        : array_merge(['username' => $username], $credentialField, ['to' => $to, 'from' => $sender, 'text' => $message, 'isFlash' => 'false'],
+            $senderSupportOne !== '' ? ['fromSupportOne' => $senderSupportOne] : [],
+            $senderSupportTwo !== '' ? ['fromSupportTwo' => $senderSupportTwo] : []);
 
     try {
         // The shared service route uses the legacy form contract; campaigns and
