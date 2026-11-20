@@ -61,6 +61,9 @@ export function OrderCenter() {
   const [payment, setPayment] = useState("all");
   const [fulfillment, setFulfillment] = useState("all");
   const [orders, setOrders] = useState<OrderSummary[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,10 +77,12 @@ export function OrderCenter() {
       const result = await getOrders({
         status: status === "all" ? undefined : status,
         channel: channel === "all" ? undefined : channel,
-        limit: 100,
+        limit: 50,
       });
-      setOrders(result);
-      if (selectedId && !result.some((order) => order.id === selectedId)) {
+      setOrders(result.orders);
+      setNextCursor(result.next_cursor);
+      setHasMore(result.has_more);
+      if (selectedId && !result.orders.some((order) => order.id === selectedId)) {
         setSelectedId(null);
         setDetail(null);
         setDetailLoading(false);
@@ -87,6 +92,29 @@ export function OrderCenter() {
       setOrders([]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadMoreOrders() {
+    if (!nextCursor || !hasMore || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const result = await getOrders({
+        status: status === "all" ? undefined : status,
+        channel: channel === "all" ? undefined : channel,
+        limit: 50,
+        before: nextCursor,
+      });
+      setOrders((current) => {
+        const seen = new Set(current.map((order) => order.id));
+        return [...current, ...result.orders.filter((order) => !seen.has(order.id))];
+      });
+      setNextCursor(result.next_cursor);
+      setHasMore(result.has_more);
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "دریافت صفحه بعدی سفارش‌ها انجام نشد.");
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -236,7 +264,7 @@ export function OrderCenter() {
         <div className="orders-table-heading">
           <div>
             <h2><PackageCheck size={18} /> فهرست سفارش‌ها</h2>
-            <p>{money(filteredOrders.length)} سفارش مطابق فیلتر · حداکثر ۱۰۰ سفارش اخیر</p>
+            <p>{money(filteredOrders.length)} سفارش مطابق فیلتر · نمایش صفحه‌ای سفارش‌ها</p>
           </div>
           <Button size="sm" variant="ghost" onClick={() => {
             setQuery(""); setStatus("all"); setChannel("all"); setPayment("all");
@@ -291,6 +319,13 @@ export function OrderCenter() {
         <DataTable columns={columns} rows={filteredOrders} getRowKey={(order) => order.id}
           emptyMessage={loading ? "در حال دریافت اطلاعات..." : "سفارشی با این فیلترها پیدا نشد."}
           caption="اطلاعات واقعی سفارش‌های کسب‌وکار و شعبه انتخاب‌شده" />
+        {hasMore ? (
+          <div className="orders-load-more">
+            <Button size="sm" variant="secondary" onClick={() => void loadMoreOrders()} disabled={loadingMore}>
+              {loadingMore ? "در حال دریافت..." : "نمایش سفارش‌های قدیمی‌تر"}
+            </Button>
+          </div>
+        ) : null}
       </Surface>
 
       {selectedId ? (
