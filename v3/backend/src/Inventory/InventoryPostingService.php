@@ -81,10 +81,15 @@ final readonly class InventoryPostingService
                     || ($type === 'transfer' && !$this->posting->locationIsActive($scope->businessId, $branchId, $destinationLocationId))) {
                     throw new HttpException(409, 'stock_location_inactive', 'A source or destination stock location is inactive or outside the current branch.');
                 }
+                $baseUnitIds = [];
                 foreach ($lines as $line) {
-                    if ((int) $line['is_active'] !== 1) {
-                        throw new HttpException(409, 'stock_item_inactive', 'A stock item in this document is inactive and cannot be posted.');
+                    $itemId = (int) $line['stock_item_id'];
+                    if (isset($baseUnitIds[$itemId])) continue;
+                    $stockItem = $this->posting->stockItemForPosting($scope->businessId, $itemId);
+                    if ($stockItem === null || (int) $stockItem['is_active'] !== 1) {
+                        throw new HttpException(409, 'stock_item_inactive', 'A stock item in this document is inactive or outside the current business.');
                     }
+                    $baseUnitIds[$itemId] = (int) $stockItem['base_unit_id'];
                 }
 
                 // Lock all affected item/location balances in a stable order to reduce deadlocks.
@@ -111,7 +116,7 @@ final readonly class InventoryPostingService
                     $lineId = (int) $line['id'];
                     $linePublicId = (string) $line['public_id'];
                     $itemId = (int) $line['stock_item_id'];
-                    $baseUnitId = (int) $line['base_unit_id'];
+                    $baseUnitId = $baseUnitIds[$itemId];
                     $quantity = (string) $line['base_quantity'];
                     $sourceBalance = $this->posting->lockBalance(
                         $scope->businessId, $branchId, $itemId, $sourceLocationId,
