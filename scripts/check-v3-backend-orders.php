@@ -23,6 +23,13 @@ $assert(str_contains($repository, "'next_cursor' => \$hasMore"), 'Order paginati
 $assert(str_contains($service, "'/^[1-9][0-9]{0,18}$/'"), 'Order cursor validation is missing.');
 $assert(str_contains($service, 'FILTER_VALIDATE_INT') && str_contains($service, "'min_range' => 1"), 'Order cursor integer overflow validation is missing.');
 $assert(str_contains($controller, "query('before')"), 'Order controller does not accept the before cursor.');
+$assert(str_contains($repository, 'o.payment_status = :payment_status'), 'Order repository payment filter is missing.');
+$assert(str_contains($repository, 'f.method = :fulfillment_method'), 'Order repository fulfillment filter is missing.');
+$assert(str_contains($service, 'paymentStatuses()') && str_contains($service, 'fulfillmentMethods()'), 'Order filter allow-lists are missing.');
+$assert(str_contains($controller, "query('payment')") && str_contains($controller, "query('fulfillment')"), 'Order controller does not accept payment/fulfillment filters.');
+$assert(str_contains($client, 'payment?: string;') && str_contains($client, 'fulfillment?: string;'), 'Frontend order API filter contract is incomplete.');
+$assert(str_contains($workspace, 'payment: payment === "all"') && str_contains($workspace, 'fulfillment: fulfillment === "all"'), 'Order center does not send server-side payment/fulfillment filters.');
+
 $assert(str_contains($client, 'before?: string;') && str_contains($client, 'has_more: boolean;'), 'Frontend order page contract is incomplete.');
 $assert(str_contains($workspace, 'loadMoreOrders') && str_contains($workspace, 'نمایش سفارش‌های قدیمی‌تر'), 'Order center does not expose the next page action.');
 
