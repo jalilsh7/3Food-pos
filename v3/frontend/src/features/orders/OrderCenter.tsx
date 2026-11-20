@@ -115,6 +115,8 @@ export function OrderCenter() {
   }
 
   useEffect(() => {
+    // This effect starts an asynchronous API request; state updates happen after the request settles.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchOrders();
     // The active business/branch context is applied by the shared API client.
     // eslint-disable-next-line react-hooks/exhaustive-deps
