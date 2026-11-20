@@ -303,3 +303,13 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 - The comprehensive workflow `44705608232` passed fresh MySQL schema install and PHP API integration, and all 81 unit tests passed, but ESLint failed on synchronous state updates in React effects.
 - The four affected pages were adjusted so loading/reset state changes happen in event handlers while effects handle asynchronous fetch results: commits `3aa518eaf606d28e17345703d29c6e3b28b369f5`, `faa988bd03c781ca201232b68643da37b6a2c42d`, `2ca77b19911704044cfaa08fbd38743f15974cb3`, `d364efc9d72f66b680401f8ec53f7fa34d183df0`.
 - Rerun state at update time: Frontend `44706018612` in progress; PHP migration `44706018603` in progress; Backend `44706018626` queued. Re-check all before marking LINT-01 complete.
+
+
+## Continuation update — LINT-01 and INV-02B1-SEC (2026-11-20)
+- Fresh branch head before this package was d47bcb16cdde26086124417bbe05c6a89682bd93 on feature/3food-pos-next-release-v2.
+- LINT-01: the rerun of PHP migration workflow 44706018603 failed only at ESLint because the rule traced async loaders called from effects in InventoryWorkspace.tsx and OrderCenter.tsx. A narrowly scoped suppression with comments explaining that the effect only starts an asynchronous API request was added. Frontend run 44706979664 and Backend run 44706979533 completed successfully on 040682b248651b81b3e0f17642ce700b435f4f3d; full PHP migration result was still running at last check.
+- Critical regression: DB workflow 44706975872 found that generic inventory document detail exposed total_cost_amount in InventoryDocumentRepository::listLines. Removed cost from generic SQL/result mapping and from the frontend detail DTO/display. The separate valuation endpoint remains the only API response carrying unit/total cost and is protected by inventory.manage.
+- Changes: inventory repository ca443de69e1a74ee7003e470c648758920d76354; frontend API type 412cac5a01c7116174c6b6b99f23df1c11e687aa; InventoryWorkspace cb0ec3cf1521383404291d8b5b5ba1f0a5be67dc.
+- The DB integration script already asserts that ordinary detail does not contain total_cost_amount and that protected valuation does. CI runs on the corrected HEAD must complete before marking the privacy regression resolved.
+- Do not expose costs in general stock document payloads or UI. Draft purchase/adjustment line edits require the operator to re-enter total cost where the API contract requires it.
+- No customer/production database was modified; no migration was executed against a live installation; main remains untouched.
