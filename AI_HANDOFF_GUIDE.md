@@ -371,3 +371,13 @@ The documentation-only head after the ORD-01C implementation is `de0d1da9950eb58
 - PHP migration checks: `44710889686` — queued.
 - V3 database engine validation: `44710884253` — queued; MySQL 8.4 and MariaDB 10.6 jobs were also queued.
 No PASS is claimed for ORD-01C. Fetch current run states before deciding whether to retry or debug. The prior frontend cancellations on intermediate commits do not represent a failed test result.
+
+
+## Latest implementation update — inventory idempotency retry (2026-11-20)
+- Commit `85be03192d2e2b4ed0a4997933d73579fc84ed54` introduced retry-key reuse in `v3/frontend/src/shared/api/client.ts`; follow-up `48a8b0973dde156c5237cfcd7040e1c098fcc3c5` canonicalized the request signature.
+- Inventory mutations now retain the same idempotency key for the same method/path/body while a request has not returned a valid success response. Successful responses clear the pending key; logout clears all pending keys.
+- The key cache is in-memory only. A browser reload loses unresolved keys; recover by reading/reconciling server-side draft documents rather than assuming the operation failed.
+- Fresh verification of the file returned blob SHA `1edffa9e736bc21ca4fc05a37b25ff49fe4ea2b9`.
+- CI after this update has not yet been confirmed. The latest known backend success is run `44710600371` (PHP 8.2/8.3/8.4); PHP migration checks run `44710600140` succeeded. Frontend run `44710600172` was cancelled during dependency installation and is not a pass.
+- Historical V3 database run `44692152564` failed because its old workflow generated `001_ci-smoke.sql`, colliding with real migration 001. The current workflow file has been corrected to use `013_ci-smoke.sql` and includes real inventory posting integration; rerun on a fresh commit is still required.
+- Next package remains ORD-01D: date-range filtering with explicit business timezone semantics, validation, cursor preservation and frontend request-race protection. Keep low-priority visual/device QA in the final test backlog.
