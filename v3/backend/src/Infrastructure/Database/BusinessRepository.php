@@ -22,6 +22,50 @@ final readonly class BusinessRepository
         return $statement->fetchColumn() !== false;
     }
 
+    /** @return list<array{id:string,code:string,name:string,timezone:string,currency:string}> */
+    public function listAccessibleBusinesses(int $userId): array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT DISTINCT b.public_id, b.code, b.name, b.timezone, b.currency
+             FROM pos_businesses b
+             WHERE b.is_active = 1
+               AND (
+                   EXISTS (
+                       SELECT 1 FROM app_user_business_roles ubr
+                       WHERE ubr.user_id = :business_user_id AND ubr.business_id = b.id
+                   )
+                   OR EXISTS (
+                       SELECT 1
+                       FROM app_user_branch_roles ubr
+                       INNER JOIN pos_branches branch ON branch.id = ubr.branch_id
+                       WHERE ubr.user_id = :branch_user_id AND branch.business_id = b.id
+                   )
+                   OR EXISTS (
+                       SELECT 1
+                       FROM app_user_roles ur
+                       INNER JOIN app_roles r ON r.id = ur.role_id AND r.is_active = 1
+                       WHERE ur.user_id = :owner_user_id AND r.code = \'owner\'
+                   )
+               )
+             ORDER BY b.name ASC, b.code ASC'
+        );
+        $statement->execute([
+            'business_user_id' => $userId,
+            'branch_user_id' => $userId,
+            'owner_user_id' => $userId,
+        ]);
+        return array_map(
+            static fn (array $row): array => [
+                'id' => (string) $row['public_id'],
+                'code' => (string) $row['code'],
+                'name' => (string) $row['name'],
+                'timezone' => (string) $row['timezone'],
+                'currency' => (string) $row['currency'],
+            ],
+            $statement->fetchAll(PDO::FETCH_ASSOC),
+        );
+    }
+
     public function lockInitialBusinessId(): ?int
     {
         $statement = $this->connection->query(
