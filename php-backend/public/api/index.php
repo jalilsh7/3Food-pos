@@ -2484,7 +2484,7 @@ if ($method === 'POST' && $path === '/sms/send') {
     $isServiceRoute = $bodyId !== '';
     if ($isServiceRoute) {
         $parts = explode(';', $message);
-        if (!ctype_digit($bodyId) || strlen($bodyId) > 12 || count($parts) > 10) {
+        if (!ctype_digit($bodyId) || (int)$bodyId < 1 || strlen($bodyId) > 12 || count($parts) > 10) {
             json_response(['ok' => false, 'error' => 'invalid_service_sms', 'message' => 'شناسه الگوی خدماتی یا مقادیر متغیر معتبر نیست'], 422);
         }
         foreach ($parts as $part) {
