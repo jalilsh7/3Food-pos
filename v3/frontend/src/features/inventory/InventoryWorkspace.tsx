@@ -12,6 +12,8 @@ import {
   getInventoryDocument,
   createInventoryDocument,
   addInventoryDocumentLine,
+  updateInventoryDocumentLine,
+  deleteInventoryDocumentLine,
   postInventoryDocument,
   type InventoryBalance,
   type InventoryLedgerEntry,
@@ -63,6 +65,10 @@ export function InventoryWorkspace() {
   const [documents, setDocuments] = useState<InventoryDocumentSummary[]>([]);
   const [activeDocument, setActiveDocument] = useState<InventoryDocumentDetail | null>(null);
   const [documentDetailBusy, setDocumentDetailBusy] = useState(false);
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [editingItemId, setEditingItemId] = useState("");
+  const [editingQuantity, setEditingQuantity] = useState("");
+  const [editingUnit, setEditingUnit] = useState("");
   const [documentType, setDocumentType] = useState<InventoryDocumentType>("consumption");
   const [documentLocation, setDocumentLocation] = useState("");
   const [destinationLocation, setDestinationLocation] = useState("");
@@ -126,6 +132,46 @@ export function InventoryWorkspace() {
   const selected = items.find((item) => item.id === selectedId) ?? null;
   const selectedBalances = balances.filter((balance) => balance.stock_item_id === selectedId && (locationId === "all" || balance.location_id === locationId));
   const selectedLedger = ledger.filter((entry) => entry.stock_item_id === selectedId && (locationId === "all" || entry.location_id === locationId));
+  function beginEditLine(line: InventoryDocumentDetail["lines"][number]) {
+    setEditingLineId(line.id);
+    setEditingItemId(line.stock_item_id);
+    setEditingQuantity(line.quantity);
+    setEditingUnit(line.unit_code);
+  }
+
+  async function saveDocumentLine() {
+    if (!activeDocument || !editingLineId || !editingItemId || !editingUnit || !editingQuantity.trim()) return;
+    setDocumentDetailBusy(true);
+    setDocumentMessage(null);
+    try {
+      await updateInventoryDocumentLine(activeDocument.id, editingLineId, {
+        stock_item_id: editingItemId, quantity: editingQuantity, unit_code: editingUnit,
+      });
+      setActiveDocument(await getInventoryDocument(activeDocument.id));
+      setEditingLineId(null);
+      await loadData(true);
+    } catch (cause) {
+      setDocumentMessage(cause instanceof ApiError ? cause.message : "ویرایش ردیف سند انجام نشد.");
+    } finally {
+      setDocumentDetailBusy(false);
+    }
+  }
+
+  async function removeDocumentLine(lineId: string) {
+    if (!activeDocument || activeDocument.status !== "draft") return;
+    setDocumentDetailBusy(true);
+    setDocumentMessage(null);
+    try {
+      await deleteInventoryDocumentLine(activeDocument.id, lineId);
+      setActiveDocument(await getInventoryDocument(activeDocument.id));
+      await loadData(true);
+    } catch (cause) {
+      setDocumentMessage(cause instanceof ApiError ? cause.message : "حذف ردیف سند انجام نشد.");
+    } finally {
+      setDocumentDetailBusy(false);
+    }
+  }
+
   async function openDocument(documentId: string) {
     setDocumentDetailBusy(true);
     setDocumentMessage(null);
@@ -251,7 +297,17 @@ export function InventoryWorkspace() {
           {activeDocument ? <div className="inventory-document-detail">
             <div className="inventory-document-detail-heading"><strong>سند {activeDocument.document_no}</strong><button type="button" onClick={() => setActiveDocument(null)}>بستن</button></div>
             <div className="inventory-document-lines">
-              {activeDocument.lines.map((line) => <div key={line.id}><span>{line.stock_item_name}</span><b>{quantity(line.quantity)} {line.unit_name}</b><small>مقدار پایه: {quantity(line.base_quantity)}</small></div>)}
+              {activeDocument.lines.map((line) => <div className="inventory-document-line-detail" key={line.id}>
+                {editingLineId === line.id ? <>
+                  <label><span>قلم</span><select value={editingItemId} onChange={(event) => { const item = items.find((entry) => entry.id === event.target.value); setEditingItemId(event.target.value); if (item) setEditingUnit(item.base_unit.code); }}>{items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+                  <label><span>مقدار</span><input value={editingQuantity} onChange={(event) => setEditingQuantity(event.target.value)} inputMode="decimal" /></label>
+                  <label><span>واحد</span><select value={editingUnit} onChange={(event) => setEditingUnit(event.target.value)}>{units.filter((unit) => { const item = items.find((entry) => entry.id === editingItemId); return !item || unit.dimension === item.base_unit.dimension; }).map((unit) => <option key={unit.code} value={unit.code}>{unit.name}</option>)}</select></label>
+                  <div className="inventory-line-actions"><button type="button" disabled={documentDetailBusy} onClick={() => void saveDocumentLine()}>ذخیره</button><button type="button" onClick={() => setEditingLineId(null)}>انصراف</button></div>
+                </> : <>
+                  <span>{line.stock_item_name}</span><b>{quantity(line.quantity)} {line.unit_name}</b><small>مقدار پایه: {quantity(line.base_quantity)}</small>
+                  {activeDocument.status === "draft" ? <div className="inventory-line-actions"><button type="button" disabled={documentDetailBusy} onClick={() => beginEditLine(line)}>ویرایش</button><button type="button" disabled={documentDetailBusy} onClick={() => void removeDocumentLine(line.id)}>حذف</button></div> : null}
+                </>}
+              </div>)}
               {!activeDocument.lines.length ? <p>این سند هنوز ردیفی ندارد.</p> : null}
             </div>
           </div> : null}
