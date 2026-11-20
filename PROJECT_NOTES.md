@@ -1612,3 +1612,9 @@
 - اجرای `44710884253` اکنون کامل شده و هر دو job `V3 schema / MySQL 8.4` و `V3 schema / MariaDB 10.6` موفق‌اند.
 - در هر دو engine، مراحل schema metadata، installer، checksum migration runner و step جامع دیتابیس موفق شدند؛ step جامع شامل تست واقعی `check-v3-inventory-posting-integration.php` و `check-v3-auth-integration.php` است.
 - این PASS مربوط به baseline قبلی ORD-01C است، نه تغییرات جدید ORD-01D یا idempotency retry. پذیرش CI برای commit فعلی همچنان pending است.
+
+
+### ORD-01D test hardening — گذار ساعت تابستانی
+- تست integration اکنون روز 2026-03-29 در timezone `Europe/Amsterdam` را نیز بررسی می‌کند: شروع روز محلی در 23:00 UTC روز قبل و پایان انحصاری در 22:00 UTC همان روز است.
+- رکورد دقیقاً در شروع روز باید شامل و رکورد دقیقاً در شروع روز بعد باید خارج از بازه باشد؛ این تست مانع فرض اشتباه «هر روز محلی دقیقاً ۲۴ ساعت» می‌شود.
+- اجرای واقعی MySQL/MariaDB روی commit جدید هنوز pending است.
