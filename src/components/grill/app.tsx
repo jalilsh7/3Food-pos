@@ -1286,7 +1286,7 @@ function CustomersScreen({ role }: { role: Role }) {
         <form className="grid gap-2 sm:grid-cols-4" onSubmit={(e) => {
           e.preventDefault();
           if (!form.phone) return;
-          const item = { id: uid("cu"), name: form.name || "بدون نام", phone: form.phone, points: 0, birthday: form.birthday, smsConsent: smsConsentTouched && form.smsConsent, totalSpent: 0, visits: 0, createdAt: new Date().toISOString() };
+          const item = { id: uid("cu"), name: form.name || "بدون نام", phone: form.phone, points: 0, birthday: form.birthday, smsConsent: smsConsentTouched && form.smsConsent, smsConsentConfirmed: smsConsentTouched, totalSpent: 0, visits: 0, createdAt: new Date().toISOString() };
           void saveCentralRecord("customers", item, () => saveCustomer(item)).then((ok) => { if (ok) { setForm({ name: "", phone: "", birthday: "", smsConsent: true }); setSmsConsentTouched(false); } });
         }}>
           <input className={inputCls} placeholder="نام" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -1305,7 +1305,7 @@ function CustomersScreen({ role }: { role: Role }) {
             <p className="text-sm">{TIER_LABEL[tierOf(c.points,settings)]} — {c.points.toLocaleString("fa-IR")} امتیاز — {money(c.totalSpent)}</p>
           </div>
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={c.smsConsent === true} onChange={e=>{const updated={...c,smsConsent:e.target.checked};void saveCentralRecord("customers",updated,()=>saveCustomer(updated));}}/>رضایت پیامک تبلیغاتی</label>
+            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={c.smsConsent === true} onChange={e=>{const updated={...c,smsConsent:e.target.checked,smsConsentConfirmed:true};void saveCentralRecord("customers",updated,()=>saveCustomer(updated));}}/>رضایت پیامک تبلیغاتی</label>
             <p className="text-xs text-muted">{orders.filter((o) => o.customerId === c.id || normalizeIranPhone(o.customerPhone) === normalizeIranPhone(c.phone)).length.toLocaleString("fa-IR")} سفارش ثبت‌شده</p>
             <Btn tone="ghost" onClick={() => setSelectedCustomerId(selectedCustomerId === c.id ? null : c.id)}>{selectedCustomerId === c.id ? "بستن سوابق" : "گزارش خریدها"}</Btn>
           </div>
@@ -1751,7 +1751,7 @@ function SmsScreen() {
   const campaignRecipientPhones = new Set<string>();
   const campaignRecipients=customers.filter(customer=>{
     const normalizedPhone = normalizeIranPhone(customer.phone);
-    if(customer.smsConsent!==true||!/^09[0-9]{9}$/.test(normalizedPhone)||campaignRecipientPhones.has(normalizedPhone))return false;
+    if(customer.smsConsent!==true||customer.smsConsentConfirmed!==true||!/^09[0-9]{9}$/.test(normalizedPhone)||campaignRecipientPhones.has(normalizedPhone))return false;
     const customerOrders=orders.filter(order=>order.status!=="cancelled"&&(order.customerId===customer.id||normalizeIranPhone(order.customerPhone)===normalizeIranPhone(customer.phone)));
     const latest=customerOrders.reduce((max,order)=>Math.max(max,new Date(order.createdAt).getTime()),0);
     const conditions:boolean[]=[];
@@ -1860,7 +1860,7 @@ function SmsScreen() {
             const birthdayPromptPhones = new Set<string>();
             const targets = customers.filter(customer => {
               const phone = normalizeIranPhone(customer.phone);
-              if (customer.smsConsent !== true || customer.birthday || !/^09[0-9]{9}$/.test(phone) || birthdayPromptPhones.has(phone)) return false;
+              if (customer.smsConsent !== true || customer.smsConsentConfirmed !== true || customer.birthday || !/^09[0-9]{9}$/.test(phone) || birthdayPromptPhones.has(phone)) return false;
               birthdayPromptPhones.add(phone);
               return true;
             });
