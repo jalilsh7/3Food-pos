@@ -1728,8 +1728,11 @@ function SmsScreen() {
   const [campaignClock,setCampaignClock]=useState(INITIAL_RENDER_TIME);
   useEffect(() => { const timer=window.setInterval(()=>setCampaignClock(Date.now()),60000); return ()=>window.clearInterval(timer); }, []);
   const activeCampaignFilters = Object.entries(campaignFilters).filter(([,value])=>value!=="");
+  const campaignRecipientPhones = new Set<string>();
   const campaignRecipients=customers.filter(customer=>{
-    if(customer.smsConsent!==true||!normalizeIranPhone(customer.phone))return false;
+    const normalizedPhone = normalizeIranPhone(customer.phone);
+    if(customer.smsConsent!==true||!/^09[0-9]{9}$/.test(normalizedPhone)||campaignRecipientPhones.has(normalizedPhone))return false;
+    campaignRecipientPhones.add(normalizedPhone);
     const customerOrders=orders.filter(order=>order.status!=="cancelled"&&(order.customerId===customer.id||normalizeIranPhone(order.customerPhone)===normalizeIranPhone(customer.phone)));
     const latest=customerOrders.reduce((max,order)=>Math.max(max,new Date(order.createdAt).getTime()),0);
     const conditions:boolean[]=[];
