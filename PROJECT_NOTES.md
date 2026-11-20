@@ -1523,3 +1523,11 @@
 - دو خطای syntax ناشی از escape اشتباه namespace در `SupplierRepository.php` و `SupplierService.php` اصلاح شدند؛ آخرین اصلاح در commit `f6ab1a6a9b8e47674f5a01e2c322567c9c15d612`.
 - محدودیت‌های باز: pagination/cursor، تست integration واقعی endpointهای orders روی DB موقت، کنترل دسترسی جزئیات برای نقش‌های مختلف، و transition UI با idempotency و نمایش خطای permission.
 - هیچ migration یا دیتابیس مشتری/Production اجرا نشده است.
+
+
+## LINT-01 — اصلاح اثرات هم‌زمان React و اجرای مجدد CI (2026-11-20)
+- اجرای جامع `44705608232` روی کد baseline قبلی: PHP syntax، نصب schema MySQL 8.4، PHP API integration، TypeScript و ۸۱ تست واحد موفق؛ مرحله ESLint شکست خورد.
+- خطای lint از قانون `react-hooks/set-state-in-effect` در `App.tsx`، `BusinessContextScreen.tsx`، `InventoryWorkspace.tsx` و `OrderCenter.tsx` بود؛ مشکل از setStateهای synchronous در ابتدای effect یا فراخوانی تابعی با چنین side effect بود، نه از منطق API سفارش.
+- اصلاحات با انتقال stateهای شروع/پاک‌سازی به event handlers و نگه‌داشتن effectها برای دریافت async انجام شد: `3aa518eaf606d28e17345703d29c6e3b28b369f5`، `faa988bd03c781ca201232b68643da37b6a2c42d`، `2ca77b19911704044cfaa08fbd38743f15974cb3`، `d364efc9d72f66b680401f8ec53f7fa34d183df0`.
+- اجرای مجدد روی commit `d364efc9d72f66b680401f8ec53f7fa34d183df0`: Frontend TypeScript/build run `44706018612` در حال اجرا؛ PHP migration/legacy integration run `44706018603` در حال اجرا؛ Backend Validation run `44706018626` در صف بود.
+- تا زمان مشاهده نتیجه نهایی lint، build، PHP matrix و MySQL API integration روی commit جدید، این اصلاحات تأیید نهایی تلقی نشوند.
