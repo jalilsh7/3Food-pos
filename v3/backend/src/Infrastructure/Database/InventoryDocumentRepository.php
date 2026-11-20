@@ -200,13 +200,14 @@ final readonly class InventoryDocumentRepository
              (business_id, branch_id, document_id, stock_item_id, quantity, unit_id,
               conversion_factor_snapshot, base_quantity, unit_cost_snapshot, total_cost_amount, note)
              VALUES
-             (:business_id, :branch_id, :document_id, :stock_item_id, :quantity, :unit_id,
-              :factor, CAST(:quantity AS DECIMAL(18,6)) * CAST(:factor AS DECIMAL(18,8)), 0, 0, :note)'
+             (:business_id, :branch_id, :document_id, :stock_item_id, :quantity_value, :unit_id,
+              :factor_value, CAST(:quantity_calc AS DECIMAL(18,6)) * CAST(:factor_calc AS DECIMAL(18,8)), 0, 0, :note)'
         );
         $s->execute([
             'business_id' => $businessId, 'branch_id' => $branchId, 'document_id' => $documentId,
-            'stock_item_id' => $stockItemId, 'quantity' => $quantity, 'unit_id' => $unitId,
-            'factor' => $conversionFactor, 'note' => $note,
+            'stock_item_id' => $stockItemId, 'quantity_value' => $quantity, 'unit_id' => $unitId,
+            'factor_value' => $conversionFactor, 'quantity_calc' => $quantity,
+            'factor_calc' => $conversionFactor, 'note' => $note,
         ]);
     }
 
