@@ -356,3 +356,15 @@ v3/backend/
 - recipe version شناسه UUID دارد؛ نسخه فعال پس از انتشار immutable در نظر گرفته می‌شود و تغییر دستور ساخت باید نسخه جدید بسازد. مقدار quantity، unit و conversion factor در recipe line نگهداری می‌شوند.
 - موجودی فقط از طریق سند انبار و ledger تغییر می‌کند؛ ویرایش کاتالوگ یا recipe به‌تنهایی هیچ quantity_on_hand یا stock ledger را تغییر نمی‌دهد.
 - migration 011 فقط ثبت شده است؛ تا پایان توسعه روی هیچ دیتابیسی اجرا نمی‌شود.
+
+
+
+## INV-02A1 — Stock document draft headers (2026-11-20)
+- Added `InventoryDocumentRepository` and `InventoryDocumentService` for draft header creation, scoped list and detail.
+- Endpoints: `GET /api/v1/inventory/documents`, `GET /api/v1/inventory/documents/{documentPublicId}`, `POST /api/v1/inventory/documents`.
+- Every operation requires branch context. Document/location queries enforce business+branch; supplier lookup enforces business.
+- Document numbers use a branch/business-specific `pos_sequences` key and a row lock inside the idempotent transaction.
+- Create requires `inventory.manage`, session, CSRF, Origin, idempotency and audit. Reads require `inventory.read`.
+- This is header-only: no document lines, stock ledger entries, or balance changes are implemented in this slice. The detail response returns an empty `lines` list until line management is delivered.
+- Requires migration 011 to be applied before runtime use. Migration has not been executed on any real database.
+- `scripts/check-v3-backend-inventory-documents.php` is a source-contract regression check only, not a DB integration test.
