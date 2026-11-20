@@ -1531,3 +1531,11 @@
 - اصلاحات با انتقال stateهای شروع/پاک‌سازی به event handlers و نگه‌داشتن effectها برای دریافت async انجام شد: `3aa518eaf606d28e17345703d29c6e3b28b369f5`، `faa988bd03c781ca201232b68643da37b6a2c42d`، `2ca77b19911704044cfaa08fbd38743f15974cb3`، `d364efc9d72f66b680401f8ec53f7fa34d183df0`.
 - اجرای مجدد روی commit `d364efc9d72f66b680401f8ec53f7fa34d183df0`: Frontend TypeScript/build run `44706018612` در حال اجرا؛ PHP migration/legacy integration run `44706018603` در حال اجرا؛ Backend Validation run `44706018626` در صف بود.
 - تا زمان مشاهده نتیجه نهایی lint، build، PHP matrix و MySQL API integration روی commit جدید، این اصلاحات تأیید نهایی تلقی نشوند.
+
+
+## INV-02B1-SEC — اصلاح افشای بهای تمام‌شده در جزئیات انبار (2026-11-20)
+- تست واقعی MySQL 8.4 و MariaDB 10.6 در workflow دیتابیس، وجود total_cost_amount در جزئیات عمومی سند را کشف کرد.
+- کد Repository اصلاح شد تا جزئیات عمومی شامل مبلغ خرید/بهای واحد نباشد؛ endpoint ارزش‌گذاری مجزا برای نقش دارای inventory.manage باقی می‌ماند.
+- نوع TypeScript جزئیات سند از فیلد هزینه پاک شد؛ رابط انبار دیگر بهای تمام‌شده را از endpoint عمومی نمایش نمی‌دهد و برای ویرایش draft خرید/ورودی، مبلغ کل باید دوباره وارد شود.
+- تست integration از قبل این مرز محرمانگی را کنترل می‌کند. پذیرش اصلاح روی MySQL/MariaDB و اجرای lint/build روی HEAD جدید هنوز در انتظار است.
+- اولویت: **بحرانی امنیت مالی**؛ تا سبزشدن CI این مورد باز می‌ماند.
