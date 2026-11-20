@@ -369,7 +369,7 @@ final readonly class InventoryDocumentService
         if (!is_string($value) || !preg_match('/^(?:0|[1-9][0-9]{0,19})$/', $value)) {
             throw new HttpException(422, 'stock_document_line_cost_invalid', 'total_cost_amount must be a non-negative integer TOMAN amount.');
         }
-        $maximum = '18446744073709551615';
+        $maximum = '9223372036854775807';
         if (strlen($value) > strlen($maximum)
             || (strlen($value) === strlen($maximum) && strcmp($value, $maximum) > 0)) {
             throw new HttpException(422, 'stock_document_line_cost_invalid', 'total_cost_amount exceeds the supported range.');
