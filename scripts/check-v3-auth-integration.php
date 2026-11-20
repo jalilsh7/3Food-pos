@@ -15,6 +15,7 @@ use PersiaCoder\PosV3\Http\Request;
 use PersiaCoder\PosV3\Infrastructure\Database\SessionRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\BusinessRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\PermissionRepository;
+use PersiaCoder\PosV3\Infrastructure\Database\OrderRepository;
 use PersiaCoder\PosV3\Security\CsrfGuard;
 
 $root = dirname(__DIR__);
@@ -235,6 +236,48 @@ $branchListRequest = $makeRequest('GET', '/api/v1/access/branches')->withAttribu
 $branchList = $branchController->list($branchListRequest);
 $branchListData = json_decode($branchList->body, true, 32, JSON_THROW_ON_ERROR)['data']['branches'];
 $assert(count($branchListData) === 1 && $branchListData[0]['id'] === $branchPublicId, 'Business-scoped branch discovery did not return the initial branch.');
+
+$otherBranchId = $businessRepository->createBranch(
+    $uuid(),
+    $businessId,
+    'pagination-test',
+    'Pagination Test Branch',
+    'Asia/Tehran',
+);
+$insertOrder = $pdo->prepare(
+    "INSERT INTO pos_orders
+        (business_id, branch_id, public_id, order_number, source_channel, order_status, payment_status, created_by)
+     VALUES
+        (:business_id, :branch_id, :public_id, :order_number, 'manual', 'draft', 'unpaid', :created_by)"
+);
+foreach ([80001, 80002, 80003] as $orderNumber) {
+    $insertOrder->execute([
+        'business_id' => $businessId,
+        'branch_id' => $branchId,
+        'public_id' => $uuid(),
+        'order_number' => $orderNumber,
+        'created_by' => $userId,
+    ]);
+}
+$insertOrder->execute([
+    'business_id' => $businessId,
+    'branch_id' => $otherBranchId,
+    'public_id' => $uuid(),
+    'order_number' => 80004,
+    'created_by' => $userId,
+]);
+$orderRepository = new OrderRepository($pdo);
+$firstOrderPage = $orderRepository->listOrders($businessId, $branchId, null, null, 2);
+$assert(count($firstOrderPage['orders']) === 2, 'Order page one did not return the requested page size.');
+$assert($firstOrderPage['orders'][0]['order_number'] === 80003, 'Order page one is not sorted newest-first.');
+$assert($firstOrderPage['orders'][1]['order_number'] === 80002, 'Order page one returned an unexpected second order.');
+$assert($firstOrderPage['has_more'] === true && $firstOrderPage['next_cursor'] === '80002', 'Order page one returned an invalid continuation cursor.');
+$secondOrderPage = $orderRepository->listOrders($businessId, $branchId, null, null, 2, (int) $firstOrderPage['next_cursor']);
+$assert(count($secondOrderPage['orders']) === 1, 'Order page two did not return the remaining order.');
+$assert($secondOrderPage['orders'][0]['order_number'] === 80001, 'Order page two returned an unexpected order.');
+$assert($secondOrderPage['has_more'] === false && $secondOrderPage['next_cursor'] === null, 'Final order page incorrectly advertises another page.');
+$otherBranchOrders = $orderRepository->listOrders($businessId, $otherBranchId, null, null, 10);
+$assert(count($otherBranchOrders['orders']) === 1 && $otherBranchOrders['orders'][0]['order_number'] === 80004, 'Order pagination leaked rows across branches.');
 
 $logoutRequest = $makeRequest('POST', '/api/v1/auth/logout', [
     'cookie' => $newCookieHeader,
