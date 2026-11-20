@@ -831,3 +831,10 @@
 - Added disposable PDO integration for actual catalog-backed order creation, variant and required-option validation, server price/tax calculation, idempotent replay, changed-payload conflict and duplicate prevention.
 - Expected calculation fixture: subtotal 25,000, tax 2,500, total 27,500 (currency amount units as used by the V3 schema).
 - Acceptance requires both MySQL 8.4 and MariaDB 10.6 jobs to pass on the current branch head.
+
+## CAT-01A — Live catalog workspace (2026-11-20)
+- CatalogWorkspace now reads real categories/products, creates categories/products, toggles product availability, archives products, and displays actual option-group/variant details.
+- Catalog mutations use idempotency-key retention; Backend source-contract checks cover the integration.
+- CI passed on commit 540237d3: frontend typecheck/build, backend validation and both MySQL 8.4/MariaDB 10.6 DB workflow jobs.
+- Remaining: edit existing product fields, category update/archive, variant/option-group management UI, and populated-catalog browser smoke.
+- Next package: order and kitchen status transition controls through existing state-machine/RBAC/idempotent endpoints.
