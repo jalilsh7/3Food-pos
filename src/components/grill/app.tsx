@@ -489,7 +489,7 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
       await postSms(phone, text, event, tpl.bodyId, "", "الگوی خدماتی حداکثر می‌تواند ۱۰ متغیر داشته باشد.");
       return;
     }
-    const values = orderedKeys.map((key) => (/^\d+$/.test(key) ? indexedVars[Number(key)] : templateVars[key]) ?? "");
+    const values = orderedKeys.map((key) => (/^\d+$/.test(key) ? indexedVars[Number(key)] : templateVars[key]) ?? "").map(value => value.replace(/;/g, " "));
     if (values.some((value) => !value.trim())) {
       await postSms(phone, text, event, tpl.bodyId, "", "متغیرهای الگوی خدماتی کامل نیستند؛ ترتیب و مقادیر الگو را بررسی کنید.");
       return;
@@ -1797,7 +1797,7 @@ function SmsScreen() {
           if (!keys.length) { window.alert("الگوی خدماتی باید حداقل یک متغیر داشته باشد تا مقادیر آن ارسال شود."); return; }
           const sample: Record<string,string> = { order:"1258", name:"مشتری آزمایشی", total:"250000", points:"25", code:"TEST", balance:"500", shop:settings.shopName || "فروشگاه" };
           const indexed = [sample.order,sample.name,sample.total,sample.points,sample.code,sample.balance,sample.shop];
-          const values = keys.map(key => /^\d+$/.test(key) ? indexed[Number(key)] : sample[key] ?? "");
+          const values = keys.map(key => /^\d+$/.test(key) ? indexed[Number(key)] : sample[key] ?? "").map(value => value.replace(/;/g, " "));
           if (values.some(value => !value)) { window.alert("متغیر ناشناخته یا خارج از نگاشت نمونه وجود دارد؛ نام متغیرها را بررسی کنید."); return; }
           const rendered = fillTemplate(t.body, sample);
           if (!window.confirm("یک پیامک آزمایشی واقعی از مسیر خدماتی به شماره " + phone + " ارسال شود؟")) return;
