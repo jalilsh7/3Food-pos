@@ -11,7 +11,11 @@ use PersiaCoder\PosV3\Http\Response;
 
 final readonly class InventoryController
 {
-    public function __construct(private InventoryService $inventory, private InventoryDocumentService $documents) {}
+    public function __construct(
+        private InventoryService $inventory,
+        private InventoryDocumentService $documents,
+        private InventoryPostingService $posting,
+    ) {}
 
     public function units(Request $request): Response
     {
@@ -163,6 +167,16 @@ final readonly class InventoryController
             $this->principal($request), $this->scope($request),
             (string) ($parameters['documentPublicId'] ?? ''),
             (string) ($parameters['linePublicId'] ?? ''), $this->jsonPayload($request),
+            $request->header('idempotency-key') ?? '', $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
+        ));
+    }
+
+    public function postDocument(Request $request, array $parameters): Response
+    {
+        return $this->idempotentResponse($this->posting->post(
+            $this->principal($request), $this->scope($request),
+            (string) ($parameters['documentPublicId'] ?? ''),
             $request->header('idempotency-key') ?? '', $request->requestId,
             (string) ($request->attribute('remote_ip') ?? ''),
         ));
