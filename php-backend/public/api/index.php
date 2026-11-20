@@ -2216,6 +2216,7 @@ if ($path === '/sms/settings' && $method === 'GET') {
         'sender' => (string)($sms['sender'] ?? ''),
         'sender_support_one' => (string)($sms['sender_support_one'] ?? ''),
         'sender_support_two' => (string)($sms['sender_support_two'] ?? ''),
+        'inbox_enabled' => (bool)($sms['inbox_enabled'] ?? (isset($sms['inbox_location']) && $sms['inbox_location'] !== null)),
         'inbox_location' => isset($sms['inbox_location']) ? (string)$sms['inbox_location'] : '',
         'inbox_from' => (string)($sms['inbox_from'] ?? ''),
         'inbox_index' => (string)($sms['inbox_index'] ?? '1'),
@@ -2236,6 +2237,7 @@ if ($path === '/sms/settings' && $method === 'POST') {
     $sender = trim((string)($body['sender'] ?? ''));
     $senderSupportOne = trim((string)($body['sender_support_one'] ?? ($config['sms']['sender_support_one'] ?? '')));
     $senderSupportTwo = trim((string)($body['sender_support_two'] ?? ($config['sms']['sender_support_two'] ?? '')));
+    $inboxEnabled = ($body['inbox_enabled'] ?? false) === true;
     $locationRaw = trim((string)($body['inbox_location'] ?? ''));
     $inboxFrom = trim((string)($body['inbox_from'] ?? ''));
     $inboxIndex = trim((string)($body['inbox_index'] ?? '1'));
@@ -2262,6 +2264,7 @@ if ($path === '/sms/settings' && $method === 'POST') {
         'sender' => $sender,
         'sender_support_one' => $senderSupportOne,
         'sender_support_two' => $senderSupportTwo,
+        'inbox_enabled' => $inboxEnabled,
         'inbox_location' => $locationRaw === '' ? null : (int)$locationRaw,
         'inbox_from' => $inboxFrom,
         'inbox_index' => $inboxIndex,
@@ -2281,7 +2284,7 @@ if ($path === '/sms/settings' && $method === 'POST') {
     json_response(['ok' => true, 'settings' => [
         'enabled' => $enabled, 'username' => $username, 'sender' => $sender,
         'sender_support_one' => $senderSupportOne, 'sender_support_two' => $senderSupportTwo,
-        'inbox_location' => $locationRaw, 'inbox_from' => $inboxFrom,
+        'inbox_enabled' => $inboxEnabled, 'inbox_location' => $locationRaw, 'inbox_from' => $inboxFrom,
         'inbox_index' => $inboxIndex, 'inbox_count' => $inboxCount,
         'credential_mode' => $credentialMode,
         'has_password' => $password !== '',
@@ -2298,7 +2301,8 @@ if ($method === 'POST' && $path === '/sms/birthday-sync') {
     $from = trim((string)($sms['inbox_from'] ?? ''));
     $index = trim((string)($sms['inbox_index'] ?? '1'));
     $count = (int)($sms['inbox_count'] ?? 50);
-    if (($sms['provider'] ?? 'none') !== 'national_payamak' || ($sms['credential_mode'] ?? 'password') === 'apikey' || $username === '' || $password === ''
+    $inboxEnabled = (bool)($sms['inbox_enabled'] ?? (isset($location) && $location !== null));
+    if (!$inboxEnabled || ($sms['provider'] ?? 'none') !== 'national_payamak' || ($sms['credential_mode'] ?? 'password') === 'apikey' || $username === '' || $password === ''
         || !is_numeric($location) || (int)$location < 0 || (int)$location > 99
         || !preg_match('/^[0-9]{1,12}$/D', $index) || $count < 1 || $count > 100) {
         json_response(['ok' => false, 'error' => 'sms_inbox_not_configured', 'message' => (($sms['credential_mode'] ?? 'password') === 'apikey' ? 'دریافت صندوق ورودی در حالت ApiKey پشتیبانی نشده است؛ برای دریافت پیامک ورودی از رمز عبور پنل استفاده کنید' : 'تنظیم دریافت پیامک ورودی در تنظیمات ملی‌پیامک کامل نیست')], 503);
