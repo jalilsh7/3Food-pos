@@ -2440,25 +2440,61 @@ if ($method === 'POST' && $path === '/sms/send') {
     $fields = $bodyId
         ? ['username' => $username, 'password' => $password, 'text' => $message, 'to' => $to, 'bodyId' => $bodyId]
         : ['username' => $username, 'password' => $password, 'to' => $to, 'from' => $sender, 'text' => $message, 'isFlash' => 'false'];
-    $context = stream_context_create(['http' => [
-        'method' => 'POST',
-        'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
-        'content' => http_build_query($fields),
-        'timeout' => 12,
-        'ignore_errors' => true,
-    ]]);
     try {
-        $raw = file_get_contents($endpoint, false, $context);
-        if ($raw === false) throw new RuntimeException('SMS provider request failed');
-        $statusLine = $http_response_header[0] ?? '';
-        $httpOk = preg_match('/\\s2[0-9]{2}\\s/', $statusLine) === 1;
+        $encodedFields = http_build_query($fields);
+        $httpStatus = 0;
+        if (function_exists('curl_init')) {
+            $ch = curl_init($endpoint);
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => $encodedFields,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CONNECTTIMEOUT => 8,
+                CURLOPT_TIMEOUT => 20,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
+                CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+            ]);
+            $raw = curl_exec($ch);
+            $httpStatus = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $transportError = curl_error($ch);
+            curl_close($ch);
+            if ($raw === false) {
+                error_log('[3Food POS] SMS cURL transport failed: ' . $transportError);
+                throw new RuntimeException('sms_transport_failed');
+            }
+        } else {
+            if (!filter_var((string)ini_get('allow_url_fopen'), FILTER_VALIDATE_BOOLEAN)) {
+                throw new RuntimeException('sms_transport_unavailable');
+            }
+            $context = stream_context_create(['http' => [
+                'method' => 'POST',
+                'header' => "Content-Type: application/x-www-form-urlencoded\\r\\n",
+                'content' => $encodedFields,
+                'timeout' => 20,
+                'ignore_errors' => true,
+            ]]);
+            $raw = file_get_contents($endpoint, false, $context);
+            if ($raw === false) throw new RuntimeException('sms_transport_failed');
+            $statusLine = $http_response_header[0] ?? '';
+            preg_match('/\\s([0-9]{3})\\s/', $statusLine, $statusMatch);
+            $httpStatus = (int)($statusMatch[1] ?? 0);
+        }
+        $httpOk = $httpStatus >= 200 && $httpStatus < 300;
         $numeric = (int)preg_replace('/[^0-9-]/', '', $raw);
         $ok = $httpOk && $numeric > 0;
         audit($pdo, (int)$actor['id'], 'sms_sent', 'sms', null, ['to' => $to, 'ok' => $ok]);
         json_response(['ok' => true, 'sent' => $ok, 'detail' => substr(trim($raw), 0, 300)]);
     } catch (Throwable $e) {
         error_log('[3Food POS] SMS provider request failed: ' . $e->getMessage());
-        json_response(['ok' => false, 'error' => 'sms_provider_unavailable', 'message' => 'ارتباط با سرویس پیامک برقرار نشد'], 502);
+        $transportUnavailable = in_array($e->getMessage(), ['sms_transport_unavailable', 'sms_transport_failed'], true);
+        json_response([
+            'ok' => false,
+            'error' => $transportUnavailable ? 'sms_server_transport_unavailable' : 'sms_provider_unavailable',
+            'message' => $e->getMessage() === 'sms_transport_unavailable'
+                ? 'روی هاست افزونه PHP cURL فعال نیست و allow_url_fopen نیز غیرفعال است؛ از پشتیبانی هاست بخواهید cURL را فعال کند'
+                : 'ارتباط با سرویس پیامک برقرار نشد؛ تنظیمات خروجی HTTPS و افزونه cURL هاست را بررسی کنید',
+        ], 502);
     }
 }
 
