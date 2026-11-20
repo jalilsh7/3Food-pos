@@ -15,6 +15,7 @@ $repository = $read('v3/backend/src/Infrastructure/Database/InventoryDocumentRep
 $service = $read('v3/backend/src/Inventory/InventoryDocumentService.php');
 $controller = $read('v3/backend/src/Inventory/InventoryController.php');
 $frontController = $read('v3/backend/public/index.php');
+$lineMigration = $read('database/v3/migrations/012_stock-document-line-public-ids.sql');
 
 $assert(str_contains($repository, 'WHERE business_id = :business_id AND branch_id = :branch_id'), 'Document lookup must enforce business and branch scope.');
 $assert(str_contains($repository, 'WHERE d.business_id = :business_id AND d.branch_id = :branch_id'), 'Document list/detail must enforce business and branch scope.');
@@ -24,6 +25,9 @@ $assert(str_contains($repository, 'conversion_factor_snapshot'), 'Document lines
 $assert(str_contains($repository, 'base_quantity'), 'Document lines must persist converted base quantity.');
 $assert(str_contains($repository, 'findLineForUpdate'), 'Draft line edits must lock a scoped line row.');
 $assert(str_contains($repository, 'l.public_id AS line_id'), 'Line responses must expose a stable public identifier.');
+$assert(str_contains($lineMigration, 'ADD COLUMN public_id'), 'Migration 012 must add stable public line identifiers.');
+$assert(str_contains($lineMigration, 'SET public_id = UUID()'), 'Migration 012 must backfill existing document lines.');
+$assert(str_contains($lineMigration, 'uq_stock_document_lines_public_scope'), 'Migration 012 must enforce scoped line identifier uniqueness.');
 $assert(str_contains($repository, "INSERT INTO pos_stock_documents"), 'Draft creation must persist a stock document header.');
 $assert(str_contains($repository, "'draft'"), 'New stock documents must be created as drafts.');
 $assert(str_contains($service, "inventory.stock-document.create"), 'Draft creation must use a dedicated idempotency scope.');
