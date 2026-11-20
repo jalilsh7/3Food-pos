@@ -1786,8 +1786,9 @@ function SmsScreen() {
         const testServiceTemplate = async () => {
           const phone = normalizeIranPhone(serviceTestPhone);
           if (!/^09[0-9]{9}$/.test(phone)) { window.alert("ابتدا شماره موبایل آزمایشی معتبر را وارد کنید."); return; }
-          if (!t.body.trim() || !/^\d+$/.test(t.bodyId)) { window.alert("برای تست مسیر خدماتی، متن الگو و bodyId عددی الزامی است."); return; }
+          if (!t.body.trim() || !/^\d+$/.test(t.bodyId) || Number(t.bodyId) < 1) { window.alert("برای تست مسیر خدماتی، متن الگو و bodyId مثبت و عددی الزامی است."); return; }
           const keys = [...new Set([...t.body.matchAll(/\{([0-9]+|[a-zA-Z_][a-zA-Z0-9_]*)\}/g)].map(match => match[1]))];
+          if (keys.length > 10) { window.alert("الگوی خدماتی حداکثر می‌تواند ۱۰ متغیر داشته باشد."); return; }
           if (!keys.length) { window.alert("الگوی خدماتی باید حداقل یک متغیر داشته باشد تا مقادیر آن ارسال شود."); return; }
           const sample: Record<string,string> = { order:"1258", name:"مشتری آزمایشی", total:"250000", points:"25", code:"TEST", balance:"500", shop:settings.shopName || "فروشگاه" };
           const indexed = [sample.order,sample.name,sample.total,sample.points,sample.code,sample.balance,sample.shop];
@@ -1813,7 +1814,7 @@ function SmsScreen() {
             <textarea className={inputCls} rows={2} value={t.body} onChange={(e) => saveTemplate({ ...t, body: e.target.value })} onBlur={persist} />
           </Field>
           <Field label="شناسه الگوی خدماتی (bodyId)">
-            <input className={inputCls} inputMode="numeric" dir="ltr" placeholder="مثلاً 344438" value={t.bodyId} onChange={(e) => saveTemplate({ ...t, bodyId: e.target.value.replace(/[^0-9]/g, "") })} onBlur={persist} />
+            <input className={inputCls} inputMode="numeric" dir="ltr" placeholder="مثلاً 344438" value={t.bodyId} onChange={(e) => saveTemplate({ ...t, bodyId: e.target.value.replace(/[^0-9]/g, "").slice(0,12) })} onBlur={persist} />
           </Field>
           {placeholders.length ? <div className="rounded-xl bg-soft p-3 text-xs">
             <b>متغیرهای شناسایی‌شده</b>
