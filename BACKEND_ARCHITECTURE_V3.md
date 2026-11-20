@@ -409,3 +409,11 @@ v3/backend/
 - Posting locks: draft document and its lines with `FOR UPDATE`; item and location active rows with `LOCK IN SHARE MODE`; stock balance rows with `FOR UPDATE`. Balance initialization uses `INSERT ... ON DUPLICATE KEY UPDATE` before the locking read to avoid shared-to-exclusive lock-upgrade deadlocks.
 - Integration tests fork two independent PDO workers to post competing outflow documents against the same balance; exactly one commits, the other receives insufficient available stock. Do not fork while a PDO connection is live in the parent test process.
 - Supported movements and cost policy are recorded in the preceding INV-02B1 section. Return remains non-postable until source-linked historical cost is modeled.
+
+
+## Frontend authentication boundary — FE-01A (2026-11-20)
+- React shell now gates workspace rendering on `GET /api/v1/auth/me`; unauthenticated users see the login screen.
+- Login, logout, CSRF and forced password change use the existing Auth API. CSRF is memory-only in the frontend; session credential remains HttpOnly cookie.
+- `VITE_API_BASE_URL` can override the default `/api/v1`; use same-origin deployment by default so HttpOnly cookies and CSRF cookie are sent automatically.
+- Auth integration test on disposable MySQL 8.4 and MariaDB 10.6 covers login, token hashing, me, CSRF rotation, password-change session invalidation and logout.
+- UI modules other than auth remain prototypes. Do not treat local state as real business data.
