@@ -442,6 +442,8 @@ try {
 
     $manualWithBodyId = api('POST', '/api/v1/sms/send', ['to' => '09120000000', 'text' => '1258', 'event' => 'manual', 'bodyId' => '344438'], csrf_headers());
     check($manualWithBodyId['status'] === 422 && ($manualWithBodyId['json']['error'] ?? '') === 'sms_personal_route_required', 'manual SMS rejects service template routing');
+    $smsSettings = api('GET', '/api/v1/sms/settings');
+    check($smsSettings['status'] === 200 && array_key_exists('inbox_enabled', $smsSettings['json']['settings'] ?? []), 'SMS settings expose explicit birthday inbox enable state');
 
     check($smsLogWrite['status'] === 201, 'manager can persist SMS delivery log');
     $smsSnapshot = api('GET', '/api/v1/bootstrap');
