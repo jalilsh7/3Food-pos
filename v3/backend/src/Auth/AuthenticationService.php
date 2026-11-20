@@ -146,7 +146,7 @@ final readonly class AuthenticationService
                 'user',
                 (string) $userId,
                 null,
-                ['must_change_password' => false, 'sessions_revoked' => true],
+                ['forced_change_required' => false, 'all_sessions_invalidated' => true],
                 null,
                 $requestId,
                 $ipAddress,
