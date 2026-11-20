@@ -508,6 +508,7 @@ async function postSms(phone: string, text: string, event: string, bodyId: strin
     at: new Date().toISOString(),
     to: phone,
     event,
+    route: bodyId ? "service" : "personal",
     text,
     ok: false,
     detail: validationError || "ارسال انجام نشد",
@@ -1714,6 +1715,8 @@ function SmsScreen() {
   const settings = usePos((s) => s.settings);
   const patchSettings = usePos((s) => s.patchSettings);
   const [manual, setManual] = useState({ to: "", text: "" });
+  const [serviceTestPhone, setServiceTestPhone] = useState("");
+  const [serviceTestBusy, setServiceTestBusy] = useState<string | null>(null);
   const [birthdayPromptBusy, setBirthdayPromptBusy] = useState(false);
   const [birthdayPromptProgress, setBirthdayPromptProgress] = useState("");
   const products = usePos((s) => s.products);
@@ -1758,6 +1761,22 @@ function SmsScreen() {
       {templates.map((t) => {
         const placeholders = [...new Set([...t.body.matchAll(/\\{(\\d+)\\}/g)].map((match) => match[1]))];
         const preview = t.body.replace(/\\{(\\d+)\\}/g, (_, index: string) => index === "0" ? "۱۲۵۸" : `مقدار ${Number(index) + 1}`);
+        const testServiceTemplate = async () => {
+          const phone = normalizeIranPhone(serviceTestPhone);
+          if (!/^09[0-9]{9}$/.test(phone)) { window.alert("ابتدا شماره موبایل آزمایشی معتبر را وارد کنید."); return; }
+          if (!t.body.trim() || !/^\\d+$/.test(t.bodyId)) { window.alert("برای تست مسیر خدماتی، متن الگو و bodyId عددی الزامی است."); return; }
+          const keys = [...new Set([...t.body.matchAll(/\\{([0-9]+|[a-zA-Z_][a-zA-Z0-9_]*)\\}/g)].map(match => match[1]))];
+          if (!keys.length) { window.alert("الگوی خدماتی باید حداقل یک متغیر داشته باشد تا مقادیر آن ارسال شود."); return; }
+          const sample: Record<string,string> = { order:"1258", name:"مشتری آزمایشی", total:"250000", points:"25", code:"TEST", balance:"500", shop:settings.shopName || "فروشگاه" };
+          const indexed = [sample.order,sample.name,sample.total,sample.points,sample.code,sample.balance,sample.shop];
+          const values = keys.map(key => /^\\d+$/.test(key) ? indexed[Number(key)] : sample[key] ?? "");
+          if (values.some(value => !value)) { window.alert("متغیر ناشناخته یا خارج از نگاشت نمونه وجود دارد؛ نام متغیرها را بررسی کنید."); return; }
+          const rendered = fillTemplate(t.body, sample);
+          if (!window.confirm("یک پیامک آزمایشی واقعی از مسیر خدماتی به شماره " + phone + " ارسال شود؟")) return;
+          setServiceTestBusy(t.event);
+          try { await postSms(phone, rendered, t.event + "_test", t.bodyId, values.join(";")); }
+          finally { setServiceTestBusy(null); }
+        };
         const persist = () => {
           const item = usePos.getState().templates.find((x) => x.event === t.event);
           if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item));
@@ -1778,6 +1797,10 @@ function SmsScreen() {
             <b>متغیرهای شناسایی‌شده</b>
             <div className="mt-1 flex flex-wrap gap-2">{placeholders.map((index) => <span key={index} className="rounded-lg border border-line px-2 py-1">{`{${index}}`} ← {index === "0" ? "شماره سفارش" : `متغیر ${Number(index) + 1}`}</span>)}</div>
           </div> : null}
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-0 flex-1"><Field label="شماره موبایل برای تست این الگو"><input className={inputCls} dir="ltr" inputMode="tel" placeholder="09123456789" value={serviceTestPhone} onChange={e=>setServiceTestPhone(e.target.value)}/></Field></div>
+            <Btn tone="ghost" disabled={serviceTestBusy!==null || !t.bodyId} onClick={()=>void testServiceTemplate()}>{serviceTestBusy===t.event?"در حال ارسال تست...":"تست ارسال خدماتی"}</Btn>
+          </div>
           <div className="rounded-xl border border-line p-3">
             <p className="text-xs text-muted">پیش‌نمایش نمونه</p>
             <p className="mt-1 text-sm">{preview || "متن الگو هنوز وارد نشده است."}</p>
@@ -1855,7 +1878,7 @@ function SmsScreen() {
       <Card>
         <h3 className="mb-2 font-semibold">سوابق ارسال پیامک</h3>
         {logs.length === 0 ? <Empty text="ارسالی ثبت نشده" /> : logs.slice(0, 20).map((l) => (
-          <p key={l.id} className="border-b border-line py-2 text-sm"><span className={l.ok ? "text-leaf" : "text-warn"}>{l.ok ? "موفق" : "ناموفق"}</span> — {l.to} — {l.detail}</p>
+          <p key={l.id} className="border-b border-line py-2 text-sm"><span className={l.ok ? "text-leaf" : "text-warn"}>{l.ok ? "موفق" : "ناموفق"}</span> — <span className="text-xs text-muted">{l.route === "service" ? "خط خدماتی" : "خط شخصی"} · {l.event}</span> — {l.to} — {l.detail}</p>
         ))}
       </Card>
     </div>
