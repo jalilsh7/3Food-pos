@@ -117,7 +117,8 @@ $passwordChanged = $controller->changePassword($mutation->withAttribute('princip
 $assert($passwordChanged->status === 200, 'Password change did not succeed.');
 $assert(str_contains(implode(';', $passwordChanged->headers['Set-Cookie']), 'Max-Age=0'), 'Password change did not clear authentication cookies.');
 
-$activeSessions = $pdo->prepare('SELECT COUNT(*) FROM app_user_sessions WHERE user_id = :user_id AND revoked_at IS NULL');
+$activeSessions = $pdo->prepare('SELECT COUNT(*) FROM app_user_sessions s INNER JOIN app_users u ON u.id = s.user_id
+     WHERE s.user_id = :user_id AND s.revoked_at IS NULL AND s.session_version = u.session_version');
 $activeSessions->execute(['user_id' => $userId]);
 $assert((int) $activeSessions->fetchColumn() === 0, 'Password change did not revoke every active session.');
 try {
