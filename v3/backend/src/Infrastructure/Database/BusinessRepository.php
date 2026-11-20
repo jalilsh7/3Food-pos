@@ -16,6 +16,10 @@ final readonly class BusinessRepository
              FROM app_user_roles ur
              INNER JOIN app_roles r ON r.id = ur.role_id
              WHERE ur.user_id = :user_id AND r.code = 'owner' AND r.is_active = 1
+               AND EXISTS (
+                   SELECT 1 FROM app_business_setup_state state
+                   WHERE state.id = 1 AND state.initial_business_id IS NULL
+               )
              LIMIT 1"
         );
         $statement->execute(['user_id' => $userId]);
@@ -40,19 +44,12 @@ final readonly class BusinessRepository
                        INNER JOIN pos_branches branch ON branch.id = ubr.branch_id
                        WHERE ubr.user_id = :branch_user_id AND branch.business_id = b.id
                    )
-                   OR EXISTS (
-                       SELECT 1
-                       FROM app_user_roles ur
-                       INNER JOIN app_roles r ON r.id = ur.role_id AND r.is_active = 1
-                       WHERE ur.user_id = :owner_user_id AND r.code = \'owner\'
-                   )
                )
              ORDER BY b.name ASC, b.code ASC'
         );
         $statement->execute([
             'business_user_id' => $userId,
             'branch_user_id' => $userId,
-            'owner_user_id' => $userId,
         ]);
         return array_map(
             static fn (array $row): array => [
@@ -64,6 +61,37 @@ final readonly class BusinessRepository
             ],
             $statement->fetchAll(PDO::FETCH_ASSOC),
         );
+    }
+
+    public function assignBusinessOwner(int $userId, int $businessId): void
+    {
+        $roleId = $this->connection->query(
+            "SELECT id FROM app_roles WHERE code = 'owner' AND is_active = 1 LIMIT 1"
+        )->fetchColumn();
+        if ($roleId === false) {
+            throw new \\RuntimeException('The business owner role is missing.');
+        }
+
+        $statement = $this->connection->prepare(
+            'INSERT INTO app_user_business_roles (user_id, business_id, role_id, assigned_by)
+             VALUES (:user_id, :business_id, :role_id, :assigned_by)'
+        );
+        $statement->execute([
+            'user_id' => $userId,
+            'business_id' => $businessId,
+            'role_id' => (int) $roleId,
+            'assigned_by' => $userId,
+        ]);
+    }
+
+    public function removeInstallationOwnerRole(int $userId): void
+    {
+        $statement = $this->connection->prepare(
+            "DELETE ur FROM app_user_roles ur
+             INNER JOIN app_roles r ON r.id = ur.role_id
+             WHERE ur.user_id = :user_id AND r.code = 'owner'"
+        );
+        $statement->execute(['user_id' => $userId]);
     }
 
     public function lockInitialBusinessId(): ?int
