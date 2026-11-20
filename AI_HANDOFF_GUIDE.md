@@ -392,3 +392,7 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 - Source-level order contract checks were extended and the Backend Validation workflow step was renamed to cover date filters.
 - CI for the commits in this package has not yet been verified. Do not mark ORD-01D accepted until Backend Validation, Frontend build and the MySQL/MariaDB database workflow all pass on a current commit.
 - Next: once CI is green, proceed to POS order creation API wiring and order/kitchen transition controls with explicit RBAC, state-machine and idempotency coverage. Preserve the final P2 test backlog.
+
+
+### Inventory retry-key context boundary follow-up
+- Pending inventory idempotency keys are also cleared when the active business/branch context changes or is cleared, not only on logout. The cache remains memory-only; reload recovery must reconcile server-side document state.
