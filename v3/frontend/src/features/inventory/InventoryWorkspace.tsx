@@ -114,10 +114,7 @@ export function InventoryWorkspace() {
   const [managementBusy, setManagementBusy] = useState(false);
   const [managementMessage, setManagementMessage] = useState<string | null>(null);
 
-  async function loadData(isRefresh = false) {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
+  async function loadData() {
     try {
       const [stockItems, stockLocations, stockBalances, entries, stockUnits, stockDocuments, stockSuppliers] = await Promise.all([
         getInventoryStockItems("", true),
@@ -149,6 +146,12 @@ export function InventoryWorkspace() {
       setLoading(false);
       setRefreshing(false);
     }
+  }
+
+  async function refreshData() {
+    setRefreshing(true);
+    setError(null);
+    await loadData();
   }
 
   useEffect(() => { void loadData(); }, []);
@@ -190,7 +193,7 @@ export function InventoryWorkspace() {
       });
       setActiveDocument(await getInventoryDocument(activeDocument.id));
       setEditingLineId(null);
-      await loadData(true);
+      await refreshData();
     } catch (cause) {
       setDocumentMessage(cause instanceof ApiError ? cause.message : "ویرایش ردیف سند انجام نشد.");
     } finally {
@@ -205,7 +208,7 @@ export function InventoryWorkspace() {
     try {
       await deleteInventoryDocumentLine(activeDocument.id, lineId);
       setActiveDocument(await getInventoryDocument(activeDocument.id));
-      await loadData(true);
+      await refreshData();
     } catch (cause) {
       setDocumentMessage(cause instanceof ApiError ? cause.message : "حذف ردیف سند انجام نشد.");
     } finally {
@@ -252,7 +255,7 @@ export function InventoryWorkspace() {
         setManagementMessage("قلم جدید به فهرست انبار اضافه شد.");
       }
       setItemEditorId(null); setItemCode(""); setItemName(""); setItemUnit(""); setItemActive(true);
-      await loadData(true);
+      await refreshData();
     } catch (cause) {
       setManagementMessage(cause instanceof ApiError ? cause.message : "ذخیره قلم انبار انجام نشد.");
     } finally { setManagementBusy(false); }
@@ -286,7 +289,7 @@ export function InventoryWorkspace() {
         setManagementMessage("انبارک جدید ایجاد شد.");
       }
       setLocationEditorId(null); setLocationCode(""); setLocationName(""); setLocationType("storage"); setLocationActive(true);
-      await loadData(true);
+      await refreshData();
     } catch (cause) {
       setManagementMessage(cause instanceof ApiError ? cause.message : "ذخیره انبارک انجام نشد.");
     } finally { setManagementBusy(false); }
@@ -313,7 +316,7 @@ export function InventoryWorkspace() {
         setManagementMessage("تأمین‌کننده جدید ثبت شد.");
       }
       setSupplierEditorId(null); setSupplierName(""); setSupplierPhone(""); setSupplierNotes(""); setSupplierActive(true);
-      await loadData(true);
+      await refreshData();
     } catch (cause) {
       setManagementMessage(cause instanceof ApiError ? cause.message : "ذخیره تأمین‌کننده انجام نشد.");
     } finally { setManagementBusy(false); }
@@ -343,7 +346,7 @@ export function InventoryWorkspace() {
         ...(documentReason.trim() ? { reason: documentReason.trim() } : {}),
       });
       setDocumentMessage(`پیش‌نویس سند ${draft.document_no} ایجاد شد. اکنون می‌توانید چند ردیف به آن اضافه کنید.`);
-      await loadData(true);
+      await refreshData();
       await openDocument(draft.id);
     } catch (cause) {
       setDocumentMessage(cause instanceof ApiError ? cause.message : "ایجاد پیش‌نویس انجام نشد.");
@@ -370,7 +373,7 @@ export function InventoryWorkspace() {
       setActiveDocument(await getInventoryDocument(activeDocument.id));
       setDocumentQuantity("1");
       setDocumentCost("");
-      await loadData(true);
+      await refreshData();
     } catch (cause) {
       setDocumentMessage(cause instanceof ApiError ? cause.message : "افزودن ردیف به پیش‌نویس انجام نشد.");
     } finally {
@@ -386,7 +389,7 @@ export function InventoryWorkspace() {
       await postInventoryDocument(activeDocument.id);
       setActiveDocument(await getInventoryDocument(activeDocument.id));
       setDocumentMessage(`سند ${activeDocument.document_no} با موفقیت ثبت نهایی شد.`);
-      await loadData(true);
+      await refreshData();
     } catch (cause) {
       setDocumentMessage(cause instanceof ApiError ? cause.message : "ثبت نهایی سند انجام نشد.");
     } finally {
@@ -432,13 +435,13 @@ export function InventoryWorkspace() {
       setDocumentQuantity("1");
       setDocumentCost("");
       setDocumentReason("");
-      await loadData(true);
+      await refreshData();
     } catch (cause) {
       const detail = cause instanceof ApiError ? cause.message : "ثبت سند انجام نشد.";
       setDocumentMessage(createdDocument
         ? `سند پیش‌نویس ${createdDocument.document_no} ایجاد شد، اما تکمیل/ثبت نهایی آن ناموفق بود: ${detail} برای جلوگیری از ثبت تکراری، پیش‌نویس را از فهرست اسناد بررسی کنید.`
         : detail);
-      if (createdDocument) await loadData(true);
+      if (createdDocument) await refreshData();
     } finally {
       setDocumentBusy(false);
     }
@@ -458,7 +461,7 @@ export function InventoryWorkspace() {
           <h1>مواد اولیه و انبار</h1>
           <p>مانده موجودی و گردش ثبت‌شده در کسب‌وکار و شعبه فعال</p>
         </div>
-        <Button variant="secondary" onClick={() => void loadData(true)} disabled={loading || refreshing}>
+        <Button variant="secondary" onClick={() => void refreshData()} disabled={loading || refreshing}>
           <RefreshCw size={15} /> {refreshing ? "در حال به‌روزرسانی..." : "به‌روزرسانی"}
         </Button>
       </div>
