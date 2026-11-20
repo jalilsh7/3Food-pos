@@ -436,3 +436,10 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 - Expected server calculation: base 10,000 + variant delta 2,000 + option delta 500, quantity 2 => subtotal 25,000; tax rate 10% => tax 2,500; total 27,500.
 - Assertions cover initial draft/unpaid status, idempotent replay returning the same order ID, rejection of the same key with a changed payload (409), rejection of a missing required option (422), and no duplicate order row.
 - The V3 database engine workflow executes this integration on MySQL 8.4 and MariaDB 10.6. Runs for HEAD 97c5fda5642d51fe1e6983a544a7568a83e75d4c were in progress at the time of this note. Do not mark the DB integration accepted until both engines pass.
+
+### POS-01A CI fixture follow-up — 2026-11-20
+
+- The first DB integration run (44723120663, commit 97c5fda) reached the idempotency replay assertion after creating the order and validating server totals; it failed because the replayed encrypted response body is decoded as nested stdClass objects. The test now normalizes the replay body to an associative array.
+- The next run (44723342031, commit 3561049d) reached the existing Tehran date-range fixture and failed because the new POS order fixture had been moved to exactly 2026-11-19 20:30 UTC, which is the inclusive start of the 2026-11-20 Tehran local day. The fixture timestamp was moved to 19:30 UTC, safely before that boundary, in commit 5cdb3c17.
+- These were integration-test fixture/assertion defects; they do not indicate a price/tax/order-creation failure. However, do not mark the package accepted until the current MySQL and MariaDB run completes successfully.
+- Current HEAD: 5cdb3c17b1dd9c067238c9957aa13567ee7a1b8c. Backend Validation run 44723627723 and V3 database engine validation run 44723630607 were running at handoff; refresh them before continuing.
