@@ -810,3 +810,8 @@
 - پیاده‌سازی Backend و UI انجام شد: فیلتر تاریخ شروع/پایان، timezone شعبه با fallback به کسب‌وکار، تبدیل مرزهای روز محلی به UTC و حفظ cursor در تمام صفحات.
 - تست integration مرزهای زمانی و isolation به suite دیتابیس اضافه شد؛ CI جدید روی commit این بسته هنوز در انتظار است.
 - مرحله بعد پس از پذیرش CI: اتصال ایجاد سفارش POS و transitionهای سفارش/آشپزخانه به API واقعی با RBAC و idempotency.
+
+
+### CI follow-up — 2026-11-20
+- V3 database workflow run `44710884253` passed on MySQL 8.4 and MariaDB 10.6, including guarded installation, checksum migration runner and real inventory/auth/order integration suites. This closes the earlier smoke-sequence failure for that ORD-01C baseline.
+- ORD-01D and inventory retry-key changes were committed afterward; their Backend, Frontend and database CI results remain pending.
