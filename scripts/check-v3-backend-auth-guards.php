@@ -32,9 +32,9 @@ try {
     $assert($exception->status === 403 && $exception->errorCode === 'csrf_token_missing', 'Missing CSRF token was not rejected.');
 }
 
-$guard->assertValid(new Request('POST', '/api/v1/orders', ['x-csrf-token' => $token], '', 'test-request-0012'), $principal);
+$guard->assertValid(new Request('POST', '/api/v1/orders', ['x-csrf-token' => $token, 'cookie' => 'pos_v3_csrf=' . $token], '', 'test-request-0012'), $principal);
 try {
-    $guard->assertValid(new Request('DELETE', '/api/v1/orders/1', ['x-csrf-token' => str_repeat('a', 43)], '', 'test-request-0013'), $principal);
+    $guard->assertValid(new Request('DELETE', '/api/v1/orders/1', ['x-csrf-token' => str_repeat('a', 43), 'cookie' => 'pos_v3_csrf=' . str_repeat('a', 43)], '', 'test-request-0013'), $principal);
     throw new RuntimeException('Invalid CSRF token must be rejected.');
 } catch (HttpException $exception) {
     $assert($exception->errorCode === 'csrf_token_invalid', 'Invalid CSRF token error mismatch.');
