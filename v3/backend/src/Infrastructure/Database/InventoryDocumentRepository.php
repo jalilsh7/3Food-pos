@@ -198,11 +198,9 @@ final readonly class InventoryDocumentRepository
     public function listLinesForPostingForUpdate(int $businessId, int $branchId, int $documentId): array
     {
         $s = $this->connection->prepare(
-            'SELECT l.id, l.public_id, l.stock_item_id, si.base_unit_id,
-                    l.base_quantity, l.unit_cost_snapshot, l.total_cost_amount, si.is_active
+            'SELECT l.id, l.public_id, l.stock_item_id,
+                    l.base_quantity, l.unit_cost_snapshot, l.total_cost_amount
              FROM pos_stock_document_lines l
-             INNER JOIN pos_stock_items si
-               ON si.id = l.stock_item_id AND si.business_id = l.business_id
              WHERE l.business_id = :business_id AND l.branch_id = :branch_id
                AND l.document_id = :document_id
              ORDER BY l.stock_item_id ASC, l.id ASC
