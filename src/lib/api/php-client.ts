@@ -240,9 +240,9 @@ export const phpApi = {
       body: input,
     }),
 
-  getSmsSettings: () => request<ApiEnvelope<{settings:{enabled:boolean;username:string;sender:string;inbox_location:string;inbox_from:string;inbox_index:string;inbox_count:number;credential_mode:'password'|'apikey';has_password:boolean}}>>("/sms/settings"),
-  saveSmsSettings: (settings:{enabled:boolean;username:string;password:string;sender:string;inbox_location:string;inbox_from:string;inbox_index:string;inbox_count:number;credential_mode:'password'|'apikey'}) =>
-    request<ApiEnvelope<{settings:{enabled:boolean;username:string;sender:string;inbox_location:string;inbox_from:string;inbox_index:string;inbox_count:number;has_password:boolean}}>>("/sms/settings",{method:"POST",csrf:true,body:settings}),
+  getSmsSettings: () => request<ApiEnvelope<{settings:{enabled:boolean;username:string;sender:string;sender_support_one:string;sender_support_two:string;inbox_location:string;inbox_from:string;inbox_index:string;inbox_count:number;credential_mode:'password'|'apikey';has_password:boolean}}>>("/sms/settings"),
+  saveSmsSettings: (settings:{enabled:boolean;username:string;password:string;sender:string;sender_support_one:string;sender_support_two:string;inbox_location:string;inbox_from:string;inbox_index:string;inbox_count:number;credential_mode:'password'|'apikey'}) =>
+    request<ApiEnvelope<{settings:{enabled:boolean;username:string;sender:string;sender_support_one:string;sender_support_two:string;inbox_location:string;inbox_from:string;inbox_index:string;inbox_count:number;has_password:boolean}}>>("/sms/settings",{method:"POST",csrf:true,body:settings}),
 
   sendSms: (input: { to: string; text: string; bodyId?: string; event?: string; customerId?: string }) =>
     request<ApiEnvelope<{ sent: boolean; detail: string }>>("/sms/send", {
