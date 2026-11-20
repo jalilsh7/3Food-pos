@@ -2561,6 +2561,7 @@ if ($method === 'POST' && $path === '/sms/send') {
             'to' => $to,
             'ok' => $ok,
             'route' => $route,
+            'event' => $event,
             'body_id' => $isServiceRoute ? $bodyId : null,
             'provider_code' => $providerCode,
         ]);
