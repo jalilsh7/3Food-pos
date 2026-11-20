@@ -160,16 +160,18 @@ final readonly class InventoryDocumentService
             throw new HttpException(422, 'stock_document_line_note_invalid', 'The line note must not exceed 500 characters.');
         }
         $note = $note === '' ? null : $note;
+        $hasCostAmount = array_key_exists('total_cost_amount', $payload);
+        $totalCostAmount = self::normalizeTotalCost($payload['total_cost_amount'] ?? '0');
         $linePublicId = self::uuidV4();
         $fingerprint = hash('sha256', json_encode(
-            [$documentPublicId, $stockItemPublicId, $quantity, $unitCode, $note],
+            [$documentPublicId, $stockItemPublicId, $quantity, $unitCode, $totalCostAmount, $note],
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE,
         ));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'inventory.stock-document.line.create', $key, $fingerprint,
             function (PDO $db) use (
                 $actor, $scope, $branchId, $documentPublicId, $stockItemPublicId,
-                $unitCode, $quantity, $note, $linePublicId, $requestId, $ip,
+                $unitCode, $quantity, $note, $linePublicId, $hasCostAmount, $totalCostAmount, $requestId, $ip,
             ): array {
                 $document = $this->documents->findDraftForUpdate($scope->businessId, $branchId, $documentPublicId);
                 if ($document === null) {
@@ -177,6 +179,13 @@ final readonly class InventoryDocumentService
                 }
                 if ((string) $document['status'] !== 'draft') {
                     throw new HttpException(409, 'stock_document_not_draft', 'Lines can only be added to a draft stock document.');
+                }
+                $costRequired = in_array((string) $document['document_type'], ['purchase_receipt', 'adjustment_in'], true);
+                if ($costRequired && !$hasCostAmount) {
+                    throw new HttpException(422, 'stock_document_line_cost_required', 'This document type requires a total_cost_amount in TOMAN.');
+                }
+                if (!$costRequired && $totalCostAmount !== '0') {
+                    throw new HttpException(422, 'stock_document_line_cost_not_allowed', 'Cost input is only accepted for purchase receipts and inbound adjustments.');
                 }
                 $item = $this->documents->findStockItemForLine($scope->businessId, $stockItemPublicId);
                 if ($item === null) throw new HttpException(404, 'stock_item_not_found', 'The active stock item was not found in this business.');
@@ -191,13 +200,14 @@ final readonly class InventoryDocumentService
                 }
                 $this->documents->addLine(
                     $scope->businessId, $branchId, (int) $document['id'], $linePublicId, (int) $item['id'],
-                    $quantity, (int) $unit['id'], $factor, $note,
+                    $quantity, (int) $unit['id'], $factor, $totalCostAmount, $note,
                 );
                 $after = [
                     'id' => $linePublicId,
                     'document_no' => (string) $document['document_no'],
                     'stock_item_id' => $stockItemPublicId, 'quantity' => $quantity,
                     'unit_code' => $unitCode, 'conversion_factor_snapshot' => $factor,
+                    'total_cost_amount' => $totalCostAmount, 'currency' => 'TOMAN',
                     'note' => $note,
                 ];
                 $this->audit->record(
@@ -241,15 +251,17 @@ final readonly class InventoryDocumentService
             throw new HttpException(422, 'stock_document_line_note_invalid', 'The line note must not exceed 500 characters.');
         }
         $note = $note === '' ? null : $note;
+        $hasCostAmount = array_key_exists('total_cost_amount', $payload);
+        $requestedCostAmount = $hasCostAmount ? self::normalizeTotalCost($payload['total_cost_amount']) : null;
         $fingerprint = hash('sha256', json_encode(
-            [$documentPublicId, $linePublicId, $stockItemPublicId, $quantity, $unitCode, $note],
+            [$documentPublicId, $linePublicId, $stockItemPublicId, $quantity, $unitCode, $requestedCostAmount, $note],
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE,
         ));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'inventory.stock-document.line.update', $key, $fingerprint,
             function (PDO $db) use (
                 $actor, $scope, $branchId, $documentPublicId, $linePublicId,
-                $stockItemPublicId, $unitCode, $quantity, $note, $requestId, $ip,
+                $stockItemPublicId, $unitCode, $quantity, $note, $hasCostAmount, $requestedCostAmount, $requestId, $ip,
             ): array {
                 $document = $this->documents->findDraftForUpdate($scope->businessId, $branchId, $documentPublicId);
                 if ($document === null) throw new HttpException(404, 'stock_document_not_found', 'The stock document was not found.');
@@ -260,6 +272,14 @@ final readonly class InventoryDocumentService
                     $scope->businessId, $branchId, (int) $document['id'], $linePublicId,
                 );
                 if ($line === null) throw new HttpException(404, 'stock_document_line_not_found', 'The stock document line was not found.');
+                $costRequired = in_array((string) $document['document_type'], ['purchase_receipt', 'adjustment_in'], true);
+                $totalCostAmount = $hasCostAmount ? (string) $requestedCostAmount : (string) $line['total_cost_amount'];
+                if ($costRequired && !$hasCostAmount && $totalCostAmount === '0') {
+                    throw new HttpException(422, 'stock_document_line_cost_required', 'This document type requires a total_cost_amount in TOMAN.');
+                }
+                if (!$costRequired && $hasCostAmount && $totalCostAmount !== '0') {
+                    throw new HttpException(422, 'stock_document_line_cost_not_allowed', 'Cost input is only accepted for purchase receipts and inbound adjustments.');
+                }
                 $item = $this->documents->findStockItemForLine($scope->businessId, $stockItemPublicId);
                 if ($item === null) throw new HttpException(404, 'stock_item_not_found', 'The active stock item was not found in this business.');
                 $unit = $this->documents->findUnitForLine($unitCode);
@@ -279,12 +299,13 @@ final readonly class InventoryDocumentService
                 ];
                 $this->documents->updateLine(
                     $scope->businessId, $branchId, (int) $document['id'], (int) $line['id'],
-                    (int) $item['id'], $quantity, (int) $unit['id'], $factor, $note,
+                    (int) $item['id'], $quantity, (int) $unit['id'], $factor, $totalCostAmount, $note,
                 );
                 $after = [
                     'id' => $linePublicId, 'stock_item_id' => $stockItemPublicId,
                     'quantity' => $quantity, 'unit_code' => $unitCode,
-                    'conversion_factor_snapshot' => $factor, 'note' => $note,
+                    'conversion_factor_snapshot' => $factor, 'total_cost_amount' => $totalCostAmount,
+                    'currency' => 'TOMAN', 'note' => $note,
                 ];
                 $this->audit->record(
                     $actor->userId, 'inventory.stock_document.line.updated', 'stock_document',
@@ -343,6 +364,20 @@ final readonly class InventoryDocumentService
                 ]];
             },
         );
+    }
+
+    private static function normalizeTotalCost(mixed $value): string
+    {
+        if (is_int($value)) $value = (string) $value;
+        if (!is_string($value) || !preg_match('/^(?:0|[1-9][0-9]{0,19})$/', $value)) {
+            throw new HttpException(422, 'stock_document_line_cost_invalid', 'total_cost_amount must be a non-negative integer TOMAN amount.');
+        }
+        $maximum = '18446744073709551615';
+        if (strlen($value) > strlen($maximum)
+            || (strlen($value) === strlen($maximum) && strcmp($value, $maximum) > 0)) {
+            throw new HttpException(422, 'stock_document_line_cost_invalid', 'total_cost_amount exceeds the supported range.');
+        }
+        return $value;
     }
 
     private static function branch(BusinessScope $scope): int
