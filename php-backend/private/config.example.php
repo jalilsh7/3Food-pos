@@ -21,21 +21,6 @@ return [
     // After setup, remove this value from config.php.
     'setup_token' => 'REPLACE_WITH_A_RANDOM_64_CHARACTER_TOKEN',
 
-    // These are fallback defaults. Manage National Payamak credentials from the POS Settings page;
-    // the server stores them separately in private/sms-config.php. Never expose them to the browser.
-    'sms' => [
-        'provider' => 'none',
-        'username' => '',
-        'password' => '',
-        'sender' => '',
-        // Inbox settings for GetMessages. Set inbox_location to the value
-        // assigned by National Payamak for the receiving mailbox/line.
-        'inbox_location' => null,
-        'inbox_from' => '',
-        'inbox_index' => '1',
-        'inbox_count' => 50,
-    ],
-
     'session' => [
         'name' => '3FOODPOSSESSID',
         'same_site' => 'Strict',
