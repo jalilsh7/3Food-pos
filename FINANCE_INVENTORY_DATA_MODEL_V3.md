@@ -216,3 +216,10 @@
 - Costed document data is exposed only through the `inventory.manage` valuation endpoint; ordinary inventory document detail does not expose costs.
 - Return posting is intentionally disabled until a return document can reference the originating order/receipt line and restore its historical cost. A generic return must not be valued at the current average by guesswork.
 - Verified in disposable MySQL 8.4 and MariaDB 10.6 integration CI for receipt weighted average, consumption, transfer, idempotency replay and atomic rollback. This does not yet cover concurrent posting races, full reservation consumption, supplier/customer returns or frontend integration.
+
+
+## 11. Integration verification
+- Moving weighted average posting was exercised on disposable MySQL 8.4 and MariaDB 10.6 databases, including concurrent outflow contention, reserved quantity guard, adjustments, consumption, transfer value symmetry, idempotent replay and rollback.
+- A transfer produces paired `transfer_out`/`transfer_in` entries with net zero quantity and value across the two locations.
+- For competing outgoing posts against one balance, row locking allows one transaction to commit; the other is rejected after reading the committed available balance. No negative stock or partial ledger writes remain.
+- Return posting remains disabled until a source document line and historical unit-cost source are part of the return contract.
