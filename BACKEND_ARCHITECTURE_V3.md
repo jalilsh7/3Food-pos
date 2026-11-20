@@ -392,3 +392,13 @@ v3/backend/
 - Migration 012 adds public UUIDs to stock document lines; the database CI applied it on both engines. The temporary migration probe is sequence 013.
 - Backup restore foreign-key validation uses explicit aliases and associative fetch mode to normalize MySQL information_schema metadata casing.
 - Draft line CRUD passed the source-contract Backend check; no real inventory posting lifecycle or concurrency integration test has been completed yet.
+
+
+## INV-02B1 — Posting transaction and valuation
+- `InventoryPostingService` coordinates `InventoryDocumentRepository`, `InventoryPostingRepository`, `IdempotencyService` and `AuditLogService` on the same PDO connection.
+- Posting sequence: lock draft document; lock its lines; derive unique affected item/location pairs; lock balance rows in stable sorted order; process each line; append one or two immutable ledger events; update line cost snapshots; mark document posted; append audit record. The idempotency transaction commits all or rolls all back.
+- Cost method is moving weighted average per item/location. Incoming receipt/inbound adjustment uses integer TOMAN total line cost and base quantity. Outgoing issue cost is rounded to integer TOMAN from current average; transfer destination average is recomputed from source average and received quantity.
+- Outgoing movements enforce `quantity_on_hand - quantity_reserved >= requested_base_quantity`; balances cannot go negative. A zero on-hand balance resets average unit cost to zero.
+- Posting support: purchase receipt, transfer, inbound/outbound adjustment, consumption, waste. Return posting remains disabled until source-linked historical valuation is available.
+- Costed data is returned only by the `inventory.manage` valuation route; general document detail and inventory read routes omit it.
+- Integration coverage on disposable MySQL 8.4 and MariaDB 10.6 includes weighted-average receipt, consumption, transfer, replay and rollback. Additional concurrency/reservation/tenant integration tests remain.
