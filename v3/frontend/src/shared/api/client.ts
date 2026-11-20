@@ -404,3 +404,76 @@ export async function deleteInventoryDocumentLine(documentId: string, lineId: st
     { method: "DELETE", headers: idempotencyHeaders(), body: "{}" },
   );
 }
+
+
+export type OrderStatus =
+  | "draft" | "awaiting_payment" | "accepted" | "preparing"
+  | "ready" | "completed" | "cancelled" | "rejected";
+export type OrderPaymentStatus = "unpaid" | "partially_paid" | "paid" | "refunded" | string;
+export type OrderChannel = "pos" | "phone" | "manual" | "table" | "takeaway" | "storefront";
+export type OrderSummary = {
+  id: string;
+  order_number: number;
+  source_channel: OrderChannel;
+  order_status: OrderStatus;
+  payment_status: OrderPaymentStatus;
+  subtotal_amount: number;
+  tax_amount: number;
+  total_amount: number;
+  currency_code: string;
+  created_at: string;
+  fulfillment_method: "dine_in" | "takeaway" | "delivery" | null;
+  customer: { id: string; name: string } | null;
+};
+export type OrderDetail = {
+  order: OrderSummary & {
+    discount_amount: number;
+    delivery_fee_amount: number;
+    accepted_at: string | null;
+    table_session_id: string | null;
+    fulfillment: {
+      method: "dine_in" | "takeaway" | "delivery";
+      recipient_name: string | null;
+      recipient_phone: string | null;
+      address: Record<string, string | number> | null;
+      delivery_fee_amount: number;
+    } | null;
+  };
+  items: {
+    name: string;
+    variant_name: string | null;
+    sku: string | null;
+    quantity: string;
+    unit_price_amount: number;
+    discount_amount: number;
+    tax_rate_bps: number;
+    tax_amount: number;
+    line_total_amount: number;
+    options: { group_name: string; name: string; price_delta_amount: number; quantity: string }[];
+  }[];
+  status_history: {
+    from_status: string | null;
+    to_status: string;
+    reason_code: string | null;
+    reason_text: string | null;
+    source_channel: string;
+    created_at: string;
+    actor: { id: string; name: string | null } | null;
+  }[];
+};
+
+export async function getOrders(filters: {
+  status?: string;
+  channel?: string;
+  limit?: number;
+} = {}): Promise<OrderSummary[]> {
+  const query = new URLSearchParams({ limit: String(filters.limit ?? 100) });
+  if (filters.status) query.set("status", filters.status);
+  if (filters.channel) query.set("channel", filters.channel);
+  const data = await request<{ orders: OrderSummary[] }>(`/orders?${query.toString()}`);
+  return data.orders;
+}
+
+export async function getOrderDetails(orderId: string): Promise<OrderDetail> {
+  return request<OrderDetail>(`/orders/${encodeURIComponent(orderId)}`);
+}
