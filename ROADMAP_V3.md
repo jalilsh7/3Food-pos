@@ -826,3 +826,8 @@
 - Contract checks added; Frontend build passed on commit 0bcfda8c. Latest HEAD CI runs must be refreshed before acceptance.
 - Catalog management screen is still demo/local and must be connected to APIs before the whole catalog workflow can be accepted.
 - Next gates: disposable MySQL/MariaDB order-creation integration; current-HEAD CI acceptance; CatalogWorkspace API wiring; then order status and kitchen transitions.
+
+### POS-01A — database integration hardening
+- Added disposable PDO integration for actual catalog-backed order creation, variant and required-option validation, server price/tax calculation, idempotent replay, changed-payload conflict and duplicate prevention.
+- Expected calculation fixture: subtotal 25,000, tax 2,500, total 27,500 (currency amount units as used by the V3 schema).
+- Acceptance requires both MySQL 8.4 and MariaDB 10.6 jobs to pass on the current branch head.
