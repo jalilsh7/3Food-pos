@@ -1753,6 +1753,8 @@ function SmsScreen() {
       <Card>
         <p className="text-sm">تنظیمات اتصال ملی‌پیامک از بخش «تنظیمات فروشگاه» مدیریت می‌شود؛ این بخش برای قالب‌ها، کمپین‌ها و ارسال پیامک است.</p>
       </Card>
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-semibold">۱. پیامک‌های عملیاتی فروش</h3><p className="text-xs text-muted">ارسال از خط خدماتی ملی‌پیامک؛ هر رویداد فقط با الگوی تأییدشده و شناسه bodyId خودش ارسال می‌شود.</p></div><span className="rounded-full bg-soft px-3 py-1 text-xs">مسیر خدماتی</span></div>
       {templates.map((t) => {
         const placeholders = [...new Set([...t.body.matchAll(/\\{(\\d+)\\}/g)].map((match) => match[1]))];
         const preview = t.body.replace(/\\{(\\d+)\\}/g, (_, index: string) => index === "0" ? "۱۲۵۸" : `مقدار ${Number(index) + 1}`);
@@ -1783,6 +1785,9 @@ function SmsScreen() {
           {t.bodyId && !/^\\d+$/.test(t.bodyId) ? <p className="text-xs text-danger">شناسه الگو باید فقط شامل رقم باشد.</p> : null}
         </Card>;
       })}
+      </section>
+      <section className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2"><div><h3 className="font-semibold">۲. کمپین و پیامک‌های مشتریان</h3><p className="text-xs text-muted">ارسال از شماره شخصی فروشگاه؛ این بخش از مسیر خدماتی و bodyId استفاده نمی‌کند.</p></div><span className="rounded-full bg-soft px-3 py-1 text-xs">خط شخصی</span></div>
       <Card>
         <h3 className="mb-2 font-semibold">دریافت تاریخ تولد از پیامک</h3>
         <p className="mb-2 text-xs text-muted">پس از تکمیل تنظیم صندوق ورودی ملی‌پیامک در بخش تنظیمات، پاسخ‌های «تولد ۱۳۷۰/۰۵/۱۲» را دریافت و فقط برای شماره مشتری یکتای منطبق ثبت می‌کند. تاریخ تولد موجود بازنویسی نمی‌شود.</p>
@@ -1817,7 +1822,8 @@ function SmsScreen() {
         </div>
       </Card>
       <Card>
-        <h3 className="mb-2 font-semibold">ارسال دستی</h3>
+        <h3 className="mb-2 font-semibold">ارسال دستی از خط شخصی</h3>
+        <p className="mb-2 text-xs text-muted">ارسال دستی از مسیر پیامک عادی انجام می‌شود و به الگوی خدماتی متصل نیست.</p>
         <div className="grid gap-2">
           <input className={inputCls} placeholder="شماره" value={manual.to} onChange={(e) => setManual({ ...manual, to: e.target.value })} />
           <textarea className={inputCls} rows={2} value={manual.text} onChange={(e) => setManual({ ...manual, text: e.target.value })} />
@@ -1829,6 +1835,7 @@ function SmsScreen() {
       </Card>
       <Card>
         <h3 className="mb-2 font-semibold">کمپین باشگاه مشتریان</h3>
+        <p className="mb-2 rounded-xl bg-soft p-3 text-xs">مسیر ارسال: شماره شخصی فروشگاه. فقط مشتریانی با رضایت پیامکی ثبت‌شده وارد فهرست گیرندگان می‌شوند؛ در صورت خطا، ارسال به مسیر خدماتی جایگزین نخواهد شد.</p>
         <p className="mb-2 text-xs text-muted">فقط اعضایی انتخاب می‌شوند که رضایت دریافت پیامک تبلیغاتی را ثبت کرده باشند. می‌توانید چند شرط را ترکیب کنید.</p>
         <Field label="نحوه ترکیب شروط"><select className={inputCls} value={campaignLogic} onChange={e=>setCampaignLogic(e.target.value as "all"|"any")}><option value="all">همه شروط برقرار باشند (AND)</option><option value="any">حداقل یکی از شروط برقرار باشد (OR)</option></select></Field>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -1844,8 +1851,9 @@ function SmsScreen() {
         <textarea className={inputCls} rows={3} maxLength={950} value={campaignText} onChange={e=>setCampaignText(e.target.value)} placeholder="متن پیامک کمپین..."/>
         <div className="mt-2 flex flex-wrap items-center gap-2"><Btn onClick={()=>void runCampaign()} disabled={campaignBusy||!campaignText.trim()||campaignRecipients.length===0}>{campaignBusy?"در حال ارسال...":"ارسال کمپین"}</Btn><span className="text-xs text-muted">{campaignProgress}</span></div>
       </Card>
+      </section>
       <Card>
-        <h3 className="mb-2 font-semibold">لاگ ارسال</h3>
+        <h3 className="mb-2 font-semibold">سوابق ارسال پیامک</h3>
         {logs.length === 0 ? <Empty text="ارسالی ثبت نشده" /> : logs.slice(0, 20).map((l) => (
           <p key={l.id} className="border-b border-line py-2 text-sm"><span className={l.ok ? "text-leaf" : "text-warn"}>{l.ok ? "موفق" : "ناموفق"}</span> — {l.to} — {l.detail}</p>
         ))}
