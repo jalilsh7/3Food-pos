@@ -419,6 +419,82 @@ export async function deleteInventoryDocumentLine(documentId: string, lineId: st
 }
 
 
+export type PosCatalogProduct = {
+  id: string;
+  name: string;
+  sku: string | null;
+  product_type: string;
+  base_price_amount: number;
+  tax_rate_bps: number;
+  is_active: boolean;
+  category: { id: string; name: string } | null;
+  image: { id: string; url: string } | null;
+};
+
+export type PosCatalogProductDetail = Omit<PosCatalogProduct, "category"> & {
+  variants: { id: string; name: string; sku: string | null; price_delta_amount: number; is_active: boolean }[];
+  option_groups: {
+    id: string;
+    name: string;
+    selection_type: "single" | "multiple";
+    min_select: number;
+    max_select: number;
+    is_required_default: boolean;
+    is_required: boolean;
+    sort_order: number;
+    options: { id: string; name: string; price_delta_amount: number; is_active: boolean }[];
+  }[];
+};
+
+export async function getPosCatalogProducts(search = ""): Promise<PosCatalogProduct[]> {
+  const query = new URLSearchParams({ limit: "100" });
+  if (search.trim()) query.set("search", search.trim());
+  const data = await request<{ products: PosCatalogProduct[] }>(`/catalog/products?${query.toString()}`);
+  return data.products.filter((product) => product.is_active);
+}
+
+export async function getPosCatalogProductDetails(productId: string): Promise<PosCatalogProductDetail> {
+  const data = await request<{ product: PosCatalogProductDetail }>(`/catalog/products/${encodeURIComponent(productId)}`);
+  return data.product;
+}
+
+export type CreatePosOrderPayload = {
+  source_channel: "pos";
+  fulfillment_method: "dine_in" | "takeaway" | "delivery";
+  recipient_name?: string;
+  recipient_phone?: string;
+  delivery_address?: { street: string };
+  items: {
+    product_id: string;
+    variant_id: string | null;
+    quantity: number;
+    options: string[];
+  }[];
+};
+
+export type CreatedPosOrder = {
+  id: string;
+  order_number: number;
+  source_channel: string;
+  order_status: string;
+  payment_status: string;
+  subtotal_amount: number;
+  tax_amount: number;
+  total_amount: number;
+  currency_code: string;
+  fulfillment_method: string | null;
+  item_count: number;
+};
+
+export async function createPosOrder(payload: CreatePosOrderPayload, idempotencyKey: string): Promise<CreatedPosOrder> {
+  const data = await request<{ order: CreatedPosOrder }>("/orders", {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify(payload),
+  });
+  return data.order;
+}
+
 export type OrderStatus =
   | "draft" | "awaiting_payment" | "accepted" | "preparing"
   | "ready" | "completed" | "cancelled" | "rejected";
