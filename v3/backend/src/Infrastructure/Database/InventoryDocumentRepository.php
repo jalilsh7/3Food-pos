@@ -32,6 +32,17 @@ final readonly class InventoryDocumentRepository
         return $id === false ? null : (int) $id;
     }
 
+    public function supplierIsActive(int $businessId, int $supplierId): bool
+    {
+        $s = $this->connection->prepare(
+            'SELECT is_active FROM pos_suppliers
+             WHERE business_id = :business_id AND id = :supplier_id
+             LIMIT 1 LOCK IN SHARE MODE'
+        );
+        $s->execute(['business_id' => $businessId, 'supplier_id' => $supplierId]);
+        return (int) $s->fetchColumn() === 1;
+    }
+
     public function nextDocumentNumber(int $businessId, int $branchId): string
     {
         $key = 'stockdoc:' . $businessId . ':' . $branchId;
