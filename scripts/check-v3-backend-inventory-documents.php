@@ -13,6 +13,8 @@ $assert = static function (bool $condition, string $message): void {
 
 $repository = $read('v3/backend/src/Infrastructure/Database/InventoryDocumentRepository.php');
 $service = $read('v3/backend/src/Inventory/InventoryDocumentService.php');
+$postingService = $read('v3/backend/src/Inventory/InventoryPostingService.php');
+$postingRepository = $read('v3/backend/src/Infrastructure/Database/InventoryPostingRepository.php');
 $controller = $read('v3/backend/src/Inventory/InventoryController.php');
 $frontController = $read('v3/backend/public/index.php');
 $lineMigration = $read('database/v3/migrations/012_stock-document-line-public-ids.sql');
@@ -37,6 +39,13 @@ $assert(str_contains($service, "inventory.stock-document.line.update"), 'Line up
 $assert(str_contains($service, "inventory.stock-document.line.delete"), 'Line deletion must use a dedicated idempotency scope.');
 $assert(str_contains($service, 'public function updateLine'), 'Draft line update must be implemented.');
 $assert(str_contains($service, 'public function deleteLine'), 'Draft line deletion must be implemented.');
+$assert(str_contains($postingService, 'public function post'), 'Transactional inventory posting service must be present.');
+$assert(str_contains($postingService, 'inventory.stock-document.post'), 'Posting must be idempotent.');
+$assert(str_contains($postingService, 'stock_document_not_draft'), 'Posting must reject non-draft documents.');
+$assert(str_contains($postingService, 'stock_insufficient'), 'Posting must enforce available stock.');
+$assert(str_contains($postingRepository, 'FOR UPDATE'), 'Posting must lock balance rows.');
+$assert(str_contains($postingRepository, 'INSERT INTO pos_stock_ledger'), 'Posting must append ledger entries.');
+$assert(str_contains($postingRepository, 'quantity_reserved'), 'Posting must protect reserved quantities.');
 $assert(str_contains($service, '$this->audit->record('), 'Draft creation must append an audit record.');
 $assert(str_contains($service, "'transfer'"), 'Transfer documents must be supported.');
 $assert(str_contains($service, "'purchase_receipt'"), 'Purchase receipt documents must be supported.');
@@ -49,8 +58,11 @@ $assert(str_contains($controller, 'public function createDocument'), 'Document c
 $assert(str_contains($controller, 'public function createDocumentLine'), 'Document line handler must be present.');
 $assert(str_contains($controller, 'public function updateDocumentLine'), 'Document line update handler must be present.');
 $assert(str_contains($controller, 'public function deleteDocumentLine'), 'Document line delete handler must be present.');
+$assert(str_contains($controller, 'public function postDocument'), 'Document posting handler must be present.');
 $assert(str_contains($frontController, '/api/v1/inventory/documents/{documentPublicId}/lines'), 'Document line route must be registered.');
 $assert(str_contains($frontController, '/api/v1/inventory/documents/{documentPublicId}/lines/{linePublicId}'), 'Document line update/delete routes must be registered.');
+$assert(str_contains($frontController, '/api/v1/inventory/documents/{documentPublicId}/post'), 'Document posting route must be registered.');
+$assert(str_contains($frontController, "makePermissionMiddleware('inventory.manage', true)"), 'Document mutations must require branch-scoped inventory.manage permission.');
 $assert(!preg_match('/(?:UPDATE|INSERT INTO)\\s+pos_stock_balances/i', $repository), 'Draft line CRUD must not mutate stock balances.');
 $assert(!preg_match('/INSERT INTO\\s+pos_stock_ledger/i', $repository), 'Draft line CRUD must not append stock ledger entries.');
 
