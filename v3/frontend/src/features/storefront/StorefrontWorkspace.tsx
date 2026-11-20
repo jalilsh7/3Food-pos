@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Minus, Plus, Search, ShoppingBag, Store, X } from "lucide-react";
-import { Button, Notice, StatusBadge, Surface } from "../../shared/ui";
+import { Button, Notice, StatusBadge } from "../../shared/ui";
 import "./storefront.css";
 
 type MenuItem = { id: number; name: string; category: string; description: string; price: number; available: boolean };
