@@ -2454,7 +2454,7 @@ if ($method === 'POST' && $path === '/sms/send') {
     // explicit opt-in. The browser's recipient filter is not a security boundary.
     if (in_array($event, ['campaign', 'birthday_prompt'], true)) {
         if ($customerId === '') {
-            json_response(['ok' => false, 'error' => 'sms_consent_required', 'message' => 'برای ارسال کمپین، شناسه مشتری و رضایت پیامکی معتبر الزامی است'], 403);
+            json_response(['ok' => false, 'error' => 'sms_consent_required', 'message' => 'برای ارسال کمپین، شناسه مشتری و تأیید صریح رضایت پیامکی الزامی است'], 403);
         }
         $customerQuery = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'customers' AND id = ? LIMIT 1");
         $customerQuery->execute([$customerId]);
@@ -2465,7 +2465,7 @@ if ($method === 'POST' && $path === '/sms/send') {
         if (!is_array($customer) || ($customer['smsConsent'] ?? false) !== true
             || ($customer['smsConsentConfirmed'] ?? false) !== true
             || $customerPhone === null || $recipientPhone === null || $customerPhone !== $recipientPhone) {
-            json_response(['ok' => false, 'error' => 'sms_consent_required', 'message' => 'رضایت پیامکی مشتری ثبت نشده یا شماره گیرنده با پرونده مشتری مطابقت ندارد'], 403);
+            json_response(['ok' => false, 'error' => 'sms_consent_required', 'message' => 'رضایت صریح مشتری ثبت نشده یا شماره گیرنده با پرونده مشتری مطابقت ندارد'], 403);
         }
     }
 
