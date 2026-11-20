@@ -427,3 +427,9 @@ v3/backend/
 - Current known limits: list API uses bounded limit (100) without cursor pagination; order read API integration tests and role matrix still need explicit coverage.
 - No order state transition controls are enabled in OrderCenter yet. Future transitions must call the existing transition endpoints with fresh Idempotency-Key and rely on backend RBAC/state-machine checks; do not mutate status locally.
 - CI at code commit `f6ab1a6a9b8e47674f5a01e2c322567c9c15d612`: backend checks passed on PHP 8.2/8.3/8.4 (run `44705608241`), frontend TypeScript/build passed (run `44705608244`). The separate PHP migration workflow `44705608232` was still running at documentation time.
+
+
+## Inventory valuation privacy boundary — 2026-11-20
+- General stock-document detail must never return total_cost_amount or unit_cost_snapshot. These are commercially sensitive valuation fields.
+- Keep valuation data behind the dedicated document valuation endpoint and the inventory.manage permission middleware. Do not add cost fields to generic document/detail/list DTOs.
+- Integration coverage must assert that ordinary detail omits cost fields and that the protected valuation endpoint returns them for an authorized actor.
