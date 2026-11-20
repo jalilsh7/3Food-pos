@@ -213,7 +213,8 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 - Supported draft types: purchase_receipt, consumption, transfer, adjustment_in, adjustment_out, waste, return.
 - Source/destination locations are resolved within the active business+branch. Supplier is resolved within business; purchase receipt requires one. Transfers require a different destination.
 - Numbering uses `pos_sequences` with a business+branch-specific key and `SELECT ... FOR UPDATE`; create is idempotent and audited.
-- Important boundary: this slice creates headers only. It does not add/edit lines, post documents, append ledger rows, or change balances. Never treat a draft as a stock movement.
+- Draft line creation is also implemented at `POST /api/v1/inventory/documents/{documentPublicId}/lines`; it validates business-scoped stock item, unit dimension and conversion availability, locks the draft document, and stores a conversion factor snapshot plus base quantity.
+- Important boundary: line update/delete and posting are not implemented. Drafts never append ledger rows or change balances. Cost snapshots are not computed; never interpret their schema defaults as actual costs.
 - Runtime requires migration 011; do not execute migrations against production or a real customer database without explicit approval.
 - Static regression contract is wired into Backend Validation; wait for the new workflow result before claiming PASS. Real MySQL/MariaDB integration remains outstanding.
 - Next: add draft line CRUD with unit conversion snapshots and strict decimal handling; only then implement posting with row locks, append-only ledger, atomic balance updates, negative-stock protection and rollback.
