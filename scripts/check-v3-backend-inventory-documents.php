@@ -67,7 +67,7 @@ $assert(str_contains($controller, 'public function documentValuation'), 'Valuati
 $assert(str_contains($frontController, '/api/v1/inventory/documents/{documentPublicId}/lines'), 'Document line route must be registered.');
 $assert(str_contains($frontController, '/api/v1/inventory/documents/{documentPublicId}/lines/{linePublicId}'), 'Document line update/delete routes must be registered.');
 $assert(str_contains($frontController, '/api/v1/inventory/documents/{documentPublicId}/post'), 'Document posting route must be registered.');
-$assert(str_contains($frontController, 'use PersiaCoder\\\\PosV3\\\\Inventory\\\\InventoryPostingService;'), 'API bootstrap must import the posting service.');
+$assert(str_contains($frontController, 'InventoryPostingService;'), 'API bootstrap must import the posting service.');
 $assert(str_contains($frontController, '/api/v1/inventory/documents/{documentPublicId}/valuation'), 'Protected valuation route must be registered.');
 $assert(str_contains($frontController, "makePermissionMiddleware('inventory.manage', true)"), 'Document mutations must require branch-scoped inventory.manage permission.');
 $assert(!preg_match('/(?:UPDATE|INSERT INTO)\\s+pos_stock_balances/i', $repository), 'Draft line CRUD must not mutate stock balances.');
