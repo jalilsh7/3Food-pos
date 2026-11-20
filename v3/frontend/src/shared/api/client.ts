@@ -470,12 +470,16 @@ export type OrderPage = {
 export async function getOrders(filters: {
   status?: string;
   channel?: string;
+  payment?: string;
+  fulfillment?: string;
   limit?: number;
   before?: string;
 } = {}): Promise<OrderPage> {
   const query = new URLSearchParams({ limit: String(filters.limit ?? 50) });
   if (filters.status) query.set("status", filters.status);
   if (filters.channel) query.set("channel", filters.channel);
+  if (filters.payment) query.set("payment", filters.payment);
+  if (filters.fulfillment) query.set("fulfillment", filters.fulfillment);
   if (filters.before) query.set("before", filters.before);
   return request<OrderPage>(`/orders?${query.toString()}`);
 }
