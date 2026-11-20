@@ -2428,9 +2428,29 @@ if ($method === 'POST' && $path === '/sms/send') {
     $to = preg_replace('/[^0-9+]/', '', (string)($body['to'] ?? ''));
     $message = trim((string)($body['text'] ?? ''));
     $bodyId = trim((string)($body['bodyId'] ?? ''));
+    $event = trim((string)($body['event'] ?? 'manual'));
+    $customerId = trim((string)($body['customerId'] ?? ''));
 
     if (!preg_match('/^\\+?[0-9]{10,15}$/D', $to) || $message === '' || utf8_length($message) > 1000) {
         json_response(['ok' => false, 'error' => 'invalid_sms', 'message' => 'شماره یا متن پیامک معتبر نیست'], 422);
+    }
+
+    // Marketing/birthday sends must be tied to a real customer record with
+    // explicit opt-in. The browser's recipient filter is not a security boundary.
+    if (in_array($event, ['campaign', 'birthday_prompt'], true)) {
+        if ($customerId === '') {
+            json_response(['ok' => false, 'error' => 'sms_consent_required', 'message' => 'برای ارسال کمپین، شناسه مشتری و رضایت پیامکی معتبر الزامی است'], 403);
+        }
+        $customerQuery = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'customers' AND id = ? LIMIT 1");
+        $customerQuery->execute([$customerId]);
+        $customerRaw = $customerQuery->fetchColumn();
+        $customer = is_string($customerRaw) ? json_decode($customerRaw, true) : null;
+        $customerPhone = is_array($customer) ? threefood_normalize_iran_mobile((string)($customer['phone'] ?? '')) : null;
+        $recipientPhone = threefood_normalize_iran_mobile($to);
+        if (!is_array($customer) || ($customer['smsConsent'] ?? false) !== true
+            || $customerPhone === null || $recipientPhone === null || $customerPhone !== $recipientPhone) {
+            json_response(['ok' => false, 'error' => 'sms_consent_required', 'message' => 'رضایت پیامکی مشتری ثبت نشده یا شماره گیرنده با پرونده مشتری مطابقت ندارد'], 403);
+        }
     }
 
     // The presence of bodyId selects the shared service route exclusively.
