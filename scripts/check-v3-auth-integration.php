@@ -187,12 +187,15 @@ $branchIdStatement = $pdo->prepare('SELECT id FROM pos_branches WHERE public_id 
 $branchIdStatement->execute(['public_id' => $branchPublicId]);
 $branchId = (int) $branchIdStatement->fetchColumn();
 
-$managerRoleId = $pdo->query("SELECT id FROM app_roles WHERE code = 'manager' AND is_active = 1")->fetchColumn();
-if ($managerRoleId === false) throw new RuntimeException('The manager role is missing.');
-$pdo->prepare('INSERT INTO app_user_business_roles (user_id, business_id, role_id) VALUES (:user_id, :business_id, :role_id)')
-    ->execute(['user_id' => $userId, 'business_id' => $businessId, 'role_id' => (int) $managerRoleId]);
-$pdo->prepare('DELETE FROM app_user_roles WHERE user_id = :user_id AND role_id = :role_id')
-    ->execute(['user_id' => $userId, 'role_id' => (int) $ownerRoleId]);
+$ownerMembership = $pdo->prepare(
+    'SELECT 1 FROM app_user_business_roles WHERE user_id = :user_id AND business_id = :business_id AND role_id = :role_id LIMIT 1'
+);
+$ownerMembership->execute(['user_id' => $userId, 'business_id' => $businessId, 'role_id' => (int) $ownerRoleId]);
+$assert($ownerMembership->fetchColumn() !== false, 'Initial setup did not assign the installation owner to the created business.');
+$assert(!$businesses = (new BusinessRepository($pdo))->isInstallationOwner($userId), 'Installation owner privilege was not retired after setup.');
+$globalOwner = $pdo->prepare('SELECT 1 FROM app_user_roles WHERE user_id = :user_id AND role_id = :role_id LIMIT 1');
+$globalOwner->execute(['user_id' => $userId, 'role_id' => (int) $ownerRoleId]);
+$assert($globalOwner->fetchColumn() === false, 'Global installation owner role remained assigned after setup.');
 
 $contextAfterSetupRequest = $makeRequest('GET', '/api/v1/access/businesses')->withAttribute('principal', $newPrincipal);
 $contextAfterSetup = $contextController->list($contextAfterSetupRequest);
