@@ -119,3 +119,28 @@
 .inventory-document-detail-heading > div { justify-content: flex-end; }
 .inventory-document-detail-heading > div button:nth-child(2) { border-color: var(--pc-brand); background: var(--pc-brand); color: #fff; }
 @media (max-width: 700px) { .inventory-document-actions > div { width: 100%; } .inventory-document-actions > div .ui-button { flex: 1; } .inventory-document-detail-heading { align-items: flex-start; flex-direction: column; } .inventory-document-detail-heading > div { width: 100%; justify-content: flex-start; } }
+
+
+.inventory-management-panel { display: flex; flex-direction: column; gap: 14px; }
+.inventory-management-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.inventory-management-form { min-width: 0; display: flex; flex-direction: column; gap: 9px; padding: 13px; border: 1px solid var(--pc-line); border-radius: 10px; background: #fbfcfb; }
+.inventory-management-form > strong, .inventory-management-list > div > strong { color: var(--pc-ink); font-size: 11px; }
+.inventory-management-form > label { display: flex; flex-direction: column; gap: 5px; color: var(--pc-muted); font-size: 9px; }
+.inventory-management-form input:not([type="checkbox"]), .inventory-management-form select { width: 100%; min-height: 35px; padding: 0 9px; border: 1px solid var(--pc-line); border-radius: 7px; background: #fff; color: var(--pc-ink); font: inherit; font-size: 10px; }
+.inventory-management-form input:focus, .inventory-management-form select:focus { outline: 0; border-color: var(--pc-brand); box-shadow: var(--pc-focus-ring); }
+.inventory-management-form .inventory-management-check { flex-direction: row; align-items: center; gap: 7px; }
+.inventory-management-check input { accent-color: var(--pc-brand); }
+.inventory-management-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.inventory-management-actions button, .inventory-management-row button { min-height: 29px; padding: 0 10px; border: 1px solid var(--pc-line); border-radius: 7px; background: var(--pc-brand); color: #fff; font: inherit; font-size: 9px; cursor: pointer; }
+.inventory-management-actions button:disabled { opacity: .5; cursor: wait; }
+.inventory-management-actions button[type="button"] { background: #fff; color: var(--pc-muted); }
+.inventory-management-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.inventory-management-list > div { min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+.inventory-management-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 8px 9px; border: 1px solid var(--pc-line); border-radius: 8px; background: #fff; }
+.inventory-management-row > span:first-child { min-width: 0; display: flex; flex-direction: column; gap: 3px; color: var(--pc-ink); font-size: 9px; }
+.inventory-management-row small { color: var(--pc-muted); font-size: 8px; }
+.inventory-management-row .is-enabled, .inventory-management-row .is-disabled { font-size: 8px; white-space: nowrap; }
+.inventory-management-row .is-enabled { color: #27744d; }
+.inventory-management-row .is-disabled { color: #a43e34; }
+.inventory-management-row button { min-height: 25px; padding: 0 8px; background: #fff; color: var(--pc-brand); }
+@media (max-width: 700px) { .inventory-management-grid, .inventory-management-list { grid-template-columns: 1fr; } }
