@@ -67,7 +67,7 @@ async function request<T>(path: string, options: RequestInit = {}, context: { bu
   let pendingIdempotencySignature: string | null = null;
   if (path.startsWith("/inventory/") && !["GET", "HEAD", "OPTIONS"].includes(method)
     && !headers.has("Idempotency-Key")) {
-    pendingIdempotencySignature = `${method}\\n${path}\\n${typeof options.body === "string" ? options.body : ""}`;
+    pendingIdempotencySignature = JSON.stringify([method, path, typeof options.body === "string" ? options.body : ""]);
     let key = pendingInventoryIdempotencyKeys.get(pendingIdempotencySignature);
     if (!key) {
       key = globalThis.crypto.randomUUID();
