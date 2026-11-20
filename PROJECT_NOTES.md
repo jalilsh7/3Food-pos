@@ -1288,3 +1288,12 @@
 - پیش‌نیاز عملیاتی endpointها اجرای migration 011 روی دیتابیس نصب‌شده است؛ migration فقط commit شده و روی دیتابیس واقعی اجرا نشده است.
 - regression contract در `scripts/check-v3-backend-inventory-documents.php` به workflow Backend افزوده شد؛ این تست static contract است و جایگزین MySQL/MariaDB integration نیست.
 - ادامه: مدیریت lineها با snapshot تبدیل واحد؛ سپس پس از تثبیت قواعد valuation، posting تراکنشی، ledger append-only، atomic balance update و negative-stock guard.
+
+
+## CI repair follow-up — 2026-11-20
+- Latest pre-repair HEAD `c0ccb5c744f7d9e5713ff9172853a132545bb90a`: V3 Backend Validation passed on PHP 8.2/8.3/8.4. Separate workflows exposed three unrelated validation blockers:
+  - `v3/frontend/src/features/orders/OrderCenter.tsx` contained a duplicated/truncated module segment causing an ESLint parse error; repaired by retaining the complete typed order fixture and the matching component implementation.
+  - V3 frontend dependency install requested unavailable exact TypeScript `5.7.0`; pinned to published `5.7.2`.
+  - SQL parser contract expected at least 100 statements, but the actual V3 baseline currently contains 61 CREATE TABLE statements and 65 parsed statements; guard now checks the real baseline floor (61 tables / 65 statements), rather than an obsolete count.
+- Fix commits: `d5f23c0833284d826846a27db2340d2e739cd9e6`, `ab3c63994a9d0d76087f7aed98dbf969aff314c9`, `b6553d73b0d7c1b700442e71715e7a6318606ab0`.
+- Revalidation runs for these commits were triggered; their results must be checked before marking the fixes passed. No DB migration was executed on a real/customer database.
