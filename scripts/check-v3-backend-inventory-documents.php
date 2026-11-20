@@ -49,6 +49,7 @@ $assert(str_contains($postingService, 'stock_document_type_not_postable'), 'Unsu
 $assert(str_contains($service, 'total_cost_amount'), 'Purchase receipt draft lines must capture total TOMAN cost.');
 $assert(str_contains($postingRepository, 'FOR UPDATE'), 'Posting must lock balance rows.');
 $assert(str_contains($postingRepository, 'INSERT INTO pos_stock_ledger'), 'Posting must append ledger entries.');
+$assert(!preg_match('/(?:UPDATE|DELETE FROM)\\s+pos_stock_ledger/i', $postingRepository), 'Posting repository must keep the stock ledger append-only.');
 $assert(str_contains($postingRepository, 'quantity_reserved'), 'Posting must protect reserved quantities.');
 $assert(str_contains($service, '$this->audit->record('), 'Draft creation must append an audit record.');
 $assert(str_contains($service, "'transfer'"), 'Transfer documents must be supported.');
