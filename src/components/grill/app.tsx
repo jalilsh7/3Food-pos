@@ -468,8 +468,32 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
   const s = usePos.getState();
   const tpl = s.templates.find((t) => t.event === event);
   if (!tpl?.enabled || !phone) return;
-  const text = fillTemplate(tpl.body, { ...vars, shop: s.settings.shopName });
-  await postSms(phone, text, event, tpl.bodyId);
+  const templateVars = { ...vars, shop: s.settings.shopName };
+  const text = fillTemplate(tpl.body, templateVars);
+  if (tpl.bodyId) {
+    // National Payamak shared service numbers receive variable values, not the rendered message.
+    // Numeric placeholders follow a stable POS mapping: 0=order, 1=name, 2=total, 3=points,
+    // 4=discount code, 5=balance, 6=shop. Named placeholders use their matching variable key.
+    const indexedVars = [
+      templateVars.order ?? "", templateVars.name ?? "", templateVars.total ?? "",
+      templateVars.points ?? "", templateVars.code ?? "", templateVars.balance ?? "",
+      templateVars.shop ?? "",
+    ];
+    const placeholders = [...tpl.body.matchAll(/\\{([0-9]+|[a-zA-Z_][a-zA-Z0-9_]*)\\}/g)];
+    const orderedKeys = [...new Set(placeholders.map((match) => match[1]))];
+    if (!orderedKeys.length) {
+      await postSms(phone, text, event, tpl.bodyId, "");
+      return;
+    }
+    const values = orderedKeys.map((key) => /^\\d+$/.test(key) ? indexedVars[Number(key)] : templateVars[key] ?? "");
+    if (values.some((value) => !value.trim())) {
+      await postSms(phone, text, event, tpl.bodyId, "", "متغیرهای الگوی خدماتی کامل نیستند؛ ترتیب و مقادیر الگو را بررسی کنید.");
+      return;
+    }
+    await postSms(phone, text, event, tpl.bodyId, values.join(";"));
+    return;
+  }
+  await postSms(phone, text, event, "");
 }
 
 async function sendRaw(phone: string, text: string) {
@@ -478,7 +502,7 @@ async function sendRaw(phone: string, text: string) {
   return await postSms(normalized, text, "manual", "");
 }
 
-async function postSms(phone: string, text: string, event: string, bodyId: string) {
+async function postSms(phone: string, text: string, event: string, bodyId: string, providerText = text, validationError = "") {
   let log: SmsLog = {
     id: uid("sm"),
     at: new Date().toISOString(),
@@ -486,10 +510,14 @@ async function postSms(phone: string, text: string, event: string, bodyId: strin
     event,
     text,
     ok: false,
-    detail: "ارسال انجام نشد",
+    detail: validationError || "ارسال انجام نشد",
   };
+  if (validationError) {
+    usePos.getState().logSms(log);
+    return false;
+  }
   try {
-    const data = await phpApi.sendSms({ to: phone, text, bodyId });
+    const data = await phpApi.sendSms({ to: phone, text: providerText, bodyId });
     log = { ...log, ok: data.sent, detail: data.detail };
   } catch (err) {
     log = { ...log, detail: err instanceof Error ? err.message : "خطا در ارسال پیامک" };
