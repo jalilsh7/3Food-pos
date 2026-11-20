@@ -743,3 +743,10 @@
 - [ ] workflow جامع PHP migration/legacy integration در run `44705608232` هنگام ثبت این یادداشت هنوز در حال اجرا بود.
 
 گام بعدی: تکمیل تست integration و pagination سفارش‌ها؛ سپس transitionهای مجاز سفارش/آشپزخانه. تا آن زمان صفحه مرکز سفارش فقط خواندنی است و نباید برای عملیات تغییر وضعیت استفاده شود.
+
+
+## LINT-01 — کیفیت React effects
+- [x] شناسایی خطای ESLint `react-hooks/set-state-in-effect` در چهار صفحه Auth/App/Inventory/Orders.
+- [x] انتقال stateهای آغاز بارگذاری و پاک‌سازی به event handlers؛ effectها فقط دریافت async و اعمال نتیجه را انجام می‌دهند.
+- [ ] اجرای مجدد full lint و تأیید عدم regression در انتخاب شعبه و بارگذاری/refresh انبار و سفارش.
+- [ ] تأیید workflowهای commit `d364efc9d72f66b680401f8ec53f7fa34d183df0`: Frontend `44706018612`، PHP migration `44706018603`، Backend `44706018626`.
