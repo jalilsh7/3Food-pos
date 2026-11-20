@@ -145,6 +145,17 @@ final readonly class InventoryController
         ));
     }
 
+
+    public function createDocumentLine(Request $request, array $parameters): Response
+    {
+        return $this->idempotentResponse($this->documents->addLine(
+            $this->principal($request), $this->scope($request),
+            (string) ($parameters['documentPublicId'] ?? ''), $this->jsonPayload($request),
+            $request->header('idempotency-key') ?? '', $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
+        ));
+    }
+
     private function jsonPayload(Request $request): array
     {
         $contentType = strtolower(trim($request->header('content-type') ?? ''));
