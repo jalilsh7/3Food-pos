@@ -76,5 +76,8 @@ $assert(str_contains($client, 'path.startsWith("/orders/")'), 'Order status muta
 $assert(str_contains($orderCenter, 'transitionOrder(selectedOrder.id, toStatus)') && str_contains($orderCenter, 'پذیرش سفارش'), 'Order center does not expose backend acceptance/completion actions.');
 $assert(str_contains($kitchenBoard, 'getOrders({ status') && str_contains($kitchenBoard, 'transitionKitchenOrder(order.id, nextStatus)'), 'Kitchen board is not using the live order queue and kitchen transition API.');
 $assert(!str_contains($kitchenBoard, 'initialTickets'), 'Kitchen board still contains hard-coded sample tickets.');
+$assert(str_contains($orderCenter, 'setShowCancelForm(true)') && str_contains($orderCenter, 'دلیل لغو سفارش (اجباری)'), 'Order center cancellation flow is missing the mandatory reason prompt.');
+$assert(str_contains($orderCenter, 'changeOrderStatus("cancelled", cancelReason.trim())') && str_contains($client, 'reason_text: reasonText'), 'Order cancellation does not send its reason to the backend.');
+$assert(str_contains($orderCenter, '!["paid", "partially_paid"].includes(selectedOrder.payment_status)'), 'Order center should not offer direct cancellation for paid/partially paid orders.');
 
 fwrite(STDOUT, "V3 order pagination, timezone filters and POS order submission contract checks passed.\n");
