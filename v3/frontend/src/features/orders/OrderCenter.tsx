@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Eye, FilterX, PackageCheck, RefreshCw } from "lucide-react";
 import {
   ApiError,
@@ -71,14 +71,17 @@ export function OrderCenter() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const listRequestVersion = useRef(0);
 
   async function fetchOrders() {
+    const requestVersion = ++listRequestVersion.current;
     try {
       const result = await getOrders({
         status: status === "all" ? undefined : status,
         channel: channel === "all" ? undefined : channel,
         limit: 50,
       });
+      if (requestVersion !== listRequestVersion.current) return;
       setOrders(result.orders);
       setNextCursor(result.next_cursor);
       setHasMore(result.has_more);
@@ -88,17 +91,19 @@ export function OrderCenter() {
         setDetailLoading(false);
       }
     } catch (cause) {
+      if (requestVersion !== listRequestVersion.current) return;
       setError(cause instanceof ApiError ? cause.message : "دریافت سفارش‌ها انجام نشد.");
       setOrders([]);
       setNextCursor(null);
       setHasMore(false);
     } finally {
-      setLoading(false);
+      if (requestVersion === listRequestVersion.current) setLoading(false);
     }
   }
 
   async function loadMoreOrders() {
     if (!nextCursor || !hasMore || loadingMore) return;
+    const requestVersion = listRequestVersion.current;
     setLoadingMore(true);
     try {
       const result = await getOrders({
@@ -107,6 +112,7 @@ export function OrderCenter() {
         limit: 50,
         before: nextCursor,
       });
+      if (requestVersion !== listRequestVersion.current) return;
       setOrders((current) => {
         const seen = new Set(current.map((order) => order.id));
         return [...current, ...result.orders.filter((order) => !seen.has(order.id))];
@@ -114,9 +120,11 @@ export function OrderCenter() {
       setNextCursor(result.next_cursor);
       setHasMore(result.has_more);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : "دریافت صفحه بعدی سفارش‌ها انجام نشد.");
+      if (requestVersion === listRequestVersion.current) {
+        setError(cause instanceof ApiError ? cause.message : "دریافت صفحه بعدی سفارش‌ها انجام نشد.");
+      }
     } finally {
-      setLoadingMore(false);
+      if (requestVersion === listRequestVersion.current) setLoadingMore(false);
     }
   }
 
@@ -279,7 +287,7 @@ export function OrderCenter() {
         <div className="orders-filters">
           <TextField label="جست‌وجو" value={query} onChange={(event) => setQuery(event.target.value)}
             placeholder="شماره سفارش، مشتری یا کانال" />
-          <SelectField label="وضعیت سفارش" value={status} onChange={(event) => { setLoading(true); setStatus(event.target.value); }}
+          <SelectField label="وضعیت سفارش" value={status} onChange={(event) => { listRequestVersion.current += 1; setLoadingMore(false); setNextCursor(null); setHasMore(false); setLoading(true); setStatus(event.target.value); }}
             options={[
               { value: "all", label: "همه وضعیت‌ها" },
               { value: "draft", label: "پیش‌نویس" },
@@ -291,7 +299,7 @@ export function OrderCenter() {
               { value: "cancelled", label: "لغوشده" },
               { value: "rejected", label: "ردشده" },
             ]} />
-          <SelectField label="کانال سفارش" value={channel} onChange={(event) => { setLoading(true); setChannel(event.target.value); }}
+          <SelectField label="کانال سفارش" value={channel} onChange={(event) => { listRequestVersion.current += 1; setLoadingMore(false); setNextCursor(null); setHasMore(false); setLoading(true); setChannel(event.target.value); }}
             options={[
               { value: "all", label: "همه کانال‌ها" },
               { value: "pos", label: "صندوق" },
