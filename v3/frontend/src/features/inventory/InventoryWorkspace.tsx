@@ -84,6 +84,7 @@ export function InventoryWorkspace() {
   const [editingItemId, setEditingItemId] = useState("");
   const [editingQuantity, setEditingQuantity] = useState("");
   const [editingUnit, setEditingUnit] = useState("");
+  const [editingCost, setEditingCost] = useState("");
   const [documentType, setDocumentType] = useState<InventoryDocumentType>("consumption");
   const [documentLocation, setDocumentLocation] = useState("");
   const [destinationLocation, setDestinationLocation] = useState("");
@@ -171,15 +172,21 @@ export function InventoryWorkspace() {
     setEditingItemId(line.stock_item_id);
     setEditingQuantity(line.quantity);
     setEditingUnit(line.unit_code);
+    setEditingCost(line.total_cost_amount);
   }
 
   async function saveDocumentLine() {
     if (!activeDocument || !editingLineId || !editingItemId || !editingUnit || !editingQuantity.trim()) return;
+    if (["purchase_receipt", "adjustment_in"].includes(activeDocument.document_type) && !editingCost.trim()) {
+      setDocumentMessage("مبلغ کل این ردیف به تومان الزامی است.");
+      return;
+    }
     setDocumentDetailBusy(true);
     setDocumentMessage(null);
     try {
       await updateInventoryDocumentLine(activeDocument.id, editingLineId, {
         stock_item_id: editingItemId, quantity: editingQuantity, unit_code: editingUnit,
+        ...(["purchase_receipt", "adjustment_in"].includes(activeDocument.document_type) ? { total_cost_amount: editingCost } : {}),
       });
       setActiveDocument(await getInventoryDocument(activeDocument.id));
       setEditingLineId(null);
@@ -504,9 +511,10 @@ export function InventoryWorkspace() {
                   <label><span>قلم</span><select value={editingItemId} onChange={(event) => { const item = items.find((entry) => entry.id === event.target.value); setEditingItemId(event.target.value); if (item) setEditingUnit(item.base_unit.code); }}>{activeItems.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
                   <label><span>مقدار</span><input value={editingQuantity} onChange={(event) => setEditingQuantity(event.target.value)} inputMode="decimal" /></label>
                   <label><span>واحد</span><select value={editingUnit} onChange={(event) => setEditingUnit(event.target.value)}>{units.filter((unit) => { const item = items.find((entry) => entry.id === editingItemId); return !item || unit.dimension === item.base_unit.dimension; }).map((unit) => <option key={unit.code} value={unit.code}>{unit.name}</option>)}</select></label>
+                  {["purchase_receipt", "adjustment_in"].includes(activeDocument.document_type) ? <label><span>مبلغ کل (تومان)</span><input required inputMode="numeric" pattern="^[0-9]+$" value={editingCost} onChange={(event) => setEditingCost(event.target.value)} /></label> : null}
                   <div className="inventory-line-actions"><button type="button" disabled={documentDetailBusy} onClick={() => void saveDocumentLine()}>ذخیره</button><button type="button" onClick={() => setEditingLineId(null)}>انصراف</button></div>
                 </> : <>
-                  <span>{line.stock_item_name}</span><b>{quantity(line.quantity)} {line.unit_name}</b><small>مقدار پایه: {quantity(line.base_quantity)}</small>
+                  <span>{line.stock_item_name}</span><b>{quantity(line.quantity)} {line.unit_name}</b><small>مقدار پایه: {quantity(line.base_quantity)}</small>{["purchase_receipt", "adjustment_in"].includes(activeDocument.document_type) ? <small>مبلغ کل: {quantity(line.total_cost_amount)} تومان</small> : null}
                   {activeDocument.status === "draft" ? <div className="inventory-line-actions"><button type="button" disabled={documentDetailBusy} onClick={() => beginEditLine(line)}>ویرایش</button><button type="button" disabled={documentDetailBusy} onClick={() => void removeDocumentLine(line.id)}>حذف</button></div> : null}
                 </>}
               </div>)}
