@@ -407,3 +407,25 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 ### ORD-01D DST integration hardening
 - The MySQL/MariaDB integration suite now also covers the Europe/Amsterdam spring-forward day 2026-03-29. It verifies the local day begins at 2026-03-28 23:00 UTC and ends exclusively at 2026-03-29 22:00 UTC, with start included and next-day boundary excluded.
 - This proves date boundaries are derived from IANA local calendar dates rather than assuming every local day is 24 hours. The new test remains pending CI on the current branch head.
+
+## Latest implementation update — POS-01A (2026-11-20)
+
+- Active branch remains feature/3food-pos-next-release-v2; never edit main, merge PR #4, or deploy to production.
+- Current HEAD at handoff: 171bd557d734c504c7de46cebaf16e21381da0eb.
+- The cashier workspace now loads active products from GET /api/v1/catalog/products, loads selected product details from GET /api/v1/catalog/products/{productPublicId}, and submits real orders to POST /api/v1/orders.
+- The frontend sends public product, variant and option IDs; server-side OrderService remains authoritative for availability, required variants/options, prices, tax, totals, order numbering, transaction and audit log.
+- POS order creation sends an explicit Idempotency-Key; the component retains the same key for a retry of the same payload and generates a new key when the payload changes. This is runtime-memory retry protection, not exactly-once protection across browser reloads.
+- Fulfillment supported in this slice: dine-in, takeaway and delivery. Delivery includes recipient name, phone and street address. New orders are created as draft and unpaid.
+- Do not claim payment, discounts, customer lookup/linking, table-session selection, order acceptance or kitchen transitions are complete. Those are intentionally not triggered by this slice.
+- CatalogWorkspace remains a local/demo screen; POS reads the real backend catalog, so it only displays products already present and active in the V3 database. Catalog management UI wiring is still needed.
+- Contract assertions were added to scripts/check-v3-backend-orders.php for catalog read, product details, order submission, public identifiers, delivery payload and idempotency header.
+- CI evidence: Frontend typecheck/build run 44722494804 passed on commit 0bcfda8c24fa614c021e22dccddfbcac6bb964d5. On current HEAD, Frontend run 44722552759, Backend Validation run 44722543475, and V3 database engine validation run 44722543378 were still running at handoff; refresh their status before declaring acceptance.
+- No real/customer database was migrated or mutated. No production deployment or payment/card-terminal transaction was performed.
+
+### Required next work and acceptance gates
+
+1. Add a disposable MySQL 8.4 / MariaDB 10.6 integration test for actual order creation through OrderService/API. Cover authoritative price/tax, variant and option rules, idempotency replay, changed-payload key conflict, rollback and business/branch isolation.
+2. Run/verify Backend Validation, Frontend typecheck/build and database engine validation on the latest branch HEAD. A queued, cancelled or in-progress run is not PASS.
+3. Connect CatalogWorkspace to catalog APIs so an authorized user can create/manage the real products that POS consumes.
+4. Then wire order acceptance/status transitions and kitchen workflow through existing order and kitchen endpoints with RBAC, state-machine and idempotency tests. Do not auto-accept newly created draft orders.
+5. Keep payment, discounts and customer linking separate until their backend workflows and UI contracts are implemented.
