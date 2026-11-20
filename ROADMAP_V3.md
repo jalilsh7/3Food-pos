@@ -677,3 +677,13 @@
 - [ ] تست integration واقعی MySQL/MariaDB برای race، scope، conversion snapshot و rollback.
 - [ ] posting تراکنشی و append-only ledger؛ پس از تعیین قواعد costing و negative stock.
 - مرز ایمنی: draft update/delete فقط ردیف‌های draft را تغییر می‌دهد؛ موجودی فقط در posting سند معتبر تغییر خواهد کرد.
+
+
+### 5.11 — تأیید نهایی CI برای بسته‌های Backend/Frontend/Database
+- [x] Backend Validation روی PHP 8.2، 8.3 و 8.4.
+- [x] Frontend TypeScript check و production build.
+- [x] نصب baseline و اجرای migrationهای 001 تا 013 روی MySQL 8.4 و MariaDB 10.6 در دیتابیس موقت CI.
+- [x] Installer، migration checksum/idempotency، backup/restore و رد backup دست‌کاری‌شده.
+- [x] PHP migration workflow شامل API integration، unit، lint، cPanel package، Chromium smoke و performance budget.
+- نتیجه‌ها مربوط به کد HEAD `88cc9a9` هستند: Backend run `44693350404`، Frontend run `44693350646`، Database run `44693342518`، PHP workflow run `44693350474`.
+- [ ] تست end-to-end واقعی عملیات سند انبار شامل idempotency race، concurrent posting، negative stock و atomic rollback؛ پیش از تکمیل posting.
