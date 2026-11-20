@@ -1574,3 +1574,17 @@
 - DB integration: `scripts/check-v3-auth-integration.php` سفارش‌های unpaid/paid/partial و fulfillment نوع dine_in درج می‌کند و queryهای paid و dine_in را مستقیماً از OrderRepository روی PDO بررسی می‌کند؛ نتیجه اجرا روی MySQL 8.4 و MariaDB 10.6 تا زمان CI سبز pending است.
 - فایل‌های کد: `v3/backend/src/Infrastructure/Database/OrderRepository.php`, `v3/backend/src/Orders/OrderService.php`, `v3/backend/src/Orders/OrderController.php`, `v3/frontend/src/shared/api/client.ts`, `v3/frontend/src/features/orders/OrderCenter.tsx`.
 - گام بعد: ORD-01D فیلتر بازه تاریخ با قرارداد روشن timezone، اعتبارسنجی تاریخ و حفظ رفتار cursor در تمام فیلترها؛ سپس تکمیل اتصال جریان ایجاد سفارش POS به Backend.
+
+
+## INV-02B1-RETRY — حفظ idempotency در retry درخواست‌های انبار (2026-11-20)
+- مشکل: کلاینت Frontend برای هر فراخوانی mutation انبار یک `Idempotency-Key` تصادفی تازه تولید می‌کرد. اگر سرور عملیات را commit می‌کرد اما پاسخ به علت قطعی شبکه به مرورگر نمی‌رسید، تکرار همان اقدام می‌توانست با کلید تازه به‌عنوان فرمان جدید شناخته شود؛ به‌ویژه برای ساخت سند draft، احتمال ایجاد پیش‌نویس تکراری وجود داشت.
+- اصلاح: `v3/frontend/src/shared/api/client.ts` اکنون برای mutationهای `/inventory/*` کلید را بر اساس method/path/body در حافظه runtime نگه می‌دارد؛ تا وقتی پاسخ موفق و معتبر دریافت نشود، retry همان فرمان همان کلید را استفاده می‌کند. پس از موفقیت کلید پاک می‌شود تا اقدام آگاهانه بعدی با همان payload یک فرمان جدید باشد. هنگام logout نیز کلیدهای pending پاک می‌شوند.
+- محدودیت: cache در حافظه صفحه است؛ reload مرورگر کلید pending را حفظ نمی‌کند. در صورت reload/بستن تب پس از خطای شبکه، UI باید اسناد draft و وضعیت واقعی سند را برای reconciliation بررسی کند؛ ادعای exactly-once across reload نداریم.
+- امنیت/دامنه: کلید فقط در request header ارسال می‌شود؛ هیچ token احراز هویت یا secret جدیدی ذخیره نمی‌شود. Backend همچنان مرجع idempotency و تراکنش است.
+- تست: کد روی GitHub ثبت و بلافاصله fetch/verify شد. اجرای TypeScript/build روی commit این اصلاح هنوز در انتظار workflow جدید است؛ هیچ PASS جدیدی اعلام نمی‌شود.
+
+## CI-DB-013 — وضعیت migration smoke در CI (2026-11-20)
+- runهای قدیمی `44692152564` (MySQL 8.4 و MariaDB 10.6) در مرحله migration runner به دلیل ساخت فایل موقت `001_ci-smoke.sql` شکست خوردند؛ این شماره با migration واقعی `001_create-user-sessions.sql` تداخل داشت.
+- فایل workflow فعلی `.github/workflows/v3-database-validation.yml` اکنون از `013_ci-smoke.sql` استفاده می‌کند و همان workflow تست‌های واقعی `scripts/check-v3-inventory-posting-integration.php` و `scripts/check-v3-auth-integration.php` را اجرا می‌کند.
+- شکست run قدیمی به نسخه workflow در آن SHA مربوط است؛ اصلاح 013 در سورس فعلی دیده و fetch شد، اما تا اجرای مجدد MySQL/MariaDB روی commit فعلی، این مورد «اصلاح‌شده در کد، پذیرش CI در انتظار» می‌ماند.
+- Backend Validation run `44710600371` روی PHP 8.2/8.3/8.4 موفق شد؛ PHP migration/legacy checks run `44710600140` نیز موفق شد. Frontend run `44710600172` به‌علت cancellation هنگام Install dependencies لغو شد و PASS محسوب نمی‌شود.
