@@ -26,7 +26,7 @@ final readonly class InventoryPostingRepository
              FROM pos_stock_balances
              WHERE business_id = :business_id AND branch_id = :branch_id
                AND stock_item_id = :stock_item_id AND location_id = :location_id
-             LIMIT 1 FOR UPDATE'
+             LIMIT 1 LOCK IN SHARE MODE'
         );
         $select->execute([
             'business_id' => $businessId, 'branch_id' => $branchId,
@@ -41,6 +41,18 @@ final readonly class InventoryPostingRepository
             'quantity_reserved' => (string) $row['quantity_reserved'],
             'average_unit_cost' => (string) $row['average_unit_cost'],
         ];
+    }
+
+    public function stockItemForPosting(int $businessId, int $stockItemId): ?array
+    {
+        $s = $this->connection->prepare(
+            'SELECT base_unit_id, is_active FROM pos_stock_items
+             WHERE business_id = :business_id AND id = :stock_item_id
+             LIMIT 1 LOCK IN SHARE MODE'
+        );
+        $s->execute(['business_id' => $businessId, 'stock_item_id' => $stockItemId]);
+        $row = $s->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
     }
 
     public function locationIsActive(int $businessId, int $branchId, int $locationId): bool
