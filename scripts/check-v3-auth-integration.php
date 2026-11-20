@@ -11,6 +11,7 @@ use PersiaCoder\PosV3\Auth\BranchManagementController;
 use PersiaCoder\PosV3\Auth\BranchManagementService;
 use PersiaCoder\PosV3\Auth\AuthenticationService;
 use PersiaCoder\PosV3\Auth\SessionAuthenticator;
+use PersiaCoder\PosV3\Catalog\CatalogService;
 use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Http\Request;
 use PersiaCoder\PosV3\Infrastructure\Database\SessionRepository;
@@ -324,6 +325,110 @@ $setOrderTime->execute([
 
 $orderService = new OrderService($pdo, $appKey, new PermissionService($permissionRepository));
 $orderScope = new BusinessScope($businessId, $businessPublicId, $branchId, $branchPublicId);
+
+// Exercise a complete POS order against the disposable MySQL/MariaDB database.
+$catalogService = new CatalogService($pdo, $appKey);
+$createdProduct = $catalogService->createProduct(
+    $newPrincipal,
+    $orderScope,
+    ['name' => 'CI POS Order Product', 'base_price_amount' => 10000, 'tax_rate_bps' => 1000],
+    $uuid(),
+    $requestId(),
+    '127.0.0.1',
+);
+$productPublicId = (string) $createdProduct['body']['data']['product']['id'];
+$createdVariant = $catalogService->createVariant(
+    $newPrincipal,
+    $orderScope,
+    $productPublicId,
+    ['name' => 'CI POS Variant', 'price_delta_amount' => 2000],
+    $uuid(),
+    $requestId(),
+    '127.0.0.1',
+);
+$variantPublicId = (string) $createdVariant['body']['data']['variant']['id'];
+$createdOptionGroup = $catalogService->createOptionGroup(
+    $newPrincipal,
+    $orderScope,
+    [
+        'name' => 'CI POS Required Option',
+        'selection_type' => 'single',
+        'min_select' => 1,
+        'max_select' => 1,
+        'is_required_default' => false,
+        'options' => [['name' => 'CI POS Extra', 'price_delta_amount' => 500]],
+    ],
+    $uuid(),
+    $requestId(),
+    '127.0.0.1',
+);
+$optionGroupPublicId = (string) $createdOptionGroup['body']['data']['option_group']['id'];
+$optionPublicId = (string) $createdOptionGroup['body']['data']['option_group']['options'][0]['id'];
+$catalogService->attachOptionGroup(
+    $newPrincipal,
+    $orderScope,
+    $productPublicId,
+    ['option_group_id' => $optionGroupPublicId, 'sort_order' => 0, 'is_required' => true],
+    $uuid(),
+    $requestId(),
+    '127.0.0.1',
+);
+$orderPayload = [
+    'source_channel' => 'pos',
+    'fulfillment_method' => 'dine_in',
+    'items' => [[
+        'product_id' => $productPublicId,
+        'variant_id' => $variantPublicId,
+        'quantity' => 2,
+        'options' => [$optionPublicId],
+    ]],
+];
+$orderIdempotencyKey = 'ci-pos-order-' . bin2hex(random_bytes(12));
+$createdOrder = $orderService->create(
+    $newPrincipal, $orderScope, $orderPayload, $orderIdempotencyKey, $requestId(), '127.0.0.1',
+);
+$createdOrderData = $createdOrder['body']['data']['order'];
+$assert($createdOrder['status'] === 201 && $createdOrder['replayed'] === false, 'POS order creation did not return a fresh 201 response.');
+$assert($createdOrderData['subtotal_amount'] === 25000, 'POS order subtotal did not use server-side product, variant and option prices.');
+$assert($createdOrderData['tax_amount'] === 2500 && $createdOrderData['total_amount'] === 27500, 'POS order tax or total was not calculated authoritatively by the server.');
+$assert($createdOrderData['order_status'] === 'draft' && $createdOrderData['payment_status'] === 'unpaid', 'New POS order did not remain draft and unpaid.');
+$createdOrderPublicId = (string) $createdOrderData['id'];
+$replayedOrder = $orderService->create(
+    $newPrincipal, $orderScope, $orderPayload, $orderIdempotencyKey, $requestId(), '127.0.0.1',
+);
+$assert($replayedOrder['replayed'] === true
+    && $replayedOrder['body']['data']['order']['id'] === $createdOrderPublicId,
+    'POS order idempotency replay did not return the original order.');
+$orderCount = $pdo->prepare('SELECT COUNT(*) FROM pos_orders WHERE business_id = :business_id AND branch_id = :branch_id AND public_id = :public_id');
+$orderCount->execute(['business_id' => $businessId, 'branch_id' => $branchId, 'public_id' => $createdOrderPublicId]);
+$assert((int) $orderCount->fetchColumn() === 1, 'Idempotent POS retry created a duplicate order.');
+
+$changedPayloadRejected = false;
+$changedPayload = $orderPayload;
+$changedPayload['items'][0]['quantity'] = 3;
+try {
+    $orderService->create(
+        $newPrincipal, $orderScope, $changedPayload, $orderIdempotencyKey, $requestId(), '127.0.0.1',
+    );
+} catch (HttpException $error) {
+    $changedPayloadRejected = $error->status === 409;
+}
+$assert($changedPayloadRejected, 'Reusing a POS idempotency key with a changed payload was not rejected.');
+
+$missingOptionRejected = false;
+$invalidOptionPayload = $orderPayload;
+$invalidOptionPayload['items'][0]['options'] = [];
+try {
+    $orderService->create(
+        $newPrincipal, $orderScope, $invalidOptionPayload, 'ci-pos-invalid-option-' . bin2hex(random_bytes(8)), $requestId(), '127.0.0.1',
+    );
+} catch (HttpException $error) {
+    $missingOptionRejected = $error->status === 422;
+}
+$assert($missingOptionRejected, 'POS order creation accepted a missing required option.');
+$orderCount->execute(['business_id' => $businessId, 'branch_id' => $branchId, 'public_id' => $createdOrderPublicId]);
+$assert((int) $orderCount->fetchColumn() === 1, 'A rejected POS order attempt changed the existing order count.');
+
 $localDayOrders = $orderService->list($orderScope, null, null, 10, null, null, null, '2026-11-20', '2026-11-20');
 $localDayNumbers = array_column($localDayOrders['orders'], 'order_number');
 $assert($localDayNumbers === [80003, 80002], 'Order date filter did not honor the inclusive Tehran local day and exclusive next-day boundary.');
