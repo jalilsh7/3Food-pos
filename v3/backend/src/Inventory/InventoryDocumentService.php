@@ -160,6 +160,7 @@ final readonly class InventoryDocumentService
             throw new HttpException(422, 'stock_document_line_note_invalid', 'The line note must not exceed 500 characters.');
         }
         $note = $note === '' ? null : $note;
+        $linePublicId = self::uuidV4();
         $fingerprint = hash('sha256', json_encode(
             [$documentPublicId, $stockItemPublicId, $quantity, $unitCode, $note],
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE,
@@ -168,7 +169,7 @@ final readonly class InventoryDocumentService
             $actor->userId, $scope, 'inventory.stock-document.line.create', $key, $fingerprint,
             function (PDO $db) use (
                 $actor, $scope, $branchId, $documentPublicId, $stockItemPublicId,
-                $unitCode, $quantity, $note, $requestId, $ip,
+                $unitCode, $quantity, $note, $linePublicId, $requestId, $ip,
             ): array {
                 $document = $this->documents->findDraftForUpdate($scope->businessId, $branchId, $documentPublicId);
                 if ($document === null) {
@@ -189,10 +190,11 @@ final readonly class InventoryDocumentService
                     throw new HttpException(422, 'stock_document_line_conversion_missing', 'No valid conversion exists from the selected unit to the stock item base unit.');
                 }
                 $this->documents->addLine(
-                    $scope->businessId, $branchId, (int) $document['id'], (int) $item['id'],
+                    $scope->businessId, $branchId, (int) $document['id'], $linePublicId, (int) $item['id'],
                     $quantity, (int) $unit['id'], $factor, $note,
                 );
                 $after = [
+                    'id' => $linePublicId,
                     'document_no' => (string) $document['document_no'],
                     'stock_item_id' => $stockItemPublicId, 'quantity' => $quantity,
                     'unit_code' => $unitCode, 'conversion_factor_snapshot' => $factor,
@@ -206,6 +208,138 @@ final readonly class InventoryDocumentService
                 return ['status' => 201, 'body' => [
                     'data' => ['stock_document_line' => $after],
                     'meta' => (object) [],
+                ]];
+            },
+        );
+    }
+
+
+    public function updateLine(
+        AuthenticatedPrincipal $actor, BusinessScope $scope, string $documentPublicId,
+        string $linePublicId, array $payload, string $key, string $requestId, string $ip,
+    ): array {
+        $branchId = self::branch($scope);
+        if (!self::isUuid($documentPublicId) || !self::isUuid($linePublicId)) {
+            throw new HttpException(422, 'stock_document_line_id_invalid', 'The document or line identifier is invalid.');
+        }
+        $stockItemPublicId = $payload['stock_item_id'] ?? null;
+        $unitCode = $payload['unit_code'] ?? null;
+        $quantity = $payload['quantity'] ?? null;
+        if (!is_string($stockItemPublicId) || !self::isUuid($stockItemPublicId)
+            || !is_string($unitCode) || !preg_match('/^[a-z0-9._-]{1,32}$/', $unitCode)) {
+            throw new HttpException(422, 'stock_document_line_reference_invalid', 'A valid stock_item_id and unit_code are required.');
+        }
+        if (is_int($quantity)) $quantity = (string) $quantity;
+        if (!is_string($quantity) || !preg_match('/^\\d{1,12}(?:\\.\\d{1,6})?$/', $quantity)
+            || trim(str_replace('.', '', $quantity), '0') === '') {
+            throw new HttpException(422, 'stock_document_line_quantity_invalid', 'Quantity must be a positive decimal with up to 6 decimal places.');
+        }
+        $noteValue = $payload['note'] ?? '';
+        if (!is_string($noteValue)) throw new HttpException(422, 'stock_document_line_note_invalid', 'The line note must be text.');
+        $note = trim($noteValue);
+        if (self::unicodeLength($note) > 500) {
+            throw new HttpException(422, 'stock_document_line_note_invalid', 'The line note must not exceed 500 characters.');
+        }
+        $note = $note === '' ? null : $note;
+        $fingerprint = hash('sha256', json_encode(
+            [$documentPublicId, $linePublicId, $stockItemPublicId, $quantity, $unitCode, $note],
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE,
+        ));
+        return $this->idempotency->execute(
+            $actor->userId, $scope, 'inventory.stock-document.line.update', $key, $fingerprint,
+            function (PDO $db) use (
+                $actor, $scope, $branchId, $documentPublicId, $linePublicId,
+                $stockItemPublicId, $unitCode, $quantity, $note, $requestId, $ip,
+            ): array {
+                $document = $this->documents->findDraftForUpdate($scope->businessId, $branchId, $documentPublicId);
+                if ($document === null) throw new HttpException(404, 'stock_document_not_found', 'The stock document was not found.');
+                if ((string) $document['status'] !== 'draft') {
+                    throw new HttpException(409, 'stock_document_not_draft', 'Only draft document lines can be updated.');
+                }
+                $line = $this->documents->findLineForUpdate(
+                    $scope->businessId, $branchId, (int) $document['id'], $linePublicId,
+                );
+                if ($line === null) throw new HttpException(404, 'stock_document_line_not_found', 'The stock document line was not found.');
+                $item = $this->documents->findStockItemForLine($scope->businessId, $stockItemPublicId);
+                if ($item === null) throw new HttpException(404, 'stock_item_not_found', 'The active stock item was not found in this business.');
+                $unit = $this->documents->findUnitForLine($unitCode);
+                if ($unit === null || (string) $unit['dimension'] !== (string) $item['base_dimension']) {
+                    throw new HttpException(422, 'stock_document_line_unit_invalid', 'The selected unit is missing or has a different dimension.');
+                }
+                $factor = $this->documents->findConversionFactor((int) $unit['id'], (int) $item['base_unit_id']);
+                if ($factor === null || (float) $factor <= 0) {
+                    throw new HttpException(422, 'stock_document_line_conversion_missing', 'No valid conversion exists from the selected unit to the stock item base unit.');
+                }
+                $before = [
+                    'stock_item_id' => (string) $line['stock_item_public_id'],
+                    'quantity' => (string) $line['quantity'], 'unit_code' => (string) $line['unit_code'],
+                    'conversion_factor_snapshot' => (string) $line['conversion_factor_snapshot'],
+                    'base_quantity' => (string) $line['base_quantity'],
+                    'note' => $line['note'] === null ? null : (string) $line['note'],
+                ];
+                $this->documents->updateLine(
+                    $scope->businessId, $branchId, (int) $document['id'], (int) $line['id'],
+                    (int) $item['id'], $quantity, (int) $unit['id'], $factor, $note,
+                );
+                $after = [
+                    'id' => $linePublicId, 'stock_item_id' => $stockItemPublicId,
+                    'quantity' => $quantity, 'unit_code' => $unitCode,
+                    'conversion_factor_snapshot' => $factor, 'note' => $note,
+                ];
+                $this->audit->record(
+                    $actor->userId, 'inventory.stock_document.line.updated', 'stock_document',
+                    $documentPublicId, $before, $after, null, $requestId, $ip,
+                    $scope->businessId, $branchId,
+                );
+                return ['status' => 200, 'body' => [
+                    'data' => ['stock_document_line' => $after], 'meta' => (object) [],
+                ]];
+            },
+        );
+    }
+
+    public function deleteLine(
+        AuthenticatedPrincipal $actor, BusinessScope $scope, string $documentPublicId,
+        string $linePublicId, string $key, string $requestId, string $ip,
+    ): array {
+        $branchId = self::branch($scope);
+        if (!self::isUuid($documentPublicId) || !self::isUuid($linePublicId)) {
+            throw new HttpException(422, 'stock_document_line_id_invalid', 'The document or line identifier is invalid.');
+        }
+        $fingerprint = hash('sha256', json_encode(
+            [$documentPublicId, $linePublicId], JSON_THROW_ON_ERROR,
+        ));
+        return $this->idempotency->execute(
+            $actor->userId, $scope, 'inventory.stock-document.line.delete', $key, $fingerprint,
+            function (PDO $db) use (
+                $actor, $scope, $branchId, $documentPublicId, $linePublicId, $requestId, $ip,
+            ): array {
+                $document = $this->documents->findDraftForUpdate($scope->businessId, $branchId, $documentPublicId);
+                if ($document === null) throw new HttpException(404, 'stock_document_not_found', 'The stock document was not found.');
+                if ((string) $document['status'] !== 'draft') {
+                    throw new HttpException(409, 'stock_document_not_draft', 'Only draft document lines can be deleted.');
+                }
+                $line = $this->documents->findLineForUpdate(
+                    $scope->businessId, $branchId, (int) $document['id'], $linePublicId,
+                );
+                if ($line === null) throw new HttpException(404, 'stock_document_line_not_found', 'The stock document line was not found.');
+                $before = [
+                    'id' => $linePublicId, 'stock_item_id' => (string) $line['stock_item_public_id'],
+                    'quantity' => (string) $line['quantity'], 'unit_code' => (string) $line['unit_code'],
+                    'conversion_factor_snapshot' => (string) $line['conversion_factor_snapshot'],
+                    'base_quantity' => (string) $line['base_quantity'],
+                    'note' => $line['note'] === null ? null : (string) $line['note'],
+                ];
+                $this->documents->deleteLine(
+                    $scope->businessId, $branchId, (int) $document['id'], (int) $line['id'],
+                );
+                $this->audit->record(
+                    $actor->userId, 'inventory.stock_document.line.deleted', 'stock_document',
+                    $documentPublicId, $before, null, null, $requestId, $ip,
+                    $scope->businessId, $branchId,
+                );
+                return ['status' => 200, 'body' => [
+                    'data' => ['deleted_line_id' => $linePublicId], 'meta' => (object) [],
                 ]];
             },
         );
