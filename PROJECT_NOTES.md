@@ -1297,3 +1297,17 @@
   - SQL parser contract expected at least 100 statements, but the actual V3 baseline currently contains 61 CREATE TABLE statements and 65 parsed statements; guard now checks the real baseline floor (61 tables / 65 statements), rather than an obsolete count.
 - Fix commits: `d5f23c0833284d826846a27db2340d2e739cd9e6`, `ab3c63994a9d0d76087f7aed98dbf969aff314c9`, `b6553d73b0d7c1b700442e71715e7a6318606ab0`.
 - Revalidation runs for these commits were triggered; their results must be checked before marking the fixes passed. No DB migration was executed on a real/customer database.
+
+
+## INV-02A2 — مدیریت کامل ردیف‌های پیش‌نویس (2026-11-20)
+- وضعیت: **کدنویسی ثبت شد؛ CI برای آخرین تغییرات در انتظار؛ تست DB واقعی/مستقل هنوز لازم است.**
+- migration جدید `012_stock-document-line-public-ids.sql` شناسه UUID عمومی به ردیف‌های سند اضافه می‌کند؛ ردیف‌های قبلی backfill و uniqueness در business+branch+document enforce می‌شود.
+- پاسخ ایجاد ردیف اکنون `id` عمومی دارد و جزئیات سند نیز شناسه عمومی هر ردیف را بازمی‌گرداند.
+- endpoint ویرایش: `PATCH /api/v1/inventory/documents/{documentPublicId}/lines/{linePublicId}`.
+- endpoint حذف: `DELETE /api/v1/inventory/documents/{documentPublicId}/lines/{linePublicId}`.
+- هر دو فقط روی سند draft مجازند؛ ابتدا سند در business/branch scope قفل می‌شود و سپس ردیف همان سند با `FOR UPDATE` قفل می‌شود. عملیات idempotent و audit می‌شوند.
+- ویرایش دوباره stock item، واحد، مقدار، ضریب تبدیل snapshot، base quantity و note را اعتبارسنجی و ذخیره می‌کند. هیچ هزینه/ارزش موجودی محاسبه نمی‌شود.
+- draft CRUD هیچ ledger یا balance را تغییر نمی‌دهد. posting و موجودی واقعی همچنان انجام نشده‌اند.
+- migration 012 فقط commit شده است؛ اجرا روی دیتابیس مشتری/Production ممنوع تا مجوز صریح. CI از migration fixture شماره 013 استفاده می‌کند تا با sequence واقعی تداخل نکند.
+- regression contract اکنون شناسه عمومی migration، CRUD routeها، idempotency و عدم تغییر ledger/balance را بررسی می‌کند؛ جایگزین integration تست هم‌زمانی/rollback واقعی نیست.
+- در commit `a8560e4`، V3 Frontend Validation شامل TypeScript check و production build موفق شد. اجرای Backend، DB engines و PHP migration برای commitهای بعدی باید دوباره بررسی شود.
