@@ -9,6 +9,7 @@ use PersiaCoder\PosV3\Inventory\InventoryController;
 use PersiaCoder\PosV3\Inventory\InventoryService;
 use PersiaCoder\PosV3\Inventory\InventoryDocumentService;
 use PersiaCoder\PosV3\Inventory\InventoryPostingService;
+use PersiaCoder\PosV3\Inventory\SupplierService;
 use PersiaCoder\PosV3\Recipes\RecipeController;
 use PersiaCoder\PosV3\Recipes\RecipeService;
 use PersiaCoder\PosV3\Media\MediaService;
