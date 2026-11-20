@@ -332,3 +332,10 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 - Commits: repository a93ad5c91379395fd84d71a332cb6460826e1c1e; service 84dc3672b2b62f028cdbeb22ba24197c049dfebc; controller 11226d94acd352e392a4bdb3d82e559ed65c95e6; API client d1418eac065e716e6507c7d10b02772d6f9d2552; OrderCenter 1a447a8fb44c365892702f4ab49acba4c62918d6; contract 569973214207ace99d83ba4cd650f7910ab0ae06; workflow 5bf9a8209dc31ed7608e8907c77a94225bb4cf30.
 - New code has not yet passed CI at this update. Contract test is static/source-level and must not be reported as real DB integration. Next: verify backend/frontend CI; then add MySQL/MariaDB page-boundary and scope integration, date filters, and eventually status transition actions.
 - No main/production changes; no customer database or migration was touched.
+
+## ORD-01B implementation follow-up — 2026-11-20
+- Cursor validation was widened from 9 to 19 digits to match the practical signed BIGINT range used by the PHP application.
+- OrderCenter now invalidates in-flight list/page requests when status or channel filters change; late responses cannot append rows from an old filter. Summary label explicitly says loaded orders, not total orders.
+- Added centered load-more action styling in orders.css.
+- Additional commits after initial ORD-01B implementation: OrderService cursor bound 881771ca1668f1cffbdd34a0233ca82701688bd2; pagination contract bound c0dd18f42a72de58000c82b9f2e123fa3699336f; OrderCenter summary/error handling 43ed772f54366571ac5f83004ce7b6681de967af; pagination CSS e58d9405613d20abf03548d2971c8026c2019831; stale-response guard 5b2850fa4d5503721318b10747549a36b353b21b.
+- Re-check CI on the final documentation HEAD; all new code remains unverified until those runs complete.
