@@ -41,3 +41,5 @@ jobs:
         run: php scripts/check-v3-backend-inventory-read.php
       - name: Recipe API route and security contract checks
         run: php scripts/check-v3-backend-recipe-routes.php
+      - name: Inventory draft document contract checks
+        run: php scripts/check-v3-backend-inventory-documents.php
