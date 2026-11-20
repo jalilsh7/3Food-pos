@@ -2,7 +2,7 @@ import { useId } from "react";
 import type {
   HTMLAttributes,
   InputHTMLAttributes,
-  type ReactNode,
+  ReactNode,
   SelectHTMLAttributes,
 } from "react";
 
