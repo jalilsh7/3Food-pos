@@ -232,3 +232,67 @@ export async function getInventoryStockItems(search = ""): Promise<InventoryStoc
   const data = await request<{ stock_items: InventoryStockItem[] }>(`/inventory/items?${query.toString()}`);
   return data.stock_items.filter((item) => item.is_active);
 }
+
+
+export type InventoryUnit = { code: string; name: string; dimension: string };
+export type InventoryDocumentType =
+  | "consumption" | "transfer" | "adjustment_in" | "adjustment_out" | "waste";
+export type InventoryDocumentSummary = {
+  id: string;
+  document_no: string;
+  document_type: string;
+  status: "draft" | "posted" | "voided";
+  reason: string | null;
+  location: { id: string; name: string };
+  destination: { id: string; name: string } | null;
+  created_at: string;
+  posted_at: string | null;
+};
+
+function idempotencyHeaders(): HeadersInit {
+  return { "Idempotency-Key": globalThis.crypto.randomUUID() };
+}
+
+export async function getInventoryUnits(): Promise<InventoryUnit[]> {
+  const data = await request<{ units: InventoryUnit[] }>("/inventory/units");
+  return data.units;
+}
+
+export async function getInventoryDocuments(limit = 50): Promise<InventoryDocumentSummary[]> {
+  const query = new URLSearchParams({ limit: String(limit) });
+  const data = await request<{ documents: InventoryDocumentSummary[] }>(`/inventory/documents?${query.toString()}`);
+  return data.documents;
+}
+
+export async function createInventoryDocument(payload: {
+  document_type: InventoryDocumentType;
+  location_id: string;
+  destination_location_id?: string;
+  reason?: string;
+}): Promise<{ id: string; document_no: string; document_type: string; status: string }> {
+  const data = await request<{ stock_document: { id: string; document_no: string; document_type: string; status: string } }>(
+    "/inventory/documents",
+    { method: "POST", headers: idempotencyHeaders(), body: JSON.stringify(payload) },
+  );
+  return data.stock_document;
+}
+
+export async function addInventoryDocumentLine(documentId: string, payload: {
+  stock_item_id: string;
+  quantity: string;
+  unit_code: string;
+  total_cost_amount?: string;
+  note?: string;
+}): Promise<void> {
+  await request<{ stock_document_line: { id: string } }>(
+    `/inventory/documents/${encodeURIComponent(documentId)}/lines`,
+    { method: "POST", headers: idempotencyHeaders(), body: JSON.stringify(payload) },
+  );
+}
+
+export async function postInventoryDocument(documentId: string): Promise<void> {
+  await request<{ stock_document: { id: string; status: string } }>(
+    `/inventory/documents/${encodeURIComponent(documentId)}/post`,
+    { method: "POST", headers: idempotencyHeaders(), body: "{}" },
+  );
+}
