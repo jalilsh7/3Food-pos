@@ -376,3 +376,11 @@ v3/backend/
 - Three other workflow blockers were repaired in the frontend module, V3 frontend TypeScript pin, and SQL parser baseline threshold; see `PROJECT_NOTES.md` and `AI_HANDOFF_GUIDE.md`. Re-run outcomes remain authoritative.
 - INV-02A1 supports draft document headers and line creation with business/branch scope, idempotency, audit and conversion-factor snapshots. It must not mutate `pos_stock_ledger` or `pos_stock_balances`.
 - Remaining: draft line update/delete; transactional posting; append-only ledger; atomic balance updates; negative-stock guard; DB integration/concurrency/rollback tests.
+
+
+## INV-02A2 — Draft document line lifecycle
+- Stock document lines now have stable public UUIDs via migration 012; existing rows are backfilled before NOT NULL and scoped uniqueness are enforced.
+- Create, update and delete line endpoints are idempotent and audited. Update/delete require the parent document to be draft and lock the scoped document row before locking the scoped line row.
+- Line updates re-resolve business-scoped stock item and unit conversion, then persist quantity, conversion-factor snapshot and base quantity. Public line IDs are returned by create and document detail.
+- Draft lifecycle operations never append ledger entries or mutate balances. Only a future posting transaction may do so.
+- Migration is not applied to real databases. CI migration fixture is numbered 013 to avoid sequence collision with migration 012.
