@@ -417,3 +417,13 @@ v3/backend/
 - `VITE_API_BASE_URL` can override the default `/api/v1`; use same-origin deployment by default so HttpOnly cookies and CSRF cookie are sent automatically.
 - Auth integration test on disposable MySQL 8.4 and MariaDB 10.6 covers login, token hashing, me, CSRF rotation, password-change session invalidation and logout.
 - UI modules other than auth remain prototypes. Do not treat local state as real business data.
+
+
+## Order read API — ORD-01A (2026-11-20)
+- `GET /api/v1/orders` returns up to 100 recent orders in the authenticated business/branch scope; optional `status` and `channel` filters are validated by `OrderService::list`.
+- `GET /api/v1/orders/{orderPublicId}` returns the order snapshot, item snapshots/options and status history. Public order identifiers are validated as UUIDs and lookup predicates include business and branch IDs.
+- Frontend API client maps the response into `OrderSummary` and `OrderDetail`; `OrderCenter` currently uses read-only list/detail calls.
+- Payment status remains independent from order status. UI must not infer payment success from order completion.
+- Current known limits: list API uses bounded limit (100) without cursor pagination; order read API integration tests and role matrix still need explicit coverage.
+- No order state transition controls are enabled in OrderCenter yet. Future transitions must call the existing transition endpoints with fresh Idempotency-Key and rely on backend RBAC/state-machine checks; do not mutate status locally.
+- CI at code commit `f6ab1a6a9b8e47674f5a01e2c322567c9c15d612`: backend checks passed on PHP 8.2/8.3/8.4 (run `44705608241`), frontend TypeScript/build passed (run `44705608244`). The separate PHP migration workflow `44705608232` was still running at documentation time.
