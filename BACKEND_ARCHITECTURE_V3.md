@@ -447,3 +447,7 @@ v3/backend/
 - Every page query must retain both business_id and branch_id predicates before applying the cursor predicate; cursor input is a positive integer string and must be validated server-side.
 - Fetch limit + 1 rows to derive has_more; return at most limit records and next_cursor equal to the final returned order_number only when another page exists.
 - Do not expose internal numeric order primary keys. Add MySQL and MariaDB integration coverage for pagination boundaries and cross-business/branch isolation before treating this feature as fully verified.
+
+## Order cursor validation addendum — 2026-11-20
+- Accept positive decimal cursor strings up to 19 digits, then cast to PHP integer; this covers the signed BIGINT range used by the PHP application.
+- Cursor remains a branch-local order_number. Never accept an internal order primary key from the client.
