@@ -146,3 +146,72 @@ export async function createInitialBusiness(payload: {
     null,
   );
 }
+
+
+export type InventoryLocation = {
+  id: string;
+  code: string;
+  name: string;
+  location_type: string;
+  is_active: boolean;
+};
+
+export type InventoryBalance = {
+  stock_item_id: string;
+  stock_item_code: string;
+  stock_item_name: string;
+  base_unit_code: string;
+  location_id: string;
+  location_code: string;
+  location_name: string;
+  quantity_on_hand: string;
+  quantity_reserved: string;
+  quantity_available: string;
+  updated_at: string;
+};
+
+export type InventoryLedgerEntry = {
+  movement_type: string;
+  quantity_delta: string;
+  base_unit_code: string;
+  stock_item_id: string;
+  stock_item_code: string;
+  stock_item_name: string;
+  location_id: string;
+  location_code: string;
+  location_name: string;
+  document_id: string | null;
+  document_no: string | null;
+  document_type: string | null;
+  note: string | null;
+  created_at: string;
+};
+
+export async function getInventoryLocations(): Promise<InventoryLocation[]> {
+  const data = await request<{ locations: InventoryLocation[] }>("/inventory/locations");
+  return data.locations.filter((location) => location.is_active);
+}
+
+export async function getInventoryBalances(filters: {
+  stockItemId?: string;
+  locationId?: string;
+  limit?: number;
+} = {}): Promise<InventoryBalance[]> {
+  const query = new URLSearchParams({ limit: String(filters.limit ?? 200) });
+  if (filters.stockItemId) query.set("stock_item_id", filters.stockItemId);
+  if (filters.locationId) query.set("location_id", filters.locationId);
+  const data = await request<{ balances: InventoryBalance[] }>(`/inventory/balances?${query.toString()}`);
+  return data.balances;
+}
+
+export async function getInventoryLedger(filters: {
+  stockItemId?: string;
+  locationId?: string;
+  limit?: number;
+} = {}): Promise<InventoryLedgerEntry[]> {
+  const query = new URLSearchParams({ limit: String(filters.limit ?? 50) });
+  if (filters.stockItemId) query.set("stock_item_id", filters.stockItemId);
+  if (filters.locationId) query.set("location_id", filters.locationId);
+  const data = await request<{ entries: InventoryLedgerEntry[] }>(`/inventory/ledger?${query.toString()}`);
+  return data.entries;
+}
