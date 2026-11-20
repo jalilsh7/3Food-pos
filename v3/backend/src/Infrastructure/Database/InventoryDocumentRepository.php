@@ -402,7 +402,7 @@ final readonly class InventoryDocumentRepository
         $s = $this->connection->prepare(
             'SELECT l.public_id AS line_id, si.public_id AS stock_item_id, si.name AS stock_item_name,
                     l.quantity, u.code AS unit_code, u.name AS unit_name,
-                    l.conversion_factor_snapshot, l.base_quantity, l.note
+                    l.conversion_factor_snapshot, l.base_quantity, l.total_cost_amount, l.note
              FROM pos_stock_document_lines l
              INNER JOIN pos_stock_items si
                ON si.id = l.stock_item_id AND si.business_id = l.business_id
@@ -421,6 +421,7 @@ final readonly class InventoryDocumentRepository
             'unit_name' => (string) $r['unit_name'],
             'conversion_factor_snapshot' => (string) $r['conversion_factor_snapshot'],
             'base_quantity' => (string) $r['base_quantity'],
+            'total_cost_amount' => (string) $r['total_cost_amount'],
             'note' => $r['note'] === null ? null : (string) $r['note'],
         ], $s->fetchAll(PDO::FETCH_ASSOC));
     }
