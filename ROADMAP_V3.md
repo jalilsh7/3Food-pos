@@ -804,3 +804,9 @@
 - INV-02B1-RETRY: کلاینت mutation انبار برای retry در همان runtime کلید idempotency را حفظ می‌کند؛ بازیابی پس از reload هنوز نیازمند reconciliation از draftهای سرور است.
 - CI snapshot: Backend run `44710600371` و PHP migration checks run `44710600140` موفق؛ Frontend run `44710600172` cancelled؛ DB run `44692152564` روی workflow قدیمی با collision شماره 001 شکست. workflow فعلی از شماره 013 استفاده می‌کند، ولی PASS جدید تا اجرای مجدد ثبت نمی‌شود.
 - گام بعدی: ORD-01D فیلتر بازه تاریخ و timezone؛ سپس اتصال فرمان‌های POS و transitionهای سفارش به API واقعی. هیچ migration روی دیتابیس مشتری/Production اجرا نشود.
+
+
+## ORD-01D — فیلتر تاریخ و timezone سفارش (2026-11-20)
+- پیاده‌سازی Backend و UI انجام شد: فیلتر تاریخ شروع/پایان، timezone شعبه با fallback به کسب‌وکار، تبدیل مرزهای روز محلی به UTC و حفظ cursor در تمام صفحات.
+- تست integration مرزهای زمانی و isolation به suite دیتابیس اضافه شد؛ CI جدید روی commit این بسته هنوز در انتظار است.
+- مرحله بعد پس از پذیرش CI: اتصال ایجاد سفارش POS و transitionهای سفارش/آشپزخانه به API واقعی با RBAC و idempotency.
