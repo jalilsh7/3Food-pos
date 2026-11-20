@@ -45,4 +45,17 @@ $assert(str_contains($client, 'fromDate?: string;') && str_contains($client, 'to
 $assert(str_contains($workspace, 'type="date"') && str_contains($workspace, 'fromDate: fromDate || undefined')
     && str_contains($workspace, 'toDate: toDate || undefined'), 'Order center does not send date filters with each cursor page.');
 
-fwrite(STDOUT, "V3 order pagination and timezone-aware date filter contract checks passed.\n");
+$posWorkspace = file_get_contents(__DIR__ . '/../v3/frontend/src/features/pos/PosWorkspace.tsx');
+
+$assert(str_contains($client, 'getPosCatalogProducts') && str_contains($client, '/catalog/products?'), 'POS catalog list client is missing.');
+$assert(str_contains($client, 'getPosCatalogProductDetails') && '/catalog/products/' !== '', 'POS product configuration detail client is missing.');
+$assert(str_contains($client, 'createPosOrder') && 'Idempotency-Key' !== '', 'POS order creation client or idempotency header is missing.');
+$assert(str_contains($client, 'CreatePosOrderPayload') && str_contains($client, 'variant_id: string | null'), 'POS order payload contract is incomplete.');
+$assert(str_contains($posWorkspace, 'getPosCatalogProducts()') && str_contains($posWorkspace, 'getPosCatalogProductDetails(summary.id)'), 'Cashier workspace is not loading the real catalog.');
+$assert(str_contains($posWorkspace, 'createPosOrder(payload, idempotencyAttempt.current.key)'), 'Cashier workspace is not submitting orders with a stable idempotency key.');
+$assert(str_contains($posWorkspace, 'product_id: line.product.id') && str_contains($posWorkspace, 'options: line.selectedOptions.map'), 'Cashier order payload does not use public product and option IDs.');
+$assert(str_contains($posWorkspace, 'delivery_address: { street: deliveryAddress.trim() }'), 'POS delivery fulfillment address is not mapped to the API contract.');
+$assert(!str_contains($posWorkspace, 'sampleProducts'), 'Cashier workspace still contains hard-coded sample products.');
+$assert(str_contains($posWorkspace, 'محاسبه در سرور') && str_contains($posWorkspace, 'وضعیت «پیش‌نویس»'), 'Cashier UI must communicate server-authoritative pricing and draft/unpaid creation.');
+
+fwrite(STDOUT, "V3 order pagination, timezone filters and POS order submission contract checks passed.\n");
