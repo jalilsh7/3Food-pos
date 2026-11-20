@@ -1,10 +1,15 @@
 ALTER TABLE pos_categories
+  DROP FOREIGN KEY fk_categories_parent,
   ADD COLUMN business_id BIGINT UNSIGNED NOT NULL AFTER id,
   ADD COLUMN public_id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NOT NULL AFTER business_id,
   ADD UNIQUE KEY uq_categories_public_id (public_id),
   ADD UNIQUE KEY uq_categories_business_id_id (business_id, id),
   ADD KEY idx_categories_business_parent (business_id, parent_id, is_active, sort_order),
-  ADD CONSTRAINT fk_categories_business FOREIGN KEY (business_id) REFERENCES pos_businesses(id) ON DELETE RESTRICT,
+  ADD CONSTRAINT fk_categories_business FOREIGN KEY (business_id) REFERENCES pos_businesses(id) ON DELETE RESTRICT;
+
+-- MariaDB 10.6 requires the composite self-reference to be added after
+-- the new columns and referenced unique index exist on the altered table.
+ALTER TABLE pos_categories
   ADD CONSTRAINT fk_categories_parent_business FOREIGN KEY (business_id, parent_id)
     REFERENCES pos_categories (business_id, id) ON DELETE RESTRICT;
 
