@@ -1311,3 +1311,13 @@
 - migration 012 فقط commit شده است؛ اجرا روی دیتابیس مشتری/Production ممنوع تا مجوز صریح. CI از migration fixture شماره 013 استفاده می‌کند تا با sequence واقعی تداخل نکند.
 - regression contract اکنون شناسه عمومی migration، CRUD routeها، idempotency و عدم تغییر ledger/balance را بررسی می‌کند؛ جایگزین integration تست هم‌زمانی/rollback واقعی نیست.
 - در commit `a8560e4`، V3 Frontend Validation شامل TypeScript check و production build موفق شد. اجرای Backend، DB engines و PHP migration برای commitهای بعدی باید دوباره بررسی شود.
+
+
+## CI green confirmation — 2026-11-20 (code HEAD 88cc9a9)
+- **V3 Backend Validation:** PASS — run [44693350404](https://github.com/jalilsh7/3Food-pos/actions/runs/44693350404), PHP 8.2/8.3/8.4; includes auth guards, inventory read scope, recipe route contract and inventory draft document/line CRUD contract.
+- **V3 Frontend Validation:** PASS — run [44693350646](https://github.com/jalilsh7/3Food-pos/actions/runs/44693350646), TypeScript check and production build.
+- **V3 database engine validation:** PASS — run [44693342518](https://github.com/jalilsh7/3Food-pos/actions/runs/44693342518), MySQL 8.4 and MariaDB 10.6; baseline schema, constraints, installer, migrations 001–013, checksum/idempotency, backup/restore and tamper rejection passed on disposable CI databases.
+- **PHP migration checks:** PASS — run [44693350474](https://github.com/jalilsh7/3Food-pos/actions/runs/44693350474); PHP syntax, MySQL schema/API integration, TypeScript, unit tests, ESLint, cPanel package build, Chromium smoke test, desktop/mobile performance budget and artifact upload passed.
+- Fixes included: separate MariaDB-safe creation of the category composite self-FK in migration 006; migration test now checks fixture version `013_ci-smoke`; MySQL restore FK metadata query now uses explicit lower-case aliases and associative fetch mode.
+- Tested code HEAD: `88cc9a91c25fc1eb59942bccc965dc4462b15c3b`. Documentation-only commits may follow; do not assume untested code changes inherit this result.
+- Inventory line CRUD remains contract-tested, not yet end-to-end tested against a live inventory workflow. Database CI did apply migration 012 on both supported engines, but no posting/ledger/balance operation was tested.
