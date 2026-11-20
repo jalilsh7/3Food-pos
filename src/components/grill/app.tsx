@@ -1734,7 +1734,11 @@ function SmsScreen() {
   const [campaignBusy,setCampaignBusy]=useState(false);
   const [campaignProgress,setCampaignProgress]=useState("");
   const [campaignClock,setCampaignClock]=useState(INITIAL_RENDER_TIME);
+  const [smsConnection,setSmsConnection]=useState({loading:true,enabled:false,hasCredential:false,sender:"",error:""});
   useEffect(() => { const timer=window.setInterval(()=>setCampaignClock(Date.now()),60000); return ()=>window.clearInterval(timer); }, []);
+  useEffect(()=>{let active=true;void phpApi.getSmsSettings().then(({settings:s})=>{if(active)setSmsConnection({loading:false,enabled:s.enabled,hasCredential:s.has_password,sender:s.sender,error:""});}).catch(error=>{if(active)setSmsConnection({loading:false,enabled:false,hasCredential:false,sender:"",error:error instanceof Error?error.message:"وضعیت اتصال پیامک دریافت نشد"});});return()=>{active=false;};},[]);
+  const personalRouteReady=smsConnection.enabled&&smsConnection.hasCredential&&!!smsConnection.sender;
+  const serviceRouteReady=smsConnection.enabled&&smsConnection.hasCredential;
   const activeCampaignFilters = Object.entries(campaignFilters).filter(([,value])=>value!=="");
   const smsReport = {
     total: logs.length,
@@ -1764,7 +1768,7 @@ function SmsScreen() {
     return true;
   });
   async function runCampaign(){
-    if(campaignBusy||!campaignText.trim()||!campaignRecipients.length)return;
+    if(campaignBusy||!personalRouteReady||!campaignText.trim()||!campaignRecipients.length)return;
     if(campaignText.length>950){window.alert("متن پیامک باید حداکثر ۹۵۰ نویسه باشد.");return;}
     if(!window.confirm(`پیامک برای ${campaignRecipients.length.toLocaleString("fa-IR")} مشتری ارسال شود؟`))return;
     setCampaignBusy(true);let sent=0,failed=0;
@@ -1774,6 +1778,7 @@ function SmsScreen() {
   return (
     <div className="space-y-4">
       <PageHeading title="مرکز پیامک" description="قالب‌های اطلاع‌رسانی، ارسال دستی و کمپین‌های مشتریان را مدیریت کنید." />
+      {smsConnection.loading ? <p className="text-xs text-muted">در حال بررسی اتصال پیامک...</p> : !personalRouteReady ? <Card className="border border-warn/40"><p className="text-sm font-semibold">اتصال ارسال پیامک آماده نیست</p><p className="mt-1 text-xs text-muted">{smsConnection.error || (!smsConnection.enabled ? "سرویس ملی‌پیامک غیرفعال است." : !smsConnection.hasCredential ? "رمز یا ApiKey ذخیره نشده است." : "شماره فرستنده شخصی تنظیم نشده است.")} برای تکمیل تنظیمات به «تنظیمات فروشگاه ← اتصال ملی‌پیامک» بروید.</p></Card> : null}
       <Card>
         <p className="text-sm">تنظیمات اتصال ملی‌پیامک از بخش «تنظیمات فروشگاه» مدیریت می‌شود؛ این بخش برای قالب‌ها، کمپین‌ها و ارسال پیامک است.</p>
       </Card>
@@ -1822,7 +1827,7 @@ function SmsScreen() {
           </div> : null}
           <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-0 flex-1"><Field label="شماره موبایل برای تست این الگو"><input className={inputCls} dir="ltr" inputMode="tel" placeholder="09123456789" value={serviceTestPhone} onChange={e=>setServiceTestPhone(e.target.value)}/></Field></div>
-            <Btn tone="ghost" disabled={serviceTestBusy!==null || !t.bodyId} onClick={()=>void testServiceTemplate()}>{serviceTestBusy===t.event?"در حال ارسال تست...":"تست ارسال خدماتی"}</Btn>
+            <Btn tone="ghost" disabled={serviceTestBusy!==null || !t.bodyId || !serviceRouteReady} onClick={()=>void testServiceTemplate()}>{serviceTestBusy===t.event?"در حال ارسال تست...":"تست ارسال خدماتی"}</Btn>
           </div>
           <div className="rounded-xl border border-line p-3">
             <p className="text-xs text-muted">پیش‌نمایش نمونه</p>
@@ -1851,7 +1856,7 @@ function SmsScreen() {
         <p className="mb-2 text-xs text-muted">فقط به مشتریانی پیامک می‌فرستد که رضایت پیامکی دارند و تاریخ تولدشان ثبت نشده است. مشتری باید تاریخ را با قالب نمونه پاسخ دهد.</p>
         <textarea className={inputCls} rows={2} maxLength={950} value={settings.birthdaySmsPrompt ?? "برای ثبت تاریخ تولد در باشگاه مشتریان، لطفاً پاسخ دهید: تولد ۱۳۷۰/۰۵/۱۲"} onChange={e=>patchSettings({birthdaySmsPrompt:e.target.value})} onBlur={()=>{const current=usePos.getState().settings;void saveCentralRecord("settings",{id:"main",...current,smsUser:"",smsKey:"",smsFrom:""},()=>{});}} />
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <Btn disabled={birthdayPromptBusy || !(settings.birthdaySmsPrompt ?? "").trim()} onClick={async () => {
+          <Btn disabled={birthdayPromptBusy || !personalRouteReady || !(settings.birthdaySmsPrompt ?? "").trim()} onClick={async () => {
             const birthdayPromptPhones = new Set<string>();
             const targets = customers.filter(customer => {
               const phone = normalizeIranPhone(customer.phone);
@@ -1880,7 +1885,7 @@ function SmsScreen() {
           <input className={inputCls} placeholder="شماره" value={manual.to} onChange={(e) => setManual({ ...manual, to: e.target.value })} />
           <textarea className={inputCls} rows={2} value={manual.text} onChange={(e) => setManual({ ...manual, text: e.target.value })} />
           <div className="flex flex-wrap gap-2">
-            <Btn onClick={() => void sendRaw(manual.to, manual.text)}>ارسال به یک شماره</Btn>
+            <Btn disabled={!personalRouteReady} onClick={() => void sendRaw(manual.to, manual.text)}>ارسال به یک شماره</Btn>
             
           </div>
         </div>
@@ -1901,7 +1906,7 @@ function SmsScreen() {
         <div className="flex justify-end"><Btn tone="ghost" onClick={()=>setCampaignFilters({tier:"",birthday:"",inactiveDays:"",minOrders:"",minSpent:"",productId:""})}>پاک کردن شروط</Btn></div>
         <p className="my-2 text-sm">تعداد شروط فعال: <b>{activeCampaignFilters.length.toLocaleString("fa-IR")}</b> · تعداد گیرندگان واجد شرایط و دارای رضایت: <b>{campaignRecipients.length.toLocaleString("fa-IR")}</b></p>
         <textarea className={inputCls} rows={3} maxLength={950} value={campaignText} onChange={e=>setCampaignText(e.target.value)} placeholder="متن پیامک کمپین..."/>
-        <div className="mt-2 flex flex-wrap items-center gap-2"><Btn onClick={()=>void runCampaign()} disabled={campaignBusy||!campaignText.trim()||campaignRecipients.length===0}>{campaignBusy?"در حال ارسال...":"ارسال کمپین"}</Btn><span className="text-xs text-muted">{campaignProgress}</span></div>
+        <div className="mt-2 flex flex-wrap items-center gap-2"><Btn onClick={()=>void runCampaign()} disabled={campaignBusy||!personalRouteReady||!campaignText.trim()||campaignRecipients.length===0}>{campaignBusy?"در حال ارسال...":"ارسال کمپین"}</Btn><span className="text-xs text-muted">{campaignProgress}</span></div>
       </Card>
       </section>
       <Card>
