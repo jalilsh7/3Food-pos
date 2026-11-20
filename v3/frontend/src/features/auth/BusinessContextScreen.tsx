@@ -26,7 +26,7 @@ export function BusinessContextScreen({ onSelected, onLogout }: Props) {
   const [branches, setBranches] = useState<BranchSummary[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState("");
   const [loading, setLoading] = useState(true);
-  const [branchesLoading, setBranchesLoading] = useState(false);
+  const [branchesLoading, setBranchesLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -38,8 +38,6 @@ export function BusinessContextScreen({ onSelected, onLogout }: Props) {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError(null);
     getAccessibleBusinesses()
       .then((result) => {
         if (!active) return;
@@ -61,14 +59,8 @@ export function BusinessContextScreen({ onSelected, onLogout }: Props) {
   }, [attempt]);
 
   useEffect(() => {
-    if (!selectedBusinessId) {
-      setBranches([]);
-      setSelectedBranchId("");
-      return;
-    }
+    if (!selectedBusinessId) return;
     let active = true;
-    setBranchesLoading(true);
-    setError(null);
     getBranches(selectedBusinessId)
       .then((items) => {
         if (!active) return;
@@ -180,7 +172,13 @@ export function BusinessContextScreen({ onSelected, onLogout }: Props) {
               <SelectField
                 label="کسب‌وکار"
                 value={selectedBusinessId}
-                onChange={(event) => setSelectedBusinessId(event.target.value)}
+                onChange={(event) => {
+                  setBranches([]);
+                  setSelectedBranchId("");
+                  setBranchesLoading(Boolean(event.target.value));
+                  setError(null);
+                  setSelectedBusinessId(event.target.value);
+                }}
                 options={businesses.map((item) => ({ value: item.id, label: item.name }))}
                 placeholder="کسب‌وکار را انتخاب کنید"
                 required
@@ -207,7 +205,7 @@ export function BusinessContextScreen({ onSelected, onLogout }: Props) {
             <h1 id="context-title">کسب‌وکاری در دسترس نیست</h1>
             <p>برای حساب شما دسترسی کسب‌وکار ثبت نشده است. از مدیر سیستم بخواهید دسترسی مناسب را اختصاص دهد.</p>
             {error ? <div className="context-error" role="alert">{error}</div> : null}
-            <Button variant="secondary" onClick={() => setAttempt((value) => value + 1)}>تلاش مجدد</Button>
+            <Button variant="secondary" onClick={() => { setLoading(true); setError(null); setBranchesLoading(true); setAttempt((value) => value + 1); }}>تلاش مجدد</Button>
           </div>
         )}
         <footer className="context-footer">Powered by PersiaCoder.ir</footer>
