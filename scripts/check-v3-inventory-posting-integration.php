@@ -179,6 +179,48 @@ $secondBalance = $balance($sourceLocationId);
 $assert($secondBalance['quantity_on_hand'] === '4.000000', 'Second receipt quantity is incorrect.');
 $assert($secondBalance['average_unit_cost'] === '2000.00000000', 'Moving weighted average cost is incorrect.');
 
+$otherBranchPublicId = $uuid();
+$insertBranch = $pdo->prepare(
+    'INSERT INTO pos_branches (public_id, business_id, code, name) VALUES (:public_id, :business_id, :code, :name)'
+);
+$insertBranch->execute([
+    'public_id' => $otherBranchPublicId, 'business_id' => $businessId,
+    'code' => $prefix . '-other-branch', 'name' => 'CI Other Branch',
+]);
+$otherBranchId = (int) $pdo->lastInsertId();
+$otherBranchScope = new BusinessScope($businessId, $businessPublicId, $otherBranchId, $otherBranchPublicId);
+$branchIsolationBlocked = false;
+try {
+    $documents->get($otherBranchScope, $receiptTwo);
+} catch (HttpException $error) {
+    $branchIsolationBlocked = str_contains($error->getMessage(), 'not found');
+}
+$assert($branchIsolationBlocked, 'Document detail leaked across branch scope.');
+
+$otherBusinessPublicId = $uuid();
+$insert = $pdo->prepare('INSERT INTO pos_businesses (public_id, code, name) VALUES (:public_id, :code, :name)');
+$insert->execute([
+    'public_id' => $otherBusinessPublicId, 'code' => $prefix . '-other-business',
+    'name' => 'CI Other Business',
+]);
+$otherBusinessId = (int) $pdo->lastInsertId();
+$otherBusinessBranchPublicId = $uuid();
+$insertBranch->execute([
+    'public_id' => $otherBusinessBranchPublicId, 'business_id' => $otherBusinessId,
+    'code' => $prefix . '-other-business-branch', 'name' => 'CI Other Business Branch',
+]);
+$otherBusinessBranchId = (int) $pdo->lastInsertId();
+$otherBusinessScope = new BusinessScope(
+    $otherBusinessId, $otherBusinessPublicId, $otherBusinessBranchId, $otherBusinessBranchPublicId,
+);
+$tenantIsolationBlocked = false;
+try {
+    $documents->get($otherBusinessScope, $receiptTwo);
+} catch (HttpException $error) {
+    $tenantIsolationBlocked = str_contains($error->getMessage(), 'not found');
+}
+$assert($tenantIsolationBlocked, 'Document detail leaked across business scope.');
+
 $ordinaryDetail = $documents->get($scope, $receiptTwo);
 $assert(!array_key_exists('total_cost_amount', $ordinaryDetail['lines'][0]), 'General inventory document detail must not expose cost snapshots.');
 $valuation = $documents->getValuation($scope, $receiptTwo);
