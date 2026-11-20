@@ -242,7 +242,7 @@ $otherBranchId = $businessRepository->createBranch(
     $businessId,
     'pagination-test',
     'Pagination Test Branch',
-    'Asia/Tehran',
+    'Europe/Amsterdam',
 );
 $insertOrder = $pdo->prepare(
     "INSERT INTO pos_orders
@@ -271,6 +271,8 @@ $insertOrder->execute([
     'created_by' => $userId,
 ]);
 $orderRepository = new OrderRepository($pdo);
+$assert($orderRepository->findEffectiveTimezone($businessId, $branchId) === 'Asia/Tehran', 'Order date filters did not fall back to the business timezone.');
+$assert($orderRepository->findEffectiveTimezone($businessId, $otherBranchId) === 'Europe/Amsterdam', 'Branch timezone did not override the business timezone.');
 $orderRepository->createFulfillment($businessId, $branchId, $orderIds[80003], 'dine_in', null, null, null);
 $firstOrderPage = $orderRepository->listOrders($businessId, $branchId, null, null, 2);
 $assert(count($firstOrderPage['orders']) === 2, 'Order page one did not return the requested page size.');
@@ -287,6 +289,58 @@ $paidOrders = $orderRepository->listOrders($businessId, $branchId, null, null, 1
 $assert(count($paidOrders['orders']) === 1 && $paidOrders['orders'][0]['order_number'] === 80002, 'Order payment filter returned unexpected rows.');
 $dineInOrders = $orderRepository->listOrders($businessId, $branchId, null, null, 10, null, null, 'dine_in');
 $assert(count($dineInOrders['orders']) === 1 && $dineInOrders['orders'][0]['order_number'] === 80003, 'Order fulfillment filter returned unexpected rows.');
+
+$setOrderTime = $pdo->prepare('UPDATE pos_orders SET created_at = :created_at WHERE id = :order_id AND business_id = :business_id AND branch_id = :branch_id');
+foreach ([
+    80001 => '2026-11-19 20:29:59.999',
+    80002 => '2026-11-19 20:30:00.000',
+    80003 => '2026-11-20 20:29:59.999',
+] as $orderNumber => $createdAt) {
+    $setOrderTime->execute([
+        'created_at' => $createdAt,
+        'order_id' => $orderIds[$orderNumber],
+        'business_id' => $businessId,
+        'branch_id' => $branchId,
+    ]);
+}
+$insertOrder->execute([
+    'business_id' => $businessId,
+    'branch_id' => $branchId,
+    'public_id' => $uuid(),
+    'order_number' => 80005,
+    'payment_status' => 'unpaid',
+    'created_by' => $userId,
+]);
+$setOrderTime->execute([
+    'created_at' => '2026-11-20 20:30:00.000',
+    'order_id' => (int) $pdo->lastInsertId(),
+    'business_id' => $businessId,
+    'branch_id' => $branchId,
+]);
+
+$orderService = new OrderService($pdo, $appKey, new PermissionService($permissionRepository));
+$orderScope = new BusinessScope($businessId, $businessPublicId, $branchId, $branchPublicId);
+$localDayOrders = $orderService->list($orderScope, null, null, 10, null, null, null, '2026-11-20', '2026-11-20');
+$localDayNumbers = array_column($localDayOrders['orders'], 'order_number');
+$assert($localDayNumbers === [80003, 80002], 'Order date filter did not honor the inclusive Tehran local day and exclusive next-day boundary.');
+$datePageOne = $orderService->list($orderScope, null, null, 1, null, null, null, '2026-11-20', '2026-11-20');
+$datePageTwo = $orderService->list($orderScope, null, null, 1, $datePageOne['next_cursor'], null, null, '2026-11-20', '2026-11-20');
+$assert($datePageOne['has_more'] === true && $datePageOne['orders'][0]['order_number'] === 80003, 'Date-filtered first cursor page is incorrect.');
+$assert($datePageTwo['has_more'] === false && $datePageTwo['orders'][0]['order_number'] === 80002, 'Date filters were not preserved with the next cursor page.');
+$invalidDateRejected = false;
+try {
+    $orderService->list($orderScope, null, null, 10, null, null, null, '2026-02-30', null);
+} catch (HttpException $error) {
+    $invalidDateRejected = $error->getCode() === 422 || str_contains($error->getMessage(), 'calendar date');
+}
+$assert($invalidDateRejected, 'Invalid calendar date was not rejected.');
+$reversedRangeRejected = false;
+try {
+    $orderService->list($orderScope, null, null, 10, null, null, null, '2026-11-21', '2026-11-20');
+} catch (HttpException $error) {
+    $reversedRangeRejected = str_contains($error->getMessage(), 'start date');
+}
+$assert($reversedRangeRejected, 'Reversed order date range was not rejected.');
 
 
 $logoutRequest = $makeRequest('POST', '/api/v1/auth/logout', [
