@@ -82,12 +82,12 @@ function mapProductSummary(product: PosCatalogProduct): Product {
   };
 }
 
-function mapProductDetail(detail: PosCatalogProductDetail): Product {
+function mapProductDetail(detail: PosCatalogProductDetail, category: PosCatalogProduct["category"]): Product {
   return {
     ...detail,
-    category: null,
-    description: detail.sku ? `کد کالا: ${detail.sku}` : "محصول منو",
-    symbol: productSymbol(null),
+    category,
+    description: detail.sku ? `کد کالا: ${detail.sku}` : category?.name || "محصول منو",
+    symbol: productSymbol(category?.name ?? null),
     optionGroups: detail.option_groups.map((group) => ({
       id: group.id,
       title: group.name,
@@ -203,7 +203,7 @@ export function PosWorkspace() {
     setLoadingProductId(summary.id);
     setActionError(null);
     try {
-      const detail = mapProductDetail(await getPosCatalogProductDetails(summary.id));
+      const detail = mapProductDetail(await getPosCatalogProductDetails(summary.id), summary.category);
       if (!detail.is_active) return;
       if (!detail.optionGroups.length && !detail.variants.length) {
         addConfiguredProduct(detail, [], null);
