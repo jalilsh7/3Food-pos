@@ -77,6 +77,15 @@ final readonly class InventoryPostingService
                 if ($sourceLocationId < 1 || ($type === 'transfer' && $destinationLocationId < 1)) {
                     throw new HttpException(409, 'stock_document_location_invalid', 'The source or destination location is invalid.');
                 }
+                if (!$this->posting->locationIsActive($scope->businessId, $branchId, $sourceLocationId)
+                    || ($type === 'transfer' && !$this->posting->locationIsActive($scope->businessId, $branchId, $destinationLocationId))) {
+                    throw new HttpException(409, 'stock_location_inactive', 'A source or destination stock location is inactive or outside the current branch.');
+                }
+                foreach ($lines as $line) {
+                    if ((int) $line['is_active'] !== 1) {
+                        throw new HttpException(409, 'stock_item_inactive', 'A stock item in this document is inactive and cannot be posted.');
+                    }
+                }
 
                 // Lock all affected item/location balances in a stable order to reduce deadlocks.
                 $pairs = [];
