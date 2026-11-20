@@ -381,3 +381,14 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 - CI after this update has not yet been confirmed. The latest known backend success is run `44710600371` (PHP 8.2/8.3/8.4); PHP migration checks run `44710600140` succeeded. Frontend run `44710600172` was cancelled during dependency installation and is not a pass.
 - Historical V3 database run `44692152564` failed because its old workflow generated `001_ci-smoke.sql`, colliding with real migration 001. The current workflow file has been corrected to use `013_ci-smoke.sql` and includes real inventory posting integration; rerun on a fresh commit is still required.
 - Next package remains ORD-01D: date-range filtering with explicit business timezone semantics, validation, cursor preservation and frontend request-race protection. Keep low-priority visual/device QA in the final test backlog.
+
+
+## ORD-01D — Order date range and timezone contract (2026-11-20)
+- Added optional `from_date` and `to_date` (`YYYY-MM-DD`) to `GET /api/v1/orders`; each boundary may be used independently.
+- Effective timezone is branch timezone when set, otherwise business timezone. Local start-of-day is inclusive; the day after `to_date` is an exclusive UTC upper bound. The maximum two-sided range is 366 local calendar days.
+- Date predicates are applied inside the existing business/branch-scoped order query and coexist with status/channel/payment/fulfillment filters and the descending order-number cursor.
+- OrderCenter receives the active branch/business timezone, sends date filters on first and subsequent pages, resets pagination when filters change, and displays timestamps in the same effective timezone.
+- Real PDO integration coverage was added to `scripts/check-v3-auth-integration.php`: business fallback, branch override, Tehran local-day boundaries, exclusive next-day boundary, date-filtered cursor continuity, invalid dates and reversed ranges. It runs in the V3 database workflow on disposable MySQL 8.4 and MariaDB 10.6.
+- Source-level order contract checks were extended and the Backend Validation workflow step was renamed to cover date filters.
+- CI for the commits in this package has not yet been verified. Do not mark ORD-01D accepted until Backend Validation, Frontend build and the MySQL/MariaDB database workflow all pass on a current commit.
+- Next: once CI is green, proceed to POS order creation API wiring and order/kitchen transition controls with explicit RBAC, state-machine and idempotency coverage. Preserve the final P2 test backlog.
