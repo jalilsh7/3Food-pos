@@ -81,8 +81,8 @@ final readonly class SupplierService
     private function normalize(array $payload, ?array $current = null): array
     {
         $name = trim((string) ($payload['name'] ?? $current['name'] ?? ''));
-        $phoneValue = $payload['phone'] ?? $current['phone'] ?? null;
-        $notesValue = $payload['notes'] ?? $current['notes'] ?? null;
+        $phoneValue = array_key_exists('phone', $payload) ? $payload['phone'] : ($current['phone'] ?? null);
+        $notesValue = array_key_exists('notes', $payload) ? $payload['notes'] : ($current['notes'] ?? null);
         if ($name === '' || self::unicodeLength($name) > 180) {
             throw new HttpException(422, 'supplier_name_invalid', 'Supplier name is required and must not exceed 180 characters.');
         }
