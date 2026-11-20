@@ -488,9 +488,9 @@ try {
     $invalidTransitionRejected = $error->status === 409;
 }
 $assert($invalidTransitionRejected, 'Order state machine accepted a transition out of completed.');
-$statusEventCount = $pdo->prepare('SELECT COUNT(*) FROM pos_order_status_events WHERE business_id = :business_id AND branch_id = :branch_id AND order_id = (SELECT id FROM pos_orders WHERE business_id = :business_id AND branch_id = :branch_id AND public_id = :public_id)');
-$statusEventCount->execute(['business_id' => $businessId, 'branch_id' => $branchId, 'public_id' => $createdOrderPublicId]);
-$assert((int) $statusEventCount->fetchColumn() === 4, 'Order status transition replay created duplicate status events or a rejected transition was persisted.');
+$statusEventCount = $pdo->prepare('SELECT COUNT(*) FROM pos_order_status_events WHERE business_id = :business_id AND branch_id = :branch_id AND order_id = (SELECT id FROM pos_orders WHERE business_id = :order_business_id AND branch_id = :order_branch_id AND public_id = :public_id)');
+$statusEventCount->execute(['business_id' => $businessId, 'branch_id' => $branchId, 'order_business_id' => $businessId, 'order_branch_id' => $branchId, 'public_id' => $createdOrderPublicId]);
+$assert((int) $statusEventCount->fetchColumn() === 5, 'Order status transition replay created duplicate status events or a rejected transition was persisted.');
 
 // Keep the newly created POS fixture outside the separate Tehran date-filter fixture window.
 $pdo->prepare('UPDATE pos_orders SET created_at = :created_at WHERE business_id = :business_id AND branch_id = :branch_id AND public_id = :public_id')
