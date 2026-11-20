@@ -22,6 +22,7 @@ use PersiaCoder\PosV3\Finance\CashRegisterService;
 use PersiaCoder\PosV3\Auth\AuthController;
 use PersiaCoder\PosV3\Auth\AuditLogController;
 use PersiaCoder\PosV3\Auth\BusinessSetupController;
+use PersiaCoder\PosV3\Auth\BusinessContextController;
 use PersiaCoder\PosV3\Auth\BranchManagementController;
 use PersiaCoder\PosV3\Auth\BranchManagementService;
 use PersiaCoder\PosV3\Auth\BusinessSetupService;
@@ -100,6 +101,14 @@ try {
             $setupController = new BusinessSetupController(new BusinessSetupService($getConnection()));
         }
         return $setupController;
+    };
+
+    $businessContextController = null;
+    $getBusinessContextController = static function () use (&$businessContextController, $getConnection): BusinessContextController {
+        if (!$businessContextController instanceof BusinessContextController) {
+            $businessContextController = new BusinessContextController(new BusinessRepository($getConnection()));
+        }
+        return $businessContextController;
     };
 
     $cashRegisterController = null;
@@ -560,6 +569,11 @@ try {
     $router->add('GET', '/api/v1/audit-logs',
         static fn (Request $request): Response => $getAuditController()->list($request),
         [$sessionMiddleware, $makePermissionMiddleware('audit.read', false, true)],
+    );
+
+    $router->add('GET', '/api/v1/access/businesses',
+        static fn (Request $request): Response => $getBusinessContextController()->list($request),
+        [$sessionMiddleware],
     );
 
     $router->add('GET', '/api/v1/access/branches',
