@@ -1909,7 +1909,7 @@ function SmsScreen() {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
           {[["کل ارسال‌ها",smsReport.total],["پذیرفته‌شده",smsReport.successful],["ناموفق",smsReport.failed],["خط خدماتی",smsReport.service],["خط شخصی",smsReport.personal],["کمپین‌ها",smsReport.campaigns]].map(([label,value])=><div key={label} className="rounded-xl border border-line bg-bg p-3"><p className="text-xs text-muted">{label}</p><p className="mt-1 text-lg font-extrabold tabular-nums">{Number(value).toLocaleString("fa-IR")}</p></div>)}
         </div>
-        <p className="mb-2 mt-3 text-xs text-muted">گزارش از سوابق ذخیره‌شده در دیتابیس POS خوانده می‌شود. «پذیرفته‌شده» یعنی سرویس درخواست ارسال را قبول کرده؛ تحویل قطعی به گوشی فقط با گزارش دلیوری قابل تأیید است.</p>
+        <p className="mb-2 mt-3 text-xs text-muted">گزارش بر اساس حداکثر ۵۰۰ سابقه اخیر بارگذاری‌شده از دیتابیس POS است و ۵۰ مورد آخر را نمایش می‌دهد. «پذیرفته‌شده» یعنی سرویس درخواست ارسال را قبول کرده؛ تحویل قطعی به گوشی فقط با گزارش دلیوری قابل تأیید است.</p>
         {logs.length === 0 ? <Empty text="ارسالی ثبت نشده" /> : logs.slice(0, 50).map((l) => (
           <div key={l.id} className="border-b border-line py-2 text-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
