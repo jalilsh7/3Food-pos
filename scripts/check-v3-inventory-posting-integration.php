@@ -213,6 +213,71 @@ $assert($sourceAfterTransfer['quantity_on_hand'] === '2.000000', 'Transfer did n
 $assert($destinationAfterTransfer['quantity_on_hand'] === '1.000000', 'Transfer did not increase destination stock.');
 $assert($destinationAfterTransfer['average_unit_cost'] === '2000.00000000', 'Transfer did not preserve source weighted cost.');
 
+$adjustmentIn = $createDocument([
+    'document_type' => 'adjustment_in', 'location_id' => $sourceLocationPublicId,
+    'reason' => 'CI inbound adjustment valuation',
+], 'adjustment-in');
+$addLine($adjustmentIn, '1', '1000', 'adjustment-in');
+$postDocument($adjustmentIn, 'adjustment-in');
+$afterAdjustmentIn = $balance($sourceLocationId);
+$assert($afterAdjustmentIn['quantity_on_hand'] === '3.000000', 'Inbound adjustment did not increase stock.');
+$assert($afterAdjustmentIn['average_unit_cost'] === '1666.66666667', 'Inbound adjustment did not recompute weighted average.');
+
+$adjustmentOut = $createDocument([
+    'document_type' => 'adjustment_out', 'location_id' => $sourceLocationPublicId,
+    'reason' => 'CI outbound adjustment valuation',
+], 'adjustment-out');
+$addLine($adjustmentOut, '1', null, 'adjustment-out');
+$postDocument($adjustmentOut, 'adjustment-out');
+$afterAdjustmentOut = $balance($sourceLocationId);
+$assert($afterAdjustmentOut['quantity_on_hand'] === '2.000000', 'Outbound adjustment did not reduce stock.');
+$assert($afterAdjustmentOut['average_unit_cost'] === '1666.66666667', 'Outbound adjustment unexpectedly changed weighted average cost.');
+
+$pdo->prepare(
+    'UPDATE pos_stock_balances SET quantity_reserved = 1
+     WHERE business_id = :business_id AND branch_id = :branch_id
+       AND stock_item_id = :stock_item_id AND location_id = :location_id'
+)->execute([
+    'business_id' => $businessId, 'branch_id' => $branchId,
+    'stock_item_id' => $stockItemId, 'location_id' => $sourceLocationId,
+]);
+$ledgerBeforeReservedCheck = $ledgerCount();
+$reservedWaste = $createDocument([
+    'document_type' => 'waste', 'location_id' => $sourceLocationPublicId,
+    'reason' => 'CI reserved stock protection',
+], 'reserved');
+$addLine($reservedWaste, '1.5', null, 'reserved');
+$reservedBlocked = false;
+try {
+    $postDocument($reservedWaste, 'reserved');
+} catch (HttpException $error) {
+    $reservedBlocked = str_contains($error->getMessage(), 'Available stock is insufficient');
+}
+$assert($reservedBlocked, 'Posting consumed stock reserved for another workflow.');
+$assert($ledgerCount() === $ledgerBeforeReservedCheck, 'Reserved-stock rejection appended a ledger entry.');
+$pdo->prepare(
+    'UPDATE pos_stock_balances SET quantity_reserved = 0
+     WHERE business_id = :business_id AND branch_id = :branch_id
+       AND stock_item_id = :stock_item_id AND location_id = :location_id'
+)->execute([
+    'business_id' => $businessId, 'branch_id' => $branchId,
+    'stock_item_id' => $stockItemId, 'location_id' => $sourceLocationId,
+]);
+
+$returnDocument = $createDocument([
+    'document_type' => 'return', 'location_id' => $sourceLocationPublicId,
+], 'return-deferred');
+$addLine($returnDocument, '1', null, 'return-deferred');
+$ledgerBeforeReturn = $ledgerCount();
+$returnBlocked = false;
+try {
+    $postDocument($returnDocument, 'return-deferred');
+} catch (HttpException $error) {
+    $returnBlocked = str_contains($error->getMessage(), 'source-linked return valuation policy');
+}
+$assert($returnBlocked, 'Unlinked return document was posted without historical cost source.');
+$assert($ledgerCount() === $ledgerBeforeReturn, 'Deferred return posting appended a ledger entry.');
+
 $ledgerBeforeRollback = $ledgerCount();
 $sourceBeforeRollback = $balance($sourceLocationId);
 $waste = $createDocument([
