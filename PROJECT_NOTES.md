@@ -1321,3 +1321,17 @@
 - Fixes included: separate MariaDB-safe creation of the category composite self-FK in migration 006; migration test now checks fixture version `013_ci-smoke`; MySQL restore FK metadata query now uses explicit lower-case aliases and associative fetch mode.
 - Tested code HEAD: `88cc9a91c25fc1eb59942bccc965dc4462b15c3b`. Documentation-only commits may follow; do not assume untested code changes inherit this result.
 - Inventory line CRUD remains contract-tested, not yet end-to-end tested against a live inventory workflow. Database CI did apply migration 012 on both supported engines, but no posting/ledger/balance operation was tested.
+
+
+## INV-02B1 — Posting تراکنشی و Moving Weighted Average (2026-11-20)
+- وضعیت: **کدنویسی ثبت شد؛ Backend و DB integration موفق؛ PHP migration workflow نهایی در انتظار.**
+- Endpoint: `POST /api/v1/inventory/documents/{documentPublicId}/post` با session، CSRF، Origin، `inventory.manage` و branch scope، Idempotency-Key و Audit.
+- عملیات داخل تراکنش واحد انجام می‌شود: قفل سند draft، قفل ردیف‌ها، قفل موجودی‌ها در ترتیب ثابت، ثبت ledger، به‌روزرسانی balance و تغییر وضعیت سند به posted. شکست هر ردیف، کل عملیات را rollback می‌کند.
+- روش هزینه‌یابی مصوب و پیاده‌سازی‌شده در این slice: Moving Weighted Average به‌ازای هر stock item در هر location؛ محاسبات Decimal سمت SQL و بدون float در PHP.
+- `purchase_receipt` و `adjustment_in` در هر ردیف به `total_cost_amount` عدد صحیح TOMAN نیاز دارند. `unit_cost_snapshot` به‌ازای واحد پایه ذخیره می‌شود. `adjustment_out`, `consumption`, `waste` و `transfer` از میانگین هزینه جاری استفاده می‌کنند.
+- انتقال، دو رویداد متقابل `transfer_out` و `transfer_in` با مقدار و ارزش متوازن می‌سازد. خروجی‌ها موجودی رزروشده را قابل‌مصرف نمی‌دانند و موجودی منفی را مسدود می‌کنند.
+- هزینه از endpoint عمومی جزئیات سند افشا نمی‌شود؛ `GET /api/v1/inventory/documents/{documentPublicId}/valuation` با مجوز `inventory.manage` و scope شعبه، ارزش‌گذاری TOMAN را برمی‌گرداند.
+- نوع سند `return` فعلاً draft می‌شود ولی posting آن عمداً رد می‌شود؛ تا وقتی لینک به سفارش/سند مبدأ و هزینه تاریخی قابل‌اعتماد تعریف نشده، برگشت کالا نباید با میانگین جاری به‌اشتباه ارزش‌گذاری شود.
+- تست یکپارچه واقعی DB روی MySQL 8.4 و MariaDB 10.6 موفق شد: دو رسید خرید با میانگین موزون، مصرف، انتقال، idempotency replay، جلوگیری از موجودی منفی و rollback چندردیفی. تست DB همچنین Backup/Restore باینری Idempotency را تأیید کرد.
+- آخرین Backend موفق: [44697072239](https://github.com/jalilsh7/3Food-pos/actions/runs/44697072239). آخرین Database موفق: [44697072230](https://github.com/jalilsh7/3Food-pos/actions/runs/44697072230). PHP migration workflow برای همین commit هنوز در حال اجرا است.
+- موارد تکمیلی: تست race هم‌زمان دو posting، isolation چند business/branch، reservation integration، تعدیل خروجی/ورودی و برگشت source-linked؛ UI واقعی هنوز به API متصل نشده است.
