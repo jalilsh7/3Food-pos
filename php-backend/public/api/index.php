@@ -2552,7 +2552,7 @@ if ($method === 'POST' && $path === '/sms/send') {
             109 => 'IP سرور مجاز نشده است؛ IP خروجی هاست را در پنل ملی‌پیامک ثبت کنید',
             110 => 'احراز هویت ناموفق است؛ در تنظیمات، روش ApiKey را انتخاب و کلید API را وارد کنید',
         ];
-        $providerDetail = $providerCode < 0 && isset($providerDetails[abs($providerCode)])
+        $providerDetail = !$ok && $providerCode !== 0 && isset($providerDetails[abs($providerCode)])
             ? 'کد ' . abs($providerCode) . ': ' . $providerDetails[abs($providerCode)]
             : ($providerCode > 0 ? $providerResponse : 'پاسخ نامعتبر از سرویس پیامک: ' . substr($providerResponse, 0, 240));
         audit($pdo, (int)$actor['id'], 'sms_sent', 'sms', null, [
