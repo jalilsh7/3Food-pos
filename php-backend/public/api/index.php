@@ -2208,7 +2208,7 @@ if ($method === 'GET' && $path === '/reports/summary') {
 
 
 if ($path === '/sms/settings' && $method === 'GET') {
-    require_role($pdo, ['manager']);
+    require_role($pdo, ['manager', 'cashier']);
     $sms = $config['sms'] ?? [];
     json_response(['ok' => true, 'settings' => [
         'enabled' => ($sms['provider'] ?? 'none') === 'national_payamak',
