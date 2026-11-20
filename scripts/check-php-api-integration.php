@@ -415,6 +415,21 @@ try {
         'id' => 'ci-sms-log', 'at' => gmdate('c'), 'to' => '09120000000', 'event' => 'test',
         'text' => 'CI SMS log', 'ok' => false, 'detail' => 'test failure',
     ]], csrf_headers());
+
+    $invalidServiceBodyId = api('POST', '/api/v1/sms/send', [
+        'to' => '09120000000', 'text' => '1258', 'bodyId' => 'not-numeric',
+    ], csrf_headers());
+    check($invalidServiceBodyId['status'] === 422 && ($invalidServiceBodyId['json']['error'] ?? '') === 'invalid_service_sms', 'service SMS rejects non-numeric bodyId before provider access');
+
+    $emptyServiceVariable = api('POST', '/api/v1/sms/send', [
+        'to' => '09120000000', 'text' => '1258;;250000', 'bodyId' => '344438',
+    ], csrf_headers());
+    check($emptyServiceVariable['status'] === 422 && ($emptyServiceVariable['json']['error'] ?? '') === 'invalid_service_sms_variables', 'service SMS rejects empty template variable values');
+
+    $invalidSmsNumber = api('POST', '/api/v1/sms/send', [
+        'to' => 'not-a-phone', 'text' => 'hello',
+    ], csrf_headers());
+    check($invalidSmsNumber['status'] === 422 && ($invalidSmsNumber['json']['error'] ?? '') === 'invalid_sms', 'SMS endpoint rejects malformed recipient numbers');
     check($smsLogWrite['status'] === 201, 'manager can persist SMS delivery log');
     $smsSnapshot = api('GET', '/api/v1/bootstrap');
     check(($smsSnapshot['json']['data']['sms_logs'][0]['id'] ?? '') === 'ci-sms-log', 'manager bootstrap includes persistent SMS logs');
