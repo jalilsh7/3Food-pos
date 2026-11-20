@@ -2562,14 +2562,29 @@ if ($method === 'POST' && $path === '/sms/send') {
         $providerResponse = trim((string)$raw);
         $providerCode = 0;
         if ($isServiceRoute) {
-            $providerCode = preg_match('/^-?[0-9]+$/D', $providerResponse) ? (int)$providerResponse : 0;
-            $ok = $httpStatus >= 200 && $httpStatus < 300 && $providerCode > 0;
+            // REST clients may return either a legacy numeric response or the
+            // standard JSON envelope {Value, RetStatus, StrRetStatus}.
+            $serviceResult = json_decode($providerResponse, true);
+            if (is_array($serviceResult)) {
+                $serviceId = $serviceResult['Value'] ?? $serviceResult['value'] ?? null;
+                $serviceStatus = $serviceResult['RetStatus'] ?? $serviceResult['retStatus'] ?? null;
+                $providerCode = is_numeric($serviceStatus) ? (int)$serviceStatus : (is_numeric($serviceId) ? (int)$serviceId : 0);
+                $ok = $httpStatus >= 200 && $httpStatus < 300
+                    && is_numeric($serviceId) && (int)$serviceId > 0
+                    && (!is_numeric($serviceStatus) || (int)$serviceStatus === 1);
+                if ($ok) $providerResponse = (string)$serviceId;
+                else $providerResponse = (string)($serviceResult['StrRetStatus'] ?? $serviceResult['message'] ?? $providerResponse);
+            } else {
+                $providerCode = preg_match('/^-?[0-9]+$/D', $providerResponse) ? (int)$providerResponse : 0;
+                $ok = $httpStatus >= 200 && $httpStatus < 300 && $providerCode > 0;
+            }
         } else {
             $smartResult = json_decode($providerResponse, true);
             $smartId = is_array($smartResult) ? ($smartResult['Value'] ?? $smartResult['value'] ?? $smartResult['id'] ?? $smartResult['messageId'] ?? $smartResult['message_id'] ?? null) : null;
             $smartStatus = is_array($smartResult) ? ($smartResult['RetStatus'] ?? $smartResult['retStatus'] ?? null) : null;
             $providerCode = is_numeric($smartStatus) ? (int)$smartStatus : (is_numeric($smartId) ? (int)$smartId : 0);
-            $ok = $httpStatus >= 200 && $httpStatus < 300 && is_numeric($smartId) && (int)$smartId > 0;
+            $ok = $httpStatus >= 200 && $httpStatus < 300 && is_numeric($smartId) && (int)$smartId > 0
+                && (!is_numeric($smartStatus) || (int)$smartStatus === 1);
             if ($ok) {
                 $providerResponse = (string)$smartId;
             } elseif (is_array($smartResult)) {
