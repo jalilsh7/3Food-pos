@@ -28,7 +28,8 @@ try{
  if(!gzrewind($gzip))throw new RuntimeException('Cannot rewind authenticated backup archive.');
  $readRecord=static function()use($gzip):?array{$line=gzgets($gzip);if($line===false)return null;$record=json_decode($line,true,512,JSON_THROW_ON_ERROR|JSON_BIGINT_AS_STRING);if(!is_array($record)||!isset($record['type']))throw new RuntimeException('Backup archive contains an invalid record.');return $record;};
  $header=$readRecord();
- if(!$header||($header['type']??'')!=='header'||($header['format']??'')!=='persiacoder-pos-v3-jsonl-gzip'||($header['format_version']??0)!==1)throw new RuntimeException('Unsupported or invalid V3 backup format.');
+ $formatVersion=(int)($header['format_version']??0);
+ if(!$header||($header['type']??'')!=='header'||($header['format']??'')!=='persiacoder-pos-v3-jsonl-gzip'||!in_array($formatVersion,[1,2],true))throw new RuntimeException('Unsupported or invalid V3 backup format.');
  $serverVersion=(string)$pdo->query('SELECT VERSION()')->fetchColumn();$destinationEngine=stripos($serverVersion,'mariadb')!==false?'mariadb':'mysql';
  if(($header['engine']??'')!==$destinationEngine)throw new RuntimeException('Backup engine family differs from destination database.');
  if(!is_string($header['baseline_sha256']??null)||!preg_match('/^[a-f0-9]{64}$/i',$header['baseline_sha256']))throw new RuntimeException('Backup baseline checksum metadata is invalid.');
@@ -37,12 +38,14 @@ try{
   if(($record['type']??'')==='signature')break;
   if(($record['type']??'')==='row'){$sawRows=true;continue;}
   if(($record['type']??'')!=='table'||$sawRows)throw new RuntimeException('Backup records are out of order or contain an unknown type.');
-  $name=(string)($record['name']??'');$columns=$record['columns']??null;$createSql=$record['create_sql']??null;$rowCount=$record['row_count']??null;
-  if(!preg_match('/^[A-Za-z0-9_]+$/',$name)||!is_array($columns)||!$columns||!is_string($createSql)||!is_int($rowCount)||$rowCount<0)throw new RuntimeException('Backup table descriptor is invalid.');
+  $name=(string)($record['name']??'');$columns=$record['columns']??null;$binaryColumns=$record['binary_columns']??[];$createSql=$record['create_sql']??null;$rowCount=$record['row_count']??null;
+  if(!preg_match('/^[A-Za-z0-9_]+$/',$name)||!is_array($columns)||!$columns||!is_array($binaryColumns)||!is_string($createSql)||!is_int($rowCount)||$rowCount<0)throw new RuntimeException('Backup table descriptor is invalid.');
+  if($formatVersion===2&&!array_key_exists('binary_columns',$record))throw new RuntimeException('Backup binary column metadata is missing.');
+  foreach($binaryColumns as $binaryColumn)if(!is_string($binaryColumn)||!in_array($binaryColumn,$columns,true))throw new RuntimeException("Invalid binary column descriptor in {$name}.");
   if(isset($tables[$name]))throw new RuntimeException("Duplicate table descriptor: {$name}");
   foreach($columns as $column)if(!is_string($column)||!preg_match('/^[A-Za-z0-9_]+$/',$column))throw new RuntimeException("Invalid column name in {$name}.");
   if(!preg_match('/^CREATE TABLE\\s+`'.preg_quote($name,'/').'`/i',ltrim($createSql))||str_contains($createSql,';'))throw new RuntimeException("Invalid CREATE TABLE statement for {$name}.");
-  $tables[$name]=['columns'=>$columns,'create_sql'=>$createSql,'expected_rows'=>$rowCount,'actual_rows'=>0,'insert'=>null];
+  $tables[$name]=['columns'=>$columns,'binary_columns'=>$binaryColumns,'create_sql'=>$createSql,'expected_rows'=>$rowCount,'actual_rows'=>0,'insert'=>null];
  }
  if(count($tables)!==(int)($header['table_count']??0)||count($tables)<61)throw new RuntimeException('Backup table count does not match V3 baseline.');
  gzrewind($gzip);$readRecord();
@@ -55,6 +58,15 @@ try{
   if(($record['type']??'')!=='row')throw new RuntimeException('Unexpected non-row record in backup data section.');
   $name=(string)($record['table']??'');if(!isset($tables[$name]))throw new RuntimeException("Backup row references unknown table {$name}.");
   $values=$record['values']??null;if(!is_array($values)||count($values)!==count($tables[$name]['columns']))throw new RuntimeException("Backup row shape mismatch for {$name}.");
+  foreach($tables[$name]['binary_columns'] as $binaryColumn){
+   $columnIndex=array_search($binaryColumn,$tables[$name]['columns'],true);
+   if($columnIndex===false||$values[$columnIndex]===null)continue;
+   $encoded=$values[$columnIndex];
+   if(!is_array($encoded)||count($encoded)!==1||!is_string($encoded['__pos_v3_binary_base64']??null))throw new RuntimeException("Binary value encoding is invalid for {$name}.{$binaryColumn}.");
+   $decoded=base64_decode($encoded['__pos_v3_binary_base64'],true);
+   if($decoded===false)throw new RuntimeException("Binary value encoding is invalid for {$name}.{$binaryColumn}.");
+   $values[$columnIndex]=$decoded;
+  }
   if($tables[$name]['insert']===null){
    $columns=implode(',',array_map([PosV3DatabaseTools::class,'quoteIdentifier'],$tables[$name]['columns']));
    $placeholders=implode(',',array_fill(0,count($tables[$name]['columns']),'?'));
