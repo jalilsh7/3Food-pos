@@ -154,6 +154,8 @@ export function InventoryWorkspace() {
     await loadData();
   }
 
+  // This effect starts an asynchronous API request; state updates happen after the request settles.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void loadData(); }, []);
 
   const filteredItems = useMemo(() => {
