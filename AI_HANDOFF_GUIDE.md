@@ -203,3 +203,17 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 - Regression contract: `scripts/check-v3-backend-recipe-routes.php`, wired into Backend Validation workflow.
 - Recipe unit conversion factors are resolved and persisted as snapshots by the existing service/repository. Recipe activation retires the previous active version in the same idempotent transaction.
 - CI has not yet been confirmed for this package. Re-fetch current branch and workflow result before claiming green.
+
+
+
+## 14. Inventory documents — INV-02A1 (2026-11-20)
+- Added draft stock document header APIs: list, detail and create.
+- New files: `v3/backend/src/Infrastructure/Database/InventoryDocumentRepository.php`, `v3/backend/src/Inventory/InventoryDocumentService.php`, `scripts/check-v3-backend-inventory-documents.php`.
+- Updated `InventoryController.php`, `v3/backend/public/index.php`, and `.github/workflows/v3-backend-validation.yml`.
+- Supported draft types: purchase_receipt, consumption, transfer, adjustment_in, adjustment_out, waste, return.
+- Source/destination locations are resolved within the active business+branch. Supplier is resolved within business; purchase receipt requires one. Transfers require a different destination.
+- Numbering uses `pos_sequences` with a business+branch-specific key and `SELECT ... FOR UPDATE`; create is idempotent and audited.
+- Important boundary: this slice creates headers only. It does not add/edit lines, post documents, append ledger rows, or change balances. Never treat a draft as a stock movement.
+- Runtime requires migration 011; do not execute migrations against production or a real customer database without explicit approval.
+- Static regression contract is wired into Backend Validation; wait for the new workflow result before claiming PASS. Real MySQL/MariaDB integration remains outstanding.
+- Next: add draft line CRUD with unit conversion snapshots and strict decimal handling; only then implement posting with row locks, append-only ledger, atomic balance updates, negative-stock protection and rollback.
