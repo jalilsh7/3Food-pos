@@ -120,6 +120,7 @@ export type SmsLog = {
   at: string;
   to: string;
   event: string;
+  route?: "service" | "personal";
   text: string;
   ok: boolean;
   detail: string;
