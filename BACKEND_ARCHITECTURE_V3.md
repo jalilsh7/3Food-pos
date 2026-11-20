@@ -439,5 +439,5 @@ v3/backend/
 - The global installation owner role is bootstrap-only. It is valid only while app_business_setup_state.initial_business_id is NULL.
 - On successful initial business setup, assign the owner role to that business in app_user_business_roles and remove the global app_user_roles owner assignment in the same transaction.
 - Business discovery must use explicit business or branch memberships only. A global installation owner must never enumerate unrelated business rows.
-- PermissionRepository must not honor global wildcard owner permission after initial setup. Business-scoped owner wildcard remains valid only for the assigned business.
+- PermissionRepository must never honor the global installation-owner wildcard for domain permissions. The installer capability is handled only by isInstallationOwner while initial_business_id is NULL; the business-scoped owner wildcard remains valid only for its assigned business.
 - Integration coverage verifies empty business discovery before setup, owner membership after setup, removal of the global role, and no lingering installer privilege.
