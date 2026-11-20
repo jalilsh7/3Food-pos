@@ -198,6 +198,8 @@ $businessId = (int) $businessIdStatement->fetchColumn();
 $branchIdStatement = $pdo->prepare('SELECT id FROM pos_branches WHERE public_id = :public_id');
 $branchIdStatement->execute(['public_id' => $branchPublicId]);
 $branchId = (int) $branchIdStatement->fetchColumn();
+$pdo->prepare('UPDATE pos_branches SET timezone = NULL WHERE id = :branch_id AND business_id = :business_id')
+    ->execute(['branch_id' => $branchId, 'business_id' => $businessId]);
 
 $ownerMembership = $pdo->prepare(
     'SELECT 1 FROM app_user_business_roles WHERE user_id = :user_id AND business_id = :business_id AND role_id = :role_id LIMIT 1'
