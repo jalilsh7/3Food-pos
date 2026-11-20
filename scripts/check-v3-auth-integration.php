@@ -346,6 +346,33 @@ try {
 }
 $assert($reversedRangeRejected, 'Reversed order date range was not rejected.');
 
+$amsterdamOrderTimes = [
+    80006 => '2026-03-28 23:00:00.000',
+    80007 => '2026-03-29 22:00:00.000',
+];
+foreach ($amsterdamOrderTimes as $orderNumber => $createdAt) {
+    $insertOrder->execute([
+        'business_id' => $businessId,
+        'branch_id' => $otherBranchId,
+        'public_id' => $uuid(),
+        'order_number' => $orderNumber,
+        'payment_status' => 'unpaid',
+        'created_by' => $userId,
+    ]);
+    $setOrderTime->execute([
+        'created_at' => $createdAt,
+        'order_id' => (int) $pdo->lastInsertId(),
+        'business_id' => $businessId,
+        'branch_id' => $otherBranchId,
+    ]);
+}
+$amsterdamScope = new BusinessScope($businessId, $businessPublicId, $otherBranchId, $otherBranchPublicId);
+$amsterdamDstDay = $orderService->list($amsterdamScope, null, null, 10, null, null, null, '2026-03-29', '2026-03-29');
+$assert(
+    array_column($amsterdamDstDay['orders'], 'order_number') === [80006],
+    'Europe/Amsterdam DST local-day filtering did not use the 23-hour calendar-day boundary.',
+);
+
 
 $logoutRequest = $makeRequest('POST', '/api/v1/auth/logout', [
     'cookie' => $newCookieHeader,
@@ -358,4 +385,4 @@ $assert(str_contains(implode(';', $logout->headers['Set-Cookie']), 'Max-Age=0'),
 $activeSessions->execute(['user_id' => $userId]);
 $assert((int) $activeSessions->fetchColumn() === 0, 'Logout did not revoke the active session.');
 
-echo "V3 authentication/context integration checks passed: login, hashed cookies, session introspection, CSRF rotation, forced password change, session invalidation, logout, first-business setup, business membership discovery, branch discovery, branch-scoped order cursor pagination, branch/business timezone resolution, inclusive local-day UTC boundaries, date-filtered cursor continuity and invalid-date rejection.\n";
+echo "V3 authentication/context integration checks passed: login, hashed cookies, session introspection, CSRF rotation, forced password change, session invalidation, logout, first-business setup, business membership discovery, branch discovery, branch-scoped order cursor pagination, branch/business timezone resolution, inclusive local-day UTC boundaries, DST transition boundaries, date-filtered cursor continuity and invalid-date rejection.\n";
