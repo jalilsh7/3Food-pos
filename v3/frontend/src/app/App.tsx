@@ -134,7 +134,7 @@ function Overview() {
   );
 }
 
-function AuthenticatedWorkspace({ user, onLogout }: { user: AuthenticatedUser; onLogout: () => void }) {
+function AuthenticatedWorkspace({ user, onLogout, actionError }: { user: AuthenticatedUser; onLogout: () => void; actionError: string | null }) {
   const [activeView, setActiveView] = useState<ViewId>("overview");
   const [search, setSearch] = useState("");
   const activeItem = allItems.find((item) => item.id === activeView) ?? allItems[0];
@@ -213,6 +213,7 @@ function AuthenticatedWorkspace({ user, onLogout }: { user: AuthenticatedUser; o
         </header>
 
         <div className="content-area">
+          {actionError ? <div className="auth-error" role="alert">{actionError}</div> : null}
           {activeView === "overview" ? <Overview /> : activeView === "pos" ? <PosWorkspace /> : activeView === "orders" ? <OrderCenter /> : activeView === "kitchen" ? <KitchenBoard /> : activeView === "catalog" ? <CatalogWorkspace /> : activeView === "inventory" ? <InventoryWorkspace /> : activeView === "customers" ? <CustomersWorkspace /> : activeView === "finance" ? <FinanceWorkspace /> : activeView === "settings" ? <BusinessSettingsWorkspace /> : activeView === "storefront" ? <StorefrontWorkspace /> : (
             <div className="page-stack">
               <PageHeader
@@ -267,11 +268,12 @@ export function App() {
   }, [attempt]);
 
   async function handleLogout() {
+    setBootstrapError(null);
     try {
       await signOut();
-    } finally {
       setUser(null);
-      setBootstrapError(null);
+    } catch (cause) {
+      setBootstrapError(cause instanceof Error ? cause.message : "خروج از حساب انجام نشد. دوباره تلاش کنید.");
     }
   }
 
@@ -291,5 +293,5 @@ export function App() {
     );
   }
 
-  return <AuthenticatedWorkspace user={user} onLogout={() => { void handleLogout(); }} />;
+  return <AuthenticatedWorkspace user={user} onLogout={() => { void handleLogout(); }} actionError={bootstrapError} />;
 }
