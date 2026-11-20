@@ -409,7 +409,7 @@ export function InventoryWorkspace() {
       {error ? <Notice variant="warning">{error}</Notice> : null}
 
       <div className="inventory-metrics">
-        <Surface padding="sm"><span>اقلام فعال</span><strong>{loading ? "—" : quantity(items.length)}</strong></Surface>
+        <Surface padding="sm"><span>اقلام فعال</span><strong>{loading ? "—" : quantity(activeItems.length)}</strong></Surface>
         <Surface padding="sm"><span>موجودی فیزیکی (جمع واحدها)</span><strong>{loading ? "—" : quantity(totals.onHand)}</strong></Surface>
         <Surface padding="sm"><span>موجودی قابل استفاده</span><strong>{loading ? "—" : quantity(totals.available)}</strong></Surface>
       </div>
@@ -509,7 +509,7 @@ export function InventoryWorkspace() {
                 const available = rows.reduce((sum, row) => sum + Number(row.quantity_available), 0);
                 return (
                   <button type="button" key={item.id} className={selectedId === item.id ? "inventory-stock-row is-selected" : "inventory-stock-row"} onClick={() => setSelectedId(item.id)}>
-                    <span className="inventory-stock-copy"><strong>{item.name}</strong><small>{item.code} · {item.base_unit.name}</small></span>
+                    <span className="inventory-stock-copy"><strong>{item.name}{!item.is_active ? " · غیرفعال" : ""}</strong><small>{item.code} · {item.base_unit.name}</small></span>
                     <span className="inventory-stock-amount"><b>{quantity(onHand)}</b><small>{item.base_unit.code} · قابل استفاده {quantity(available)}</small></span>
                   </button>
                 );
