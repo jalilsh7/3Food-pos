@@ -77,12 +77,15 @@ final readonly class InventoryDocumentRepository
         $sql = 'SELECT d.public_id, d.document_no, d.document_type, d.status, d.reason,
                        src.public_id AS location_id, src.name AS location_name,
                        dst.public_id AS destination_location_id, dst.name AS destination_location_name,
+                       sup.public_id AS supplier_public_id, sup.name AS supplier_name,
                        d.created_at, d.posted_at
                 FROM pos_stock_documents d
                 INNER JOIN pos_stock_locations src
                   ON src.id = d.location_id AND src.business_id = d.business_id AND src.branch_id = d.branch_id
                 LEFT JOIN pos_stock_locations dst
                   ON dst.id = d.destination_location_id AND dst.business_id = d.business_id AND dst.branch_id = d.branch_id
+                LEFT JOIN pos_suppliers sup
+                  ON sup.id = d.supplier_id AND sup.business_id = d.business_id
                 WHERE d.business_id = :business_id AND d.branch_id = :branch_id';
         $params = ['business_id' => $businessId, 'branch_id' => $branchId];
         if ($type !== null) { $sql .= ' AND d.document_type = :type'; $params['type'] = $type; }
@@ -103,6 +106,9 @@ final readonly class InventoryDocumentRepository
             'destination' => $r['destination_location_id'] === null ? null : [
                 'id' => (string) $r['destination_location_id'], 'name' => (string) $r['destination_location_name'],
             ],
+            'supplier' => $r['supplier_public_id'] === null ? null : [
+                'id' => (string) $r['supplier_public_id'], 'name' => (string) $r['supplier_name'],
+            ],
             'created_at' => (string) $r['created_at'],
             'posted_at' => $r['posted_at'] === null ? null : (string) $r['posted_at'],
         ], $s->fetchAll(PDO::FETCH_ASSOC));
@@ -114,12 +120,15 @@ final readonly class InventoryDocumentRepository
             'SELECT d.id, d.public_id, d.document_no, d.document_type, d.status, d.reason,
                     d.supplier_id, d.created_at, d.posted_at,
                     src.public_id AS location_id, src.name AS location_name,
-                    dst.public_id AS destination_location_id, dst.name AS destination_location_name
+                    dst.public_id AS destination_location_id, dst.name AS destination_location_name,
+                    sup.public_id AS supplier_public_id, sup.name AS supplier_name
              FROM pos_stock_documents d
              INNER JOIN pos_stock_locations src
                ON src.id = d.location_id AND src.business_id = d.business_id AND src.branch_id = d.branch_id
              LEFT JOIN pos_stock_locations dst
                ON dst.id = d.destination_location_id AND dst.business_id = d.business_id AND dst.branch_id = d.branch_id
+             LEFT JOIN pos_suppliers sup
+               ON sup.id = d.supplier_id AND sup.business_id = d.business_id
              WHERE d.business_id = :business_id AND d.branch_id = :branch_id AND d.public_id = :public_id
              LIMIT 1'
         );
@@ -133,6 +142,9 @@ final readonly class InventoryDocumentRepository
             'location' => ['id' => (string) $r['location_id'], 'name' => (string) $r['location_name']],
             'destination' => $r['destination_location_id'] === null ? null : [
                 'id' => (string) $r['destination_location_id'], 'name' => (string) $r['destination_location_name'],
+            ],
+            'supplier' => $r['supplier_public_id'] === null ? null : [
+                'id' => (string) $r['supplier_public_id'], 'name' => (string) $r['supplier_name'],
             ],
             'lines' => $this->listLines($businessId, $branchId, (int) $r['id']),
             'created_at' => (string) $r['created_at'],
