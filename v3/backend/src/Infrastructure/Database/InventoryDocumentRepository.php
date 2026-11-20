@@ -140,6 +140,47 @@ final readonly class InventoryDocumentRepository
         ];
     }
 
+    public function findId(int $businessId, int $branchId, string $publicId): ?int
+    {
+        $s = $this->connection->prepare(
+            'SELECT id FROM pos_stock_documents
+             WHERE business_id = :business_id AND branch_id = :branch_id AND public_id = :public_id
+             LIMIT 1'
+        );
+        $s->execute(['business_id' => $businessId, 'branch_id' => $branchId, 'public_id' => $publicId]);
+        $id = $s->fetchColumn();
+        return $id === false ? null : (int) $id;
+    }
+
+    public function listValuationLines(int $businessId, int $branchId, int $documentId): array
+    {
+        $s = $this->connection->prepare(
+            'SELECT l.public_id AS line_id, si.public_id AS stock_item_id, si.name AS stock_item_name,
+                    l.quantity, u.code AS unit_code, l.base_quantity,
+                    l.unit_cost_snapshot, l.total_cost_amount
+             FROM pos_stock_document_lines l
+             INNER JOIN pos_stock_items si
+               ON si.id = l.stock_item_id AND si.business_id = l.business_id
+             INNER JOIN pos_units u ON u.id = l.unit_id
+             WHERE l.business_id = :business_id AND l.branch_id = :branch_id
+               AND l.document_id = :document_id
+             ORDER BY l.id ASC'
+        );
+        $s->execute([
+            'business_id' => $businessId, 'branch_id' => $branchId, 'document_id' => $documentId,
+        ]);
+        return array_map(static fn (array $row): array => [
+            'id' => (string) $row['line_id'],
+            'stock_item_id' => (string) $row['stock_item_id'],
+            'stock_item_name' => (string) $row['stock_item_name'],
+            'quantity' => (string) $row['quantity'],
+            'unit_code' => (string) $row['unit_code'],
+            'base_quantity' => (string) $row['base_quantity'],
+            'unit_cost_snapshot' => (string) $row['unit_cost_snapshot'],
+            'total_cost_amount' => (string) $row['total_cost_amount'],
+        ], $s->fetchAll(PDO::FETCH_ASSOC));
+    }
+
     public function findDraftForUpdate(int $businessId, int $branchId, string $publicId): ?array
     {
         $s = $this->connection->prepare(
