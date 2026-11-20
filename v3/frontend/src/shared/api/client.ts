@@ -461,16 +461,23 @@ export type OrderDetail = {
   }[];
 };
 
+export type OrderPage = {
+  orders: OrderSummary[];
+  has_more: boolean;
+  next_cursor: string | null;
+};
+
 export async function getOrders(filters: {
   status?: string;
   channel?: string;
   limit?: number;
-} = {}): Promise<OrderSummary[]> {
-  const query = new URLSearchParams({ limit: String(filters.limit ?? 100) });
+  before?: string;
+} = {}): Promise<OrderPage> {
+  const query = new URLSearchParams({ limit: String(filters.limit ?? 50) });
   if (filters.status) query.set("status", filters.status);
   if (filters.channel) query.set("channel", filters.channel);
-  const data = await request<{ orders: OrderSummary[] }>(`/orders?${query.toString()}`);
-  return data.orders;
+  if (filters.before) query.set("before", filters.before);
+  return request<OrderPage>(`/orders?${query.toString()}`);
 }
 
 export async function getOrderDetails(orderId: string): Promise<OrderDetail> {
