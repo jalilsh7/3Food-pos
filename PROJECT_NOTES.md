@@ -1510,3 +1510,16 @@
 - این تغییر صرفاً draft را ویرایش می‌کند؛ اسناد posted همچنان فقط خواندنی‌اند. تست تعاملی/DB همچنان در QA نهایی است.
 - آخرین commit این دسته: `b39e77a734ee5b08ba3682404c97f68503bcd224`.
 - وضعیت CI برای این commit: هیچ status یا workflow run در خروجی GitHub گزارش نشده است؛ build و DB integration تأیید نشده‌اند.
+
+
+## ORD-01A — اتصال خواندنی مرکز سفارش‌ها به API واقعی (2026-11-20)
+- وضعیت: **در حال انجام**؛ فهرست و جزئیات سفارش‌ها به API واقعی V3 متصل شده‌اند، اما عملیات تغییر وضعیت هنوز در UI فعال نشده است.
+- `v3/frontend/src/shared/api/client.ts`: قراردادهای `OrderSummary` و `OrderDetail` و توابع `getOrders` و `getOrderDetails` اضافه شدند.
+- `v3/frontend/src/features/orders/OrderCenter.tsx`: داده‌های ساختگی حذف شدند؛ فهرست از `GET /api/v1/orders` و جزئیات/اقلام/تاریخچه از `GET /api/v1/orders/{orderPublicId}` دریافت می‌شود.
+- فیلترهای وضعیت و کانال به سرور ارسال می‌شوند؛ جست‌وجو، وضعیت پرداخت و نوع دریافت در کلاینت روی حداکثر ۱۰۰ سفارش اخیر اعمال می‌شوند.
+- وضعیت سفارش و وضعیت پرداخت مستقل نمایش داده می‌شوند. هیچ اقدام تغییردهنده‌ای در رابط فعال نیست تا کنترل مجوزهای نقش و گردش وضعیت به‌صورت کامل اضافه شود.
+- CI روی commit کد `f6ab1a6a9b8e47674f5a01e2c322567c9c15d612`: Backend PASS در PHP 8.2/8.3/8.4 (run `44705608241`) و Frontend TypeScript + production build PASS (run `44705608244`).
+- اجرای PHP migration/legacy integration workflow `44705608232` در زمان ثبت این یادداشت هنوز در حال اجرا بود؛ PASS اعلام نشود تا نتیجه نهایی بررسی شود.
+- دو خطای syntax ناشی از escape اشتباه namespace در `SupplierRepository.php` و `SupplierService.php` اصلاح شدند؛ آخرین اصلاح در commit `f6ab1a6a9b8e47674f5a01e2c322567c9c15d612`.
+- محدودیت‌های باز: pagination/cursor، تست integration واقعی endpointهای orders روی DB موقت، کنترل دسترسی جزئیات برای نقش‌های مختلف، و transition UI با idempotency و نمایش خطای permission.
+- هیچ migration یا دیتابیس مشتری/Production اجرا نشده است.
