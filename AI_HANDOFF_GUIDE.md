@@ -483,3 +483,10 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 - CI on code commit 58054837 passed: Frontend typecheck/build run 44725733047; Backend Validation run 44725733097; DB engine validation run 44725725004 on MySQL 8.4 and MariaDB 10.6.
 - ORD-02A is accepted for code/build/contract/DB integration. Browser smoke with real branch data and permission-role testing remain open.
 - Do not mark UI RBAC affordances, cancellation/rejection reason flow, kitchen stations, or realtime push as complete.
+
+## Latest implementation update — ORD-02B (2026-11-20)
+
+- OrderCenter now has a cancellation form requiring a reason (up to 500 characters) and sends reason_text to the existing status API.
+- The direct cancel action is hidden for paid/partially-paid orders; the backend independently enforces the refund-before-cancellation rule. Terminal statuses cannot be cancelled again.
+- Source-contract checks now assert the reason prompt, reason payload and payment guard.
+- Important remaining: frontend session currently does not expose permission grants, so cancellation/acceptance/completion action visibility is not yet role-aware. Backend RBAC remains authoritative. CI and populated-data browser smoke for this change are pending.
