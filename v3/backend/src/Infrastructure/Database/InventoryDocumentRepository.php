@@ -89,9 +89,10 @@ final readonly class InventoryDocumentRepository
         if ($status !== null) { $sql .= ' AND d.status = :status'; $params['status'] = $status; }
         $sql .= ' ORDER BY d.id DESC LIMIT :limit';
         $s = $this->connection->prepare($sql);
-        foreach ($params as $key => $value) $s->bindValue(':' . $key, $value, PDO::PARAM_INT);
-        if (isset($params['type'])) $s->bindValue(':type', $params['type'], PDO::PARAM_STR);
-        if (isset($params['status'])) $s->bindValue(':status', $params['status'], PDO::PARAM_STR);
+        $s->bindValue(':business_id', $businessId, PDO::PARAM_INT);
+        $s->bindValue(':branch_id', $branchId, PDO::PARAM_INT);
+        if ($type !== null) $s->bindValue(':type', $type, PDO::PARAM_STR);
+        if ($status !== null) $s->bindValue(':status', $status, PDO::PARAM_STR);
         $s->bindValue(':limit', $limit, PDO::PARAM_INT);
         $s->execute();
         return array_map(static fn (array $r): array => [
