@@ -206,3 +206,13 @@
 - تولید batch/pre-preparation در MVP نیست؛ مدل باید مسیر توسعه بعدی را باز بگذارد.
 - اختلاف غیرصفر صندوق با علت توسط صندوق‌دار ثبت می‌شود؛ نهایی‌شدن مغایرت نیازمند تأیید مدیر است و شیفت در حالت بررسی معلق بسته و غیرقابل استفاده می‌ماند.
 - این تصمیم‌ها به معنی پیاده‌سازی یا تست نیستند.
+
+
+## 10. Posting implementation contract (2026-11-20)
+- The selected method is Moving Weighted Average per stock item and per location. It is now used by the first inventory posting slice.
+- Purchase receipt and inbound adjustment draft lines accept `total_cost_amount` as a non-negative integer TOMAN amount for the entire line. The service stores `unit_cost_snapshot` per base unit using the captured unit conversion factor; posting updates the line snapshot and balance average in the same transaction.
+- Outbound adjustment, consumption and waste use the current location average cost. Transfers use the source location average cost and create equal/opposite valuation ledger entries at source and destination.
+- Stock movement ledger entries are append-only through application code. Posting locks the document and affected balance rows, rejects reserved-stock consumption and negative stock, and uses idempotency plus audit.
+- Costed document data is exposed only through the `inventory.manage` valuation endpoint; ordinary inventory document detail does not expose costs.
+- Return posting is intentionally disabled until a return document can reference the originating order/receipt line and restore its historical cost. A generic return must not be valued at the current average by guesswork.
+- Verified in disposable MySQL 8.4 and MariaDB 10.6 integration CI for receipt weighted average, consumption, transfer, idempotency replay and atomic rollback. This does not yet cover concurrent posting races, full reservation consumption, supplier/customer returns or frontend integration.
