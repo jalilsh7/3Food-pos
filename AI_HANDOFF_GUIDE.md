@@ -443,3 +443,12 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 - The next run (44723342031, commit 3561049d) reached the existing Tehran date-range fixture and failed because the new POS order fixture had been moved to exactly 2026-11-19 20:30 UTC, which is the inclusive start of the 2026-11-20 Tehran local day. The fixture timestamp was moved to 19:30 UTC, safely before that boundary, in commit 5cdb3c17.
 - These were integration-test fixture/assertion defects; they do not indicate a price/tax/order-creation failure. However, do not mark the package accepted until the current MySQL and MariaDB run completes successfully.
 - Current HEAD: 5cdb3c17b1dd9c067238c9957aa13567ee7a1b8c. Backend Validation run 44723627723 and V3 database engine validation run 44723630607 were running at handoff; refresh them before continuing.
+
+### POS-01A acceptance result — 2026-11-20
+
+- DB workflow run 44723630607 passed on code commit 5cdb3c17. Both MySQL 8.4 and MariaDB 10.6 jobs passed, including installer/migration checks, inventory integration and the expanded auth/order integration script.
+- The POS integration test now proves a real OrderService create flow against both disposable database engines: product/variant/required option creation, server-side subtotal/tax/total, draft/unpaid state, idempotent replay with same order ID, 409 on same key with changed payload, 422 on missing required option, and no duplicate order.
+- Backend Validation passed on code commit 3561049d (run 44723350561); Frontend typecheck/build passed on UI commit 0bcfda8c (run 44722494804) and also on 3561049d (run 44723350566).
+- Commits after 5cdb3c17 only appended documentation; no POS source or DB integration test code changed. Latest documentation HEAD is 318cf041 and its own CI runs should be refreshed, but the POS implementation and integration test were already green on 5cdb3c17.
+- POS-01A is accepted for code + disposable DB integration. A browser smoke test with populated live catalog data remains outstanding, as does CatalogWorkspace API wiring.
+- Next package: connect CatalogWorkspace to real category/product APIs (list/create/update/archive) so the cashier can consume products created in the UI; then wire order acceptance/status and kitchen transitions with RBAC and idempotency.
