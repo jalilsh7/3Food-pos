@@ -16,7 +16,10 @@ $schemaPath = __DIR__ . '/../database/v3/schema.sql';
 $schema = file_get_contents($schemaPath);
 if ($schema === false) throw new RuntimeException('Cannot read V3 schema baseline.');
 $schemaStatements = PosV3DatabaseTools::statements($schema);
-if (count($schemaStatements) < 100) throw new RuntimeException('Unexpectedly low statement count in V3 baseline.');
+$tableCount = substr_count($schema, 'CREATE TABLE ');
+if ($tableCount < 61 || count($schemaStatements) < 65) {
+    throw new RuntimeException('Unexpectedly low table or statement count in V3 baseline.');
+}
 if (str_contains(strtoupper($schema), 'DELIMITER ')) throw new RuntimeException('V3 baseline must not contain unsupported DELIMITER directives.');
 
 try {
