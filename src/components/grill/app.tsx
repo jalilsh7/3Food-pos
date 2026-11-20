@@ -1834,7 +1834,7 @@ function SmsScreen() {
             <p className="text-xs text-muted">پیش‌نمایش نمونه</p>
             <p className="mt-1 text-sm">{preview || "متن الگو هنوز وارد نشده است."}</p>
           </div>
-          {t.bodyId && !/^\d+$/.test(t.bodyId) ? <p className="text-xs text-danger">شناسه الگو باید فقط شامل رقم باشد.</p> : null}
+          {t.bodyId && (!/^\d+$/.test(t.bodyId) || Number(t.bodyId) < 1) ? <p className="text-xs text-danger">شناسه الگو باید عددی مثبت باشد.</p> : null}
         </Card>;
       })}
       </section>
