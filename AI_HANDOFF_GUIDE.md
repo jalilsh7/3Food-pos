@@ -475,3 +475,11 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 - CI on code commit 4e0f6267 passed: Frontend typecheck/build run 44725365935; Backend Validation run 44725353920; DB engine validation run 44725353894 on MySQL 8.4 and MariaDB 10.6.
 - Remaining: UI actions are not permission-filtered (backend remains authoritative and returns 403); cancel/reject with reason is not yet exposed in UI; KitchenBoard refresh is manual and there is no station routing or realtime push; populated-data browser smoke and role-based UI testing remain outstanding.
 - Next work should add role-aware action affordances and cancellation/rejection reason flows, then address kitchen station assignment/realtime only after their domain/API contracts are defined.
+
+### ORD-02A final UI polish — 2026-11-20
+
+- Kitchen ticket details are cleared when switching to a different order, preventing stale item details from briefly appearing under the new ticket.
+- Partial payment is labeled separately from unpaid in the kitchen ticket summary.
+- CI on code commit 58054837 passed: Frontend typecheck/build run 44725733047; Backend Validation run 44725733097; DB engine validation run 44725725004 on MySQL 8.4 and MariaDB 10.6.
+- ORD-02A is accepted for code/build/contract/DB integration. Browser smoke with real branch data and permission-role testing remain open.
+- Do not mark UI RBAC affordances, cancellation/rejection reason flow, kitchen stations, or realtime push as complete.
