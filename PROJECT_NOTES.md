@@ -1649,3 +1649,10 @@
 - run 44723342031 روی commit 3561049d نشان داد سفارش fixture جدید در timestamp دقیق 20:30 UTC قرار گرفته بود که همان مرز inclusive روز محلی تهران است؛ بنابراین وارد تست date-range می‌شد. timestamp fixture به 19:30 UTC روز قبل منتقل شد تا مستقل از تست فیلتر تاریخ باشد.
 - اصلاح نهایی fixture در commit 5cdb3c17 ثبت شد. Backend Validation و DB engine validation روی HEAD جدید باید از runهای 44723627723 و 44723630607 بررسی شوند؛ هر دو هنگام ثبت این یادداشت در حال اجرا بودند.
 - دو شکست بالا ایرادهای خود test harness بودند، نه failure محاسبه قیمت/مالیات یا order create؛ بااین‌حال بسته تا PASS هر دو engine پذیرفته‌شده نیست.
+
+### POS-01A — پذیرش تست روی هر دو موتور دیتابیس (2026-11-20)
+- اجرای نهایی DB run 44723630607 روی commit کد 5cdb3c17 موفق شد: هر دو job «V3 schema / MySQL 8.4» و «V3 schema / MariaDB 10.6» PASS.
+- در هر دو engine، installer/migration runner، integration انبار و تست یکپارچگی احراز هویت/سفارش اجرا و موفق شدند؛ تست POS درون check-v3-auth-integration.php شامل ایجاد واقعی سفارش، قیمت/مالیات سرور، variant، گزینه اجباری، idempotency replay، رد payload تغییرکرده و رد گزینه حذف‌شده است.
+- Backend Validation روی commit کد 3561049d موفق شد (run 44723350561)؛ Frontend typecheck/build روی commit UI 0bcfda8c موفق شد (run 44722494804) و روی 3561049d نیز run 44723350566 موفق شد.
+- commitهای پس از 5cdb3c17 صرفاً مستندات/یادداشت handoff بوده‌اند؛ سورس POS و تست integration تغییر نکرده‌اند. اجرای CI جدید روی HEAD مستنداتی 318cf041 در حال انجام/باید refresh شود.
+- وضعیت POS-01A: **توسعه و تست یکپارچگی روی MySQL 8.4 و MariaDB 10.6 پذیرفته شد.** تست مرورگر/عملیاتی با داده واقعی و اتصال CatalogWorkspace هنوز در بسته‌های بعدی باقی است.
