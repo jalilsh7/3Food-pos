@@ -1,12 +1,12 @@
 <?php
 declare(strict_types=1);
 
-use PersiaCoder\\PosV3\\Auth\\AuthenticatedPrincipal;
-use PersiaCoder\\PosV3\\Auth\\BusinessScope;
-use PersiaCoder\\PosV3\\Http\\HttpException;
-use PersiaCoder\\PosV3\\Infrastructure\\Database\\InventoryDocumentRepository;
-use PersiaCoder\\PosV3\\Inventory\\InventoryDocumentService;
-use PersiaCoder\\PosV3\\Inventory\\InventoryPostingService;
+use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
+use PersiaCoder\PosV3\Auth\BusinessScope;
+use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Infrastructure\Database\InventoryDocumentRepository;
+use PersiaCoder\PosV3\Inventory\InventoryDocumentService;
+use PersiaCoder\PosV3\Inventory\InventoryPostingService;
 
 $root = dirname(__DIR__);
 require_once $root . '/database/v3/bin/bootstrap.php';
