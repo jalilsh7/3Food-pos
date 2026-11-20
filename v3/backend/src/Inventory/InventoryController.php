@@ -11,7 +11,7 @@ use PersiaCoder\PosV3\Http\Response;
 
 final readonly class InventoryController
 {
-    public function __construct(private InventoryService $inventory) {}
+    public function __construct(private InventoryService $inventory, private InventoryDocumentService $documents) {}
 
     public function units(Request $request): Response
     {
@@ -109,6 +109,40 @@ final readonly class InventoryController
             ['entries' => $result['items']],
             ['limit' => (int) $limitValue, 'next_cursor' => $result['next_cursor']],
         );
+    }
+
+
+    public function documents(Request $request): Response
+    {
+        $limitValue = $request->query('limit') ?? '50';
+        if (!ctype_digit($limitValue)) {
+            throw new HttpException(422, 'inventory_limit_invalid', 'The inventory limit is invalid.');
+        }
+        return Response::success(
+            ['documents' => $this->documents->list(
+                $this->scope($request), $request->query('document_type'),
+                $request->query('status'), (int) $limitValue,
+            )],
+            ['limit' => (int) $limitValue],
+        );
+    }
+
+    public function document(Request $request, array $parameters): Response
+    {
+        return Response::success([
+            'stock_document' => $this->documents->get(
+                $this->scope($request), (string) ($parameters['documentPublicId'] ?? ''),
+            ),
+        ]);
+    }
+
+    public function createDocument(Request $request): Response
+    {
+        return $this->idempotentResponse($this->documents->create(
+            $this->principal($request), $this->scope($request), $this->jsonPayload($request),
+            $request->header('idempotency-key') ?? '', $request->requestId,
+            (string) ($request->attribute('remote_ip') ?? ''),
+        ));
     }
 
     private function jsonPayload(Request $request): array
