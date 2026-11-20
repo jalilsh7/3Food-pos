@@ -438,7 +438,7 @@ $assert((int) $orderCount->fetchColumn() === 1, 'A rejected POS order attempt ch
 // Keep the newly created POS fixture outside the separate Tehran date-filter fixture window.
 $pdo->prepare('UPDATE pos_orders SET created_at = :created_at WHERE business_id = :business_id AND branch_id = :branch_id AND public_id = :public_id')
     ->execute([
-        'created_at' => '2026-11-19 20:30:00.000',
+        'created_at' => '2026-11-19 19:30:00.000',
         'business_id' => $businessId,
         'branch_id' => $branchId,
         'public_id' => $createdOrderPublicId,
