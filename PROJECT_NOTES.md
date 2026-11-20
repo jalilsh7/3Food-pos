@@ -1547,3 +1547,10 @@
 - can_initialize فقط تا پیش از مقداردهی initial_business_id معتبر است؛ PermissionRepository نقش global owner را برای هیچ مجوز دامنه‌ای قبول نمی‌کند.
 - تست integration احراز هویت اکنون انتقال نقش، حذف global owner و پایان اختیار setup را بررسی می‌کند. نتیجه نهایی MySQL/MariaDB هنوز در انتظار CI است.
 - اولویت: **بحرانی امنیت چندمستاجری**.
+
+## ORD-01B — صفحه‌بندی مرکز سفارش‌ها (2026-11-20)
+- Endpoint فهرست سفارش‌ها اکنون limit (حداکثر ۱۰۰)، before cursor و خروجی has_more/next_cursor دارد.
+- Cursor از order_number استفاده می‌کند که در محدوده business/branch یکتا است؛ SQL هر بار business_id و branch_id را محدود می‌کند و cursor نیز فقط روی همان query scoped اعمال می‌شود.
+- OrderCenter صفحه ۵۰تایی می‌گیرد و با درخواست «نمایش سفارش‌های قدیمی‌تر» صفحه بعد را append می‌کند؛ جلوگیری از تکرار بر اساس public order ID در کلاینت انجام می‌شود.
+- تست contract جدید scripts/check-v3-backend-orders.php به Backend Validation اضافه شد. این تست قرارداد منبع را بررسی می‌کند و جایگزین integration واقعی DB نیست.
+- در صف: integration واقعی MySQL/MariaDB، فیلتر تاریخ و آزمون صفحه‌های خالی/آخرین صفحه در شرایط هم‌زمانی.
