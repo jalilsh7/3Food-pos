@@ -292,6 +292,7 @@ final readonly class InventoryDocumentService
                     'quantity' => (string) $line['quantity'], 'unit_code' => (string) $line['unit_code'],
                     'conversion_factor_snapshot' => (string) $line['conversion_factor_snapshot'],
                     'base_quantity' => (string) $line['base_quantity'],
+                    'total_cost_amount' => (string) $line['total_cost_amount'],
                     'note' => $line['note'] === null ? null : (string) $line['note'],
                 ];
                 $this->documents->updateLine(
@@ -346,6 +347,7 @@ final readonly class InventoryDocumentService
                     'quantity' => (string) $line['quantity'], 'unit_code' => (string) $line['unit_code'],
                     'conversion_factor_snapshot' => (string) $line['conversion_factor_snapshot'],
                     'base_quantity' => (string) $line['base_quantity'],
+                    'total_cost_amount' => (string) $line['total_cost_amount'],
                     'note' => $line['note'] === null ? null : (string) $line['note'],
                 ];
                 $this->documents->deleteLine(
