@@ -2469,23 +2469,6 @@ if ($method === 'POST' && $path === '/sms/send') {
         }
     }
 
-    // Operational events are restricted to approved shared-service templates.
-    // Campaigns, birthday prompts and manual messages must remain on the personal route.
-    $serviceEvents = ['order_created', 'order_ready', 'order_delivered', 'points_earned', 'discount_used'];
-    $isOperationalTest = str_ends_with($event, '_test')
-        && in_array(substr($event, 0, -5), $serviceEvents, true);
-    $isOperationalEvent = in_array($event, $serviceEvents, true) || $isOperationalTest;
-    $isPersonalEvent = in_array($event, ['manual', 'campaign', 'birthday_prompt', 'order_invoice'], true);
-    if (!$isOperationalEvent && !$isPersonalEvent) {
-        json_response(['ok' => false, 'error' => 'invalid_sms_event', 'message' => 'نوع رویداد پیامک پشتیبانی نمی‌شود'], 422);
-    }
-    if ($isOperationalEvent && $bodyId === '') {
-        json_response(['ok' => false, 'error' => 'sms_service_template_required', 'message' => 'پیامک عملیاتی فقط با bodyId الگوی خدماتی ارسال می‌شود؛ مسیر خط شخصی جایگزین نخواهد شد'], 422);
-    }
-    if ($isPersonalEvent && $bodyId !== '') {
-        json_response(['ok' => false, 'error' => 'sms_personal_route_required', 'message' => 'ارسال دستی و کمپین فقط از مسیر خط شخصی انجام می‌شود و bodyId خدماتی نمی‌پذیرد'], 422);
-    }
-
     // The presence of bodyId selects the shared service route exclusively.
     // It must never silently fall back to the personal sender route.
     $isServiceRoute = $bodyId !== '';
@@ -2499,6 +2482,23 @@ if ($method === 'POST' && $path === '/sms/send') {
                 json_response(['ok' => false, 'error' => 'invalid_service_sms_variables', 'message' => 'مقادیر متغیر الگوی خدماتی باید به‌ترتیب و بدون مقدار خالی ارسال شوند'], 422);
             }
         }
+    }
+
+    // Operational events are restricted to approved shared-service templates.
+    // Campaigns, birthday prompts and manual messages must remain on the personal route.
+    $serviceEvents = ['order_created', 'order_ready', 'order_delivered', 'points_earned', 'discount_used'];
+    $isOperationalTest = str_ends_with($event, '_test')
+        && in_array(substr($event, 0, -5), $serviceEvents, true);
+    $isOperationalEvent = in_array($event, $serviceEvents, true) || $isOperationalTest;
+    $isPersonalEvent = in_array($event, ['manual', 'campaign', 'birthday_prompt', 'order_invoice'], true);
+    if (!$isOperationalEvent && !$isPersonalEvent) {
+        json_response(['ok' => false, 'error' => 'invalid_sms_event', 'message' => 'نوع رویداد پیامک پشتیبانی نمی‌شود'], 422);
+    }
+    if ($isOperationalEvent && !$isServiceRoute) {
+        json_response(['ok' => false, 'error' => 'sms_service_template_required', 'message' => 'پیامک عملیاتی فقط با bodyId الگوی خدماتی ارسال می‌شود؛ مسیر خط شخصی جایگزین نخواهد شد'], 422);
+    }
+    if ($isPersonalEvent && $isServiceRoute) {
+        json_response(['ok' => false, 'error' => 'sms_personal_route_required', 'message' => 'ارسال دستی و کمپین فقط از مسیر خط شخصی انجام می‌شود و bodyId خدماتی نمی‌پذیرد'], 422);
     }
 
     $sms = $config['sms'] ?? [];
