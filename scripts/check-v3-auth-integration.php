@@ -2,11 +2,18 @@
 declare(strict_types=1);
 
 use PersiaCoder\PosV3\Auth\AuthController;
+use PersiaCoder\PosV3\Auth\BusinessContextController;
+use PersiaCoder\PosV3\Auth\BusinessScope;
+use PersiaCoder\PosV3\Auth\BusinessSetupController;
+use PersiaCoder\PosV3\Auth\BusinessSetupService;
+use PersiaCoder\PosV3\Auth\BranchManagementController;
+use PersiaCoder\PosV3\Auth\BranchManagementService;
 use PersiaCoder\PosV3\Auth\AuthenticationService;
 use PersiaCoder\PosV3\Auth\SessionAuthenticator;
 use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Http\Request;
 use PersiaCoder\PosV3\Infrastructure\Database\SessionRepository;
+use PersiaCoder\PosV3\Infrastructure\Database\BusinessRepository;
 use PersiaCoder\PosV3\Security\CsrfGuard;
 
 $root = dirname(__DIR__);
@@ -45,6 +52,10 @@ $insert->execute([
     'display_name' => 'CI Auth User',
 ]);
 $userId = (int) $pdo->lastInsertId();
+$ownerRoleId = $pdo->query("SELECT id FROM app_roles WHERE code = 'owner' AND is_active = 1")->fetchColumn();
+if ($ownerRoleId === false) throw new RuntimeException('The installation owner role is missing.');
+$pdo->prepare('INSERT INTO app_user_roles (user_id, role_id) VALUES (:user_id, :role_id)')
+    ->execute(['user_id' => $userId, 'role_id' => (int) $ownerRoleId]);
 
 $appKey = str_repeat('ci-v3-auth-integration-key-', 2);
 $authentication = new AuthenticationService($pdo, $appKey);
@@ -140,6 +151,65 @@ $newCsrfToken = $cookieValue($relogin->headers, 'pos_v3_csrf');
 $newCookieHeader = 'pos_v3_session=' . $newSessionToken . '; pos_v3_csrf=' . $newCsrfToken;
 $newRequest = $makeRequest('GET', '/api/v1/auth/me', ['cookie' => $newCookieHeader]);
 $newPrincipal = $authenticator->authenticate($newRequest);
+$contextController = new BusinessContextController(new BusinessRepository($pdo));
+$contextBeforeSetupRequest = $makeRequest('GET', '/api/v1/access/businesses')->withAttribute('principal', $newPrincipal);
+$contextBeforeSetup = $contextController->list($contextBeforeSetupRequest);
+$contextBeforeData = json_decode($contextBeforeSetup->body, true, 32, JSON_THROW_ON_ERROR)['data'];
+$assert($contextBeforeData['businesses'] === [], 'A fresh installation unexpectedly exposed a business.');
+$assert($contextBeforeData['can_initialize'] === true, 'Installation owner cannot initialize the first business.');
+
+$setupController = new BusinessSetupController(new BusinessSetupService($pdo));
+$setupRequest = $makeRequest(
+    'POST', '/api/v1/setup/business',
+    [
+        'content-type' => 'application/json',
+        'cookie' => $newCookieHeader,
+        'x-csrf-token' => $newCsrfToken,
+    ],
+    json_encode([
+        'name' => 'CI Authentication Business',
+        'code' => $prefix,
+        'timezone' => 'Asia/Tehran',
+        'currency' => 'IRT',
+        'branch_name' => 'شعبه اصلی',
+        'branch_code' => 'main',
+    ], JSON_THROW_ON_ERROR),
+)->withAttribute('principal', $newPrincipal);
+$csrfGuard->assertValid($setupRequest, $newPrincipal);
+$setup = $setupController->create($setupRequest);
+$setupData = json_decode($setup->body, true, 32, JSON_THROW_ON_ERROR)['data'];
+$businessPublicId = (string) $setupData['business']['id'];
+$branchPublicId = (string) $setupData['branch']['id'];
+$businessIdStatement = $pdo->prepare('SELECT id FROM pos_businesses WHERE public_id = :public_id');
+$businessIdStatement->execute(['public_id' => $businessPublicId]);
+$businessId = (int) $businessIdStatement->fetchColumn();
+$branchIdStatement = $pdo->prepare('SELECT id FROM pos_branches WHERE public_id = :public_id');
+$branchIdStatement->execute(['public_id' => $branchPublicId]);
+$branchId = (int) $branchIdStatement->fetchColumn();
+
+$managerRoleId = $pdo->query("SELECT id FROM app_roles WHERE code = 'manager' AND is_active = 1")->fetchColumn();
+if ($managerRoleId === false) throw new RuntimeException('The manager role is missing.');
+$pdo->prepare('INSERT INTO app_user_business_roles (user_id, business_id, role_id) VALUES (:user_id, :business_id, :role_id)')
+    ->execute(['user_id' => $userId, 'business_id' => $businessId, 'role_id' => (int) $managerRoleId]);
+$pdo->prepare('DELETE FROM app_user_roles WHERE user_id = :user_id AND role_id = :role_id')
+    ->execute(['user_id' => $userId, 'role_id' => (int) $ownerRoleId]);
+
+$contextAfterSetupRequest = $makeRequest('GET', '/api/v1/access/businesses')->withAttribute('principal', $newPrincipal);
+$contextAfterSetup = $contextController->list($contextAfterSetupRequest);
+$contextAfterData = json_decode($contextAfterSetup->body, true, 32, JSON_THROW_ON_ERROR)['data'];
+$assert(count($contextAfterData['businesses']) === 1, 'Business membership discovery did not return the assigned business.');
+$assert($contextAfterData['businesses'][0]['id'] === $businessPublicId, 'Business context discovery returned the wrong business.');
+$assert($contextAfterData['can_initialize'] === false, 'A non-owner business manager was incorrectly allowed to initialize setup.');
+
+$branchController = new BranchManagementController(new BranchManagementService($pdo, $appKey));
+$branchListRequest = $makeRequest('GET', '/api/v1/access/branches')->withAttribute(
+    'business_scope',
+    new BusinessScope($businessId, $businessPublicId, null, null),
+);
+$branchList = $branchController->list($branchListRequest);
+$branchListData = json_decode($branchList->body, true, 32, JSON_THROW_ON_ERROR)['data']['branches'];
+$assert(count($branchListData) === 1 && $branchListData[0]['id'] === $branchPublicId, 'Business-scoped branch discovery did not return the initial branch.');
+
 $logoutRequest = $makeRequest('POST', '/api/v1/auth/logout', [
     'cookie' => $newCookieHeader,
     'x-csrf-token' => $newCsrfToken,
@@ -151,4 +221,4 @@ $assert(str_contains(implode(';', $logout->headers['Set-Cookie']), 'Max-Age=0'),
 $activeSessions->execute(['user_id' => $userId]);
 $assert((int) $activeSessions->fetchColumn() === 0, 'Logout did not revoke the active session.');
 
-echo "V3 authentication integration checks passed: login, hashed cookies, session introspection, CSRF rotation, forced password change, session revocation and logout.\n";
+echo "V3 authentication/context integration checks passed: login, hashed cookies, session introspection, CSRF rotation, forced password change, session invalidation, logout, first-business setup, business membership discovery and branch discovery.\n";
