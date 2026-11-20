@@ -435,6 +435,63 @@ $assert($missingOptionRejected, 'POS order creation accepted a missing required 
 $orderCount->execute(['business_id' => $businessId, 'branch_id' => $branchId, 'public_id' => $createdOrderPublicId]);
 $assert((int) $orderCount->fetchColumn() === 1, 'A rejected POS order attempt changed the existing order count.');
 
+$acceptKey = 'ci-order-accept-' . bin2hex(random_bytes(8));
+$accepted = $orderService->transition(
+    $newPrincipal, $orderScope, $createdOrderPublicId, ['to_status' => 'accepted'], $acceptKey, $requestId(), '127.0.0.1',
+);
+$assert($accepted['status'] === 200 && $accepted['body']['data']['to_status'] === 'accepted', 'Draft POS order could not be accepted.');
+$acceptedReplay = $orderService->transition(
+    $newPrincipal, $orderScope, $createdOrderPublicId, ['to_status' => 'accepted'], $acceptKey, $requestId(), '127.0.0.1',
+);
+$assert($acceptedReplay['replayed'] === true, 'Order acceptance idempotency replay was not recognized.');
+
+$prepareKey = 'ci-kitchen-prepare-' . bin2hex(random_bytes(8));
+$preparing = $orderService->transitionKitchen(
+    $newPrincipal, $orderScope, $createdOrderPublicId, ['to_status' => 'preparing'], $prepareKey, $requestId(), '127.0.0.1',
+);
+$assert($preparing['body']['data']['to_status'] === 'preparing', 'Kitchen could not start preparing an accepted order.');
+$prepareReplay = $orderService->transitionKitchen(
+    $newPrincipal, $orderScope, $createdOrderPublicId, ['to_status' => 'preparing'], $prepareKey, $requestId(), '127.0.0.1',
+);
+$assert($prepareReplay['replayed'] === true, 'Kitchen preparing transition idempotency replay was not recognized.');
+
+$readyKey = 'ci-kitchen-ready-' . bin2hex(random_bytes(8));
+$ready = $orderService->transitionKitchen(
+    $newPrincipal, $orderScope, $createdOrderPublicId, ['to_status' => 'ready'], $readyKey, $requestId(), '127.0.0.1',
+);
+$assert($ready['body']['data']['to_status'] === 'ready', 'Kitchen could not mark a preparing order ready.');
+
+$kitchenCompletionForbidden = false;
+try {
+    $orderService->transitionKitchen(
+        $newPrincipal, $orderScope, $createdOrderPublicId, ['to_status' => 'completed'],
+        'ci-kitchen-complete-' . bin2hex(random_bytes(8)), $requestId(), '127.0.0.1',
+    );
+} catch (HttpException $error) {
+    $kitchenCompletionForbidden = $error->status === 403;
+}
+$assert($kitchenCompletionForbidden, 'Kitchen-only transition accepted a forbidden completed target.');
+
+$completeKey = 'ci-order-complete-' . bin2hex(random_bytes(8));
+$completed = $orderService->transition(
+    $newPrincipal, $orderScope, $createdOrderPublicId, ['to_status' => 'completed'], $completeKey, $requestId(), '127.0.0.1',
+);
+$assert($completed['body']['data']['to_status'] === 'completed', 'Ready order could not be completed by the order workflow.');
+
+$invalidTransitionRejected = false;
+try {
+    $orderService->transition(
+        $newPrincipal, $orderScope, $createdOrderPublicId, ['to_status' => 'preparing'],
+        'ci-order-invalid-transition-' . bin2hex(random_bytes(8)), $requestId(), '127.0.0.1',
+    );
+} catch (HttpException $error) {
+    $invalidTransitionRejected = $error->status === 409;
+}
+$assert($invalidTransitionRejected, 'Order state machine accepted a transition out of completed.');
+$statusEventCount = $pdo->prepare('SELECT COUNT(*) FROM pos_order_status_events WHERE business_id = :business_id AND branch_id = :branch_id AND order_id = (SELECT id FROM pos_orders WHERE business_id = :business_id AND branch_id = :branch_id AND public_id = :public_id)');
+$statusEventCount->execute(['business_id' => $businessId, 'branch_id' => $branchId, 'public_id' => $createdOrderPublicId]);
+$assert((int) $statusEventCount->fetchColumn() === 4, 'Order status transition replay created duplicate status events or a rejected transition was persisted.');
+
 // Keep the newly created POS fixture outside the separate Tehran date-filter fixture window.
 $pdo->prepare('UPDATE pos_orders SET created_at = :created_at WHERE business_id = :business_id AND branch_id = :branch_id AND public_id = :public_id')
     ->execute([
