@@ -513,6 +513,11 @@ async function postSms(phone: string, text: string, event: string, bodyId: strin
     detail: validationError || "ارسال انجام نشد",
   };
   if (validationError) {
+    try {
+      await phpApi.saveRecord("sms_logs", log);
+    } catch (err) {
+      log = { ...log, detail: `${log.detail} — ذخیره گزارش در سرور ناموفق بود: ${err instanceof Error ? err.message : "خطای نامشخص"}` };
+    }
     usePos.getState().logSms(log);
     return false;
   }
