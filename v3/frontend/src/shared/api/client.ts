@@ -156,6 +156,36 @@ export type InventoryLocation = {
   is_active: boolean;
 };
 
+export type InventorySupplier = {
+  id: string;
+  name: string;
+  phone: string | null;
+  notes: string | null;
+  is_active: boolean;
+};
+
+export async function getInventorySuppliers(includeInactive = false): Promise<InventorySupplier[]> {
+  const query = new URLSearchParams({ include_inactive: includeInactive ? "1" : "0" });
+  const data = await request<{ suppliers: InventorySupplier[] }>(`/inventory/suppliers?${query.toString()}`);
+  return data.suppliers;
+}
+
+export async function createInventorySupplier(payload: {
+  name: string; phone?: string; notes?: string;
+}): Promise<void> {
+  await request<{ supplier: { id: string } }>("/inventory/suppliers", {
+    method: "POST", headers: idempotencyHeaders(), body: JSON.stringify(payload),
+  });
+}
+
+export async function updateInventorySupplier(supplierId: string, payload: {
+  name: string; phone?: string | null; notes?: string | null; is_active: boolean;
+}): Promise<void> {
+  await request<{ supplier: { id: string } }>(`/inventory/suppliers/${encodeURIComponent(supplierId)}`, {
+    method: "PATCH", headers: idempotencyHeaders(), body: JSON.stringify(payload),
+  });
+}
+
 export type InventoryBalance = {
   stock_item_id: string;
   stock_item_code: string;
@@ -301,6 +331,7 @@ export async function createInventoryDocument(payload: {
   location_id: string;
   destination_location_id?: string;
   reason?: string;
+  supplier_id?: string;
 }): Promise<{ id: string; document_no: string; document_type: string; status: string }> {
   const data = await request<{ stock_document: { id: string; document_no: string; document_type: string; status: string } }>(
     "/inventory/documents",
