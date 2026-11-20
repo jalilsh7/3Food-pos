@@ -94,11 +94,11 @@ jobs:
           php database/v3/bin/preflight.php
           php database/v3/bin/install.php
           php scripts/check-v3-install.php
-          printf "CREATE TABLE v3_ci_migration_probe (id INT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=InnoDB;" > database/v3/migrations/001_ci-smoke.sql
+          printf "CREATE TABLE v3_ci_migration_probe (id INT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=InnoDB;" > database/v3/migrations/012_ci-smoke.sql
           php database/v3/bin/migrate.php
           php database/v3/bin/migrate.php
           php scripts/check-v3-migration.php
-          rm -f database/v3/migrations/001_ci-smoke.sql
+          rm -f database/v3/migrations/012_ci-smoke.sql
           export POS_V3_BACKUP_HMAC_KEY='ci-only-v3-backup-key-32-bytes-minimum'
           BACKUP_FILE="${RUNNER_TEMP}/persiacoder-pos-v3-ci-backup.jsonl.gz"
           TAMPERED_FILE="${RUNNER_TEMP}/persiacoder-pos-v3-ci-backup-tampered.jsonl.gz"
