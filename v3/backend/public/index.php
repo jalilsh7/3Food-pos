@@ -246,6 +246,7 @@ try {
                 new InventoryService($getConnection(), $configuration->applicationKey),
                 new InventoryDocumentService($getConnection(), $configuration->applicationKey),
                 new InventoryPostingService($getConnection(), $configuration->applicationKey),
+                new SupplierService($getConnection(), $configuration->applicationKey),
             );
         }
         return $inventoryController;
@@ -519,6 +520,21 @@ try {
     $router->add('POST', '/api/v1/inventory/documents',
         static fn (Request $request): Response => $getInventoryController()->createDocument($request),
         [$sessionMiddleware, $makePermissionMiddleware('inventory.manage', true), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('GET', '/api/v1/inventory/suppliers',
+        static fn (Request $request): Response => $getInventoryController()->suppliers($request),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.read', false)],
+    );
+
+    $router->add('POST', '/api/v1/inventory/suppliers',
+        static fn (Request $request): Response => $getInventoryController()->createSupplier($request),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.manage', false), $csrfMiddleware, $originMiddleware],
+    );
+
+    $router->add('PATCH', '/api/v1/inventory/suppliers/{supplierPublicId}',
+        static fn (Request $request, array $parameters): Response => $getInventoryController()->updateSupplier($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.manage', false), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('GET', '/api/v1/inventory/units',
