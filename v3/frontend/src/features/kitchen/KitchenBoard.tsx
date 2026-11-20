@@ -166,7 +166,7 @@ export function KitchenBoard({ timeZone }: { timeZone: string }) {
             const isReady = order.order_status === "ready";
             const nextLabel = order.order_status === "accepted" ? "شروع آماده‌سازی" : order.order_status === "preparing" ? "علامت‌گذاری آماده" : "";
             return (
-              <Surface padding="md" className={isReady ? "kitchen-ticket" : "kitchen-ticket is-urgent"} key={order.id}>
+              <Surface padding="md" className={isReady ? "kitchen-ticket" : "kitchen-ticket is-active"} key={order.id}>
                 <div className="kitchen-ticket-head">
                   <div><strong>#{money(order.order_number)}</strong><span>{channelLabels[order.source_channel] ?? order.source_channel} · {fulfillmentLabels[order.fulfillment_method ?? ""] ?? "نوع دریافت نامشخص"}</span></div>
                   <div className="kitchen-ticket-time"><Clock3 size={13} /><span>{dateTime(order.created_at, timeZone)}</span></div>
