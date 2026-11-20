@@ -2424,24 +2424,44 @@ if ($method === 'POST' && $path === '/sms/send') {
     $to = preg_replace('/[^0-9+]/', '', (string)($body['to'] ?? ''));
     $message = trim((string)($body['text'] ?? ''));
     $bodyId = trim((string)($body['bodyId'] ?? ''));
+
     if (!preg_match('/^\\+?[0-9]{10,15}$/D', $to) || $message === '' || utf8_length($message) > 1000) {
         json_response(['ok' => false, 'error' => 'invalid_sms', 'message' => 'شماره یا متن پیامک معتبر نیست'], 422);
     }
+
+    // The presence of bodyId selects the shared service route exclusively.
+    // It must never silently fall back to the personal sender route.
+    $isServiceRoute = $bodyId !== '';
+    if ($isServiceRoute) {
+        $parts = explode(';', $message);
+        if (!ctype_digit($bodyId) || strlen($bodyId) > 12 || count($parts) > 10) {
+            json_response(['ok' => false, 'error' => 'invalid_service_sms', 'message' => 'شناسه الگوی خدماتی یا مقادیر متغیر معتبر نیست'], 422);
+        }
+        foreach ($parts as $part) {
+            if (trim($part) === '') {
+                json_response(['ok' => false, 'error' => 'invalid_service_sms_variables', 'message' => 'مقادیر متغیر الگوی خدماتی باید به‌ترتیب و بدون مقدار خالی ارسال شوند'], 422);
+            }
+        }
+    }
+
     $sms = $config['sms'] ?? [];
     $username = trim((string)($sms['username'] ?? ''));
     $password = trim((string)($sms['password'] ?? ''));
     $sender = trim((string)($sms['sender'] ?? ''));
-    if (($sms['provider'] ?? 'none') !== 'national_payamak' || $username === '' || $password === '' || (!$bodyId && $sender === '')) {
+    if (($sms['provider'] ?? 'none') !== 'national_payamak' || $username === '' || $password === '' || (!$isServiceRoute && $sender === '')) {
         json_response(['ok' => false, 'error' => 'sms_not_configured', 'message' => 'سرویس پیامک در تنظیمات سرور فعال نشده است'], 503);
     }
-    $endpoint = $bodyId
+
+    $route = $isServiceRoute ? 'service' : 'personal';
+    $endpoint = $isServiceRoute
         ? 'https://rest.payamak-panel.com/api/SendSMS/BaseServiceNumber'
         : 'https://rest.payamak-panel.com/api/SendSMS/SendSMS';
-    $fields = $bodyId
+    $fields = $isServiceRoute
         ? ['username' => $username, 'password' => $password, 'text' => $message, 'to' => $to, 'bodyId' => $bodyId]
         : ['username' => $username, 'password' => $password, 'to' => $to, 'from' => $sender, 'text' => $message, 'isFlash' => 'false'];
+
     try {
-        $encodedFields = http_build_query($fields);
+        $encodedFields = http_build_query($fields, '', '&', PHP_QUERY_RFC3986);
         $httpStatus = 0;
         if (function_exists('curl_init')) {
             $ch = curl_init($endpoint);
@@ -2473,18 +2493,25 @@ if ($method === 'POST' && $path === '/sms/send') {
                 'content' => $encodedFields,
                 'timeout' => 20,
                 'ignore_errors' => true,
-            ]]);
+            ], 'ssl' => ['verify_peer' => true, 'verify_peer_name' => true]]);
             $raw = file_get_contents($endpoint, false, $context);
             if ($raw === false) throw new RuntimeException('sms_transport_failed');
             $statusLine = $http_response_header[0] ?? '';
             preg_match('/\\s([0-9]{3})\\s/', $statusLine, $statusMatch);
             $httpStatus = (int)($statusMatch[1] ?? 0);
         }
-        $httpOk = $httpStatus >= 200 && $httpStatus < 300;
-        $numeric = (int)preg_replace('/[^0-9-]/', '', $raw);
-        $ok = $httpOk && $numeric > 0;
-        audit($pdo, (int)$actor['id'], 'sms_sent', 'sms', null, ['to' => $to, 'ok' => $ok]);
-        json_response(['ok' => true, 'sent' => $ok, 'detail' => substr(trim($raw), 0, 300)]);
+
+        $providerResponse = trim((string)$raw);
+        $providerCode = preg_match('/^-?[0-9]+$/D', $providerResponse) ? (int)$providerResponse : 0;
+        $ok = $httpStatus >= 200 && $httpStatus < 300 && $providerCode > 0;
+        audit($pdo, (int)$actor['id'], 'sms_sent', 'sms', null, [
+            'to' => $to,
+            'ok' => $ok,
+            'route' => $route,
+            'body_id' => $isServiceRoute ? $bodyId : null,
+            'provider_code' => $providerCode,
+        ]);
+        json_response(['ok' => true, 'sent' => $ok, 'detail' => substr($providerResponse, 0, 300), 'route' => $route]);
     } catch (Throwable $e) {
         error_log('[3Food POS] SMS provider request failed: ' . $e->getMessage());
         $transportUnavailable = in_array($e->getMessage(), ['sms_transport_unavailable', 'sms_transport_failed'], true);
