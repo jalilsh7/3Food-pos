@@ -21,7 +21,7 @@ $assert = static function (bool $condition, string $message): void {
 };
 
 $token = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
-$principal = new AuthenticatedPrincipal(1, 2, 'user-public-id', 'cashier', 'Cashier', false, hash('sha256', $token));
+$principal = new AuthenticatedPrincipal(1, 2, 'user-public-id', 'cashier', 'Cashier', false, hash('sha256', $token), new DateTimeImmutable('+1 hour'));
 $guard = new CsrfGuard();
 $guard->assertValid(new Request('GET', '/api/v1/orders', [], '', 'test-request-0010'), $principal);
 
