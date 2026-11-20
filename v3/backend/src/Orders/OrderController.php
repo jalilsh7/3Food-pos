@@ -18,6 +18,8 @@ final readonly class OrderController
         $scope = $this->scope($request);
         $status = $request->query('status');
         $channel = $request->query('channel');
+        $paymentStatus = $request->query('payment');
+        $fulfillmentMethod = $request->query('fulfillment');
         $rawLimit = $request->query('limit') ?? '50';
         if (!preg_match('/^[0-9]{1,3}$/', $rawLimit)) {
             throw new HttpException(422, 'invalid_order_limit', 'Limit must be an integer between 1 and 100.');
@@ -26,7 +28,15 @@ final readonly class OrderController
         if ($before !== null && !is_string($before)) {
             throw new HttpException(422, 'invalid_order_cursor', 'The order pagination cursor is invalid.');
         }
-        $page = $this->orders->list($scope, $status, $channel, (int) $rawLimit, $before);
+        $page = $this->orders->list(
+            $scope,
+            $status,
+            $channel,
+            (int) $rawLimit,
+            $before,
+            $paymentStatus,
+            $fulfillmentMethod,
+        );
         return Response::success($page);
     }
 
