@@ -8,7 +8,7 @@
 - Product: **PersiaCoder POS V3 — Commercial Edition**
 - Product brand is fixed: **PersiaCoder.ir**; every application page must carry the subtle footer text **Powered by PersiaCoder.ir**.
 - Audience: restaurants, cafés, fast-food, juice bars and ice-cream shops.
-- Current code baseline: `f6ab1a6a9b8e47674f5a01e2c322567c9c15d612`; documentation updates are committed through `0c269bd8d232852811513ae03de3f5c5c8ef43c4` on 2026-11-20. Always fetch the live branch head before relying on either SHA.
+- Current code baseline: `d364efc9d72f66b680401f8ec53f7fa34d183df0` on 2026-11-20. Documentation records the prior order-integration code baseline `f6ab1a6a9b8e47674f5a01e2c322567c9c15d612`; always fetch the live branch head before relying on either SHA.
 
 ## 1. Mandatory working rules
 
@@ -288,7 +288,7 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 - Auth integration found and fixed an audit snapshot key rejected by the sensitive-field filter: use `forced_change_required`, not a key containing `password`. No credentials or raw session tokens are written to audit snapshots.
 - Business/branch context selection exists in `v3/frontend/src/features/auth/BusinessContextScreen.tsx`; the active context is persisted as public identifiers only and sent in scope headers. InventoryWorkspace has live read/write APIs for its current inventory document workflows; confirm exact endpoint coverage from source before claiming full module completion.
 - ORD-01A (code commit `f6ab1a6a9b8e47674f5a01e2c322567c9c15d612`): `OrderCenter` no longer uses demo orders. It reads `GET /api/v1/orders` and `GET /api/v1/orders/{id}`, including item/options snapshots and status history. Filters include backend status/channel plus client-side payment/fulfillment/search over at most 100 recent orders. The UI is read-only; do not enable status transitions until RBAC, idempotency and error UX are connected.
-- CI at the code baseline: Backend PASS on PHP 8.2/8.3/8.4 (run `44705608241`); Frontend TypeScript and production build PASS (run `44705608244`). PHP migration/legacy integration run `44705608232` was still in progress when checked; inspect it before claiming a full pipeline pass. Earlier backend run failures were traced to doubled namespace backslashes in SupplierRepository/SupplierService and have been corrected.
+- CI at the code baseline: Backend PASS on PHP 8.2/8.3/8.4 (run `44705608241`); Frontend TypeScript and production build PASS (run `44705608244`). PHP migration/legacy integration run `44705608232` failed at ESLint after PHP syntax, MySQL schema installation, PHP API integration, TypeScript and 81 unit tests passed. ESLint reported `react-hooks/set-state-in-effect` in App, BusinessContextScreen, InventoryWorkspace and OrderCenter. Fixes were committed in `3aa518e`, `faa988b`, `2ca77b1` and `d364efc`; reruns `44706018603` (PHP migration), `44706018612` (Frontend build) and `44706018626` (Backend matrix) were pending/in progress at the time of this update. Do not claim lint/full CI success until the rerun completes. Earlier backend run failures were traced to doubled namespace backslashes in SupplierRepository/SupplierService and have been corrected.
 - Remaining: test order list/detail integration against disposable MySQL/MariaDB with branch isolation and role matrix; add cursor pagination and date filters; implement permitted status transitions and kitchen actions using existing backend state machine and fresh Idempotency-Key; connect Catalog/POS/Kitchen/Customers/Finance/Storefront to real APIs and remove demo data from operational flows. Keep every remaining prototype explicitly labeled.
 
 
@@ -297,3 +297,9 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 - Commits: API client `34f6e09ad941a1164f183efd6d6a1d29916f1400`; OrderCenter `5559408b28973d0b9f9b550bcc4034d9b1f3d2a9`; supplier namespace fixes `a15c9ae905acf109cab41890693c829c47f6c56e` and `f6ab1a6a9b8e47674f5a01e2c322567c9c15d612`.
 - Docs updated: `PROJECT_NOTES.md`, `ROADMAP_V3.md`, `BACKEND_ARCHITECTURE_V3.md`; this guide records the current implementation and test boundaries.
 - No migration was executed against a customer or production database. No production deployment or merge into `main` occurred.
+
+
+## LINT-01 — React effect follow-up (2026-11-20)
+- The comprehensive workflow `44705608232` passed fresh MySQL schema install and PHP API integration, and all 81 unit tests passed, but ESLint failed on synchronous state updates in React effects.
+- The four affected pages were adjusted so loading/reset state changes happen in event handlers while effects handle asynchronous fetch results: commits `3aa518eaf606d28e17345703d29c6e3b28b369f5`, `faa988bd03c781ca201232b68643da37b6a2c42d`, `2ca77b19911704044cfaa08fbd38743f15974cb3`, `d364efc9d72f66b680401f8ec53f7fa34d183df0`.
+- Rerun state at update time: Frontend `44706018612` in progress; PHP migration `44706018603` in progress; Backend `44706018626` queued. Re-check all before marking LINT-01 complete.
