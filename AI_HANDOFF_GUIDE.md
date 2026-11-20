@@ -8,7 +8,7 @@
 - Product: **PersiaCoder POS V3 — Commercial Edition**
 - Product brand is fixed: **PersiaCoder.ir**; every application page must carry the subtle footer text **Powered by PersiaCoder.ir**.
 - Audience: restaurants, cafés, fast-food, juice bars and ice-cream shops.
-- Current handoff baseline: branch head observed at commit `4381b89adf19047e999216fb80762c89f5c3102f` on 2026-11-20. Always fetch the live branch head before relying on this SHA.
+- Current code baseline: `f6ab1a6a9b8e47674f5a01e2c322567c9c15d612`; documentation updates are committed through `0c269bd8d232852811513ae03de3f5c5c8ef43c4` on 2026-11-20. Always fetch the live branch head before relying on either SHA.
 
 ## 1. Mandatory working rules
 
@@ -286,4 +286,14 @@ Last updated: 2026-11-20. Treat this as a living handoff document; update it aft
 - Added `scripts/check-v3-auth-integration.php`, executed in the disposable MySQL/MariaDB database workflow after migrations and inventory posting integration. It verifies login, hashed session/CSRF storage, session introspection, CSRF rotation, forced password change, old-session invalidation, re-login and logout.
 - CI at code HEAD `5f44d7e`: Backend PASS PHP 8.2/8.3/8.4 [44701020452](https://github.com/jalilsh7/3Food-pos/actions/runs/44701020452); Frontend TypeScript/build PASS [44701020496](https://github.com/jalilsh7/3Food-pos/actions/runs/44701020496); MySQL 8.4 + MariaDB 10.6 PASS including auth and inventory posting integration [44701012524](https://github.com/jalilsh7/3Food-pos/actions/runs/44701012524).
 - Auth integration found and fixed an audit snapshot key rejected by the sensitive-field filter: use `forced_change_required`, not a key containing `password`. No credentials or raw session tokens are written to audit snapshots.
-- Remaining: business/branch context selection; connect InventoryWorkspace to real inventory APIs; then integrate orders/catalog. Existing POS/order/kitchen/customer/finance/storefront prototypes still contain local demo state and must remain clearly marked until API-backed.
+- Business/branch context selection exists in `v3/frontend/src/features/auth/BusinessContextScreen.tsx`; the active context is persisted as public identifiers only and sent in scope headers. InventoryWorkspace has live read/write APIs for its current inventory document workflows; confirm exact endpoint coverage from source before claiming full module completion.
+- ORD-01A (code commit `f6ab1a6a9b8e47674f5a01e2c322567c9c15d612`): `OrderCenter` no longer uses demo orders. It reads `GET /api/v1/orders` and `GET /api/v1/orders/{id}`, including item/options snapshots and status history. Filters include backend status/channel plus client-side payment/fulfillment/search over at most 100 recent orders. The UI is read-only; do not enable status transitions until RBAC, idempotency and error UX are connected.
+- CI at the code baseline: Backend PASS on PHP 8.2/8.3/8.4 (run `44705608241`); Frontend TypeScript and production build PASS (run `44705608244`). PHP migration/legacy integration run `44705608232` was still in progress when checked; inspect it before claiming a full pipeline pass. Earlier backend run failures were traced to doubled namespace backslashes in SupplierRepository/SupplierService and have been corrected.
+- Remaining: test order list/detail integration against disposable MySQL/MariaDB with branch isolation and role matrix; add cursor pagination and date filters; implement permitted status transitions and kitchen actions using existing backend state machine and fresh Idempotency-Key; connect Catalog/POS/Kitchen/Customers/Finance/Storefront to real APIs and remove demo data from operational flows. Keep every remaining prototype explicitly labeled.
+
+
+## Latest continuation package — ORD-01A (2026-11-20)
+- Frontend files changed: `v3/frontend/src/shared/api/client.ts`, `v3/frontend/src/features/orders/OrderCenter.tsx`.
+- Commits: API client `34f6e09ad941a1164f183efd6d6a1d29916f1400`; OrderCenter `5559408b28973d0b9f9b550bcc4034d9b1f3d2a9`; supplier namespace fixes `a15c9ae905acf109cab41890693c829c47f6c56e` and `f6ab1a6a9b8e47674f5a01e2c322567c9c15d612`.
+- Docs updated: `PROJECT_NOTES.md`, `ROADMAP_V3.md`, `BACKEND_ARCHITECTURE_V3.md`; this guide records the current implementation and test boundaries.
+- No migration was executed against a customer or production database. No production deployment or merge into `main` occurred.
