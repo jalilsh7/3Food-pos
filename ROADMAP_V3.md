@@ -851,3 +851,8 @@
 - Kitchen board stale-detail and partial-payment display polish completed.
 - Current code commit 58054837 passed frontend build, backend validation and MySQL 8.4/MariaDB 10.6 integration workflow.
 - Browser smoke, permission-role UX, cancel/reject reason flow, kitchen stations and realtime push remain future QA/features.
+
+## ORD-02B — Order cancellation reason UX (2026-11-20)
+- OrderCenter now requires a reason for cancellation and sends it to the backend; paid/partially-paid orders do not show direct cancellation.
+- Backend remains authoritative for status transitions, refund guard and RBAC.
+- Remaining: expose permission grants safely in session for role-aware action affordances; await CI and browser smoke.
