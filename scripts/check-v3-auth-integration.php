@@ -435,6 +435,15 @@ $assert($missingOptionRejected, 'POS order creation accepted a missing required 
 $orderCount->execute(['business_id' => $businessId, 'branch_id' => $branchId, 'public_id' => $createdOrderPublicId]);
 $assert((int) $orderCount->fetchColumn() === 1, 'A rejected POS order attempt changed the existing order count.');
 
+// Keep the newly created POS fixture outside the separate Tehran date-filter fixture window.
+$pdo->prepare('UPDATE pos_orders SET created_at = :created_at WHERE business_id = :business_id AND branch_id = :branch_id AND public_id = :public_id')
+    ->execute([
+        'created_at' => '2026-11-19 20:30:00.000',
+        'business_id' => $businessId,
+        'branch_id' => $branchId,
+        'public_id' => $createdOrderPublicId,
+    ]);
+
 $localDayOrders = $orderService->list($orderScope, null, null, 10, null, null, null, '2026-11-20', '2026-11-20');
 $localDayNumbers = array_column($localDayOrders['orders'], 'order_number');
 $assert($localDayNumbers === [80003, 80002], 'Order date filter did not honor the inclusive Tehran local day and exclusive next-day boundary.');
