@@ -1269,3 +1269,20 @@
 - منطق موجود RecipeService نسخه draft، تبدیل واحد snapshot، فعال‌سازی نسخه جدید و بازنشسته‌کردن نسخه قبلی را انجام می‌دهد؛ تست DB واقعی هنوز لازم است.
 - تست: منتظر نتیجه CI روی آخرین commit؛ PASS ثبت نشده است.
 - گام بعد: پیاده‌سازی اسناد انبار و posting تراکنشی؛ پیش از ارزش‌گذاری/هزینه‌یابی، قرارداد واحد پول و valuation باید از اسناد مالی نهایی تطبیق داده شود.
+
+
+
+## INV-02A1 — پیش‌نویس سربرگ اسناد انبار (2026-11-20)
+- وضعیت: **API سربرگ draft پیاده‌سازی شد؛ تست CI در انتظار؛ مدیریت ردیف‌ها و posting هنوز انجام نشده است.**
+- routeها:
+  - `GET /api/v1/inventory/documents` با فیلتر اختیاری `document_type` و `status` و limit حداکثر 100.
+  - `GET /api/v1/inventory/documents/{documentPublicId}` برای جزئیات سربرگ.
+  - `POST /api/v1/inventory/documents` برای ساخت draft.
+- انواع سند مجاز: purchase_receipt، consumption، transfer، adjustment_in، adjustment_out، waste و return.
+- همه routeها به session و branch context وابسته‌اند؛ read با `inventory.read` و create با `inventory.manage`، CSRF و Origin محافظت می‌شود.
+- location و destination در محدوده همان business+branch و supplier در محدوده همان business resolve می‌شوند. purchase_receipt به supplier نیاز دارد و transfer به مقصد متفاوت نیاز دارد.
+- شماره سند در sequence مستقل business+branch و با `SELECT ... FOR UPDATE` ساخته می‌شود؛ ایجاد سند idempotent و audit می‌شود.
+- این بسته فقط سربرگ draft می‌سازد؛ هیچ ledger یا balance را تغییر نمی‌دهد. فیلد lines فعلاً خالی است؛ API افزودن/ویرایش/حذف ردیف‌ها در ادامه INV-02A انجام می‌شود.
+- پیش‌نیاز عملیاتی endpointها اجرای migration 011 روی دیتابیس نصب‌شده است؛ migration فقط commit شده و روی دیتابیس واقعی اجرا نشده است.
+- regression contract در `scripts/check-v3-backend-inventory-documents.php` به workflow Backend افزوده شد؛ این تست static contract است و جایگزین MySQL/MariaDB integration نیست.
+- ادامه: مدیریت lineها با snapshot تبدیل واحد؛ سپس پس از تثبیت قواعد valuation، posting تراکنشی، ledger append-only، atomic balance update و negative-stock guard.
