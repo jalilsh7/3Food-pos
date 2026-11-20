@@ -407,7 +407,7 @@ export function InventoryWorkspace() {
       return;
     }
     if (needsCost && !documentCost.trim()) {
-      setDocumentMessage("برای تعدیل افزایشی، مبلغ کل به تومان الزامی است.");
+      setDocumentMessage("برای تعدیل افزایشی، مبلغ کل خرید/ورودی به تومان الزامی است.");
       return;
     }
     setDocumentBusy(true);
@@ -487,7 +487,7 @@ export function InventoryWorkspace() {
             <label>قلم انبار<select required value={documentItem} onChange={(event) => { const item = items.find((entry) => entry.id === event.target.value); setDocumentItem(event.target.value); if (item) setDocumentUnit(item.base_unit.code); }}>{activeItems.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.code})</option>)}</select></label>
             <label>واحد<select required value={documentUnit} onChange={(event) => setDocumentUnit(event.target.value)}>{units.filter((unit) => !selectedDocumentItem || unit.dimension === selectedDocumentItem.base_unit.dimension).map((unit) => <option key={unit.code} value={unit.code}>{unit.name} ({unit.code})</option>)}</select></label>
             <label>مقدار<input required inputMode="decimal" pattern="^[0-9]+([.][0-9]{1,6})?$" value={documentQuantity} onChange={(event) => setDocumentQuantity(event.target.value)} /></label>
-            {needsCost ? <label>مبلغ کل (تومان)<input required inputMode="numeric" pattern="^[0-9]+$" value={documentCost} onChange={(event) => setDocumentCost(event.target.value)} /></label> : null}
+            {needsCost ? <label>مبلغ کل خرید/ورودی (تومان)<input required inputMode="numeric" pattern="^[0-9]+$" value={documentCost} onChange={(event) => setDocumentCost(event.target.value)} /></label> : null}
             {needsReason ? <label className="inventory-document-reason">دلیل ثبت<input required maxLength={500} value={documentReason} onChange={(event) => setDocumentReason(event.target.value)} placeholder="شرح دلیل تعدیل یا ضایعات" /></label> : null}
           </div>
           {documentMessage ? <p className="inventory-document-message" role="status">{documentMessage}</p> : null}
@@ -525,7 +525,7 @@ export function InventoryWorkspace() {
       </Surface>
 
       <Surface padding="md" className="inventory-management-panel">
-        <div className="inventory-panel-heading"><div><h2>مدیریت اقلام و انبارک‌ها</h2><p>ایجاد، ویرایش و فعال/غیرفعال‌سازی با کنترل‌های سمت سرور</p></div></div>
+        <div className="inventory-panel-heading"><div><h2>مدیریت اقلام، انبارک‌ها و تأمین‌کنندگان</h2><p>ایجاد، ویرایش و فعال/غیرفعال‌سازی با کنترل‌های سمت سرور</p></div></div>
         <div className="inventory-management-grid">
           <form className="inventory-management-form" onSubmit={saveStockItem}>
             <strong>{itemEditorId ? "ویرایش قلم انبار" : "افزودن قلم جدید"}</strong>
