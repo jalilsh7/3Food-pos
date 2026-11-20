@@ -235,6 +235,7 @@ try {
             $inventoryController = new InventoryController(
                 new InventoryService($getConnection(), $configuration->applicationKey),
                 new InventoryDocumentService($getConnection(), $configuration->applicationKey),
+                new InventoryPostingService($getConnection(), $configuration->applicationKey),
             );
         }
         return $inventoryController;
@@ -493,6 +494,11 @@ try {
     $router->add('GET', '/api/v1/inventory/documents/{documentPublicId}',
         static fn (Request $request, array $parameters): Response => $getInventoryController()->document($request, $parameters),
         [$sessionMiddleware, $makePermissionMiddleware('inventory.read', true)],
+    );
+
+    $router->add('POST', '/api/v1/inventory/documents/{documentPublicId}/post',
+        static fn (Request $request, array $parameters): Response => $getInventoryController()->postDocument($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.manage', true), $csrfMiddleware, $originMiddleware],
     );
 
     $router->add('POST', '/api/v1/inventory/documents',
