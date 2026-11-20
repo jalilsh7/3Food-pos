@@ -687,3 +687,17 @@
 - [x] PHP migration workflow شامل API integration، unit، lint، cPanel package، Chromium smoke و performance budget.
 - نتیجه‌ها مربوط به کد HEAD `88cc9a9` هستند: Backend run `44693350404`، Frontend run `44693350646`، Database run `44693342518`، PHP workflow run `44693350474`.
 - [ ] تست end-to-end واقعی عملیات سند انبار شامل idempotency race، concurrent posting، negative stock و atomic rollback؛ پیش از تکمیل posting.
+
+
+## INV-02B1 — Posting و ارزش‌گذاری موجودی
+- [x] Moving Weighted Average در سطح کالا/انبارک طبق مدل مالی V3.
+- [x] ثبت هزینه کل ردیف رسید خرید/تعدیل ورودی به واحد صحیح TOMAN.
+- [x] ثبت snapshot بهای هر واحد پایه و total cost در ردیف سند هنگام posting.
+- [x] posting تراکنشی برای رسید خرید، انتقال، تعدیل ورودی/خروجی، مصرف و ضایعات.
+- [x] ledger append-only از مسیر برنامه؛ transfer دارای جفت رویداد خروج/ورود.
+- [x] قفل سند/ردیف/موجودی، ترتیب ثابت قفل‌ها، جلوگیری از مصرف رزرو و موجودی منفی، idempotency و audit.
+- [x] endpoint ارزش‌گذاری هزینه‌دار با permission `inventory.manage`؛ هزینه از جزئیات عمومی سند پنهان است.
+- [x] integration تست واقعی روی MySQL 8.4 و MariaDB 10.6 برای خرید، میانگین موزون، مصرف، انتقال، replay و rollback.
+- [ ] تست concurrency/race دو سند، isolation business/branch و reserved stock.
+- [ ] تعریف برگشت source-linked و ارزش‌گذاری تاریخی؛ نوع `return` تا آن زمان post نمی‌شود.
+- [ ] اتصال UI انبار به APIهای واقعی و نمایش خطا/وضعیت سند.
