@@ -50,7 +50,7 @@ final readonly class OrderService
         }
         $beforeOrderNumber = null;
         if ($beforeCursor !== null) {
-            if (!preg_match('/^[1-9][0-9]{0,8}$/', $beforeCursor)) {
+            if (!preg_match('/^[1-9][0-9]{0,18}$/', $beforeCursor)) {
                 throw new HttpException(422, 'invalid_order_cursor', 'The order pagination cursor is invalid.');
             }
             $beforeOrderNumber = (int) $beforeCursor;
