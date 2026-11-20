@@ -13,9 +13,10 @@ final readonly class InventoryPostingRepository
         int $businessId, int $branchId, int $stockItemId, int $locationId,
     ): array {
         $insert = $this->connection->prepare(
-            'INSERT IGNORE INTO pos_stock_balances
+            'INSERT INTO pos_stock_balances
              (stock_item_id, business_id, branch_id, location_id, quantity_on_hand, quantity_reserved, average_unit_cost)
-             VALUES (:stock_item_id, :business_id, :branch_id, :location_id, 0, 0, 0)'
+             VALUES (:stock_item_id, :business_id, :branch_id, :location_id, 0, 0, 0)
+             ON DUPLICATE KEY UPDATE stock_item_id = VALUES(stock_item_id)'
         );
         $insert->execute([
             'stock_item_id' => $stockItemId, 'business_id' => $businessId,
