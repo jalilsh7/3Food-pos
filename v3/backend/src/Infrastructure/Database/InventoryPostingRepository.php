@@ -26,7 +26,7 @@ final readonly class InventoryPostingRepository
              FROM pos_stock_balances
              WHERE business_id = :business_id AND branch_id = :branch_id
                AND stock_item_id = :stock_item_id AND location_id = :location_id
-             LIMIT 1 LOCK IN SHARE MODE'
+             LIMIT 1 FOR UPDATE'
         );
         $select->execute([
             'business_id' => $businessId, 'branch_id' => $branchId,
@@ -60,7 +60,7 @@ final readonly class InventoryPostingRepository
         $s = $this->connection->prepare(
             'SELECT is_active FROM pos_stock_locations
              WHERE business_id = :business_id AND branch_id = :branch_id AND id = :location_id
-             LIMIT 1 FOR UPDATE'
+             LIMIT 1 LOCK IN SHARE MODE'
         );
         $s->execute([
             'business_id' => $businessId, 'branch_id' => $branchId, 'location_id' => $locationId,
