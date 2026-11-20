@@ -402,3 +402,10 @@ v3/backend/
 - Posting support: purchase receipt, transfer, inbound/outbound adjustment, consumption, waste. Return posting remains disabled until source-linked historical valuation is available.
 - Costed data is returned only by the `inventory.manage` valuation route; general document detail and inventory read routes omit it.
 - Integration coverage on disposable MySQL 8.4 and MariaDB 10.6 includes weighted-average receipt, consumption, transfer, replay and rollback. Additional concurrency/reservation/tenant integration tests remain.
+
+
+## INV-02B1 verified locking and posting details
+- Tested code HEAD `9e800c96f6c3f1f5aaee6d68ed18edeaf3529c8d` passed Backend, Frontend, MySQL 8.4, MariaDB 10.6 and PHP migration workflows.
+- Posting locks: draft document and its lines with `FOR UPDATE`; item and location active rows with `LOCK IN SHARE MODE`; stock balance rows with `FOR UPDATE`. Balance initialization uses `INSERT ... ON DUPLICATE KEY UPDATE` before the locking read to avoid shared-to-exclusive lock-upgrade deadlocks.
+- Integration tests fork two independent PDO workers to post competing outflow documents against the same balance; exactly one commits, the other receives insufficient available stock. Do not fork while a PDO connection is live in the parent test process.
+- Supported movements and cost policy are recorded in the preceding INV-02B1 section. Return remains non-postable until source-linked historical cost is modeled.
