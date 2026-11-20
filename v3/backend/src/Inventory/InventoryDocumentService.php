@@ -274,9 +274,6 @@ final readonly class InventoryDocumentService
                 if ($line === null) throw new HttpException(404, 'stock_document_line_not_found', 'The stock document line was not found.');
                 $costRequired = in_array((string) $document['document_type'], ['purchase_receipt', 'adjustment_in'], true);
                 $totalCostAmount = $hasCostAmount ? (string) $requestedCostAmount : (string) $line['total_cost_amount'];
-                if ($costRequired && !$hasCostAmount && $totalCostAmount === '0') {
-                    throw new HttpException(422, 'stock_document_line_cost_required', 'This document type requires a total_cost_amount in TOMAN.');
-                }
                 if (!$costRequired && $hasCostAmount && $totalCostAmount !== '0') {
                     throw new HttpException(422, 'stock_document_line_cost_not_allowed', 'Cost input is only accepted for purchase receipts and inbound adjustments.');
                 }
