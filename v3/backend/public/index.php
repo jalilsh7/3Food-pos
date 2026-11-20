@@ -474,6 +474,12 @@ try {
         [$sessionMiddleware, $makePermissionMiddleware('inventory.read', true)],
     );
 
+
+    $router->add('POST', '/api/v1/inventory/documents/{documentPublicId}/lines',
+        static fn (Request $request, array $parameters): Response => $getInventoryController()->createDocumentLine($request, $parameters),
+        [$sessionMiddleware, $makePermissionMiddleware('inventory.manage', true), $csrfMiddleware, $originMiddleware],
+    );
+
     $router->add('GET', '/api/v1/inventory/documents/{documentPublicId}',
         static fn (Request $request, array $parameters): Response => $getInventoryController()->document($request, $parameters),
         [$sessionMiddleware, $makePermissionMiddleware('inventory.read', true)],
