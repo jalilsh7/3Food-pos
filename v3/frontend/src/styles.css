@@ -42,7 +42,7 @@ button { cursor: pointer; }
 .breadcrumb { color: #91a09a; font-size: 11px; }
 .breadcrumb strong { color: var(--ink); font-size: 12px; }
 .topbar-actions { gap: 14px; }
-.account-menu { display: flex; align-items: center; gap: 9px; }
+.account-menu { display: flex; align-items: center; gap: 9px; }\n.context-name { max-width: 180px; overflow: hidden; color: var(--brand); font-size: 9px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .account-name { max-width: 130px; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .search-box { width: min(270px, 30vw); height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 11px; border: 1px solid var(--line); border-radius: 11px; color: #8b9993; background: #f8faf8; }
 .search-box input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 10px; }
@@ -97,7 +97,7 @@ button { cursor: pointer; }
   .breadcrumb strong { font-size: 10px; }
   .topbar-actions { gap: 7px; }
   .account-menu { gap: 5px; }
-  .account-name { display: none; }
+  .account-name, .context-name { display: none; }
   .account-menu .ui-button { min-height: 29px; padding: 0 7px; font-size: 9px; }
   .search-box { width: 38px; height: 36px; justify-content: center; padding: 0; border: 0; background: transparent; }
   .search-box input, .search-box .ui-button, .topbar-divider, .ui-status.compact { display: none; }
