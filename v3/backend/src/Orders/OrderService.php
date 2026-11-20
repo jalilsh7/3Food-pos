@@ -37,6 +37,7 @@ final readonly class OrderService
         ?string $status,
         ?string $channel,
         int $limit,
+        ?string $beforeCursor = null,
     ): array {
         if ($status !== null && !in_array($status, self::statuses(), true)) {
             throw new HttpException(422, 'invalid_order_status_filter', 'The order status filter is invalid.');
@@ -47,7 +48,21 @@ final readonly class OrderService
         if ($limit < 1 || $limit > 100) {
             throw new HttpException(422, 'invalid_order_limit', 'Limit must be between 1 and 100.');
         }
-        return $this->orders->listOrders($scope->businessId, (int) $scope->branchId, $status, $channel, $limit);
+        $beforeOrderNumber = null;
+        if ($beforeCursor !== null) {
+            if (!preg_match('/^[1-9][0-9]{0,8}$/', $beforeCursor)) {
+                throw new HttpException(422, 'invalid_order_cursor', 'The order pagination cursor is invalid.');
+            }
+            $beforeOrderNumber = (int) $beforeCursor;
+        }
+        return $this->orders->listOrders(
+            $scope->businessId,
+            (int) $scope->branchId,
+            $status,
+            $channel,
+            $limit,
+            $beforeOrderNumber,
+        );
     }
 
     public function get(BusinessScope $scope, string $orderPublicId): array
