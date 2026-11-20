@@ -58,4 +58,14 @@ $assert(str_contains($posWorkspace, 'delivery_address: { street: deliveryAddress
 $assert(!str_contains($posWorkspace, 'sampleProducts'), 'Cashier workspace still contains hard-coded sample products.');
 $assert(str_contains($posWorkspace, 'محاسبه در سرور') && str_contains($posWorkspace, 'وضعیت «پیش‌نویس»'), 'Cashier UI must communicate server-authoritative pricing and draft/unpaid creation.');
 
+$catalogWorkspace = file_get_contents(__DIR__ . '/../v3/frontend/src/features/catalog/CatalogWorkspace.tsx');
+$assert(str_contains($client, 'getCatalogCategories') && str_contains($client, 'getCatalogProducts'), 'Catalog management read API client is incomplete.');
+$assert(str_contains($client, 'createCatalogCategory') && str_contains($client, 'createCatalogProduct'), 'Catalog create API client is incomplete.');
+$assert(str_contains($client, 'updateCatalogProduct') && str_contains($client, 'archiveCatalogProduct'), 'Catalog update/archive API client is incomplete.');
+$assert(str_contains($client, 'path.startsWith("/catalog/")'), 'Catalog mutations are missing automatic idempotency-key retention.');
+$assert(str_contains($catalogWorkspace, 'fetchCatalogSnapshot()') && str_contains($catalogWorkspace, 'getPosCatalogProductDetails'), 'Catalog workspace is not loading real server catalog data.');
+$assert(str_contains($catalogWorkspace, 'createCatalogProduct') && str_contains($catalogWorkspace, 'createCatalogCategory'), 'Catalog workspace is not creating server-side products/categories.');
+$assert(str_contains($catalogWorkspace, 'updateCatalogProduct') && str_contains($catalogWorkspace, 'archiveCatalogProduct'), 'Catalog workspace is not persisting product status and archive actions.');
+$assert(!str_contains($catalogWorkspace, 'seedProducts'), 'Catalog workspace still contains hard-coded sample products.');
+
 fwrite(STDOUT, "V3 order pagination, timezone filters and POS order submission contract checks passed.\n");
