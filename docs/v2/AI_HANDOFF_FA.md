@@ -89,7 +89,7 @@ PR پاک‌سازی: https://github.com/jalilsh7/3Food-pos/pull/1
 - `AGENTS.md`: دستورالعمل معماری cPanel و امنیت.
 - `README.md`: خلاصه پروژه و وضعیت انتشار.
 - `IMPLEMENTATION-STATUS-FA.md`: قابلیت‌ها و backlog.
-- `SOURCE-AUDIT-PHP-MYSQL-FA.md` و `docs/*`: گزارش‌های تاریخی؛ تاریخ و زمینه هر گزارش را در نظر بگیرید.
+- `docs/v2/SOURCE-AUDIT-PHP-MYSQL-FA.md` و `docs/*`: گزارش‌های تاریخی؛ تاریخ و زمینه هر گزارش را در نظر بگیرید.
 - `src/lib/api/php-client.ts`: قرارداد کلاینت PHP API.
 - `php-backend/README-FA.md`: راهنمای backend و نصب.
 - `scripts/audit-cpanel-source.mjs`: ممیزی import graph مرورگر.

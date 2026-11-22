@@ -51,8 +51,8 @@ Historical CI run: [44280981233](https://github.com/jalilsh7/3Food-pos/actions/r
 
 ## Project guidance
 
-- Persian handoff: [AI_HANDOFF_FA.md](AI_HANDOFF_FA.md)
+- Persian handoff: [docs/v2/AI_HANDOFF_FA.md](docs/v2/AI_HANDOFF_FA.md)
 - Agent rules: [AGENTS.md](AGENTS.md)
-- Implementation status: [IMPLEMENTATION-STATUS-FA.md](IMPLEMENTATION-STATUS-FA.md)
-- Static build analysis: [docs/static-build-readiness.md](docs/static-build-readiness.md)
-- Historical migration audit: [SOURCE-AUDIT-PHP-MYSQL-FA.md](SOURCE-AUDIT-PHP-MYSQL-FA.md) (describes the pre-migration source snapshot, not the current architecture)
+- Implementation status: [docs/v2/IMPLEMENTATION-STATUS-FA.md](docs/v2/IMPLEMENTATION-STATUS-FA.md)
+- Static build analysis: [docs/v2/static-build-readiness.md](docs/v2/static-build-readiness.md)
+- Historical migration audit: [docs/v2/SOURCE-AUDIT-PHP-MYSQL-FA.md](docs/v2/SOURCE-AUDIT-PHP-MYSQL-FA.md) (describes the pre-migration source snapshot, not the current architecture)
