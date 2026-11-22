@@ -2533,20 +2533,28 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
             $effectsStmt = $pdo->prepare('SELECT id, effect_type, resource_id, quantity, points_spent, points_earned, money_delta, visits_delta FROM pos_order_effects WHERE order_id = ? AND reversed_at IS NULL ORDER BY effect_type, resource_id FOR UPDATE');
             $effectsStmt->execute([$id]);
             $effects = $effectsStmt->fetchAll();
-            $ingredientIds = [];
-            foreach ($effects as $effect) if ($effect['effect_type'] === 'ingredient') $ingredientIds[] = (string)$effect['resource_id'];
+            $ingredientQuantities = [];
+            foreach ($effects as $effect) {
+                if ($effect['effect_type'] !== 'ingredient') continue;
+                $ingredientId = (string)$effect['resource_id'];
+                $ingredientQuantities[$ingredientId] = ($ingredientQuantities[$ingredientId] ?? 0.0) + (float)$effect['quantity'];
+            }
+            $ingredientIds = array_keys($ingredientQuantities);
             sort($ingredientIds, SORT_STRING);
             $ingredientSelect = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'ingredients' AND id = ? FOR UPDATE");
             $ingredientUpdate = $pdo->prepare("UPDATE pos_records SET payload = ?, updated_by = ? WHERE resource = 'ingredients' AND id = ?");
             foreach ($ingredientIds as $ingredientId) {
-                $effect = null;
-                foreach ($effects as $candidate) if ($candidate['effect_type'] === 'ingredient' && (string)$candidate['resource_id'] === $ingredientId) { $effect = $candidate; break; }
-                if (!$effect) continue;
                 $ingredientSelect->execute([$ingredientId]);
                 $rawIngredient = $ingredientSelect->fetchColumn();
                 $ingredient = is_string($rawIngredient) ? json_decode($rawIngredient, true) : null;
                 if (!is_array($ingredient)) throw new RuntimeException('Ingredient missing while reversing order ' . $id);
-                $ingredient['stock'] = round((float)($ingredient['stock'] ?? 0) + (float)$effect['quantity'], 3);
+                // An order may consume the same ingredient through multiple products
+                // or recipe lines. Restore the full aggregated quantity exactly once.
+                $restoredStock = round((float)($ingredient['stock'] ?? 0) + $ingredientQuantities[$ingredientId], 3);
+                if (!is_finite($restoredStock) || $restoredStock < 0 || $restoredStock > 1000000000) {
+                    throw new RuntimeException('Invalid ingredient stock while reversing order ' . $id);
+                }
+                $ingredient['stock'] = $restoredStock;
                 $ingredientUpdate->execute([json_encode($ingredient, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), (int)$actor['id'], $ingredientId]);
             }
             $customerEffects = array_values(array_filter($effects, static fn(array $effect): bool => $effect['effect_type'] === 'customer'));
