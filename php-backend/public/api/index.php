@@ -65,20 +65,26 @@ function product_unit_cost(PDO $pdo, array $product): int {
     if(!is_array($recipe)||!$recipe)return $configured;
     $stmt=$pdo->prepare("SELECT payload FROM pos_records WHERE resource='ingredients' AND id=? LIMIT 1");
     $total=0.0;
-    $validLines=0;
+    $lineCount=0;
     foreach($recipe as $line){
-        if(!is_array($line))continue;
-        $id=(string)($line['ingredientId']??'');$qty=max(0,(float)($line['qty']??0));
-        if($id===''||$qty<=0)continue;
+        if(!is_array($line))return $configured;
+        $id=trim((string)($line['ingredientId']??''));
+        $qtyRaw=$line['qty']??null;
+        if($id===''||!is_numeric($qtyRaw))return $configured;
+        $qty=(float)$qtyRaw;
+        if(!is_finite($qty)||$qty<=0||$qty>1000000)return $configured;
         $stmt->execute([$id]);$raw=$stmt->fetchColumn();
         $ingredient=is_string($raw)?json_decode($raw,true):null;
-        if(is_array($ingredient)){
-            $total+=max(0,(float)($ingredient['costPerUnit']??0))*$qty;
-            $validLines++;
-        }
+        $unitCostRaw=is_array($ingredient)?($ingredient['costPerUnit']??null):null;
+        if(!is_array($ingredient)||!is_numeric($unitCostRaw))return $configured;
+        $unitCost=(float)$unitCostRaw;
+        if(!is_finite($unitCost)||$unitCost<0)return $configured;
+        $total+=$unitCost*$qty;
+        $lineCount++;
     }
-    // Recipe-based COGS follows the current weighted ingredient cost after supplier receipts.
-    return $validLines>0?(int)round($total):$configured;
+    // Never understate COGS with a partial recipe: use the configured product cost
+    // until every recipe ingredient has a valid current weighted cost.
+    return $lineCount>0?(int)round($total):$configured;
 }
 
 function request_json(): array {
