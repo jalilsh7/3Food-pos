@@ -19,6 +19,26 @@ import { normalizeIranPhone, tehranDate, formatElapsed } from "@/lib/pos/formatt
 import { UsersScreen } from "./users-screen";
 import { AuthFrame, PhpLoginScreen, ChangePasswordScreen } from "./auth-screens";
 
+type ExpenseCategory = { id: string; name: string; active?: boolean };
+
+const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
+  { id: "expense-cat-utilities", name: "قبوض آب، برق و گاز", active: true },
+  { id: "expense-cat-ingredients", name: "مواد اولیه", active: true },
+  { id: "expense-cat-payroll", name: "حقوق و دستمزد", active: true },
+  { id: "expense-cat-rent", name: "اجاره", active: true },
+  { id: "expense-cat-maintenance", name: "تعمیرات و نگهداری", active: true },
+  { id: "expense-cat-packaging", name: "بسته‌بندی", active: true },
+  { id: "expense-cat-transport", name: "حمل‌ونقل", active: true },
+  { id: "expense-cat-other", name: "سایر هزینه‌ها", active: true },
+];
+
+async function loadExpenseCategories() {
+  const result = await phpApi.listRecords<ExpenseCategory>("expense_categories");
+  if (result.items.length > 0) return result.items;
+  await Promise.all(DEFAULT_EXPENSE_CATEGORIES.map((item) => phpApi.saveRecord("expense_categories", item)));
+  return DEFAULT_EXPENSE_CATEGORIES;
+}
+
 async function saveCentralRecord<T extends { id: string | number }>(resource: string, item: T, commit: () => void) {
   try {
     await phpApi.saveRecord(resource, item);
@@ -1107,7 +1127,7 @@ function ReportsScreen() {
   const addExpense = usePos((s) => s.addExpense);
   const saveExpense = usePos((s) => s.saveExpense);
   const removeExpense = usePos((s) => s.removeExpense);
-  const [categories, setCategories] = useState<{id:string;name:string;active?:boolean}[]>([]);
+  const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState(0);
   const [cat, setCat] = useState("");
@@ -1127,8 +1147,8 @@ function ReportsScreen() {
   const [reportError, setReportError] = useState("");
   useEffect(() => {
     let active = true;
-    void phpApi.listRecords<{id:string;name:string;active?:boolean}>("expense_categories")
-      .then(r => { if(active){setCategories(r.items);setCat(r.items.find(x=>x.active!==false)?.name??"");} })
+    void loadExpenseCategories()
+      .then(items => { if(active){setCategories(items);setCat(items.find(x=>x.active!==false)?.name??"");} })
       .catch(() => { if(active) setCategories([]); });
     return () => { active=false; };
   }, []);
@@ -1258,7 +1278,7 @@ function ExpensesScreen(){
   const addExpense=usePos((s)=>s.addExpense);
   const saveExpense=usePos((s)=>s.saveExpense);
   const removeExpense=usePos((s)=>s.removeExpense);
-  const [categories,setCategories]=useState<{id:string;name:string;active?:boolean}[]>([]);
+  const [categories,setCategories]=useState<ExpenseCategory[]>([]);
   const [title,setTitle]=useState("");
   const [amount,setAmount]=useState(0);
   const [category,setCategory]=useState("");
@@ -1266,7 +1286,7 @@ function ExpensesScreen(){
   const [note,setNote]=useState("");
   const [newCategory,setNewCategory]=useState("");
   const [filter,setFilter]=useState("all");
-  useEffect(()=>{let active=true;void phpApi.listRecords<{id:string;name:string;active?:boolean}>("expense_categories").then(result=>{if(active){setCategories(result.items);setCategory(result.items.find(item=>item.active!==false)?.name??"");}}).catch(()=>{if(active)setCategories([]);});return()=>{active=false;};},[]);
+  useEffect(()=>{let active=true;void loadExpenseCategories().then(items=>{if(active){setCategories(items);setCategory(items.find(item=>item.active!==false)?.name??"");}}).catch(()=>{if(active)setCategories([]);});return()=>{active=false;};},[]);
   const visible=expenses.filter(item=>(filter==="all"||item.category===filter)).sort((a,b)=>b.date.localeCompare(a.date));
   const total=visible.reduce((sum,item)=>sum+item.amount,0);
   async function add(event:FormEvent<HTMLFormElement>){event.preventDefault();if(!title.trim()||amount<=0||!category)return;const item={id:uid("ex"),title:title.trim(),amount,category,date,note:note.trim(),createdAt:new Date().toISOString()};const ok=await saveCentralRecord("expenses",item,()=>addExpense(item));if(ok){setTitle("");setAmount(0);setNote("");setDate(tehranDate());}}
