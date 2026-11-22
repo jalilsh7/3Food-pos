@@ -1417,6 +1417,39 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
             $supplierCurrent = is_string($supplierCurrentRaw) ? json_decode($supplierCurrentRaw, true) : null;
             $item['balance'] = is_array($supplierCurrent) ? max(0, (int)($supplierCurrent['balance'] ?? 0)) : 0;
         }
+        $productWrite = $resource === 'products' && $actor['role'] === 'manager';
+        if ($productWrite) {
+            $recipe = $item['recipe'] ?? [];
+            if (!is_array($recipe) || count($recipe) > 100) {
+                json_response(['ok' => false, 'error' => 'invalid_product_recipe', 'message' => 'دستور ساخت محصول معتبر نیست'], 422);
+            }
+            $ingredientIds = [];
+            foreach ($recipe as $recipeLine) {
+                if (!is_array($recipeLine) || !is_string($recipeLine['ingredientId'] ?? null) ||
+                    !preg_match('/^[A-Za-z0-9_-]{1,100}$/D', $recipeLine['ingredientId']) ||
+                    !is_numeric($recipeLine['qty'] ?? null)) {
+                    json_response(['ok' => false, 'error' => 'invalid_product_recipe', 'message' => 'هر ردیف دستور ساخت باید ماده اولیه و مقدار معتبر داشته باشد'], 422);
+                }
+                $quantity = (float)$recipeLine['qty'];
+                if (!is_finite($quantity) || $quantity <= 0 || $quantity > 1000000 || round($quantity, 3) !== $quantity) {
+                    json_response(['ok' => false, 'error' => 'invalid_product_recipe_quantity', 'message' => 'مقدار هر ماده اولیه باید مثبت و حداکثر سه رقم اعشار باشد'], 422);
+                }
+                $ingredientIds[] = $recipeLine['ingredientId'];
+            }
+            if (count($ingredientIds) !== count(array_unique($ingredientIds))) {
+                json_response(['ok' => false, 'error' => 'duplicate_product_recipe_ingredient', 'message' => 'هر ماده اولیه فقط یک‌بار در دستور ساخت محصول درج شود'], 422);
+            }
+            sort($ingredientIds, SORT_STRING);
+            $pdo->beginTransaction();
+            $ingredientExists = $pdo->prepare("SELECT id FROM pos_records WHERE resource = 'ingredients' AND id = ? FOR UPDATE");
+            foreach ($ingredientIds as $ingredientId) {
+                $ingredientExists->execute([$ingredientId]);
+                if ($ingredientExists->fetchColumn() === false) {
+                    $pdo->rollBack();
+                    json_response(['ok' => false, 'error' => 'recipe_ingredient_not_found', 'message' => 'یکی از مواد اولیه دستور ساخت دیگر در انبار وجود ندارد'], 409);
+                }
+            }
+        }
         $ingredientWrite = $resource === 'ingredients' && $actor['role'] === 'manager';
         if ($ingredientWrite) {
             $pdo->beginTransaction();
@@ -1496,13 +1529,13 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
         }
         $payload = json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         if (strlen($payload) > 262144) {
-            if (($cashierCustomerWrite || $supplierWrite || $expenseCategoryWrite || $ingredientWrite) && $pdo->inTransaction()) $pdo->rollBack();
+            if (($cashierCustomerWrite || $supplierWrite || $expenseCategoryWrite || $ingredientWrite || $productWrite) && $pdo->inTransaction()) $pdo->rollBack();
             json_response(['ok' => false, 'error' => 'record_too_large', 'message' => 'حجم اطلاعات ارسالی بیش از حد مجاز است'], 413);
         }
         $q = $pdo->prepare('INSERT INTO pos_records (id, resource, payload, updated_by) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE payload = VALUES(payload), updated_by = VALUES(updated_by)');
         $q->execute([$id, $resource, $payload, (int)$actor['id']]);
         audit($pdo, (int)$actor['id'], 'record_saved', $resource, $id);
-        if ($cashierCustomerWrite || $supplierWrite || $expenseCategoryWrite || $ingredientWrite) $pdo->commit();
+        if ($cashierCustomerWrite || $supplierWrite || $expenseCategoryWrite || $ingredientWrite || $productWrite) $pdo->commit();
         json_response(['ok' => true, 'item' => $item], 201);
     }
     if ($method === 'DELETE') {
