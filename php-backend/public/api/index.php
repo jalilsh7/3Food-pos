@@ -1414,8 +1414,9 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
         $expenseCategoryWrite = $resource === 'expense_categories' && $actor['role'] === 'manager';
         if ($expenseCategoryWrite) {
             $name = trim((string)($item['name'] ?? ''));
-            if ($name === '' || strlen($name) > 320) {
-                json_response(['ok' => false, 'error' => 'invalid_expense_category', 'message' => 'نام دسته هزینه باید بین ۱ تا ۸۰ نویسه باشد'], 422);
+            $nameCharCount = preg_match_all('/./us', $name, $nameChars);
+            if ($name === '' || $nameCharCount === false || $nameCharCount > 80) {
+                json_response(['ok' => false, 'error' => 'invalid_expense_category', 'message' => 'نام دسته هزینه باید بین ۱ تا ۸۰ نویسه معتبر باشد'], 422);
             }
             $item['name'] = $name;
             $pdo->beginTransaction();
