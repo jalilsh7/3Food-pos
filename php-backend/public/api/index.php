@@ -2563,14 +2563,17 @@ if ($method === 'GET' && $path === '/reports/summary') {
     $inventoryPurchases=0;
     foreach($pdo->query("SELECT payload FROM pos_records WHERE resource='supplier_purchases'")->fetchAll(PDO::FETCH_COLUMN) as $rawPurchase){$purchase=json_decode((string)$rawPurchase,true);$purchaseDate=(string)($purchase['date']??'');if(is_array($purchase)&&$purchaseDate>=$from&&$purchaseDate<=$to&&($purchase['kind']??'')==='purchase'&&!empty($purchase['ingredientId']))$inventoryPurchases+=(int)($purchase['amount']??0);}
     $inventoryPurchases+=array_sum(array_map(static fn($e)=>($e['category']??'')==='مواد اولیه'?(int)($e['amount']??0):0,$expenses));
-    $consumptionStmt=$pdo->prepare("SELECT e.resource_id, SUM(e.quantity) AS quantity, r.payload
-        FROM pos_order_effects e
-        INNER JOIN pos_orders o ON o.id=e.order_id
-        LEFT JOIN pos_records r ON r.resource='ingredients' AND r.id=e.resource_id
-        WHERE e.effect_type='ingredient' AND e.reversed_at IS NULL AND o.status<>'cancelled'
-          AND o.created_at>=? AND o.created_at<?
-        GROUP BY e.resource_id, r.payload
-        ORDER BY quantity DESC");
+    $consumptionStmt=$pdo->prepare("SELECT consumed.resource_id, consumed.quantity, r.payload
+        FROM (
+            SELECT e.resource_id, SUM(e.quantity) AS quantity
+            FROM pos_order_effects e
+            INNER JOIN pos_orders o ON o.id=e.order_id
+            WHERE e.effect_type='ingredient' AND e.reversed_at IS NULL AND o.status<>'cancelled'
+              AND o.created_at>=? AND o.created_at<?
+            GROUP BY e.resource_id
+        ) consumed
+        LEFT JOIN pos_records r ON r.resource='ingredients' AND r.id=consumed.resource_id
+        ORDER BY consumed.quantity DESC");
     $consumptionStmt->execute([$fromUtc,$toUtc]);
     $inventoryConsumption=[];
     foreach($consumptionStmt->fetchAll() as $consumed){
