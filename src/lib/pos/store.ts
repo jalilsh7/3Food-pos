@@ -38,6 +38,7 @@ function seed(): PosState {
       taxPercent: 0,
       taxEnabled: true,
       stockPolicy: "warn_and_allow",
+      orderDelayMinutes: 20,
       pointsPerToman: 100000,
       tomanPerPoint: 1000,
       paperWidth: 80,

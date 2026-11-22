@@ -805,6 +805,7 @@ function OrdersScreen({ role }: { role: Role }) {
               <p className="font-bold">#{o.number.toLocaleString("fa-IR")} — {o.customerName}</p>
               <p className="text-sm text-muted">{o.lines.map((l) => `${l.qty} ${l.name}`).join(" · ")} — {money(o.total)}</p>
               <p className="text-xs text-muted">ثبت: {new Date(o.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})} · زمان سپری‌شده: {formatElapsed(clockNow-new Date(o.createdAt).getTime())}</p>
+              {(o.status === "new" || o.status === "preparing") && clockNow - new Date(o.createdAt).getTime() >= Math.max(1, settings.orderDelayMinutes ?? 20) * 60000 ? <p className="mt-1 text-xs font-semibold text-warn">هشدار تأخیر سفارش · بیش از {Math.max(1, settings.orderDelayMinutes ?? 20).toLocaleString("fa-IR")} دقیقه</p> : null}
             </div>
             <span className={`order-status order-status-${o.status}`}>{statusFa(o.status)}</span>
           </div>
@@ -1817,6 +1818,9 @@ function SettingsScreen() {
         <Field label="تلفن"><input className={inputCls} value={settings.phone} onChange={(e) => patchSettings({ phone: e.target.value })} onBlur={persistSettings} /></Field>
         <Field label="آدرس"><input className={inputCls} value={settings.address} onChange={(e) => patchSettings({ address: e.target.value })} onBlur={persistSettings} /></Field>
         <Field label="مالیات درصد"><input className={inputCls} type="number" min="0" max="100" step="0.01" value={settings.taxPercent} onChange={(e) => patchSettings({ taxPercent: Number(e.target.value) })} onBlur={persistSettings} /></Field>
+        <Field label="آستانه هشدار تأخیر سفارش (دقیقه)">
+          <input className={inputCls} type="number" min="1" max="240" value={settings.orderDelayMinutes ?? 20} onChange={(e) => patchSettings({ orderDelayMinutes: Math.min(240, Math.max(1, Number(e.target.value) || 1)) })} onBlur={persistSettings} />
+        </Field>
         <Field label="سیاست فروش با موجودی ناکافی">
           <select className={inputCls} value={settings.stockPolicy ?? "warn_and_allow"} onChange={(e) => patchSettings({ stockPolicy: e.target.value as Settings["stockPolicy"] })} onBlur={persistSettings}>
             <option value="block">جلوگیری از ثبت سفارش</option>

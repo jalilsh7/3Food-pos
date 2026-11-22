@@ -132,6 +132,7 @@ export type Settings = {
   taxPercent: number;
   taxEnabled: boolean;
   stockPolicy: "block" | "warn_and_allow" | "allow_negative";
+  orderDelayMinutes?: number;
   pointsPerToman: number;
   tomanPerPoint: number;
   paperWidth: 58 | 80;
