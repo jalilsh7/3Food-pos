@@ -935,7 +935,7 @@ function MenuScreen() {
                 <input className={`${inputCls} max-w-28`} type="number" min="0" max="1000000" step="0.001" inputMode="decimal" aria-label={`مقدار ${ing.name} در هر پرس`} value={line?.qty ?? 0} onChange={(e) => {
                   const qty = Number(e.target.value);
                   const recipe = draft.recipe.filter((r) => r.ingredientId !== ing.id);
-                  setDraft({ ...draft, recipe: qty > 0 ? [...recipe, { ingredientId: ing.id, qty }].slice(0,100) : recipe });
+                  setDraft({ ...draft, recipe: qty > 0 ? [...recipe, { ingredientId: ing.id, qty }] : recipe });
                 }} />
               </label>
             );
