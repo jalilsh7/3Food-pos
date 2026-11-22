@@ -1423,8 +1423,12 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
             $currentIngredientStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'ingredients' AND id = ? FOR UPDATE");
             $currentIngredientStmt->execute([$id]);
             $currentIngredientRaw = $currentIngredientStmt->fetchColumn();
-            $currentIngredient = is_string($currentIngredientRaw) ? json_decode($currentIngredientRaw, true) : null;
-            if (is_array($currentIngredient)) {
+            if ($currentIngredientRaw !== false) {
+                $currentIngredient = is_string($currentIngredientRaw) ? json_decode($currentIngredientRaw, true) : null;
+                if (!is_array($currentIngredient)) {
+                    $pdo->rollBack();
+                    json_response(['ok' => false, 'error' => 'ingredient_record_invalid', 'message' => 'اطلاعات ماده اولیه معتبر نیست؛ ابتدا نسخه پشتیبان را بررسی کنید'], 409);
+                }
                 // Stock changes must go through the audited /ingredients/{id}/stock
                 // endpoint; supplier receipts alone may update weighted unit cost.
                 foreach (['stock', 'costPerUnit', 'cost', 'unitCost'] as $protectedField) {
@@ -1434,6 +1438,12 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
                         unset($item[$protectedField]);
                     }
                 }
+            } else {
+                // New ingredients always start with zero stock and zero valuation.
+                // Initial stock must be entered through the audited adjustment flow.
+                $item['stock'] = 0;
+                $item['costPerUnit'] = 0;
+                unset($item['cost'], $item['unitCost']);
             }
         }
         $expenseCategoryWrite = $resource === 'expense_categories' && $actor['role'] === 'manager';
