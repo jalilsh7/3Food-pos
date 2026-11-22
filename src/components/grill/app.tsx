@@ -1193,6 +1193,10 @@ function ReportsScreen() {
   const expenseItemRows = Array.isArray(serverSummary?.expense_items) ? serverSummary.expense_items as {title:string;category:string;date:string;amount:number}[] : [];
   const visibleExpenseItemRows = expenseItemRows.filter(row => expenseFilterCategory === "all" || row.category === expenseFilterCategory);
   const grossProfit = typeof serverSummary?.gross_profit === "number" ? serverSummary.gross_profit : reportSales - reportCost;
+  async function refreshServerReport(){
+    try{const result=await phpApi.getReportSummary(from,to);setServerSummary(result);setReportError("");}
+    catch(error){setServerSummary(null);setReportError(error instanceof Error?error.message:"گزارش سرور دریافت نشد");}
+  }
   function downloadExcel(){
     const rows=[["نوع","عنوان","تعداد / جزئیات","مبلغ"],["فروش","جمع فروش خالص","",String(reportSales)],["سود و زیان","بهای تمام‌شده","",String(reportCost)],["سود و زیان","سود ناخالص","",String(grossProfit)],["سود و زیان","هزینه‌های عملیاتی","",String(reportExpenses)],["سود و زیان","سود خالص","",String(reportNet)],["مالی","تخفیف‌ها","",String(reportDiscounts)],["مالی","مالیات وصول‌شده","",String(reportTax)],["انبار","خرید مواد اولیه","",String(inventoryPurchases)],...dailyRows.map(([day,value])=>["روزانه",day,"",String(value)]),...monthlyRows.map(row=>["ماهانه",row.month,"",String(row.sales)]),...allProductRows.map(row=>["محصول",row.name,String(row.quantity),String(row.revenue)]),...productCategoryRows.map(row=>["دسته محصول",row.name,String(row.quantity),String(row.revenue)]),...payments.map(p=>["پرداخت",p.label,"",String(p.amount)]),...allCustomerRows.map(row=>["مشتری",row.name,row.phone,String(row.totalSpent)]),...expenseByCategory.map(([name,value])=>["هزینه بر اساس دسته",name,"",String(value)]),...visibleExpenseItemRows.map(row=>["ریز هزینه",row.title,`${row.category} · ${row.date}`,String(row.amount)]),...inventoryRows.map(row=>["انبار",row.name,`${row.stock} / حداقل ${row.minStock} ${row.unit}`,String(row.value)]),...inventoryConsumptionRows.map(row=>["مصرف مواد اولیه",row.name,`${row.quantity} ${row.unit}`,""])];
     const url=URL.createObjectURL(createXlsxBlob(rows));
@@ -1215,7 +1219,7 @@ function ReportsScreen() {
     if(ok){
       if(cat===category.name)setCat(updated.name);
       if(expenseFilterCategory===category.name)setExpenseFilterCategory(updated.name);
-      void phpApi.getReportSummary(from,to).then(setServerSummary).catch(()=>{});
+      await refreshServerReport();
     }
   }
   async function deleteCategory(category:{id:string;name:string;active?:boolean}){
@@ -1228,17 +1232,17 @@ function ReportsScreen() {
     const raw=window.prompt("مبلغ هزینه (تومان)",String(expense.amount));if(raw===null)return;
     const amount=Number(raw);if(!Number.isFinite(amount)||amount<=0){window.alert("مبلغ معتبر نیست.");return;}
     const updated={...expense,title:title.trim(),amount};
-    await saveCentralRecord("expenses",updated,()=>saveExpense(updated));
+    if(await saveCentralRecord("expenses",updated,()=>saveExpense(updated))) await refreshServerReport();
   }
   async function deleteExpense(expense:typeof expenses[number]){
     if(!window.confirm("هزینه «"+expense.title+"» حذف شود؟"))return;
-    await deleteCentralRecord("expenses",expense.id,()=>removeExpense(expense.id));
+    if(await deleteCentralRecord("expenses",expense.id,()=>removeExpense(expense.id))) await refreshServerReport();
   }
   async function addCost(event:FormEvent<HTMLFormElement>){
     event.preventDefault();if(!title.trim()||amount<=0||!cat)return;
     const item={id:uid("ex"),title:title.trim(),amount,category:cat,date:expenseDate,note:note.trim(),createdAt:new Date().toISOString()};
     const ok=await saveCentralRecord("expenses",item,()=>addExpense(item));
-    if(ok){setTitle("");setAmount(0);setNote("");setExpenseDate(tehranDate());setExpenseDateText(isoToJalali(tehranDate()));}
+    if(ok){setTitle("");setAmount(0);setNote("");setExpenseDate(tehranDate());setExpenseDateText(isoToJalali(tehranDate()));await refreshServerReport();}
   }
   return (
     <div id="print-root" className="space-y-4">
