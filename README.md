@@ -9,6 +9,7 @@ Private repository for the 3Food POS application.
 - Database: MySQL/InnoDB; no Node server is required on the cPanel host.
 - Authentication: PHP server-side sessions, username/password and server-enforced role permissions.
 - Deployment target: cPanel/LiteSpeed with PHP 8.2 and MySQL.
+- Release package: `npm run build:cpanel` produces `dist-cpanel/` and `3food-pos-cpanel.zip`; the ZIP contains the public app, private config template and database migration files, never a live private config.
 
 The active cPanel runtime must remain independent of Grok/App Builder, Better Auth, TanStack Start/Nitro, PostgreSQL/PGLite, preview-host identity and injected platform scripts. Optional SMS delivery remains an explicitly configured server-side integration.
 
