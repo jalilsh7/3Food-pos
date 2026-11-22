@@ -932,10 +932,10 @@ function MenuScreen() {
             return (
               <label key={ing.id} className="mt-1 flex items-center justify-between gap-2 text-sm">
                 <span>{ing.name}</span>
-                <input className={`${inputCls} max-w-28`} type="number" value={line?.qty ?? 0} onChange={(e) => {
+                <input className={`${inputCls} max-w-28`} type="number" min="0" max="1000000" step="0.001" inputMode="decimal" aria-label={`مقدار ${ing.name} در هر پرس`} value={line?.qty ?? 0} onChange={(e) => {
                   const qty = Number(e.target.value);
                   const recipe = draft.recipe.filter((r) => r.ingredientId !== ing.id);
-                  setDraft({ ...draft, recipe: qty > 0 ? [...recipe, { ingredientId: ing.id, qty }] : recipe });
+                  setDraft({ ...draft, recipe: qty > 0 ? [...recipe, { ingredientId: ing.id, qty }].slice(0,100) : recipe });
                 }} />
               </label>
             );
