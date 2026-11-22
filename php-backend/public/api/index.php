@@ -1411,6 +1411,31 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
             $supplierCurrent = is_string($supplierCurrentRaw) ? json_decode($supplierCurrentRaw, true) : null;
             $item['balance'] = is_array($supplierCurrent) ? max(0, (int)($supplierCurrent['balance'] ?? 0)) : 0;
         }
+        $expenseCategoryWrite = $resource === 'expense_categories' && $actor['role'] === 'manager';
+        if ($expenseCategoryWrite) {
+            $name = trim((string)($item['name'] ?? ''));
+            if ($name === '' || strlen($name) > 320) {
+                json_response(['ok' => false, 'error' => 'invalid_expense_category', 'message' => 'نام دسته هزینه باید بین ۱ تا ۸۰ نویسه باشد'], 422);
+            }
+            $pdo->beginTransaction();
+            $currentCategoryStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'expense_categories' AND id = ? FOR UPDATE");
+            $currentCategoryStmt->execute([$id]);
+            $currentCategoryRaw = $currentCategoryStmt->fetchColumn();
+            $currentCategory = is_string($currentCategoryRaw) ? json_decode($currentCategoryRaw, true) : null;
+            if (is_array($currentCategory)) {
+                $oldName = trim((string)($currentCategory['name'] ?? ''));
+                if ($oldName !== '' && $oldName !== $name) {
+                    $duplicate = $pdo->prepare("SELECT 1 FROM pos_records WHERE resource = 'expense_categories' AND id <> ? AND JSON_UNQUOTE(JSON_EXTRACT(payload, '$.name')) = ? LIMIT 1");
+                    $duplicate->execute([$id, $name]);
+                    if ($duplicate->fetchColumn() !== false) {
+                        $pdo->rollBack();
+                        json_response(['ok' => false, 'error' => 'duplicate_expense_category', 'message' => 'دسته‌ای با این نام وجود دارد'], 409);
+                    }
+                    $renameExpenses = $pdo->prepare("UPDATE pos_records SET payload = JSON_SET(payload, '$.category', ?), updated_by = ? WHERE resource = 'expenses' AND JSON_UNQUOTE(JSON_EXTRACT(payload, '$.category')) = ?");
+                    $renameExpenses->execute([$name, (int)$actor['id'], $oldName]);
+                }
+            }
+        }
         // Cashiers may maintain customer contact details, but loyalty balances
         // are server-owned and must never be writable through generic CRUD.
         $cashierCustomerWrite = $resource === 'customers' && $actor['role'] === 'cashier';
@@ -1434,13 +1459,13 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
         }
         $payload = json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         if (strlen($payload) > 262144) {
-            if (($cashierCustomerWrite || $supplierWrite) && $pdo->inTransaction()) $pdo->rollBack();
+            if (($cashierCustomerWrite || $supplierWrite || $expenseCategoryWrite) && $pdo->inTransaction()) $pdo->rollBack();
             json_response(['ok' => false, 'error' => 'record_too_large', 'message' => 'حجم اطلاعات ارسالی بیش از حد مجاز است'], 413);
         }
         $q = $pdo->prepare('INSERT INTO pos_records (id, resource, payload, updated_by) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE payload = VALUES(payload), updated_by = VALUES(updated_by)');
         $q->execute([$id, $resource, $payload, (int)$actor['id']]);
         audit($pdo, (int)$actor['id'], 'record_saved', $resource, $id);
-        if ($cashierCustomerWrite || $supplierWrite) $pdo->commit();
+        if ($cashierCustomerWrite || $supplierWrite || $expenseCategoryWrite) $pdo->commit();
         json_response(['ok' => true, 'item' => $item], 201);
     }
     if ($method === 'DELETE') {
@@ -1457,6 +1482,20 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
             $history->execute([$id]);
             if ($history->fetchColumn() !== false) {
                 json_response(['ok' => false, 'error' => 'supplier_has_ledger_history', 'message' => 'تأمین‌کننده دارای سابقه خرید یا تسویه است؛ به‌جای حذف، آن را غیرفعال کنید'], 409);
+            }
+        }
+        if ($resource === 'expense_categories') {
+            $categoryStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'expense_categories' AND id = ?");
+            $categoryStmt->execute([$id]);
+            $categoryRaw = $categoryStmt->fetchColumn();
+            $category = is_string($categoryRaw) ? json_decode($categoryRaw, true) : null;
+            $categoryName = is_array($category) ? trim((string)($category['name'] ?? '')) : '';
+            if ($categoryName !== '') {
+                $usage = $pdo->prepare("SELECT 1 FROM pos_records WHERE resource = 'expenses' AND JSON_UNQUOTE(JSON_EXTRACT(payload, '$.category')) = ? LIMIT 1");
+                $usage->execute([$categoryName]);
+                if ($usage->fetchColumn() !== false) {
+                    json_response(['ok' => false, 'error' => 'expense_category_in_use', 'message' => 'این دسته در سوابق هزینه استفاده شده است؛ ابتدا هزینه‌های مرتبط را به دسته دیگری منتقل کنید'], 409);
+                }
             }
         }
         $q = $pdo->prepare('DELETE FROM pos_records WHERE resource = ? AND id = ?');
