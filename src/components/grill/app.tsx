@@ -1152,7 +1152,14 @@ function ReportsScreen() {
     return () => { active=false; };
   }, []);
   useEffect(() => { let active=true; void phpApi.getReportSummary(from,to).then(r=>{if(active){setServerSummary(r);setReportError("");}}).catch(e=>{if(active){setServerSummary(null);setReportError(e instanceof Error?e.message:"گزارش سرور دریافت نشد");}}); return ()=>{active=false;}; },[from,to]);
-  const visibleExpenses = expenses.filter(e => e.date >= from && e.date <= to && (expenseFilterCategory === "all" || e.category === expenseFilterCategory));
+  // Category totals come from the same server-side, date-scoped summary as
+  // sales and expenses; the browser cache is only used for editing workflows.
+  const serverExpenseGroups = serverSummary?.expense_categories && typeof serverSummary.expense_categories === "object"
+    ? serverSummary.expense_categories as Record<string, number>
+    : {};
+  const expenseByCategory = Object.entries(serverExpenseGroups)
+    .filter(([name]) => expenseFilterCategory === "all" || name === expenseFilterCategory)
+    .sort(([left], [right]) => left.localeCompare(right, "fa"));
   // Financial reporting must never silently fall back to a partial browser snapshot.
   const reportSales = typeof serverSummary?.sales === "number" ? serverSummary.sales : 0;
   const reportCost = typeof serverSummary?.cost_of_goods === "number" ? serverSummary.cost_of_goods : 0;
@@ -1174,7 +1181,6 @@ function ReportsScreen() {
       ? serverPayments[method] as number
       : 0,
   }));
-  const expenseByCategory=[...visibleExpenses.reduce((map,e)=>map.set(e.category,(map.get(e.category)??0)+e.amount),new Map<string,number>()).entries()];
   const monthlyRows = Array.isArray(serverSummary?.monthly) ? serverSummary.monthly as {month:string;sales:number}[] : [];
   const productCategoryRows = Array.isArray(serverSummary?.product_categories) ? serverSummary.product_categories as {name:string;quantity:number;revenue:number}[] : [];
   const lowStockRows = Array.isArray(serverSummary?.low_stock) ? serverSummary.low_stock as {name:string;stock:number;minStock:number;unit:string}[] : [];
