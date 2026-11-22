@@ -1346,6 +1346,9 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
     if (!isset($resourceRoles[$resource])) json_response(['ok' => false, 'error' => 'resource_not_found'], 404);
     $actor = require_user($pdo);
     if (!in_array($actor['role'], $resourceRoles[$resource], true)) json_response(['ok' => false, 'error' => 'forbidden'], 403);
+    if ($resource === 'supplier_purchases' && in_array($method, ['POST','DELETE'], true)) {
+        json_response(['ok' => false, 'error' => 'supplier_ledger_read_only', 'message' => 'سوابق خرید و تسویه فقط از مسیر تراکنش امن تأمین‌کننده قابل ثبت هستند'], 405);
+    }
     if ($method === 'GET') {
         $q = $pdo->prepare('SELECT payload FROM pos_records WHERE resource = ? ORDER BY created_at ASC');
         $q->execute([$resource]);
@@ -1391,6 +1394,18 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
                 $item['stockPolicy'] = is_string($existingPolicy) && in_array($existingPolicy, $allowedStockPolicies, true) ? $existingPolicy : 'warn_and_allow';
             }
         }
+        // Supplier balances are ledger-owned. Generic profile edits may change
+        // contact fields, but only the transactional purchase/payment endpoint
+        // may change the balance.
+        $supplierWrite = $resource === 'suppliers' && $actor['role'] === 'manager';
+        if ($supplierWrite) {
+            $pdo->beginTransaction();
+            $supplierCurrentStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'suppliers' AND id = ? FOR UPDATE");
+            $supplierCurrentStmt->execute([$id]);
+            $supplierCurrentRaw = $supplierCurrentStmt->fetchColumn();
+            $supplierCurrent = is_string($supplierCurrentRaw) ? json_decode($supplierCurrentRaw, true) : null;
+            $item['balance'] = is_array($supplierCurrent) ? max(0, (int)($supplierCurrent['balance'] ?? 0)) : 0;
+        }
         // Cashiers may maintain customer contact details, but loyalty balances
         // are server-owned and must never be writable through generic CRUD.
         $cashierCustomerWrite = $resource === 'customers' && $actor['role'] === 'cashier';
@@ -1414,13 +1429,13 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
         }
         $payload = json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         if (strlen($payload) > 262144) {
-            if ($cashierCustomerWrite && $pdo->inTransaction()) $pdo->rollBack();
+            if (($cashierCustomerWrite || $supplierWrite) && $pdo->inTransaction()) $pdo->rollBack();
             json_response(['ok' => false, 'error' => 'record_too_large', 'message' => 'حجم اطلاعات ارسالی بیش از حد مجاز است'], 413);
         }
         $q = $pdo->prepare('INSERT INTO pos_records (id, resource, payload, updated_by) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE payload = VALUES(payload), updated_by = VALUES(updated_by)');
         $q->execute([$id, $resource, $payload, (int)$actor['id']]);
         audit($pdo, (int)$actor['id'], 'record_saved', $resource, $id);
-        if ($cashierCustomerWrite) $pdo->commit();
+        if ($cashierCustomerWrite || $supplierWrite) $pdo->commit();
         json_response(['ok' => true, 'item' => $item], 201);
     }
     if ($method === 'DELETE') {
@@ -1432,6 +1447,13 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
         require_csrf();
         $id = (string)($_GET['id'] ?? '');
         if ($id === '' || strlen($id) > 100) json_response(['ok' => false, 'error' => 'invalid_id'], 422);
+        if ($resource === 'suppliers') {
+            $history = $pdo->prepare("SELECT 1 FROM pos_records WHERE resource = 'supplier_purchases' AND JSON_UNQUOTE(JSON_EXTRACT(payload, '$.supplierId')) = ? LIMIT 1");
+            $history->execute([$id]);
+            if ($history->fetchColumn() !== false) {
+                json_response(['ok' => false, 'error' => 'supplier_has_ledger_history', 'message' => 'تأمین‌کننده دارای سابقه خرید یا تسویه است؛ به‌جای حذف، آن را غیرفعال کنید'], 409);
+            }
+        }
         $q = $pdo->prepare('DELETE FROM pos_records WHERE resource = ? AND id = ?');
         $q->execute([$resource, $id]);
         audit($pdo, (int)$actor['id'], 'record_deleted', $resource, $id);
