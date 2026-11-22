@@ -1,4 +1,4 @@
-# 3Food POS
+# 3Food POS V2
 
 Private repository for the 3Food POS application.
 
