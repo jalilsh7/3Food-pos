@@ -953,6 +953,15 @@ function StockScreen() {
   const lows = lowStock(ingredients);
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("عدد");
+  const [adjustmentAmount, setAdjustmentAmount] = useState("1");
+  function adjustIngredient(id:string, direction:1|-1, commit:(item:typeof ingredients[number])=>void){
+    const amount=Number(adjustmentAmount);
+    if(!Number.isFinite(amount)||amount<=0||amount>1000000||Math.round(amount*1000)!==amount*1000){
+      window.alert("مقدار تغییر باید مثبت و حداکثر سه رقم اعشار باشد.");
+      return;
+    }
+    void adjustCentralStock<typeof ingredients[number]>(id,direction*amount,commit);
+  }
   return (
     <div className="space-y-3">
       <PageHeading title="انبار مواد اولیه" description="موجودی، حد هشدار و تغییرات روزانه مواد اولیه را کنترل کنید." />
@@ -969,10 +978,11 @@ function StockScreen() {
               <p className="font-semibold">{i.name}</p>
               <p className={`text-sm ${i.stock <= i.minStock ? "text-warn" : "text-muted"}`}>موجودی {i.stock.toLocaleString("fa-IR")} {i.unit}</p>
             </div>
-            <div className="flex gap-2">
-              <Btn tone="ghost" onClick={() => { void adjustCentralStock<typeof i>(i.id, -1, (item) => saveIngredient(item)); }}>−۱</Btn>
-              <Btn tone="ghost" onClick={() => { void adjustCentralStock<typeof i>(i.id, 1, (item) => saveIngredient(item)); }}>+۱</Btn>
-              <Btn tone="leaf" onClick={() => { void adjustCentralStock<typeof i>(i.id, 10, (item) => saveIngredient(item)); }}>+۱۰</Btn>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="sr-only" htmlFor={`stock-adjust-${i.id}`}>مقدار تغییر موجودی {i.name}</label>
+              <input id={`stock-adjust-${i.id}`} className={inputCls+" w-24"} type="number" min="0.001" max="1000000" step="0.001" inputMode="decimal" value={adjustmentAmount} onChange={event=>setAdjustmentAmount(event.target.value)} aria-label={`مقدار تغییر موجودی ${i.name}`}/>
+              <Btn tone="ghost" onClick={() => adjustIngredient(i.id,-1,saveIngredient)}>کاهش</Btn>
+              <Btn tone="leaf" onClick={() => adjustIngredient(i.id,1,saveIngredient)}>افزایش</Btn>
             </div>
           </div>
         </Card>
