@@ -1411,6 +1411,25 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
             $supplierCurrent = is_string($supplierCurrentRaw) ? json_decode($supplierCurrentRaw, true) : null;
             $item['balance'] = is_array($supplierCurrent) ? max(0, (int)($supplierCurrent['balance'] ?? 0)) : 0;
         }
+        $ingredientWrite = $resource === 'ingredients' && $actor['role'] === 'manager';
+        if ($ingredientWrite) {
+            $pdo->beginTransaction();
+            $currentIngredientStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'ingredients' AND id = ? FOR UPDATE");
+            $currentIngredientStmt->execute([$id]);
+            $currentIngredientRaw = $currentIngredientStmt->fetchColumn();
+            $currentIngredient = is_string($currentIngredientRaw) ? json_decode($currentIngredientRaw, true) : null;
+            if (is_array($currentIngredient)) {
+                // Stock changes must go through the audited /ingredients/{id}/stock
+                // endpoint; supplier receipts alone may update weighted unit cost.
+                foreach (['stock', 'costPerUnit', 'cost', 'unitCost'] as $protectedField) {
+                    if (array_key_exists($protectedField, $currentIngredient)) {
+                        $item[$protectedField] = $currentIngredient[$protectedField];
+                    } else {
+                        unset($item[$protectedField]);
+                    }
+                }
+            }
+        }
         $expenseCategoryWrite = $resource === 'expense_categories' && $actor['role'] === 'manager';
         if ($expenseCategoryWrite) {
             $name = trim((string)($item['name'] ?? ''));
@@ -1461,13 +1480,13 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
         }
         $payload = json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
         if (strlen($payload) > 262144) {
-            if (($cashierCustomerWrite || $supplierWrite || $expenseCategoryWrite) && $pdo->inTransaction()) $pdo->rollBack();
+            if (($cashierCustomerWrite || $supplierWrite || $expenseCategoryWrite || $ingredientWrite) && $pdo->inTransaction()) $pdo->rollBack();
             json_response(['ok' => false, 'error' => 'record_too_large', 'message' => 'حجم اطلاعات ارسالی بیش از حد مجاز است'], 413);
         }
         $q = $pdo->prepare('INSERT INTO pos_records (id, resource, payload, updated_by) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE payload = VALUES(payload), updated_by = VALUES(updated_by)');
         $q->execute([$id, $resource, $payload, (int)$actor['id']]);
         audit($pdo, (int)$actor['id'], 'record_saved', $resource, $id);
-        if ($cashierCustomerWrite || $supplierWrite || $expenseCategoryWrite) $pdo->commit();
+        if ($cashierCustomerWrite || $supplierWrite || $expenseCategoryWrite || $ingredientWrite) $pdo->commit();
         json_response(['ok' => true, 'item' => $item], 201);
     }
     if ($method === 'DELETE') {
