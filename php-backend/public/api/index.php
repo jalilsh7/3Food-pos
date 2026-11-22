@@ -1297,8 +1297,8 @@ if (preg_match('#^/suppliers/([A-Za-z0-9_-]+)/purchases$#D', $path, $supplierMat
         $supplierStmt=$pdo->prepare("SELECT payload FROM pos_records WHERE resource='suppliers' AND id=? FOR UPDATE");
         $supplierStmt->execute([$supplierId]); $raw=$supplierStmt->fetchColumn();
         $supplier=is_string($raw)?json_decode($raw,true):null;
-        if(!is_array($supplier) || empty($supplier['active'])) {
-            $pdo->rollBack(); json_response(['ok'=>false,'error'=>'supplier_not_found','message'=>'تأمین‌کننده فعال پیدا نشد'],404);
+        if(!is_array($supplier) || ($item['kind']==='purchase' && empty($supplier['active']))) {
+            $pdo->rollBack(); json_response(['ok'=>false,'error'=>'supplier_not_found','message'=>'برای خرید جدید باید تأمین‌کننده فعال باشد'],404);
         }
         $currentBalance=max(0,(int)($supplier['balance']??0));
         if($item['kind']==='payment' && $paid>$currentBalance){$pdo->rollBack();json_response(['ok'=>false,'error'=>'supplier_payment_exceeds_balance','message'=>'مبلغ پرداخت از بدهی تأمین‌کننده بیشتر است'],409);}
