@@ -1284,12 +1284,14 @@ if (preg_match('#^/suppliers/([A-Za-z0-9_-]+)/purchases$#D', $path, $supplierMat
         !is_numeric($item['amount'] ?? null) || !is_numeric($item['paid'] ?? null)) {
         json_response(['ok'=>false,'error'=>'invalid_supplier_transaction','message'=>'اطلاعات خرید یا پرداخت معتبر نیست'],422);
     }
-    $amount=(int)$item['amount']; $paid=(int)$item['paid'];
-    if ($amount<0 || $paid<0 || $amount>100000000000 || $paid>100000000000 ||
-        ($item['kind']==='purchase' && $paid>$amount) ||
-        ($item['kind']==='payment' && ($amount!==0 || $paid===0))) {
-        json_response(['ok'=>false,'error'=>'invalid_supplier_amount','message'=>'مبلغ خرید یا تسویه معتبر نیست'],422);
+    $amountRaw=(float)$item['amount']; $paidRaw=(float)$item['paid'];
+    if (!is_finite($amountRaw) || !is_finite($paidRaw) || floor($amountRaw)!==$amountRaw || floor($paidRaw)!==$paidRaw ||
+        $amountRaw<0 || $paidRaw<0 || $amountRaw>100000000000 || $paidRaw>100000000000 ||
+        ($item['kind']==='purchase' && ($amountRaw<=0 || $paidRaw>$amountRaw)) ||
+        ($item['kind']==='payment' && ($amountRaw!==0.0 || $paidRaw===0.0))) {
+        json_response(['ok'=>false,'error'=>'invalid_supplier_amount','message'=>'مبلغ خرید یا تسویه باید عدد صحیح و معتبر به تومان باشد'],422);
     }
+    $amount=(int)$amountRaw; $paid=(int)$paidRaw;
     try {
         $pdo->beginTransaction();
         $supplierStmt=$pdo->prepare("SELECT payload FROM pos_records WHERE resource='suppliers' AND id=? FOR UPDATE");
@@ -1301,9 +1303,12 @@ if (preg_match('#^/suppliers/([A-Za-z0-9_-]+)/purchases$#D', $path, $supplierMat
         $currentBalance=max(0,(int)($supplier['balance']??0));
         if($item['kind']==='payment' && $paid>$currentBalance){$pdo->rollBack();json_response(['ok'=>false,'error'=>'supplier_payment_exceeds_balance','message'=>'مبلغ پرداخت از بدهی تأمین‌کننده بیشتر است'],409);}
         $ingredientId=trim((string)($item['ingredientId']??''));
-        $ingredientQty=max(0,(float)($item['quantity']??0));
-        $ingredientUnitCost=max(0,(int)($item['unitCost']??0));
-        if($ingredientId!=='' && ($item['kind']!=='purchase' || $ingredientQty<=0 || $ingredientUnitCost<=0 || abs($amount-(int)round($ingredientQty*$ingredientUnitCost))>max(1,(int)round($amount*0.01)))){
+        $ingredientQty=(float)($item['quantity']??0);
+        $unitCostRaw=(float)($item['unitCost']??0);
+        $ingredientUnitCost=(int)$unitCostRaw;
+        if($ingredientId!=='' && (!is_finite($ingredientQty) || $ingredientQty<=0 || $ingredientQty>1000000000 || round($ingredientQty,3)!==$ingredientQty ||
+            !is_finite($unitCostRaw) || $unitCostRaw<=0 || floor($unitCostRaw)!==$unitCostRaw || $unitCostRaw>100000000000 ||
+            $item['kind']!=='purchase' || $ingredientUnitCost<=0 || abs($amount-(int)round($ingredientQty*$ingredientUnitCost))>max(1,(int)round($amount*0.01)))){
             $pdo->rollBack();json_response(['ok'=>false,'error'=>'invalid_inventory_purchase','message'=>'مقدار یا قیمت ماده اولیه با مبلغ خرید هم‌خوانی ندارد'],422);
         }
         if($ingredientId!==''){
