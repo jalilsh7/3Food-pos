@@ -15,6 +15,7 @@ import { APPEARANCE_PRESETS, useAppearance } from "@/lib/appearance";
 
 import { asciiDigits, isoToJalali, jalaliToIso } from "@/lib/iranian-date";
 import { createXlsxBlob } from "@/lib/xlsx-export";
+import { normalizeIranPhone, tehranDate, formatElapsed } from "@/lib/pos/formatters";
 
 async function saveCentralRecord<T extends { id: string | number }>(resource: string, item: T, commit: () => void) {
   try {
@@ -384,13 +385,6 @@ function ChangePasswordScreen({ user, onChanged }: { user: ApiUser; onChanged: (
   </form></AuthFrame>;
 }
 
-function normalizeIranPhone(value:string){
-  let digits=value.replace(/[۰-۹]/g,d=>String(d.charCodeAt(0)-1776)).replace(/[٠-٩]/g,d=>String(d.charCodeAt(0)-1632)).replace(/[^0-9+]/g,"");
-  if(digits.startsWith("+98"))digits="0"+digits.slice(3);
-  else if(digits.startsWith("0098"))digits="0"+digits.slice(4);
-  else if(digits.startsWith("98")&&digits.length===12)digits="0"+digits.slice(2);
-  return digits.replace(/\D/g,"");
-}
 function orderVars(order: Order, balance = "") {
   return { name: order.customerName || "مشتری", order: String(order.number), total: money(order.total), points: String(order.pointsEarned), code: order.discountCode, balance, shop: usePos.getState().settings.shopName };
 }
@@ -776,14 +770,6 @@ function PosScreen() {
 
 function statusFa(s: Order["status"]) {
   return { new: "جدید", preparing: "در حال آماده‌سازی", ready: "آماده", delivered: "تحویل شد", cancelled: "لغو" }[s];
-}
-
-function tehranDate(value:Date|string|number = new Date()){
-  return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Tehran",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(value));
-}
-function formatElapsed(ms:number){
-  const total=Math.max(0,Math.floor(ms/60000));const days=Math.floor(total/1440);const hours=Math.floor((total%1440)/60);const minutes=total%60;
-  return days>0?`${days.toLocaleString("fa-IR")} روز و ${hours.toLocaleString("fa-IR")} ساعت`:hours>0?`${hours.toLocaleString("fa-IR")} ساعت و ${minutes.toLocaleString("fa-IR")} دقیقه`:`${minutes.toLocaleString("fa-IR")} دقیقه`;
 }
 
 function OrdersScreen({ role }: { role: Role }) {
