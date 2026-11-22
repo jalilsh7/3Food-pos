@@ -1417,7 +1417,14 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
             if ($name === '' || strlen($name) > 320) {
                 json_response(['ok' => false, 'error' => 'invalid_expense_category', 'message' => 'نام دسته هزینه باید بین ۱ تا ۸۰ نویسه باشد'], 422);
             }
+            $item['name'] = $name;
             $pdo->beginTransaction();
+            $duplicate = $pdo->prepare("SELECT 1 FROM pos_records WHERE resource = 'expense_categories' AND id <> ? AND JSON_UNQUOTE(JSON_EXTRACT(payload, '$.name')) = ? LIMIT 1");
+            $duplicate->execute([$id, $name]);
+            if ($duplicate->fetchColumn() !== false) {
+                $pdo->rollBack();
+                json_response(['ok' => false, 'error' => 'duplicate_expense_category', 'message' => 'دسته‌ای با این نام وجود دارد'], 409);
+            }
             $currentCategoryStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'expense_categories' AND id = ? FOR UPDATE");
             $currentCategoryStmt->execute([$id]);
             $currentCategoryRaw = $currentCategoryStmt->fetchColumn();
@@ -1425,12 +1432,6 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
             if (is_array($currentCategory)) {
                 $oldName = trim((string)($currentCategory['name'] ?? ''));
                 if ($oldName !== '' && $oldName !== $name) {
-                    $duplicate = $pdo->prepare("SELECT 1 FROM pos_records WHERE resource = 'expense_categories' AND id <> ? AND JSON_UNQUOTE(JSON_EXTRACT(payload, '$.name')) = ? LIMIT 1");
-                    $duplicate->execute([$id, $name]);
-                    if ($duplicate->fetchColumn() !== false) {
-                        $pdo->rollBack();
-                        json_response(['ok' => false, 'error' => 'duplicate_expense_category', 'message' => 'دسته‌ای با این نام وجود دارد'], 409);
-                    }
                     $renameExpenses = $pdo->prepare("UPDATE pos_records SET payload = JSON_SET(payload, '$.category', ?), updated_by = ? WHERE resource = 'expenses' AND JSON_UNQUOTE(JSON_EXTRACT(payload, '$.category')) = ?");
                     $renameExpenses->execute([$name, (int)$actor['id'], $oldName]);
                 }
