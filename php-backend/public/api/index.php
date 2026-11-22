@@ -2419,7 +2419,6 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
         }
 
         if ($status === 'cancelled') {
-        if ($status === 'cancelled') {
             $redemptionStmt = $pdo->prepare('SELECT id, discount_id FROM pos_discount_redemptions WHERE order_id = ? AND reversed_at IS NULL FOR UPDATE');
             $redemptionStmt->execute([$id]);
             $redemption = $redemptionStmt->fetch();
@@ -2436,7 +2435,6 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
                 $markRedemption = $pdo->prepare('UPDATE pos_discount_redemptions SET reversed_at = NOW() WHERE id = ? AND reversed_at IS NULL');
                 $markRedemption->execute([(int)$redemption['id']]);
             }
-        }
             // Reverse only effects recorded for this order. FOR UPDATE plus the
             // order-row lock and reversed_at guard make this operation one-shot.
             $effectsStmt = $pdo->prepare('SELECT id, effect_type, resource_id, quantity, points_spent, points_earned, money_delta, visits_delta FROM pos_order_effects WHERE order_id = ? AND reversed_at IS NULL ORDER BY effect_type, resource_id FOR UPDATE');
