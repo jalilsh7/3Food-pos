@@ -292,12 +292,10 @@ async function postSms(phone: string, text: string, event: string, bodyId: strin
 }
 
 function PosScreen() {
-  const products = usePos((s) => s.products);
   const categories = usePos((s) => s.categories);
   const ingredients = usePos((s) => s.ingredients);
   const customers = usePos((s) => s.customers);
   const discounts = usePos((s) => s.discounts);
-  const orders = usePos((s) => s.orders);
   const settings = usePos((s) => s.settings);
   const placeOrder = usePos((s) => s.placeOrder);
   const [cat, setCat] = useState("");
@@ -1153,27 +1151,19 @@ function ReportsScreen() {
       .catch(() => { if(active) setCategories([]); });
     return () => { active=false; };
   }, []);
-  const done = useMemo(() => orders.filter((o) => o.status !== "cancelled" && tehranDate(o.createdAt) >= from && tehranDate(o.createdAt) <= to), [orders,from,to]);
   useEffect(() => { let active=true; void phpApi.getReportSummary(from,to).then(r=>{if(active){setServerSummary(r);setReportError("");}}).catch(e=>{if(active){setServerSummary(null);setReportError(e instanceof Error?e.message:"گزارش سرور دریافت نشد");}}); return ()=>{active=false;}; },[from,to]);
   const visibleExpenses = expenses.filter(e => e.date >= from && e.date <= to && (expenseFilterCategory === "all" || e.category === expenseFilterCategory));
-  const sales = done.reduce((sum, o) => sum + o.total, 0);
-  const costGuess = done.reduce((sum, o) => sum + o.lines.reduce((lineSum, line) => lineSum + (products.find((x) => x.id === line.productId)?.cost ?? 0) * line.qty, 0), 0);
-  const spend = visibleExpenses.reduce((sum, e) => sum + e.amount, 0);
-  const reportSales = typeof serverSummary?.sales === "number" ? serverSummary.sales : sales;
-  const reportCost = typeof serverSummary?.cost_of_goods === "number" ? serverSummary.cost_of_goods : costGuess;
-  const reportExpenses = typeof serverSummary?.expenses === "number" ? serverSummary.expenses : spend;
-  const reportNet = typeof serverSummary?.net_profit === "number" ? serverSummary.net_profit : sales-costGuess-spend;
+  // Financial reporting must never silently fall back to a partial browser snapshot.
+  const reportSales = typeof serverSummary?.sales === "number" ? serverSummary.sales : 0;
+  const reportCost = typeof serverSummary?.cost_of_goods === "number" ? serverSummary.cost_of_goods : 0;
+  const reportExpenses = typeof serverSummary?.expenses === "number" ? serverSummary.expenses : 0;
+  const reportNet = typeof serverSummary?.net_profit === "number" ? serverSummary.net_profit : 0;
   const reportTax = typeof serverSummary?.tax_collected === "number" ? serverSummary.tax_collected : 0;
   const reportDiscounts = typeof serverSummary?.discounts === "number" ? serverSummary.discounts : 0;
-  const reportOrders = typeof serverSummary?.orders === "number" ? serverSummary.orders : done.length;
+  const reportOrders = typeof serverSummary?.orders === "number" ? serverSummary.orders : 0;
   const reportCancelled = typeof serverSummary?.cancelled === "number" ? serverSummary.cancelled : 0;
   const inventoryPurchases = typeof serverSummary?.inventory_purchases === "number" ? serverSummary.inventory_purchases : 0;
-  const daily = new Map<string,number>();
-  for(const o of done) daily.set(tehranDate(o.createdAt),(daily.get(tehranDate(o.createdAt))??0)+o.total);
-  const dailyRows: [string,number][] = Array.isArray(serverSummary?.daily) ? (serverSummary.daily as {date:string;sales:number}[]).map(row=>[row.date,row.sales] as [string,number]) : [...daily.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
-  const productRows=new Map<string,{qty:number;revenue:number}>();
-  for(const o of done) for(const l of o.lines){const p=productRows.get(l.name)??{qty:0,revenue:0};p.qty+=l.qty;p.revenue+=l.unitPrice*l.qty;productRows.set(l.name,p);}
-  const top=[...productRows.entries()].sort((a,b)=>b[1].qty-a[1].qty).slice(0,10);
+  const dailyRows: [string,number][] = Array.isArray(serverSummary?.daily) ? (serverSummary.daily as {date:string;sales:number}[]).map(row=>[row.date,row.sales] as [string,number]) : [];
   const serverPayments = serverSummary?.payments && typeof serverSummary.payments === "object"
     ? serverSummary.payments as Record<string, unknown>
     : null;
@@ -1182,19 +1172,18 @@ function ReportsScreen() {
     label:method==="cash"?"نقدی":method==="card"?"کارت‌خوان":"آنلاین",
     amount:typeof serverPayments?.[method] === "number"
       ? serverPayments[method] as number
-      : done.filter(o=>o.payment===method).reduce((sum,o)=>sum+o.total,0),
+      : 0,
   }));
   const expenseByCategory=[...visibleExpenses.reduce((map,e)=>map.set(e.category,(map.get(e.category)??0)+e.amount),new Map<string,number>()).entries()];
-  const monthlyFallback = [...done.reduce((map,order)=>{const month=tehranDate(order.createdAt).slice(0,7);map.set(month,(map.get(month)??0)+order.total);return map;},new Map<string,number>()).entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([month,sales])=>({month,sales}));
-  const monthlyRows = Array.isArray(serverSummary?.monthly) ? serverSummary.monthly as {month:string;sales:number}[] : monthlyFallback;
+  const monthlyRows = Array.isArray(serverSummary?.monthly) ? serverSummary.monthly as {month:string;sales:number}[] : [];
   const productCategoryRows = Array.isArray(serverSummary?.product_categories) ? serverSummary.product_categories as {name:string;quantity:number;revenue:number}[] : [];
   const lowStockRows = Array.isArray(serverSummary?.low_stock) ? serverSummary.low_stock as {name:string;stock:number;minStock:number;unit:string}[] : [];
   const topCustomerRows = Array.isArray(serverSummary?.top_customers) ? serverSummary.top_customers as {name:string;phone:string;totalSpent:number;visits:number;points:number}[] : [];
-  const allProductRows = Array.isArray(serverSummary?.all_products) ? serverSummary.all_products as {name:string;quantity:number;revenue:number}[] : top.map(([name,value])=>({name,quantity:value.qty,revenue:value.revenue}));
+  const allProductRows = Array.isArray(serverSummary?.all_products) ? serverSummary.all_products as {name:string;quantity:number;revenue:number}[] : [];
   const topReportRows = allProductRows.slice(0,10);
-  const inventoryRows = Array.isArray(serverSummary?.inventory_items) ? serverSummary.inventory_items as {name:string;stock:number;minStock:number;unit:string;costPerUnit:number;value:number}[] : lowStockRows.map(row=>({...row,costPerUnit:0,value:0}));
+  const inventoryRows = Array.isArray(serverSummary?.inventory_items) ? serverSummary.inventory_items as {name:string;stock:number;minStock:number;unit:string;costPerUnit:number;value:number}[] : [];
   const inventoryConsumptionRows = Array.isArray(serverSummary?.inventory_consumption) ? serverSummary.inventory_consumption as {ingredient_id:string;name:string;quantity:number;unit:string}[] : [];
-  const allCustomerRows = Array.isArray(serverSummary?.all_customers) ? serverSummary.all_customers as {name:string;phone:string;totalSpent:number;visits:number;points:number}[] : topCustomerRows;
+  const allCustomerRows = Array.isArray(serverSummary?.all_customers) ? serverSummary.all_customers as {name:string;phone:string;totalSpent:number;visits:number;points:number}[] : [];
   const expenseItemRows = Array.isArray(serverSummary?.expense_items) ? serverSummary.expense_items as {title:string;category:string;date:string;amount:number}[] : [];
   const visibleExpenseItemRows = expenseItemRows.filter(row => expenseFilterCategory === "all" || row.category === expenseFilterCategory);
   const grossProfit = typeof serverSummary?.gross_profit === "number" ? serverSummary.gross_profit : reportSales - reportCost;
@@ -1238,7 +1227,7 @@ function ReportsScreen() {
   }
   return (
     <div id="print-root" className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3 print:hidden"><PageHeading title="مرکز گزارش‌گیری و هزینه‌ها" description="عملکرد فروش، سود و زیان، موجودی و هزینه‌های کسب‌وکار را تحلیل کنید." /><div className="flex gap-2"><Btn tone="ghost" onClick={downloadExcel}>خروجی Excel</Btn><Btn onClick={()=>window.print()}>چاپ / ذخیره PDF</Btn></div></div>
+      <div className="flex flex-wrap items-end justify-between gap-3 print:hidden"><PageHeading title="مرکز گزارش‌گیری و هزینه‌ها" description="عملکرد فروش، سود و زیان، موجودی و هزینه‌های کسب‌وکار را تحلیل کنید." /><div className="flex gap-2"><Btn tone="ghost" onClick={downloadExcel} disabled={!serverSummary}>خروجی Excel</Btn><Btn onClick={()=>window.print()} disabled={!serverSummary}>چاپ / ذخیره PDF</Btn></div></div>
       <Card className="grid gap-2 sm:grid-cols-2 print:hidden"><Field label="از تاریخ شمسی"><input className={inputCls} inputMode="numeric" placeholder="۱۴۰۵/۰۱/۰۱" value={fromText} onChange={e=>{setFromText(e.target.value);const parsed=jalaliToIso(e.target.value);if(parsed)setFrom(parsed);}} onBlur={()=>{if(!jalaliToIso(fromText))setFromText(isoToJalali(from));}}/></Field><Field label="تا تاریخ شمسی"><input className={inputCls} inputMode="numeric" placeholder="۱۴۰۵/۰۱/۰۷" value={toText} onChange={e=>{setToText(e.target.value);const parsed=jalaliToIso(e.target.value);if(parsed)setTo(parsed);}} onBlur={()=>{if(!jalaliToIso(toText))setToText(isoToJalali(to));}}/></Field></Card>
       {reportError?<p className="text-xs text-warn">گزارش زنده سرور در دسترس نیست: {reportError}</p>:null}
       <div className="grid gap-3 sm:grid-cols-4">
