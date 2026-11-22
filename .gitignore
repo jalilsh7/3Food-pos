@@ -11,6 +11,7 @@ dist/
 .DS_Store
 screenshots/
 dist-cpanel/
+3food-pos-cpanel.zip
 
 # Private POS V3 media uploads (never commit customer files)
 v3/backend/var/private-media/
