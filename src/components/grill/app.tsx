@@ -1153,7 +1153,16 @@ function ReportsScreen() {
   const productRows=new Map<string,{qty:number;revenue:number}>();
   for(const o of done) for(const l of o.lines){const p=productRows.get(l.name)??{qty:0,revenue:0};p.qty+=l.qty;p.revenue+=l.unitPrice*l.qty;productRows.set(l.name,p);}
   const top=[...productRows.entries()].sort((a,b)=>b[1].qty-a[1].qty).slice(0,10);
-  const payments=["cash","card","online"].map(method=>({method,label:method==="cash"?"نقدی":method==="card"?"کارت‌خوان":"آنلاین",amount:done.filter(o=>o.payment===method).reduce((sum,o)=>sum+o.total,0)}));
+  const serverPayments = serverSummary?.payments && typeof serverSummary.payments === "object"
+    ? serverSummary.payments as Record<string, unknown>
+    : null;
+  const payments=["cash","card","online"].map(method=>({
+    method,
+    label:method==="cash"?"نقدی":method==="card"?"کارت‌خوان":"آنلاین",
+    amount:typeof serverPayments?.[method] === "number"
+      ? serverPayments[method] as number
+      : done.filter(o=>o.payment===method).reduce((sum,o)=>sum+o.total,0),
+  }));
   const expenseByCategory=[...visibleExpenses.reduce((map,e)=>map.set(e.category,(map.get(e.category)??0)+e.amount),new Map<string,number>()).entries()];
   const monthlyFallback = [...done.reduce((map,order)=>{const month=tehranDate(order.createdAt).slice(0,7);map.set(month,(map.get(month)??0)+order.total);return map;},new Map<string,number>()).entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([month,sales])=>({month,sales}));
   const monthlyRows = Array.isArray(serverSummary?.monthly) ? serverSummary.monthly as {month:string;sales:number}[] : monthlyFallback;
@@ -1161,6 +1170,7 @@ function ReportsScreen() {
   const lowStockRows = Array.isArray(serverSummary?.low_stock) ? serverSummary.low_stock as {name:string;stock:number;minStock:number;unit:string}[] : [];
   const topCustomerRows = Array.isArray(serverSummary?.top_customers) ? serverSummary.top_customers as {name:string;phone:string;totalSpent:number;visits:number;points:number}[] : [];
   const allProductRows = Array.isArray(serverSummary?.all_products) ? serverSummary.all_products as {name:string;quantity:number;revenue:number}[] : top.map(([name,value])=>({name,quantity:value.qty,revenue:value.revenue}));
+  const topReportRows = allProductRows.slice(0,10);
   const inventoryRows = Array.isArray(serverSummary?.inventory_items) ? serverSummary.inventory_items as {name:string;stock:number;minStock:number;unit:string;costPerUnit:number;value:number}[] : lowStockRows.map(row=>({...row,costPerUnit:0,value:0}));
   const allCustomerRows = Array.isArray(serverSummary?.all_customers) ? serverSummary.all_customers as {name:string;phone:string;totalSpent:number;visits:number;points:number}[] : topCustomerRows;
   const expenseItemRows = Array.isArray(serverSummary?.expense_items) ? serverSummary.expense_items as {title:string;category:string;date:string;amount:number}[] : [];
@@ -1226,7 +1236,7 @@ function ReportsScreen() {
       <Card><h3 className="mb-2 font-semibold">وضعیت انبار</h3><p className="text-sm">ارزش تقریبی موجودی: {money(Number((serverSummary?.inventory as {value?:number}|undefined)?.value??0))}</p><p className="text-sm">مواد اولیه زیر حد هشدار: {lowStockRows.length.toLocaleString("fa-IR")}</p>{lowStockRows.map(row=><p key={row.name} className="flex justify-between text-sm"><span>{row.name}</span><span>{row.stock} / حداقل {row.minStock} {row.unit}</span></p>)}</Card>
       <Card><h3 className="mb-2 font-semibold">مشتریان برتر بر اساس مجموع خرید</h3>{topCustomerRows.map(row=><p key={row.phone} className="flex flex-wrap justify-between gap-2 border-b border-line py-1 text-sm"><span>{row.name} · {row.phone}</span><b>{money(row.totalSpent)}</b></p>)}</Card>
       <Card><h3 className="mb-2 font-semibold">فروش بر اساس دسته‌بندی محصول</h3>{productCategoryRows.length?productCategoryRows.map(row=><p key={row.name} className="flex justify-between border-b border-line py-1 text-sm"><span>{row.name} · {row.quantity.toLocaleString("fa-IR")} عدد</span><b>{money(row.revenue)}</b></p>):<Empty text="فروشی در دسته‌ها ثبت نشده است"/>}</Card>
-      <Card><h3 className="mb-3 font-semibold">نمودار محصولات پرفروش</h3>{top.length?<div className="space-y-3">{top.map(([name,value])=><div key={name} className="grid grid-cols-[minmax(90px,1fr)_minmax(0,2fr)_auto] items-center gap-2 text-xs"><span className="truncate">{name}</span><div className="h-3 overflow-hidden rounded-full bg-soft"><div className="h-full rounded-full bg-leaf" style={{width:`${Math.max(1,value.qty/Math.max(1,...top.map(item=>item[1].qty))*100)}%`}}/></div><b>{value.qty.toLocaleString("fa-IR")} عدد</b></div>)}</div>:<Empty text="فروشی ثبت نشده است"/>}</Card>
+      <Card><h3 className="mb-3 font-semibold">نمودار محصولات پرفروش</h3>{topReportRows.length?<div className="space-y-3">{topReportRows.map((row)=><div key={row.name} className="grid grid-cols-[minmax(90px,1fr)_minmax(0,2fr)_auto] items-center gap-2 text-xs"><span className="truncate">{row.name}</span><div className="h-3 overflow-hidden rounded-full bg-soft"><div className="h-full rounded-full bg-leaf" style={{width:`${Math.max(1,row.quantity/Math.max(1,...topReportRows.map(item=>item.quantity))*100)}%`}}/></div><b>{row.quantity.toLocaleString("fa-IR")} عدد</b></div>)}</div>:<Empty text="فروشی ثبت نشده است"/>}</Card>
       <Card><h3 className="mb-3 font-semibold">نمودار روش‌های پرداخت</h3><div className="space-y-3">{payments.map(p=><div key={p.method} className="grid grid-cols-[70px_minmax(0,1fr)_auto] items-center gap-2 text-xs"><span>{p.label}</span><div className="h-3 overflow-hidden rounded-full bg-soft"><div className="h-full rounded-full bg-leaf" style={{width:`${Math.max(0,p.amount/Math.max(1,...payments.map(item=>item.amount))*100)}%`}}/></div><b>{money(p.amount)}</b></div>)}</div></Card>
       <Card><h3 className="mb-2 font-semibold">هزینه‌ها بر اساس دسته</h3>{expenseByCategory.map(([name,value])=><p key={name} className="flex justify-between py-1 text-sm"><span>{name}</span><b>{money(value)}</b></p>)}<p className="mt-2 border-t border-line pt-2 text-xs text-muted">خرید مواد اولیه (سرمایه‌گذاری موجودی، خارج از هزینه عملیاتی سود و زیان): {money(inventoryPurchases)}</p></Card>
       <Card className="print:hidden"><h3 className="mb-3 font-semibold">ثبت هزینه جدید</h3><p className="mb-2 text-xs text-muted">برای خرید مواد اولیه که باید موجودی انبار را افزایش دهد، از بخش تأمین‌کنندگان استفاده کن؛ ثبت هزینه به‌تنهایی موجودی را تغییر نمی‌دهد.</p><form className="grid gap-2 sm:grid-cols-2" onSubmit={e=>void addCost(e)}>
