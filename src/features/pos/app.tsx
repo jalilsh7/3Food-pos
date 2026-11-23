@@ -357,6 +357,12 @@ function PosScreen({ role }: { role: Role }) {
     for (const recipeLine of product?.recipe ?? []) {
       requiredIngredients.set(recipeLine.ingredientId, (requiredIngredients.get(recipeLine.ingredientId) ?? 0) + recipeLine.qty * line.qty);
     }
+    for (const optionId of line.optionIds) {
+      const option = product?.options.find((item) => item.id === optionId);
+      if (option?.ingredientId && option.ingredientQty && option.ingredientQty > 0) {
+        requiredIngredients.set(option.ingredientId, (requiredIngredients.get(option.ingredientId) ?? 0) + option.ingredientQty * line.qty);
+      }
+    }
   }
   const stockShortages = [...requiredIngredients.entries()].flatMap(([ingredientId, required]) => {
     const ingredient = ingredients.find((item) => item.id === ingredientId);
