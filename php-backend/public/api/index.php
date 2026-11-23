@@ -41,6 +41,19 @@ if ($method === 'GET' && $path === '/health') {
     json_response(['ok' => true, 'service' => '3food-pos-php-api', 'database' => 'mysql']);
 }
 
+// Newly created users must complete their forced password change before any
+// business API can be used. Keep only the session introspection, logout and
+// password-change endpoints available so the restriction is server-enforced.
+$sessionUser = current_user($pdo);
+if ($sessionUser && $sessionUser['must_change_password'] &&
+    !in_array($path, ['/auth/me', '/auth/logout', '/auth/change-password'], true)) {
+    json_response([
+        'ok' => false,
+        'error' => 'password_change_required',
+        'message' => 'برای ادامه ابتدا رمز عبور موقت خود را تغییر دهید',
+    ], 403);
+}
+
 
 /* Network payment terminal management and local-agent queue. */
 require_once dirname(__DIR__, 2) . '/private/routes/terminals.php';
