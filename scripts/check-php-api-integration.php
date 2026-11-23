@@ -286,6 +286,10 @@ try {
     $ingredient = ['id' => 'ci-ingredient', 'name' => 'CI Test Ingredient', 'unit' => 'kg', 'minStock' => 0, 'stock' => 10];
     $ingredientSaved = api('POST', '/api/v1/records/ingredients', ['item' => $ingredient], csrf_headers());
     check($ingredientSaved['status'] === 201, 'seed ingredients: ' . json_encode($ingredientSaved['json']));
+    // New ingredient stock is server-owned and must be initialized through the
+    // audited stock-adjustment endpoint, not generic record creation.
+    $ingredientStockInitialized = api('POST', '/api/v1/ingredients/ci-ingredient/stock', ['delta' => 10], csrf_headers());
+    check($ingredientStockInitialized['status'] === 200 && (float)($ingredientStockInitialized['json']['item']['stock'] ?? 0) === 10.0, 'initialize test ingredient stock through audited adjustment');
 
     $product = [
         'id' => 'ci-product',

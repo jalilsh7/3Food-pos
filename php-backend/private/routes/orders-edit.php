@@ -49,17 +49,9 @@ if (preg_match('#^/orders/(\d+)$#', $path, $editMatch) && $method === 'PATCH') {
         }
         $pdo->prepare('UPDATE pos_discount_redemptions SET reversed_at = NOW() WHERE id = ? AND reversed_at IS NULL')->execute([$existingRedemptionId]);
     }
-    // Load the complete effect ledger, not only active rows. A resource removed
-    // by an earlier edit may be added again later; its historical row still owns
-    // the unique (order, type, resource) key and must be reactivated.
-    $oldEffectsStmt = $pdo->prepare('SELECT id, effect_type, resource_id, quantity, points_spent, points_earned, money_delta, visits_delta, reversed_at FROM pos_order_effects WHERE order_id = ? ORDER BY effect_type, resource_id FOR UPDATE');
+    $oldEffectsStmt = $pdo->prepare('SELECT id, effect_type, resource_id, quantity, points_spent, points_earned, money_delta, visits_delta FROM pos_order_effects WHERE order_id = ? AND reversed_at IS NULL ORDER BY effect_type, resource_id FOR UPDATE');
     $oldEffectsStmt->execute([$id]);
-    $allEffects = $oldEffectsStmt->fetchAll();
-    $oldEffects = array_values(array_filter($allEffects, static fn(array $effect): bool => $effect['reversed_at'] === null));
-    $effectRowsByKey = [];
-    foreach ($allEffects as $effect) {
-        $effectRowsByKey[(string)$effect['effect_type'] . ':' . (string)$effect['resource_id']] = $effect;
-    }
+    $oldEffects = $oldEffectsStmt->fetchAll();
     $oldIngredientIds = [];
     foreach ($oldEffects as $effect) if ($effect['effect_type'] === 'ingredient') $oldIngredientIds[] = (string)$effect['resource_id'];
     $oldIngredientIds = array_values(array_unique($oldIngredientIds));
@@ -507,24 +499,14 @@ if (preg_match('#^/orders/(\d+)$#', $path, $editMatch) && $method === 'PATCH') {
             }
         }
 
-        // Reactivate the existing ledger row explicitly when this order/resource
-        // already has history. Reversed rows still own the unique ledger key.
-        $effectUpdate = $pdo->prepare('UPDATE pos_order_effects SET quantity = ?, points_spent = ?, points_earned = ?, money_delta = ?, visits_delta = ?, reversed_at = NULL, reversed_by = NULL WHERE id = ? AND order_id = ?');
-        $effectInsert = $pdo->prepare('INSERT INTO pos_order_effects (order_id, effect_type, resource_id, quantity, points_spent, points_earned, money_delta, visits_delta) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
-        $persistEffect = static function (string $type, string $resourceId, float $quantity, int $pointsSpent, int $pointsEarned, int $moneyDelta, int $visitsDelta) use ($id, $effectRowsByKey, $effectUpdate, $effectInsert): void {
-            $key = $type . ':' . $resourceId;
-            if (isset($effectRowsByKey[$key])) {
-                $effectUpdate->execute([$quantity, $pointsSpent, $pointsEarned, $moneyDelta, $visitsDelta, (int)$effectRowsByKey[$key]['id'], $id]);
-                if ($effectUpdate->rowCount() !== 1) throw new RuntimeException('Could not reactivate order effect');
-                return;
-            }
-            $effectInsert->execute([$id, $type, $resourceId, $quantity, $pointsSpent, $pointsEarned, $moneyDelta, $visitsDelta]);
-        };
+        // Persist the exact stock and loyalty effects so cancellation can reverse
+        // them once, inside the same transaction as the status change.
+        $effectInsert = $pdo->prepare('INSERT INTO pos_order_effects (order_id, effect_type, resource_id, quantity, points_spent, points_earned, money_delta, visits_delta) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE quantity = VALUES(quantity), points_spent = VALUES(points_spent), points_earned = VALUES(points_earned), money_delta = VALUES(money_delta), visits_delta = VALUES(visits_delta), reversed_at = NULL, reversed_by = NULL');
         foreach ($ingredientNeeds as $ingredientId => $needed) {
-            if ((float)$needed > 0) $persistEffect('ingredient', (string)$ingredientId, round((float)$needed, 3), 0, 0, 0, 0);
+            if ((float)$needed > 0) $effectInsert->execute([$id, 'ingredient', $ingredientId, round((float)$needed, 3), 0, 0, 0, 0]);
         }
         if ($customerId !== '') {
-            $persistEffect('customer', $customerId, 0, $pointsToSpend, $pointsEarned, (int)$totals['total'], 1);
+            $effectInsert->execute([$id, 'customer', $customerId, 0, $pointsToSpend, $pointsEarned, (int)$totals['total'], 1]);
         }
         audit($pdo, (int)$actor['id'], 'order_edited', 'order', (string)$id, ['order_number' => $orderNumber]);
         $pdo->commit();
