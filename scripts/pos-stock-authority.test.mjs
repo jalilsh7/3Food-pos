@@ -2,14 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const api = readFileSync(new URL("../php-backend/public/api/index.php", import.meta.url), "utf8");
+const inventory = readFileSync(new URL("../php-backend/private/routes/inventory-backup.php", import.meta.url), "utf8");
 const client = readFileSync(new URL("../src/lib/api/php-client.ts", import.meta.url), "utf8");
-const app = readFileSync(new URL("../src/components/grill/app.tsx", import.meta.url), "utf8");
+const app = readFileSync(new URL("../src/features/pos/app.tsx", import.meta.url), "utf8");
 
-test("inventory adjustments are server-atomic and reject negative stock", () => {
-  assert.match(api, /SELECT payload FROM pos_records WHERE resource = 'ingredients' AND id = \? FOR UPDATE/);
-  assert.match(api, /insufficient_stock/);
-  assert.match(api, /ingredient_stock_adjusted/);
+test("inventory adjustments are server-atomic, audited and reject negative manual adjustments", () => {
+  assert.match(inventory, /SELECT payload FROM pos_records WHERE resource='ingredients' AND id=\? FOR UPDATE/);
+  assert.match(inventory, /insufficient_stock/);
+  assert.match(inventory, /ingredient_stock_adjusted/);
   assert.match(client, /adjustIngredientStock/);
 });
 

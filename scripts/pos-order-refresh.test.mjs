@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const app = readFileSync(new URL("../src/components/grill/app.tsx", import.meta.url), "utf8");
+const app = readFileSync(new URL("../src/features/pos/app.tsx", import.meta.url), "utf8");
 
 test("order transitions refresh authoritative inventory and loyalty snapshot", () => {
   const jumpStart = app.indexOf("async function jump(order: Order");
