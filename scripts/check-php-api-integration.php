@@ -358,7 +358,7 @@ try {
     check($blockedEdit['status'] === 409 && ($blockedEdit['json']['error'] ?? '') === 'insufficient_stock', 'block stock policy rejects insufficient inventory during order edit');
     $stockAfterBlockedEdit = api('GET', '/api/v1/records/ingredients');
     $stockAfterBlockedEditItem = array_values(array_filter($stockAfterBlockedEdit['json']['items'] ?? [], fn($item) => ($item['id'] ?? '') === 'ci-ingredient'))[0] ?? [];
-    check((float)($stockAfterBlockedEditItem['stock'] ?? -1) === 8.0, 'rejected order edit rolls back stock restoration and deduction');
+    check((float)($stockAfterBlockedEditItem['stock'] ?? -1) === 8.0, 'rejected order edit rolls back stock restoration and deduction; actual=' . json_encode(['status' => $stockAfterBlockedEdit['status'] ?? null, 'item' => $stockAfterBlockedEditItem]));
     $stockPolicyWarn = api('POST', '/api/v1/records/settings', ['item' => ['id' => 'main', 'stockPolicy' => 'warn_and_allow']], csrf_headers());
     check($stockPolicyWarn['status'] === 201, 'manager can configure warn and allow stock policy');
     $edited = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $editBody, csrf_headers());
