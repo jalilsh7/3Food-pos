@@ -428,7 +428,7 @@ try {
     };
     $stockAfterOrder = $getPayload($pdo, 'ingredients', 'ci-ingredient');
     $customerAfterOrder = $getPayload($pdo, 'customers', 'ci-customer');
-    check((float)($stockAfterOrder['stock'] ?? -1) === 6.0, 'edited order replaces prior stock effect exactly once');
+    check((float)($stockAfterOrder['stock'] ?? -1) === 6.0, 'edited order replaces prior stock effect exactly once; actual=' . json_encode($stockAfterOrder));
     check((int)($customerAfterOrder['visits'] ?? -1) === 1 && (int)($customerAfterOrder['totalSpent'] ?? -1) === 2000, 'edited order replaces customer loyalty effects exactly once');
 
     $cancel = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId) . '/status', ['status' => 'cancelled'], csrf_headers());
