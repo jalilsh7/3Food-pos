@@ -55,7 +55,17 @@ if ($method === 'GET' && $path === '/bootstrap') {
         // Kitchen staff need preparation details, not customer contact data or
         // cashier/manager notes that may contain private instructions.
         if ($user['role'] === 'kitchen') {
-            unset($order['customerId'], $order['customerName'], $order['customerPhone'], $order['note']);
+            // Kitchen receives preparation data only; do not expose customer PII,
+            // selling prices, cost/margin, discounts or payment details in JSON.
+            unset(
+                $order['customerId'], $order['customerName'], $order['customerPhone'],
+                $order['note'], $order['totals'], $order['payment'],
+                $order['pointsUsed'], $order['pointsEarned'], $order['discountCode']
+            );
+            foreach ($order['items'] as &$kitchenLine) {
+                if (is_array($kitchenLine)) unset($kitchenLine['unitPrice'], $kitchenLine['unitCost']);
+            }
+            unset($kitchenLine);
         }
     }
     unset($order);

@@ -905,7 +905,7 @@ function OrdersScreen({ role }: { role: Role }) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="font-bold">#{o.number.toLocaleString("fa-IR")} — {o.customerName}</p>
-              <p className="text-sm text-muted">{o.lines.map((l) => `${l.qty} ${l.name}`).join(" · ")} — {money(o.total)}</p>
+              <p className="text-sm text-muted">{o.lines.map((l) => `${l.qty} ${l.name}`).join(" · ")}{role !== "kitchen" ? ` — ${money(o.total)}` : ""}</p>
               <p className="text-xs text-muted">ثبت: {new Date(o.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})} · زمان سپری‌شده: {formatElapsed(clockNow-new Date(o.createdAt).getTime())}</p>
               {(o.status === "new" || o.status === "preparing") && clockNow - new Date(o.createdAt).getTime() >= Math.max(1, settings.orderDelayMinutes ?? 20) * 60000 ? <p className="mt-1 text-xs font-semibold text-warn">هشدار تأخیر سفارش · بیش از {Math.max(1, settings.orderDelayMinutes ?? 20).toLocaleString("fa-IR")} دقیقه</p> : null}
             </div>
@@ -974,10 +974,12 @@ function OrdersScreen({ role }: { role: Role }) {
       {focus ? (
         <Card>
           <div id="print-root" className="hidden print:block">
-            <ReceiptView order={focus} settings={settings} kind="customer" />
+            {role !== "kitchen" ? <ReceiptView order={focus} settings={settings} kind="customer" /> : null}
             <ReceiptView order={focus} settings={settings} kind="kitchen" />
           </div>
-          <ReceiptView order={focus} settings={settings} kind="customer" />
+          {role === "kitchen"
+            ? <ReceiptView order={focus} settings={settings} kind="kitchen" />
+            : <ReceiptView order={focus} settings={settings} kind="customer" />}
           <div className="mt-2 flex gap-2"><Btn onClick={() => window.print()}>چاپ</Btn><Btn tone="ghost" onClick={() => setFocus(null)}>بستن</Btn></div>
         </Card>
       ) : null}
