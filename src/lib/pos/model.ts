@@ -277,7 +277,8 @@ export function quoteOrder(input: {
     }
   }
   const taxable = Math.max(0, afterCode - pointsDiscount);
-  const tax = input.taxEnabled === false ? 0 : Math.round((taxable * input.taxPercent) / 100);
+  const taxPercent = Math.min(100, Math.max(0, Number(input.taxPercent) || 0));
+  const tax = input.taxEnabled === false ? 0 : Math.round((taxable * taxPercent) / 100);
   const total = taxable + tax;
   return {
     subtotal,

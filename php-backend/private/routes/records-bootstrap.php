@@ -187,6 +187,13 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
                     json_response(['ok' => false, 'error' => 'invalid_stock_policy', 'message' => 'سیاست موجودی انتخاب‌شده معتبر نیست'], 422);
                 }
             }
+            if (array_key_exists('taxPercent', $item)) {
+                if (!is_numeric($item['taxPercent']) || !is_finite((float)$item['taxPercent']) ||
+                    (float)$item['taxPercent'] < 0 || (float)$item['taxPercent'] > 100) {
+                    json_response(['ok' => false, 'error' => 'invalid_tax_percent', 'message' => 'درصد مالیات باید بین صفر تا صد باشد'], 422);
+                }
+                $item['taxPercent'] = (float)$item['taxPercent'];
+            }
             foreach (['pointsPerToman', 'tomanPerPoint'] as $pointsField) {
                 if (array_key_exists($pointsField, $item)) {
                     $pointsValue = filter_var($item[$pointsField], FILTER_VALIDATE_INT);
