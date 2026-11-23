@@ -1011,6 +1011,7 @@ function StockScreen() {
   const lows = lowStock(ingredients);
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("عدد");
+  const [minimumStock, setMinimumStock] = useState("5");
   const [adjustmentAmount, setAdjustmentAmount] = useState("1");
   function adjustIngredient(id:string, direction:1|-1, commit:(item:typeof ingredients[number])=>void){
     const amount=Number(adjustmentAmount);
@@ -1024,9 +1025,20 @@ function StockScreen() {
     <div className="space-y-3">
       <PageHeading title="انبار مواد اولیه" description="موجودی، حد هشدار و تغییرات روزانه مواد اولیه را کنترل کنید." />
       {lows.length ? <Card className="bg-warn-bg text-warn">کمبود: {lows.map((i) => i.name).join("، ")}</Card> : <p className="text-sm text-leaf">موجودی بالای حد هشدار است.</p>}
-      <form className="grid gap-2 sm:grid-cols-3" onSubmit={(e) => { e.preventDefault(); if (!name.trim()) return; const item = { id: uid("i"), name: name.trim(), unit, stock: 0, minStock: 5, costPerUnit: 0 }; void saveCentralRecord("ingredients", item, () => saveIngredient(item)).then((ok) => { if (ok) setName(""); }); }}>
+      <form className="grid gap-2 sm:grid-cols-4" onSubmit={(e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        const minStock = Number(minimumStock);
+        if (!Number.isFinite(minStock) || minStock < 0 || minStock > 1000000 || Math.round(minStock * 1000) !== minStock * 1000) {
+          window.alert("حد هشدار باید عددی معتبر با حداکثر سه رقم اعشار باشد.");
+          return;
+        }
+        const item = { id: uid("i"), name: name.trim(), unit, stock: 0, minStock, costPerUnit: 0 };
+        void saveCentralRecord("ingredients", item, () => saveIngredient(item)).then((ok) => { if (ok) setName(""); });
+      }}>
         <input className={inputCls} placeholder="ماده جدید" value={name} onChange={(e) => setName(e.target.value)} />
         <input className={inputCls} placeholder="واحد" value={unit} onChange={(e) => setUnit(e.target.value)} />
+        <label className="space-y-1 text-xs text-muted"><span>حد هشدار موجودی</span><input className={inputCls} type="number" min="0" max="1000000" step="0.001" value={minimumStock} onChange={(e) => setMinimumStock(e.target.value)} /></label>
         <Btn type="submit">افزودن</Btn>
       </form>
       {ingredients.map((i) => (
@@ -1039,6 +1051,17 @@ function StockScreen() {
             <div className="flex flex-wrap items-center gap-2">
               <label className="sr-only" htmlFor={`stock-adjust-${i.id}`}>مقدار تغییر موجودی {i.name}</label>
               <input id={`stock-adjust-${i.id}`} className={inputCls+" w-24"} type="number" min="0.001" max="1000000" step="0.001" inputMode="decimal" value={adjustmentAmount} onChange={event=>setAdjustmentAmount(event.target.value)} aria-label={`مقدار تغییر موجودی ${i.name}`}/>
+              <Btn tone="ghost" onClick={() => {
+                const raw = window.prompt("حد هشدار موجودی برای " + i.name, String(i.minStock ?? 0));
+                if (raw === null) return;
+                const minStock = Number(raw);
+                if (!Number.isFinite(minStock) || minStock < 0 || minStock > 1000000 || Math.round(minStock * 1000) !== minStock * 1000) {
+                  window.alert("حد هشدار باید عددی معتبر با حداکثر سه رقم اعشار باشد.");
+                  return;
+                }
+                const updated = { ...i, minStock };
+                void saveCentralRecord("ingredients", updated, () => saveIngredient(updated));
+              }}>حد هشدار</Btn>
               <Btn tone="ghost" onClick={() => adjustIngredient(i.id,-1,saveIngredient)}>کاهش</Btn>
               <Btn tone="leaf" onClick={() => adjustIngredient(i.id,1,saveIngredient)}>افزایش</Btn>
             </div>
