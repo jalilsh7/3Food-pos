@@ -1,7 +1,7 @@
 <?php
 // Order route module loaded in the shared API dispatcher scope.
 if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
-    $actor = require_role($pdo, ['manager','kitchen']);
+    $actor = require_role($pdo, ['manager','cashier','kitchen']);
     require_csrf();
     $id = (int)$m[1];
     $body = request_json();
@@ -20,10 +20,11 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
         }
         $currentStatus = (string)$currentOrder['status'];
         $currentPaymentMethod = (string)($currentOrder['payment_method'] ?? 'cash');
-        // Enforce the kitchen role's exact workflow on the server, not only in UI.
-        if ($actor['role'] === 'kitchen' && !in_array($status, ['preparing', 'ready'], true)) {
+        // Cashiers and kitchen staff share the limited preparation workflow.
+        // The manager alone may deliver or cancel orders.
+        if (in_array($actor['role'], ['cashier', 'kitchen'], true) && !in_array($status, ['preparing', 'ready'], true)) {
             $pdo->rollBack();
-            json_response(['ok' => false, 'error' => 'forbidden', 'message' => 'نقش آشپز فقط مجاز به شروع آماده‌سازی و اعلام آماده‌شدن سفارش است'], 403);
+            json_response(['ok' => false, 'error' => 'forbidden', 'message' => 'این نقش فقط مجاز به شروع آماده‌سازی و اعلام آماده‌شدن سفارش است'], 403);
         }
         if ($status === 'cancelled' && in_array($currentPaymentMethod, ['card','online'], true)) {
             $pdo->rollBack();
@@ -45,11 +46,6 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
                 'message' => 'تغییر وضعیت سفارش از وضعیت فعلی مجاز نیست',
             ], 409);
         }
-        if ($actor['role'] === 'kitchen' && $status === 'cancelled') {
-            $pdo->rollBack();
-            json_response(['ok' => false, 'error' => 'forbidden'], 403);
-        }
-
         if ($status === 'cancelled') {
             $redemptionStmt = $pdo->prepare('SELECT id, discount_id FROM pos_discount_redemptions WHERE order_id = ? AND reversed_at IS NULL FOR UPDATE');
             $redemptionStmt->execute([$id]);
