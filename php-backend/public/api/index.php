@@ -6,9 +6,8 @@ date_default_timezone_set('UTC');
 require_once dirname(__DIR__, 2) . '/private/api-bootstrap.php';
 
 /**
- * 3Food POS - PHP API foundation
- * Phase 1: database connectivity, first-manager setup, sessions and RBAC.
- * All business/POS endpoints are added in later migration phases.
+ * 3Food POS - PHP API dispatcher.
+ * Shared security/database helpers and business routes are loaded from private modules.
  */
 
 $configPath = dirname(__DIR__, 2) . '/private/config.php';
