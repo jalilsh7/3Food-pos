@@ -224,7 +224,7 @@ export const usePos = create<PosState & Actions>()(
               }
             }
           }
-          return { ...ing, stock: +(ing.stock - need).toFixed(2) };
+          return { ...ing, stock: +(ing.stock - need).toFixed(3) };
         });
         customers = customers.map((c) =>
           c.id === customerId
