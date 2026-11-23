@@ -123,6 +123,15 @@ mkdirSync(resolve(publicRoot, "uploads"), { recursive: true });
 cpSync(resolve(root, "php-backend/public/uploads/.htaccess"), resolve(publicRoot, "uploads/.htaccess"));
 cpSync(resolve(root, "php-backend/public/api"), resolve(publicRoot, "api"), { recursive: true });
 cpSync(resolve(root, "php-backend/private/.htaccess"), resolve(privateRoot, ".htaccess"));
+cpSync(
+  resolve(root, "php-backend/private/api-bootstrap.php"),
+  resolve(privateRoot, "api-bootstrap.php"),
+);
+cpSync(
+  resolve(root, "php-backend/private/routes"),
+  resolve(privateRoot, "routes"),
+  { recursive: true },
+);
 for (const helper of ["birthday-sms.php", "birthday-sms-inbox.php"]) {
   cpSync(
     resolve(root, "php-backend/private", helper),
@@ -178,6 +187,8 @@ const manifest = {
   staticEntry: "public/index.html",
   apiEntry: "public/api/index.php",
   privateConfigTemplate: "private/config.example.php",
+  privateApiBootstrap: "private/api-bootstrap.php",
+  privateApiRoutes: "private/routes/",
   schema: "database/schema.sql",
 };
 writeFileSync(resolve(packageRoot, "package-manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
@@ -187,6 +198,17 @@ const packagedFiles = [
   "public/.htaccess",
   "public/api/index.php",
   "private/.htaccess",
+  "private/api-bootstrap.php",
+  "private/routes/appearance.php",
+  "private/routes/auth-users.php",
+  "private/routes/inventory-backup.php",
+  "private/routes/orders-create.php",
+  "private/routes/orders-edit.php",
+  "private/routes/orders-status.php",
+  "private/routes/orders.php",
+  "private/routes/records-bootstrap.php",
+  "private/routes/reports-sms.php",
+  "private/routes/terminals.php",
   "private/config.example.php",
   "private/birthday-sms.php",
   "private/birthday-sms-inbox.php",
