@@ -440,14 +440,14 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
             }
         }
         if ($resource === 'ingredients') {
-            $recipeUsage = $pdo->prepare("SELECT 1 FROM pos_records WHERE resource = 'products' AND JSON_SEARCH(payload, 'one', ?, NULL, '$.recipe[*].ingredientId') IS NOT NULL LIMIT 1");
-            $recipeUsage->execute([$id]);
+            $recipeUsage = $pdo->prepare("SELECT 1 FROM pos_records WHERE resource = 'products' AND (JSON_SEARCH(payload, 'one', ?, NULL, '$.recipe[*].ingredientId') IS NOT NULL OR JSON_SEARCH(payload, 'one', ?, NULL, '$.options[*].ingredientId') IS NOT NULL) LIMIT 1");
+            $recipeUsage->execute([$id, $id]);
             $ledgerUsage = $pdo->prepare("SELECT 1 FROM pos_records WHERE resource = 'supplier_purchases' AND JSON_UNQUOTE(JSON_EXTRACT(payload, '$.ingredientId')) = ? LIMIT 1");
             $ledgerUsage->execute([$id]);
             $orderUsage = $pdo->prepare("SELECT 1 FROM pos_order_effects WHERE effect_type = 'ingredient' AND resource_id = ? LIMIT 1");
             $orderUsage->execute([$id]);
             if ($recipeUsage->fetchColumn() !== false || $ledgerUsage->fetchColumn() !== false || $orderUsage->fetchColumn() !== false) {
-                json_response(['ok' => false, 'error' => 'ingredient_has_history', 'message' => 'این ماده اولیه در دستور ساخت یا سوابق انبار/سفارش استفاده شده است و قابل حذف نیست'], 409);
+                json_response(['ok' => false, 'error' => 'ingredient_has_history', 'message' => 'این ماده اولیه در دستور ساخت، افزودنی محصول یا سوابق انبار/سفارش استفاده شده است و قابل حذف نیست'], 409);
             }
         }
         if ($resource === 'expense_categories') {

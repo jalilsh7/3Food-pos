@@ -38,32 +38,53 @@ function loyalty_discount_rate(int $points, array $settings): int {
     return $key===null?0:max(0,min(100,(int)($settings[$key]??(['silver'=>3,'gold'=>5,'platinum'=>8][$tier]))));
 }
 
-function product_unit_cost(PDO $pdo, array $product): int {
+function product_unit_cost(PDO $pdo, array $product, array $selectedOptionIds = []): int {
     $configured=max(0,(int)($product['cost']??0));
     $recipe=$product['recipe']??[];
-    if(!is_array($recipe)||!$recipe)return $configured;
+    $baseCost=$configured;
     $stmt=$pdo->prepare("SELECT payload FROM pos_records WHERE resource='ingredients' AND id=? LIMIT 1");
-    $total=0.0;
-    $lineCount=0;
-    foreach($recipe as $line){
-        if(!is_array($line))return $configured;
-        $id=trim((string)($line['ingredientId']??''));
-        $qtyRaw=$line['qty']??null;
-        if($id===''||!is_numeric($qtyRaw))return $configured;
+    if(is_array($recipe)&&$recipe){
+        $total=0.0;
+        $lineCount=0;
+        foreach($recipe as $line){
+            if(!is_array($line)){$total=null;break;}
+            $id=trim((string)($line['ingredientId']??''));
+            $qtyRaw=$line['qty']??null;
+            if($id===''||!is_numeric($qtyRaw)){$total=null;break;}
+            $qty=(float)$qtyRaw;
+            if(!is_finite($qty)||$qty<=0||$qty>1000000){$total=null;break;}
+            $stmt->execute([$id]);$raw=$stmt->fetchColumn();
+            $ingredient=is_string($raw)?json_decode($raw,true):null;
+            $unitCostRaw=is_array($ingredient)?($ingredient['costPerUnit']??null):null;
+            if(!is_array($ingredient)||!is_numeric($unitCostRaw)){$total=null;break;}
+            $unitCost=(float)$unitCostRaw;
+            if(!is_finite($unitCost)||$unitCost<0){$total=null;break;}
+            $total+=$unitCost*$qty;
+            $lineCount++;
+        }
+        // Never understate base COGS with a partial recipe.
+        if($total!==null&&$lineCount>0)$baseCost=(int)round($total);
+    }
+    $selected=array_fill_keys(array_map('strval',$selectedOptionIds),true);
+    if(!$selected)return $baseCost;
+    $optionCost=0.0;
+    foreach(($product['options']??[]) as $option){
+        if(!is_array($option)||!isset($selected[(string)($option['id']??'')]))continue;
+        $ingredientId=trim((string)($option['ingredientId']??''));
+        if($ingredientId==='')continue;
+        $qtyRaw=$option['ingredientQty']??null;
+        if(!is_numeric($qtyRaw))return $baseCost;
         $qty=(float)$qtyRaw;
-        if(!is_finite($qty)||$qty<=0||$qty>1000000)return $configured;
-        $stmt->execute([$id]);$raw=$stmt->fetchColumn();
+        if(!is_finite($qty)||$qty<=0||$qty>1000000)return $baseCost;
+        $stmt->execute([$ingredientId]);$raw=$stmt->fetchColumn();
         $ingredient=is_string($raw)?json_decode($raw,true):null;
         $unitCostRaw=is_array($ingredient)?($ingredient['costPerUnit']??null):null;
-        if(!is_array($ingredient)||!is_numeric($unitCostRaw))return $configured;
+        if(!is_array($ingredient)||!is_numeric($unitCostRaw))return $baseCost;
         $unitCost=(float)$unitCostRaw;
-        if(!is_finite($unitCost)||$unitCost<0)return $configured;
-        $total+=$unitCost*$qty;
-        $lineCount++;
+        if(!is_finite($unitCost)||$unitCost<0)return $baseCost;
+        $optionCost+=$unitCost*$qty;
     }
-    // Never understate COGS with a partial recipe: use the configured product cost
-    // until every recipe ingredient has a valid current weighted cost.
-    return $lineCount>0?(int)round($total):$configured;
+    return (int)round($baseCost+$optionCost);
 }
 
 function request_json(): array {

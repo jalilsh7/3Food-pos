@@ -125,7 +125,7 @@ if ($method === 'POST' && $path === '/orders') {
             'productId' => $productId,
             'qty' => (int)$line['qty'],
             'unitPrice' => $unitPrice,
-            'unitCost' => product_unit_cost($pdo,$product),
+            'unitCost' => product_unit_cost($pdo,$product,$optionIds),
             'optionIds' => $optionIds,
             'optionLabels' => $optionLabels,
             'note' => isset($line['note']) ? substr(trim((string)$line['note']), 0, 500) : '',
