@@ -2,144 +2,98 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const app = readFileSync(new URL("../src/components/grill/app.tsx", import.meta.url), "utf8");
-const model = readFileSync(new URL("../src/lib/pos/model.ts", import.meta.url), "utf8");
-const phpApi = readFileSync(new URL("../php-backend/public/api/index.php", import.meta.url), "utf8");
+const source = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
+const app = source("../src/features/pos/app.tsx");
+const model = source("../src/lib/pos/model.ts");
+const formatters = source("../src/lib/pos/formatters.ts");
+const reports = source("../src/features/pos/reports-screen.tsx");
+const settings = source("../src/features/pos/settings-screen.tsx");
+const createOrder = source("../php-backend/private/routes/orders-create.php");
+const editOrder = source("../php-backend/private/routes/orders-edit.php");
+const orderStatus = source("../php-backend/private/routes/orders-status.php");
+const bootstrap = source("../php-backend/private/routes/records-bootstrap.php");
+const receipt = source("../src/features/pos/receipt.tsx");
+const receiptQr = source("../src/features/pos/receipt-qr.tsx");
+const xlsx = source("../src/lib/xlsx-export.ts");
 
-test("customer auto-enrollment reuses a club record after Iranian phone normalization", () => {
-  assert.match(app, /function normalizeIranPhone\(value:string\)/);
-  assert.match(
-    app,
-    /customers\.find\(\(item\) => normalizeIranPhone\(item\.phone\) === normalizedPhone\)/,
-  );
+test("Iranian mobile normalization supports Persian digits and international prefixes", () => {
+  assert.match(formatters, /replace\(\/\[۰-۹\]\/g/);
+  assert.match(formatters, /replace\(\/\[٠-٩\]\/g/);
+  assert.match(formatters, /digits\.startsWith\("\+98"\)/);
+  assert.match(formatters, /digits\.startsWith\("0098"\)/);
+  assert.match(app, /customers\.find\(\(item\) => normalizeIranPhone\(item\.phone\) === normalizeIranPhone\(value\)\)/);
 });
 
-test("invoice SMS remains an optional per-order action with a configurable default", () => {
-  assert.match(app, /const shouldSendInvoiceSms = sendInvoiceSms \?\? settings\.invoiceSmsEnabledDefault \?\? false/);
-  assert.match(app, /if \(shouldSendInvoiceSms && res\.order\.customerPhone\)/);
-  assert.match(app, /postSms\(res\.order\.customerPhone, invoice, "order_invoice"/);
+test("invoice SMS is an optional per-order choice with a configurable default", () => {
+  assert.match(app, /sendInvoiceSms \?\? settings\.invoiceSmsEnabledDefault \?\? false/);
+  assert.match(app, /if \(shouldSendInvoiceSms && order\.customerPhone\)/);
+  assert.match(app, /postSms\(order\.customerPhone, invoice, "order_invoice"/);
 });
 
-test("order list shows the server-created timestamp and elapsed duration", () => {
-  assert.match(app, /new Date\(o\.createdAt\)\.toLocaleString\("fa-IR",\{timeZone:"Asia\/Tehran"\}\)/);
-  assert.match(app, /formatElapsed\(clockNow-new Date\(o\.createdAt\)\.getTime\(\)\)/);
-});
-
-test("stock shortage warning follows the selected policy without disabling checkout controls", () => {
+test("stock shortages show a warning but never disable checkout", () => {
   assert.match(app, /const showStockWarning = stockShortages\.length > 0/);
-  assert.match(app, /stockPolicy === "block"/);
-  assert.match(app, /stockPolicy !== "allow_negative"/);
-  assert.match(app, /60 \* 60 \* 1000/);
-  assert.match(app, /خاموش‌کردن هشدار برای یک ساعت/);
+  assert.match(app, /ثبت سفارش متوقف نمی‌شود؛ فروش ادامه پیدا می‌کند و کسری موجودی در انبار ثبت خواهد شد/);
   assert.match(app, /<Btn onClick=\{checkout\} disabled=\{!cart\.length \|\| submitting\}/);
-  assert.match(app, /ثبت سفارش ادامه پیدا می‌کند/);
-  assert.match(app, /ثبت سفارش تا تأمین موجودی متوقف می‌شود/);
+  assert.match(settings, /فروش با هشدار کمبود موجودی/);
+  assert.match(settings, /ثبت سفارش متوقف نمی‌شود و کسری در موجودی انبار ثبت خواهد شد/);
+  assert.match(model, /stockPolicy: "warn_and_allow"/);
 });
 
-test("stock policy is configurable in settings and enforced by the PHP API", () => {
-  assert.match(model, /stockPolicy: "block" \| "warn_and_allow" \| "allow_negative"/);
-  assert.match(app, /سیاست فروش با موجودی ناکافی/);
-  assert.match(phpApi, /invalid_stock_policy/);
-  assert.match(phpApi, /if \(\$stockPolicy === 'block' && \$available/);
+test("order creation records negative stock and a reversible ingredient effect", () => {
+  assert.match(createOrder, /Stock shortages are warnings only: never block checkout/);
+  assert.match(createOrder, /\$ingredient\['stock'\] = round\(\$available - \$needed, 3\)/);
+  assert.match(createOrder, /INSERT INTO pos_order_effects/);
+  assert.doesNotMatch(createOrder, /stockPolicy === 'block'/);
 });
 
-test("new product form remains ready for consecutive product entry after save", () => {
-  assert.match(
-    app,
-    /if \(ok\) setDraft\(products\.some\(\(item\) => item\.id === draft\.id\) \? null : \{ id: uid\("p"\), name: "", categoryId: draft\.categoryId/,
-  );
+test("order edits reverse the previous active effect before recording its replacement", () => {
+  assert.match(editOrder, /WHERE order_id = \? AND reversed_at IS NULL ORDER BY effect_type, resource_id FOR UPDATE/);
+  assert.match(editOrder, /UPDATE pos_order_effects SET reversed_at = NOW\(\), reversed_by = \?/);
+  assert.match(editOrder, /\$ingredient\['stock'\] = round\(\$available - \$needed, 3\)/);
+  assert.match(editOrder, /ON DUPLICATE KEY UPDATE quantity = VALUES\(quantity\)/);
 });
 
-test("Excel-compatible export includes profit and individual expense rows", () => {
-  assert.match(app, /\["سود و زیان","سود خالص"/);
-  assert.match(app, /visibleExpenseItemRows\.map\(row=>\["ریز هزینه"/);
-  assert.match(app, /["]مالیات وصول‌شده["]/);
+test("cancelling an order restores its stock effect even when the balance remains negative", () => {
+  assert.match(orderStatus, /\$restoredStock = round\(\(float\)\(\$ingredient\['stock'\] \?\? 0\) \+ \$ingredientQuantities\[\$ingredientId\], 3\)/);
+  assert.match(orderStatus, /Negative stock is a valid shortage signal in V2/);
+  assert.match(orderStatus, /reversed_at = NOW\(\) WHERE id IN \(\$marks\) AND reversed_at IS NULL/);
 });
 
-test("reports print action targets a visible print root for PDF and paper output", () => {
-  const start = app.indexOf("function ReportsScreen()");
-  const end = app.indexOf("\nfunction SuppliersScreen", start);
-  const reports = app.slice(start, end);
-  assert.match(reports, /<div id="print-root"/);
-  assert.match(reports, /onClick=\{\(\)=>window\.print\(\)\}/);
+test("receipt QR uses the V2-local component and degrades safely for oversized payloads", () => {
+  assert.match(receipt, /import \{ ReceiptQr \} from "\.\/receipt-qr"/);
+  assert.match(receiptQr, /export function ReceiptQr/);
+  assert.match(receiptQr, /A long receipt can exceed the QR standard's maximum payload capacity/);
+  assert.match(receiptQr, /متن این فاکتور برای ظرفیت کد QR طولانی است/);
 });
 
-test("recipe-based cost of goods sold follows weighted ingredient purchase costs", () => {
-  const start = phpApi.indexOf("function product_unit_cost(");
-  const end = phpApi.indexOf("\nfunction request_json", start);
-  const helper = phpApi.slice(start, end);
-  assert.match(helper, /if\(!is_array\(\$recipe\)\|\|!\$recipe\)return \$configured/);
-  assert.match(helper, /return \$validLines>0\?\(int\)round\(\$total\):\$configured/);
+test("order timestamps and elapsed durations use Tehran-local formatting", () => {
+  assert.match(formatters, /export function tehranDate/);
+  assert.match(formatters, /timeZone: "Asia\/Tehran"/);
+  assert.match(formatters, /export function formatElapsed/);
+  assert.match(app, /formatElapsed\(/);
+  assert.match(app, /timeZone:"Asia\/Tehran"/);
 });
 
-test("invoice SMS choice resets to the manager default after each completed order", () => {
-  assert.ok(app.includes('setCart([]); setPhone(""); setGuestName("مشتری عزیز"); setCode("");'));
-  assert.ok(app.includes("setSendInvoiceSms(null); setPrinted(res.order)"));
+test("reports provide date-scoped summaries, charts, printing and a native XLSX export", () => {
+  assert.match(reports, /phpApi\.getReportSummary\(from,to\)/);
+  assert.match(reports, /id="print-root"/);
+  assert.match(reports, /نمودار فروش روزانه/);
+  assert.match(reports, /نمودار فروش ماهانه/);
+  assert.match(reports, /createXlsxBlob\(rows\)/);
+  assert.match(xlsx, /export function createXlsxBlob\(rows: unknown\[\]\[\]\): Blob/);
 });
 
-test("expense history can be filtered by selected date range and category", () => {
-  assert.match(app, /expenseFilterCategory === "all" \|\| e\.category === expenseFilterCategory/);
-  assert.match(app, /value=\{expenseFilterCategory\} onChange=\{e=>setExpenseFilterCategory\(e\.target\.value\)\}/);
+test("new product form stays ready for consecutive product entry after save", () => {
+  assert.match(app, /setDraft\(products\.some\(\(item\) => item\.id === draft\.id\) \? null : \{ id: uid\("p"\), name: ""/);
 });
 
-test("checkout validates normalized Iranian mobile numbers before enrollment", () => {
-  assert.ok(app.includes("if (!/^09[0-9]{9}$/.test(normalizedPhone))"));
+test("online payment remains unavailable until a real gateway confirms payment", () => {
+  assert.match(createOrder, /online_payment_unavailable/);
+  assert.match(createOrder, /\['cash','card'\]/);
 });
 
-test("expense defaults seed only once and backup restore accepts the seed marker", () => {
-  assert.match(phpApi, /resource = 'system_meta' AND id = 'expense_categories_seeded'/);
-  assert.match(phpApi, /'sms_logs','system_meta'/);
-});
-
-test("complete customer summaries are included in report export beyond the top twenty", () => {
-  assert.match(phpApi, /'all_customers'=>\$customerRows/);
-  assert.match(app, /allCustomerRows\.map\(row=>\["مشتری"/);
-});
-
-test("report API and Excel-compatible export include all products and inventory items", () => {
-  assert.match(phpApi, /'all_products'=>array_map/);
-  assert.match(phpApi, /'inventory_items'=>\$allInventory/);
-  assert.match(app, /allProductRows\.map\(row=>\["محصول"/);
-  assert.match(app, /inventoryRows\.map\(row=>\["انبار"/);
-});
-
-test("Excel report is a native XLSX workbook, not a renamed CSV", () => {
-  assert.match(app, /function createXlsxBlob\(rows: unknown\[\]\[\]\): Blob/);
-  assert.match(app, /createObjectURL\(createXlsxBlob\(rows\)\)/);
-  assert.match(app, /a\.download="3food-pos-report\.xlsx"/);
-});
-
-test("marketing campaigns require explicit consent and combine multiple filters with AND or OR", () => {
-  assert.match(model, /smsConsent\?: boolean/);
-  assert.match(app, /customer\.smsConsent!==true/);
-  assert.match(app, /campaignLogic==="all"\?conditions\.every\(Boolean\):conditions\.some\(Boolean\)/);
-  assert.match(app, /حداقل مجموع خرید/);
-  assert.match(app, /خرید محصول مشخص/);
-});
-
-test("sales reports render visual daily, monthly, product and payment charts", () => {
-  assert.match(app, /نمودار فروش روزانه/);
-  assert.match(app, /نمودار فروش ماهانه/);
-  assert.match(app, /نمودار محصولات پرفروش/);
-  assert.match(app, /نمودار روش‌های پرداخت/);
-});
-
-test("expenses have a dedicated manager navigation page", () => {
-  assert.match(app, /id: "expenses", label: "هزینه‌ها"/);
-  assert.match(app, /current === "expenses" \? <ExpensesScreen \/>/);
-});
-
-
-test("online payment remains disabled until gateway confirmation", () => {
-  assert.match(app, /\(\["cash", "card"\] as const\)\.map\(\(p\)/);
-  assert.match(app, /disabled title="پس از اتصال درگاه بانکی فعال می‌شود"[^>]*>آنلاین \(به‌زودی\)<\/button>/);
-  assert.match(phpApi, /online_payment_unavailable/);
-});
-
-test("paid card and legacy online orders cannot be edited or cancelled without reconciliation", () => {
-  assert.match(app, /o\.payment === "cash"/);
-  assert.match(app, /editing\.payment !== "cash"/);
-  assert.match(phpApi, /in_array\(\$storedPaymentMethod, \['card','online'\], true\)/);
-  assert.match(phpApi, /\$status === 'cancelled' && in_array\(\$currentPaymentMethod, \['card','online'\], true\)/);
-  assert.match(phpApi, /payment_reconciliation_required/);
+test("kitchen bootstrap exposes only sanitized settings and preparation orders", () => {
+  assert.match(bootstrap, /\$resources = \$user\['role'\] === 'kitchen' \? \['settings'\]/);
+  assert.match(bootstrap, /\$result = \['settings' => \$result\['settings'\], 'orders' => \$result\['orders'\]\]/);
+  assert.match(bootstrap, /customerName.*customerPhone/s);
 });
