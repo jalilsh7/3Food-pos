@@ -283,7 +283,7 @@ try {
 
     // Recipe references must point to an ingredient that already exists.
     // The API validates product recipes against the current inventory records.
-    $ingredient = ['id' => 'ci-ingredient', 'name' => 'CI Test Ingredient', 'stock' => 10];
+    $ingredient = ['id' => 'ci-ingredient', 'name' => 'CI Test Ingredient', 'unit' => 'kg', 'minStock' => 0, 'stock' => 10];
     $ingredientSaved = api('POST', '/api/v1/records/ingredients', ['item' => $ingredient], csrf_headers());
     check($ingredientSaved['status'] === 201, 'seed ingredients: ' . json_encode($ingredientSaved['json']));
 
