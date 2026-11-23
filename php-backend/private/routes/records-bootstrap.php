@@ -283,6 +283,21 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
         }
         $ingredientWrite = $resource === 'ingredients' && $actor['role'] === 'manager';
         if ($ingredientWrite) {
+            $ingredientName = trim((string)($item['name'] ?? ''));
+            $ingredientUnit = trim((string)($item['unit'] ?? ''));
+            $ingredientNameLength = preg_match_all('/./us', $ingredientName, $ingredientNameChars);
+            $ingredientUnitLength = preg_match_all('/./us', $ingredientUnit, $ingredientUnitChars);
+            $requestedMinStock = $item['minStock'] ?? null;
+            if ($ingredientName === '' || $ingredientNameLength === false || $ingredientNameLength > 120 ||
+                $ingredientUnit === '' || $ingredientUnitLength === false || $ingredientUnitLength > 24 ||
+                ($requestedMinStock !== null && (!is_numeric($requestedMinStock) || !is_finite((float)$requestedMinStock) ||
+                    (float)$requestedMinStock < 0 || (float)$requestedMinStock > 1000000 ||
+                    round((float)$requestedMinStock, 3) !== (float)$requestedMinStock))) {
+                json_response(['ok' => false, 'error' => 'invalid_ingredient', 'message' => 'نام، واحد یا حد هشدار ماده اولیه معتبر نیست'], 422);
+            }
+            $item['name'] = $ingredientName;
+            $item['unit'] = $ingredientUnit;
+            if ($requestedMinStock !== null) $item['minStock'] = (float)$requestedMinStock;
             $pdo->beginTransaction();
             $currentIngredientStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'ingredients' AND id = ? FOR UPDATE");
             $currentIngredientStmt->execute([$id]);
@@ -295,6 +310,9 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
                 }
                 // Stock changes must go through the audited /ingredients/{id}/stock
                 // endpoint; supplier receipts alone may update weighted unit cost.
+                if (!array_key_exists('minStock', $item)) {
+                    $item['minStock'] = max(0, (float)($currentIngredient['minStock'] ?? 5));
+                }
                 foreach (['stock', 'costPerUnit', 'cost', 'unitCost'] as $protectedField) {
                     if (array_key_exists($protectedField, $currentIngredient)) {
                         $item[$protectedField] = $currentIngredient[$protectedField];
@@ -306,6 +324,7 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
                 // New ingredients always start with zero stock and zero valuation.
                 // Initial stock must be entered through the audited adjustment flow.
                 $item['stock'] = 0;
+                if (!array_key_exists('minStock', $item)) $item['minStock'] = 5;
                 $item['costPerUnit'] = 0;
                 unset($item['cost'], $item['unitCost']);
             }

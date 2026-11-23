@@ -58,6 +58,10 @@ export function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, r
     recipe: Array.isArray(product.recipe) ? product.recipe : [],
     active: product.active !== false,
   }));
+  const ingredients = (data.ingredients ?? []).map((ingredient) => ({
+    ...ingredient,
+    minStock: Number.isFinite(Number(ingredient.minStock)) ? Math.max(0, Number(ingredient.minStock)) : 5,
+  }));
   const orders: Order[] = (data.orders ?? []).map((order) => ({
     id: String(order.id),
     number: Number(order.orderNumber),
@@ -85,7 +89,7 @@ export function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, r
   usePos.setState({
     categories: data.categories ?? [],
     products,
-    ingredients: data.ingredients ?? [],
+    ingredients,
     customers: data.customers ?? [],
     discounts: data.discounts ?? [],
     expenses: data.expenses ?? [],
