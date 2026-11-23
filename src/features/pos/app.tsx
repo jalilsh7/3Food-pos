@@ -309,8 +309,10 @@ async function postSms(phone: string, text: string, event: string, bodyId: strin
 
 function PosScreen({ role }: { role: Role }) {
   const categories = usePos((s) => s.categories);
+  const products = usePos((s) => s.products);
   const ingredients = usePos((s) => s.ingredients);
   const customers = usePos((s) => s.customers);
+  const orders = usePos((s) => s.orders);
   const discounts = usePos((s) => s.discounts);
   const settings = usePos((s) => s.settings);
   const placeOrder = usePos((s) => s.placeOrder);
