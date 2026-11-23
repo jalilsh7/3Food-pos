@@ -361,13 +361,19 @@ try {
     check($overStockEdit['status'] === 200 && ($overStockEdit['json']['order']['id'] ?? '') === $orderId, 'order edit continues with insufficient stock even when legacy block setting exists');
     $stockAfterOverStockEdit = api('GET', '/api/v1/records/ingredients');
     $stockAfterOverStockEditItem = array_values(array_filter($stockAfterOverStockEdit['json']['items'] ?? [], fn($item) => ($item['id'] ?? '') === 'ci-ingredient'))[0] ?? [];
-    check((float)($stockAfterOverStockEditItem['stock'] ?? 0) < 0, 'order edit records negative stock instead of blocking sale; actual=' . json_encode($stockAfterOverStockEditItem));
+    check((float)($stockAfterOverStockEditItem['stock'] ?? 0) === -2.0, 'overstock edit reverses the original order effect once; actual=' . json_encode($stockAfterOverStockEditItem));
     $stockPolicyWarn = api('POST', '/api/v1/records/settings', ['item' => ['id' => 'main', 'stockPolicy' => 'warn_and_allow']], csrf_headers());
     check($stockPolicyWarn['status'] === 201, 'manager can configure warn and allow stock policy');
     $edited = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $editBody, csrf_headers());
     check($edited['status'] === 200 && ($edited['json']['order']['id'] ?? '') === $orderId, 'manager edits existing order without changing its identity');
+    $stockAfterFirstReplacement = api('GET', '/api/v1/records/ingredients');
+    $stockAfterFirstReplacementItem = array_values(array_filter($stockAfterFirstReplacement['json']['items'] ?? [], fn($item) => ($item['id'] ?? '') === 'ci-ingredient'))[0] ?? [];
+    check((float)($stockAfterFirstReplacementItem['stock'] ?? 0) === 6.0, 'editing down from a shortage restores the old quantity before deducting the new quantity; actual=' . json_encode($stockAfterFirstReplacementItem));
     $editedAgain = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $editBody, csrf_headers());
     check($editedAgain['status'] === 200, 'repeated order edit remains idempotent for inventory and loyalty');
+    $stockAfterRepeatedReplacement = api('GET', '/api/v1/records/ingredients');
+    $stockAfterRepeatedReplacementItem = array_values(array_filter($stockAfterRepeatedReplacement['json']['items'] ?? [], fn($item) => ($item['id'] ?? '') === 'ci-ingredient'))[0] ?? [];
+    check((float)($stockAfterRepeatedReplacementItem['stock'] ?? 0) === 6.0, 'repeating the same edit does not deduct inventory twice; actual=' . json_encode($stockAfterRepeatedReplacementItem));
 
     $replay = api('POST', '/api/v1/orders', $orderBody, csrf_headers());
     check($replay['status'] === 200 && ($replay['json']['replayed'] ?? false) === true, 'idempotent retry returns original order');
@@ -429,6 +435,9 @@ try {
     $stockAfterOrder = $getPayload($pdo, 'ingredients', 'ci-ingredient');
     $customerAfterOrder = $getPayload($pdo, 'customers', 'ci-customer');
     check((float)($stockAfterOrder['stock'] ?? -1) === 6.0, 'edited order replaces prior stock effect exactly once; actual=' . json_encode($stockAfterOrder));
+    $activeIngredientEffects = $pdo->prepare("SELECT COUNT(*) FROM pos_order_effects WHERE order_id = ? AND effect_type = 'ingredient' AND resource_id = 'ci-ingredient' AND reversed_at IS NULL AND quantity = 4");
+    $activeIngredientEffects->execute([(int)$orderId]);
+    check((int)$activeIngredientEffects->fetchColumn() === 1, 'edited order keeps exactly one active ledger row with the replacement quantity');
     check((int)($customerAfterOrder['visits'] ?? -1) === 1 && (int)($customerAfterOrder['totalSpent'] ?? -1) === 2000, 'edited order replaces customer loyalty effects exactly once');
 
     $cancel = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId) . '/status', ['status' => 'cancelled'], csrf_headers());
