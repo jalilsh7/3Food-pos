@@ -46,6 +46,7 @@ if ($method === 'POST' && $path === '/orders') {
     $ingredientNeeds = [];
     $canonicalItems = [];
     $productSnapshots = [];
+    $productsById = [];
     $productLookup = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'products' AND id = ? LIMIT 1");
     foreach ($items as $line) {
         if (!is_array($line) || !isset($line['productId'], $line['qty']) || !is_numeric($line['qty']) || (float)$line['qty'] <= 0 || (float)$line['qty'] > 999 || floor((float)$line['qty']) !== (float)$line['qty']) {
@@ -56,6 +57,7 @@ if ($method === 'POST' && $path === '/orders') {
         $product = is_string($productRaw) ? json_decode($productRaw, true) : null;
         if (!is_array($product) || empty($product['active'])) json_response(['ok' => false, 'error' => 'product_unavailable', 'message' => 'یکی از محصولات سفارش فعال نیست'], 409);
         $productId = (string)$line['productId'];
+        $productsById[$productId] = $product;
         $productSnapshots[$productId] = hash('sha256', (string)$productRaw);
         // Derive ingredient consumption from a validated server-side recipe,
         // never from browser input; malformed legacy recipes must not silently
@@ -125,7 +127,7 @@ if ($method === 'POST' && $path === '/orders') {
             'productId' => $productId,
             'qty' => (int)$line['qty'],
             'unitPrice' => $unitPrice,
-            'unitCost' => product_unit_cost($pdo,$product,$optionIds),
+            'unitCost' => 0,
             'optionIds' => $optionIds,
             'optionLabels' => $optionLabels,
             'note' => isset($line['note']) ? substr(trim((string)$line['note']), 0, 500) : '',
@@ -352,6 +354,16 @@ if ($method === 'POST' && $path === '/orders') {
                 $ingredientId,
             ]);
         }
+
+        // Capture recipe cost only after every affected ingredient row is locked.
+        // This keeps the order's historical COGS consistent with the stock valuation
+        // used by the same transaction, even when a supplier purchase races checkout.
+        foreach ($canonicalItems as &$canonicalItem) {
+            $canonicalProduct = $productsById[(string)$canonicalItem['productId']] ?? null;
+            if (!is_array($canonicalProduct)) throw new RuntimeException('Order product snapshot missing during COGS calculation');
+            $canonicalItem['unitCost'] = product_unit_cost($pdo, $canonicalProduct, $canonicalItem['optionIds']);
+        }
+        unset($canonicalItem);
 
         // Serialize loyalty balance changes so two cashiers cannot spend the same points.
         if ($customerId !== '') {
