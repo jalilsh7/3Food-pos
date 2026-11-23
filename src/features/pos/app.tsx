@@ -422,8 +422,14 @@ function PosScreen({ role }: { role: Role }) {
       const result=await phpApi.getTerminalPayment(pending.id);
       const status=result.payment.status;
       if(status==="approved")return pending.id;
-      if(status==="declined")throw new Error("بانک تراکنش را رد کرد. مبلغی به‌عنوان پرداخت موفق ثبت نشد.");
-      if(status==="cancelled")throw new Error("تراکنش کارتخوان لغو شد.");
+      if(status==="declined"){
+        pendingTerminalPayment.current=null;
+        throw new Error("بانک تراکنش را رد کرد. مبلغی به‌عنوان پرداخت موفق ثبت نشد؛ اکنون می‌توانید پرداخت جدیدی انجام دهید.");
+      }
+      if(status==="cancelled"){
+        pendingTerminalPayment.current=null;
+        throw new Error("تراکنش کارتخوان لغو شد؛ اکنون می‌توانید پرداخت جدیدی انجام دهید.");
+      }
       if(status==="unknown"||status==="expired")throw new Error("نتیجه تراکنش قطعی نیست. قبل از تلاش مجدد، وضعیت را از کارتخوان یا بانک استعلام کنید.");
       await new Promise<void>(resolve=>window.setTimeout(resolve,1500));
     }
