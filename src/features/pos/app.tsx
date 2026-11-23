@@ -327,6 +327,8 @@ function PosScreen({ role }: { role: Role }) {
   const [terminalOptions,setTerminalOptions]=useState<PaymentTerminal[]>([]);
   const [selectedTerminalId,setSelectedTerminalId]=useState("");
   const pendingTerminalPayment=useRef<{id:string;amount:number;terminalId:string}|null>(null);
+  // Retain the request key before network I/O so a lost response can be replayed safely.
+  const pendingTerminalRequest=useRef<{key:string;amount:number;terminalId:string}|null>(null);
   const [sendInvoiceSms, setSendInvoiceSms] = useState<boolean | null>(null);
   const shouldSendInvoiceSms = sendInvoiceSms ?? settings.invoiceSmsEnabledDefault ?? false;
   const [msg, setMsg] = useState("");
@@ -420,8 +422,12 @@ function PosScreen({ role }: { role: Role }) {
         setTerminalOptions(available);
         const terminal=available.find(t=>t.id===selectedTerminalId)??available.find(t=>t.is_default||t.isDefault)??available[0];
         if(!terminal)throw new Error("کارتخوان آنلاین و دارای درایور تأییدشده پیدا نشد؛ تنظیمات کارتخوان را بررسی کنید.");
-        const created=await phpApi.createTerminalPayment({terminalId:terminal.id,amount,idempotencyKey:crypto.randomUUID()});
-        pending={id:created.payment.id,amount,terminalId:terminal.id};pendingTerminalPayment.current=pending;
+        let request=pendingTerminalRequest.current;
+        if(request&&request.amount!==amount)throw new Error("یک درخواست پرداخت قبلی با مبلغ متفاوت تعیین‌تکلیف نشده است؛ ابتدا همان تراکنش را بررسی کنید.");
+        if(request&&request.terminalId!==terminal.id)throw new Error("درخواست پرداخت قبلی به کارتخوان دیگری تعلق دارد؛ ابتدا همان تراکنش را تعیین‌تکلیف کنید.");
+        if(!request){request={key:crypto.randomUUID(),amount,terminalId:terminal.id};pendingTerminalRequest.current=request;}
+        const created=await phpApi.createTerminalPayment({terminalId:request.terminalId,amount,idempotencyKey:request.key});
+        pending={id:created.payment.id,amount,terminalId:request.terminalId};pendingTerminalPayment.current=pending;
       }
     }
     for(let attempt=0;attempt<60;attempt++){
@@ -430,10 +436,12 @@ function PosScreen({ role }: { role: Role }) {
       if(status==="approved")return pending.id;
       if(status==="declined"){
         pendingTerminalPayment.current=null;
+        pendingTerminalRequest.current=null;
         throw new Error("بانک تراکنش را رد کرد. مبلغی به‌عنوان پرداخت موفق ثبت نشد؛ اکنون می‌توانید پرداخت جدیدی انجام دهید.");
       }
       if(status==="cancelled"){
         pendingTerminalPayment.current=null;
+        pendingTerminalRequest.current=null;
         throw new Error("تراکنش کارتخوان لغو شد؛ اکنون می‌توانید پرداخت جدیدی انجام دهید.");
       }
       if(status==="unknown"||status==="expired")throw new Error("نتیجه تراکنش قطعی نیست. قبل از تلاش مجدد، وضعیت را از کارتخوان یا بانک استعلام کنید.");
@@ -539,6 +547,7 @@ function PosScreen({ role }: { role: Role }) {
       }
       pendingIdempotencyKey.current = null;
       pendingTerminalPayment.current = null;
+      pendingTerminalRequest.current = null;
       setMsg(`سفارش ${order.number.toLocaleString("fa-IR")} ثبت شد`);
       setCart([]); setPhone(""); setGuestName("مشتری عزیز"); setCode(""); setPoints(0); setSendInvoiceSms(null); setPrinted(order);
       const fresh = usePos.getState().customers.find((c) => c.id === order.customerId);
