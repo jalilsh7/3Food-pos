@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Btn, Card, Empty, Field, PageHeading, inputCls } from "./bits";
+import { Btn, Card, Empty, PageHeading, inputCls } from "./bits";
 import { money, TIER_LABEL, tierOf, uid, type Role } from "@/lib/pos/model";
 import { usePos } from "@/lib/pos/store";
 import { normalizeIranPhone } from "@/lib/pos/formatters";
@@ -10,7 +10,6 @@ type CustomersScreenProps = {
 };
 
 export function CustomersScreen({ role, saveRecord }: CustomersScreenProps) {
- role }: { role: Role }) {
   const customers = usePos((s) => s.customers);
   const settings = usePos((s) => s.settings);
   const patchSettings = usePos((s) => s.patchSettings);
