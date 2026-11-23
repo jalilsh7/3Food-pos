@@ -215,6 +215,14 @@ const packagedFiles = [
   "private/birthday-sms-inbox.php",
   "database/schema.sql",
   "database/migrations/README-FA.md",
+  "database/migrations/002-session-version.sql",
+  "database/migrations/003-order-idempotency.sql",
+  "database/migrations/004-order-effects-ledger.sql",
+  "database/migrations/005-order-discount-code.sql",
+  "database/migrations/006-discount-redemptions-ledger.sql",
+  "database/migrations/007-order-payment-and-guest-details.sql",
+  "database/migrations/008-global-appearance-settings.sql",
+  "database/migrations/009-payment-terminal-foundation.sql",
   "DEPLOYMENT-FA.md",
 ];
 for (const relativePath of packagedFiles) {
