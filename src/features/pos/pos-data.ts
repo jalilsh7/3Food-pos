@@ -52,6 +52,12 @@ export function readLegacyBrowserPosState(): Partial<PosState> | null {
 export function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, role: Role) {
   const current = usePos.getState();
   const serverSettings = data.settings?.[0];
+  const products = (data.products ?? []).map((product) => ({
+    ...product,
+    options: Array.isArray(product.options) ? product.options : [],
+    recipe: Array.isArray(product.recipe) ? product.recipe : [],
+    active: product.active !== false,
+  }));
   const orders: Order[] = (data.orders ?? []).map((order) => ({
     id: String(order.id),
     number: Number(order.orderNumber),
@@ -78,7 +84,7 @@ export function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, r
   // manager-only records from a previous in-memory session).
   usePos.setState({
     categories: data.categories ?? [],
-    products: data.products ?? [],
+    products,
     ingredients: data.ingredients ?? [],
     customers: data.customers ?? [],
     discounts: data.discounts ?? [],
