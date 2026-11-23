@@ -281,6 +281,12 @@ try {
     $fetchSiteRejected = api('POST', '/api/v1/records/products', ['item' => ['id' => 'bad']], ['X-CSRF-Token: ' . $csrf, 'Sec-Fetch-Site: cross-site']);
     check($fetchSiteRejected['status'] === 403, 'cross-site fetch metadata is rejected even without Origin');
 
+    // Recipe references must point to an ingredient that already exists.
+    // The API validates product recipes against the current inventory records.
+    $ingredient = ['id' => 'ci-ingredient', 'name' => 'CI Test Ingredient', 'stock' => 10];
+    $ingredientSaved = api('POST', '/api/v1/records/ingredients', ['item' => $ingredient], csrf_headers());
+    check($ingredientSaved['status'] === 201, 'seed ingredients: ' . json_encode($ingredientSaved['json']));
+
     $product = [
         'id' => 'ci-product',
         'name' => 'CI Test Product',
@@ -289,9 +295,8 @@ try {
         'options' => [],
         'recipe' => [['ingredientId' => 'ci-ingredient', 'qty' => 2]],
     ];
-    $ingredient = ['id' => 'ci-ingredient', 'name' => 'CI Test Ingredient', 'stock' => 10];
     $customer = ['id' => 'ci-customer', 'name' => 'CI Customer', 'phone' => '09000000000', 'points' => 0, 'totalSpent' => 0, 'visits' => 0];
-    foreach ([['products', $product], ['ingredients', $ingredient], ['customers', $customer]] as [$resource, $item]) {
+    foreach ([['products', $product], ['customers', $customer]] as [$resource, $item]) {
         $saved = api('POST', '/api/v1/records/' . $resource, ['item' => $item], csrf_headers());
         check($saved['status'] === 201, 'seed ' . $resource . ': ' . json_encode($saved['json']));
     }
