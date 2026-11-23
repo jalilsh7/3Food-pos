@@ -1805,7 +1805,6 @@ if ($method === 'POST' && $path === '/orders') {
     $taxPercent = (float)($taxSettings['taxPercent'] ?? 0);
     $stockPolicy = (string)($taxSettings['stockPolicy'] ?? 'warn_and_allow');
     if (!in_array($stockPolicy, ['block', 'warn_and_allow', 'allow_negative'], true)) $stockPolicy = 'warn_and_allow';
-    error_log('[3Food POS] Order edit stock policy: ' . json_encode(['policy' => $stockPolicy, 'settings_id' => 'main']));
     if (!is_finite($taxPercent) || $taxPercent < 0 || $taxPercent > 100) {
         json_response(['ok' => false, 'error' => 'invalid_tax_settings', 'message' => 'تنظیم درصد مالیات معتبر نیست'], 409);
     }
@@ -2316,6 +2315,7 @@ if (preg_match('#^/orders/(\d+)$#', $path, $editMatch) && $method === 'PATCH') {
     $taxPercent = (float)($taxSettings['taxPercent'] ?? 0);
     $stockPolicy = (string)($taxSettings['stockPolicy'] ?? 'warn_and_allow');
     if (!in_array($stockPolicy, ['block', 'warn_and_allow', 'allow_negative'], true)) $stockPolicy = 'warn_and_allow';
+    error_log('[3Food POS] Order edit stock policy: ' . json_encode(['policy' => $stockPolicy, 'settings_id' => 'main']));
     if (!is_finite($taxPercent) || $taxPercent < 0 || $taxPercent > 100) {
         json_response(['ok' => false, 'error' => 'invalid_tax_settings', 'message' => 'تنظیم درصد مالیات معتبر نیست'], 409);
     }
