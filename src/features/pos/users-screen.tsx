@@ -3,7 +3,7 @@ import { Btn, Card, Field, PageHeading, inputCls } from "./bits";
 import { phpApi, type ManagedUser } from "@/lib/api/php-client";
 import type { Role } from "@/lib/pos/model";
 
-const ROLE_LABEL: Record<Role, string> = {
+export const ROLE_LABEL: Record<Role, string> = {
   manager: "مدیر",
   cashier: "صندوقدار",
   kitchen: "آشپز",

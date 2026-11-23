@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChefHat, ClipboardList, LayoutDashboard, MessageSquare, Percent,
   Settings as SettingsIcon, ShoppingBag, Users, UtensilsCrossed, Warehouse, Truck, LogOut,
@@ -7,16 +7,14 @@ import { Btn, Card, Empty, Field, PageHeading, inputCls } from "./bits";
 import { ReceiptView } from "./receipt";
 import {
   customerCodeUses, fillTemplate, money, quoteOrder, TIER_LABEL, tierOf, uid,
-  type CartLine, type DiscountCode, type Order, type Product, type Role, type SmsEvent, type PosState, type Settings, type SmsLog,
+  type CartLine, type Order, type Product, type Role, type SmsEvent, type SmsLog,
 } from "@/lib/pos/model";
 import { lowStock, usePos } from "@/lib/pos/store";
-import { phpApi, type ApiUser } from "@/lib/api/php-client";
+import { phpApi, type ApiUser, type PaymentTerminal } from "@/lib/api/php-client";
 import { useAppearance } from "@/lib/appearance";
 
-import { asciiDigits, isoToJalali, jalaliToIso } from "@/lib/iranian-date";
-import { createXlsxBlob } from "@/lib/xlsx-export";
 import { normalizeIranPhone, tehranDate, formatElapsed } from "@/lib/pos/formatters";
-import { UsersScreen } from "./users-screen";
+import { ROLE_LABEL, UsersScreen } from "./users-screen";
 import { AuthFrame, PhpLoginScreen, ChangePasswordScreen } from "./auth-screens";
 import { SmsScreen } from "./sms-screen";
 import { SuppliersScreen } from "./suppliers-screen";
