@@ -10,7 +10,7 @@ import {
   type CartLine, type Order, type Product, type Role, type SmsEvent, type SmsLog,
 } from "@/lib/pos/model";
 import { lowStock, usePos } from "@/lib/pos/store";
-import { phpApi, type ApiUser, type PaymentTerminal } from "@/lib/api/php-client";
+import { phpApi, PhpApiError, type ApiUser, type PaymentTerminal } from "@/lib/api/php-client";
 import { useAppearance } from "@/lib/appearance";
 
 import { normalizeIranPhone, tehranDate, formatElapsed } from "@/lib/pos/formatters";
@@ -460,6 +460,7 @@ function PosScreen({ role }: { role: Role }) {
     if (q.pointsError) { setMsg(q.pointsError); return; }
     setSubmitting(true);
     setMsg("");
+    let orderRequestStarted = false;
     try {
       if(pendingTerminalPayment.current&&pay!=="card")throw new Error("یک پرداخت کارتخوان تعیین‌تکلیف‌نشده وجود دارد؛ ابتدا همان سفارش را تکمیل کنید.");
       // Every identified buyer joins the shared customer club before the order is created.
@@ -496,6 +497,7 @@ function PosScreen({ role }: { role: Role }) {
       const terminalPaymentId = pay==="card" ? await waitForTerminalApproval(q.total) : null;
       const idempotencyKey = pendingIdempotencyKey.current ?? crypto.randomUUID();
       pendingIdempotencyKey.current = idempotencyKey;
+      orderRequestStarted = true;
       const server = await phpApi.createOrder<{ id: string; orderNumber: number; createdAt: string }>({
         idempotencyKey,
         items: cart.map((line) => ({
@@ -565,6 +567,14 @@ function PosScreen({ role }: { role: Role }) {
       if (order.discountCode) void pushSms("discount_used", order.customerPhone, vars);
       if (settings.autoPrint) setTimeout(() => window.print(), 300);
     } catch (error) {
+      // A definite 4xx rejection means no order was committed; allow a corrected
+      // cart to receive a fresh key. Keep the key on network/5xx/timeout and on
+      // idempotency conflicts because the server may already own that request.
+      if (orderRequestStarted && error instanceof PhpApiError &&
+          error.status >= 400 && error.status < 500 &&
+          error.status !== 408 && error.code !== "idempotency_conflict") {
+        pendingIdempotencyKey.current = null;
+      }
       setMsg(error instanceof Error ? error.message : "ثبت سفارش در سرور انجام نشد");
     } finally {
       setSubmitting(false);
