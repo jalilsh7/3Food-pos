@@ -26,6 +26,45 @@ export type ServerBootstrap = Partial<Omit<PosState, "orders" | "settings">> & {
   settings?: Array<Partial<Settings> & { id?: string }>;
 };
 
+const EMPTY_ROLE_SETTINGS = {
+  shopName: "",
+  address: "",
+  phone: "",
+  taxPercent: 0,
+  taxEnabled: true,
+  stockPolicy: "warn_and_allow" as const,
+  orderDelayMinutes: 20,
+  pointsPerToman: 100000,
+  tomanPerPoint: 1000,
+  paperWidth: 80 as const,
+  autoPrint: false,
+  invoiceSmsEnabledDefault: false,
+  printCustomer: false,
+  printKitchen: true,
+  headerNote: "",
+  footerNote: "",
+  smsUser: "",
+  smsKey: "",
+  smsFrom: "",
+  role: "manager" as Role,
+};
+
+export function resetPosForRole(role: Role) {
+  usePos.setState({
+    categories: [],
+    products: [],
+    ingredients: [],
+    customers: [],
+    discounts: [],
+    orders: [],
+    expenses: [],
+    templates: [],
+    smsLogs: [],
+    settings: { ...EMPTY_ROLE_SETTINGS, role },
+    nextOrder: 1,
+  });
+}
+
 export function readLegacyBrowserPosState(): Partial<PosState> | null {
   try {
     const raw = window.localStorage.getItem("grillcash-v1");

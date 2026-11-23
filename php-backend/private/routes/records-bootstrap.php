@@ -17,7 +17,7 @@ if ($method === 'GET' && $path === '/bootstrap') {
             $marker->execute(['{"seeded":true}', (int)$user['id']]);
         }
     }
-    $resources = $user['role'] === 'kitchen' ? ['categories','products'] : ($user['role'] === 'cashier' ? ['categories','products','ingredients','customers','discounts','settings','sms_logs'] : ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings','sms_logs']);
+    $resources = $user['role'] === 'kitchen' ? ['settings'] : ($user['role'] === 'cashier' ? ['categories','products','ingredients','customers','discounts','settings','sms_logs'] : ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings','sms_logs']);
     $result = [];
     foreach ($resources as $resource) {
         $q = $pdo->prepare('SELECT id, payload FROM pos_records WHERE resource = ? ORDER BY created_at ASC');
@@ -71,9 +71,17 @@ if ($method === 'GET' && $path === '/bootstrap') {
     unset($order);
     $result['orders'] = $orders;
     if ($user['role'] === 'kitchen') {
+        // Only expose the few non-sensitive settings needed by the kitchen UI.
+        $rawKitchenSettings = $result['settings'][0] ?? [];
+        $result['settings'] = [[
+            'id' => 'main',
+            'shopName' => substr((string)($rawKitchenSettings['shopName'] ?? ''), 0, 120),
+            'paperWidth' => (int)($rawKitchenSettings['paperWidth'] ?? 80) === 58 ? 58 : 80,
+            'orderDelayMinutes' => min(240, max(1, (int)($rawKitchenSettings['orderDelayMinutes'] ?? 20))),
+        ]];
         // Order snapshots already contain product and option labels needed for
         // preparation; the kitchen does not need the priced catalog or recipes.
-        $result = ['orders' => $result['orders']];
+        $result = ['settings' => $result['settings'], 'orders' => $result['orders']];
     }
     $counter = (int)$pdo->query("SELECT counter_value FROM pos_counters WHERE counter_key = 'order_number'")->fetchColumn();
     json_response(['ok' => true, 'data' => $result, 'next_order' => $counter + 1, 'user' => ['id' => (int)$user['id'], 'username' => $user['username'], 'display_name' => $user['display_name'], 'role' => $user['role']]]);

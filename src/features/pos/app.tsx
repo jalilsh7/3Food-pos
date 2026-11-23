@@ -23,7 +23,7 @@ import { CodesScreen } from "./codes-screen";
 import { CustomersScreen } from "./customers-screen";
 import { ReportsScreen } from "./reports-screen";
 import { SettingsScreen } from "./settings-screen";
-import { hydratePosFromServer, type ExpenseCategory, type ServerBootstrap } from "./pos-data";
+import { hydratePosFromServer, resetPosForRole, type ExpenseCategory, type ServerBootstrap } from "./pos-data";
 
 const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
   { id: "expense-cat-utilities", name: "قبوض آب، برق و گاز", active: true },
@@ -112,6 +112,7 @@ export function GrillApp() {
       .then(async (result) => {
         if (!active) return;
         if (result.authenticated && result.user) {
+          resetPosForRole(result.user.role);
           setUser(result.user);
           return;
         }
@@ -163,6 +164,7 @@ export function GrillApp() {
   async function logout() {
     try {
       await phpApi.logout();
+      resetPosForRole("manager");
       setUser(null);
       setSessionError("");
     } catch (error) {
@@ -172,8 +174,8 @@ export function GrillApp() {
 
   if (loading) return <AuthFrame><p className="text-sm text-muted">در حال بررسی نشست امن...</p></AuthFrame>;
   if (sessionError && !user) return <AuthFrame><p className="text-sm text-warn">{sessionError}</p><button className="rounded-xl bg-ink px-4 py-2 text-bg" onClick={() => window.location.reload()}>تلاش دوباره</button></AuthFrame>;
-  if (!user) return <PhpLoginScreen setupRequired={setupRequired} onAuthenticated={setUser} />;
-  if (user.must_change_password) return <ChangePasswordScreen user={user} onChanged={() => setUser({ ...user, must_change_password: false })} />;
+  if (!user) return <PhpLoginScreen setupRequired={setupRequired} onAuthenticated={(nextUser) => { resetPosForRole(nextUser.role); setUser(nextUser); }} />;
+  if (user.must_change_password) return <ChangePasswordScreen user={user} onChanged={() => { resetPosForRole(user.role); setUser({ ...user, must_change_password: false }); }} />;
   const allowed = NAV.filter((n) => n.roles.includes(user.role));
   const [viewFallback] = allowed;
   return (
