@@ -1046,7 +1046,7 @@ function StockScreen() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="font-semibold">{i.name}</p>
-              <p className={`text-sm ${i.stock <= i.minStock ? "text-warn" : "text-muted"}`}>موجودی {i.stock.toLocaleString("fa-IR")} {i.unit}</p>
+              <p className={`text-sm ${i.stock <= i.minStock ? "text-warn" : "text-muted"}`}>موجودی {i.stock.toLocaleString("fa-IR")} {i.unit} · حد هشدار {Number(i.minStock ?? 5).toLocaleString("fa-IR")} {i.unit}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <label className="sr-only" htmlFor={`stock-adjust-${i.id}`}>مقدار تغییر موجودی {i.name}</label>
