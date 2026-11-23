@@ -2059,6 +2059,15 @@ if (preg_match('#^/orders/(\d+)$#', $path, $editMatch) && $method === 'PATCH') {
         $pdo->rollBack();
         json_response(['ok' => false, 'error' => 'payment_reconciliation_required', 'message' => 'سفارش دارای پرداخت کارتخوان یا روش آنلاین قدیمی تا تعیین‌تکلیف مالی و بازپرداخت قابل ویرایش نیست'], 409);
     }
+    // Read settings as a locking/current read before touching inventory rows.
+    // This avoids relying on an older repeatable-read snapshot during order edits.
+    $taxSettingsStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'settings' AND id = 'main' LIMIT 1 FOR UPDATE");
+    $taxSettingsStmt->execute();
+    $rawTaxSettings = $taxSettingsStmt->fetchColumn();
+    $taxSettings = is_string($rawTaxSettings) ? json_decode($rawTaxSettings, true) : [];
+    if (!is_array($taxSettings)) $taxSettings = [];
+    $stockPolicy = (string)($taxSettings['stockPolicy'] ?? 'warn_and_allow');
+    if (!in_array($stockPolicy, ['block', 'warn_and_allow', 'allow_negative'], true)) $stockPolicy = 'warn_and_allow';
     $oldRedemptionStmt = $pdo->prepare('SELECT id, discount_id FROM pos_discount_redemptions WHERE order_id = ? AND reversed_at IS NULL FOR UPDATE');
     $oldRedemptionStmt->execute([$id]);
     $oldRedemption = $oldRedemptionStmt->fetch();
@@ -2306,16 +2315,8 @@ if (preg_match('#^/orders/(\d+)$#', $path, $editMatch) && $method === 'PATCH') {
     $tomanPerPointCheck = max(1, (int)($pointsSettings['tomanPerPoint'] ?? 1));
     $expectedPointsDiscount = min(max(0, $subtotal - $expectedTierDiscount - $expectedCodeDiscount), $customerPoints * $tomanPerPointCheck);
     if ($pointsDiscount > $expectedPointsDiscount) json_response(['ok' => false, 'error' => 'invalid_points_discount', 'message' => 'مقدار تخفیف امتیازی معتبر نیست'], 409);
-    $taxSettingsStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'settings' AND id = 'main' LIMIT 1");
-    $taxSettingsStmt->execute();
-    $rawTaxSettings = $taxSettingsStmt->fetchColumn();
-    $taxSettings = is_string($rawTaxSettings) ? json_decode($rawTaxSettings, true) : [];
-    if (!is_array($taxSettings)) $taxSettings = [];
     $taxEnabled = !array_key_exists('taxEnabled', $taxSettings) || $taxSettings['taxEnabled'] !== false;
     $taxPercent = (float)($taxSettings['taxPercent'] ?? 0);
-    $stockPolicy = (string)($taxSettings['stockPolicy'] ?? 'warn_and_allow');
-    if (!in_array($stockPolicy, ['block', 'warn_and_allow', 'allow_negative'], true)) $stockPolicy = 'warn_and_allow';
-    error_log('[3Food POS] Order edit stock policy: ' . json_encode(['policy' => $stockPolicy, 'settings_id' => 'main']));
     if (!is_finite($taxPercent) || $taxPercent < 0 || $taxPercent > 100) {
         json_response(['ok' => false, 'error' => 'invalid_tax_settings', 'message' => 'تنظیم درصد مالیات معتبر نیست'], 409);
     }
