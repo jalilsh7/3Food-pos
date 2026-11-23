@@ -418,14 +418,18 @@ function PosScreen({ role }: { role: Role }) {
         pending={id:previous.id,amount,terminalId:previous.terminal_id??""};
         pendingTerminalPayment.current=pending;
       }else{
-        const available=terminalOptions.length?terminalOptions:(await phpApi.listAvailableTerminals()).items;
-        setTerminalOptions(available);
-        const terminal=available.find(t=>t.id===selectedTerminalId)??available.find(t=>t.is_default||t.isDefault)??available[0];
-        if(!terminal)throw new Error("کارتخوان آنلاین و دارای درایور تأییدشده پیدا نشد؛ تنظیمات کارتخوان را بررسی کنید.");
         let request=pendingTerminalRequest.current;
         if(request&&request.amount!==amount)throw new Error("یک درخواست پرداخت قبلی با مبلغ متفاوت تعیین‌تکلیف نشده است؛ ابتدا همان تراکنش را بررسی کنید.");
-        if(request&&request.terminalId!==terminal.id)throw new Error("درخواست پرداخت قبلی به کارتخوان دیگری تعلق دارد؛ ابتدا همان تراکنش را تعیین‌تکلیف کنید.");
-        if(!request){request={key:crypto.randomUUID(),amount,terminalId:terminal.id};pendingTerminalRequest.current=request;}
+        if(!request){
+          const available=terminalOptions.length?terminalOptions:(await phpApi.listAvailableTerminals()).items;
+          setTerminalOptions(available);
+          const terminal=available.find(t=>t.id===selectedTerminalId)??available.find(t=>t.is_default||t.isDefault)??available[0];
+          if(!terminal)throw new Error("کارتخوان آنلاین و دارای درایور تأییدشده پیدا نشد؛ تنظیمات کارتخوان را بررسی کنید.");
+          request={key:crypto.randomUUID(),amount,terminalId:terminal.id};
+          pendingTerminalRequest.current=request;
+        }
+        // A retry must keep the original terminal even if its agent is now offline
+        // or the operator changed the selected terminal after a lost response.
         const created=await phpApi.createTerminalPayment({terminalId:request.terminalId,amount,idempotencyKey:request.key});
         pending={id:created.payment.id,amount,terminalId:request.terminalId};pendingTerminalPayment.current=pending;
       }
