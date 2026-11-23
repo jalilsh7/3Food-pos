@@ -351,6 +351,9 @@ try {
     check($paymentMethodSwitch['status'] === 409 && ($paymentMethodSwitch['json']['error'] ?? '') === 'payment_method_change_requires_new_transaction', 'order edit cannot switch cash to card without a separately approved transaction');
     $stockPolicyBlockEdit = api('POST', '/api/v1/records/settings', ['item' => ['id' => 'main', 'stockPolicy' => 'block']], csrf_headers());
     check($stockPolicyBlockEdit['status'] === 201, 'manager can configure stock policy to block insufficient stock');
+    $stockPolicyReadBack = api('GET', '/api/v1/records/settings');
+    $stockPolicyMain = array_values(array_filter($stockPolicyReadBack['json']['items'] ?? [], fn($item) => ($item['id'] ?? '') === 'main'))[0] ?? [];
+    check(($stockPolicyMain['stockPolicy'] ?? '') === 'block', 'stock block policy persists before order edit; actual=' . json_encode($stockPolicyMain));
     $overStockEditBody = $editBody;
     $overStockEditBody['items'][0]['qty'] = 6;
     $overStockEditBody['totals'] = ['subtotal' => 6000, 'tierDiscount' => 0, 'codeDiscount' => 0, 'pointsDiscount' => 0, 'tax' => 0, 'total' => 6000];
