@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 date_default_timezone_set('UTC');
 
+require_once dirname(__DIR__, 2) . '/private/api-bootstrap.php';
+
 /**
  * 3Food POS - PHP API foundation
  * Phase 1: database connectivity, first-manager setup, sessions and RBAC.
@@ -20,7 +22,6 @@ if (!is_array($config) || strlen((string)($config['app_key'] ?? '')) < 32) {
     json_response(['ok' => false, 'error' => 'server_not_configured', 'message' => 'کلید امنیتی سرور تنظیم نشده است'], 503);
 }
 
-require_once dirname(__DIR__, 2) . '/private/api-bootstrap.php';
 
 $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
