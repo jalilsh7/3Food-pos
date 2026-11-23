@@ -944,6 +944,29 @@ function MenuScreen() {
             <Field label="قیمت فروش"><input className={inputCls} type="number" value={draft.price} onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })} /></Field>
             <Field label="قیمت تمام‌شده"><input className={inputCls} type="number" value={draft.cost} onChange={(e) => setDraft({ ...draft, cost: Number(e.target.value) })} /></Field>
           </div>
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" checked={draft.active} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} />
+            محصول در صندوق فروش فعال باشد
+          </label>
+          <section className="space-y-2 sm:col-span-2" aria-label="گزینه‌ها و افزودنی‌های محصول">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold">گزینه‌ها و افزودنی‌ها</p>
+              <Btn tone="ghost" onClick={() => setDraft({ ...draft, options: [...draft.options, { id: uid("op"), name: "", price: 0 }] })}>افزودن گزینه</Btn>
+            </div>
+            {draft.options.length ? draft.options.map((option, index) => (
+              <div key={option.id} className="grid gap-2 rounded-xl border border-line p-3 sm:grid-cols-[minmax(0,1fr)_160px_auto]">
+                <Field label={`نام گزینه ${index + 1}`}>
+                  <input className={inputCls} value={option.name} onChange={(e) => setDraft({ ...draft, options: draft.options.map((item) => item.id === option.id ? { ...item, name: e.target.value } : item) })} placeholder="مثلاً پنیر اضافه" />
+                </Field>
+                <Field label="مبلغ اضافه (تومان)">
+                  <input className={inputCls} type="number" min="0" max="100000000000" step="1" value={option.price} onChange={(e) => setDraft({ ...draft, options: draft.options.map((item) => item.id === option.id ? { ...item, price: Number(e.target.value) } : item) })} />
+                </Field>
+                <div className="flex items-end">
+                  <Btn tone="ghost" onClick={() => setDraft({ ...draft, options: draft.options.filter((item) => item.id !== option.id) })}>حذف</Btn>
+                </div>
+              </div>
+            )) : <p className="text-xs text-muted">برای این محصول گزینه یا افزودنی تعریف نشده است.</p>}
+          </section>
           <p className="mt-3 text-sm font-semibold">مواد اولیه هر پرس</p>
           {ingredients.map((ing) => {
             const line = draft.recipe.find((r) => r.ingredientId === ing.id);
