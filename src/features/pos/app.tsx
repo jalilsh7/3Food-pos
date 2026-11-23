@@ -790,21 +790,43 @@ function OrdersScreen({ role }: { role: Role }) {
     return allowed[from].includes(to);
   }
   async function jump(order: Order, status: Order["status"]) {
+    const isServerOrder = /^\d+$/.test(order.id);
+    const notify = (updatedOrder: Order) => {
+      if (status === "ready") void pushSms("order_ready", updatedOrder.customerPhone, orderVars(updatedOrder));
+      if (status === "delivered") void pushSms("order_delivered", updatedOrder.customerPhone, orderVars(updatedOrder));
+    };
     try {
-      if (/^\d+$/.test(order.id)) await phpApi.setOrderStatus(order.id, status);
-      setStatus(order.id, status);
+      if (isServerOrder) await phpApi.setOrderStatus(order.id, status);
+    } catch (error) {
+      // A network response can be lost after the server commits. Reconcile from
+      // MySQL before reporting failure so the operator does not repeat a valid
+      // transition or miss its one-time notification.
+      if (isServerOrder) {
+        try {
+          const snapshot = await phpApi.bootstrap<ServerBootstrap>();
+          hydratePosFromServer(snapshot.data, snapshot.next_order, role);
+          const persisted = usePos.getState().orders.find((item) => item.id === order.id);
+          if (persisted?.status === status) {
+            notify(persisted);
+            return;
+          }
+        } catch {
+          // Keep the original API error when the authoritative snapshot is unavailable.
+        }
+      }
+      window.alert(error instanceof Error ? error.message : "تغییر وضعیت در سرور انجام نشد");
+      return;
+    }
+    setStatus(order.id, status);
+    if (isServerOrder) {
       try {
         const snapshot = await phpApi.bootstrap<ServerBootstrap>();
         hydratePosFromServer(snapshot.data, snapshot.next_order, role);
       } catch {
-        // The status transition is committed; the next poll refreshes the snapshot.
+        // The status transition is committed; the next bootstrap refreshes the snapshot.
       }
-      const next = { ...order, status };
-      if (status === "ready") void pushSms("order_ready", order.customerPhone, orderVars(next));
-      if (status === "delivered") void pushSms("order_delivered", order.customerPhone, orderVars(next));
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : "تغییر وضعیت در سرور انجام نشد");
     }
+    notify({ ...order, status });
   }
   function addEditProduct() {
     const product = products.find((p) => p.id === addProductId && p.active);
