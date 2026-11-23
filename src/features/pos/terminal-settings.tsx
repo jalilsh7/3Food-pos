@@ -3,7 +3,7 @@ import { Btn, Card, Field, inputCls } from "./bits";
 import { phpApi, type PaymentTerminal, type TerminalAgent } from "@/lib/api/php-client";
 import { uid } from "@/lib/pos/model";
 
-function TerminalSettingsPanel() {
+export function TerminalSettingsPanel() {
   const [agents,setAgents]=useState<TerminalAgent[]>([]);
   const [terminals,setTerminals]=useState<PaymentTerminal[]>([]);
   const [agentName,setAgentName]=useState("صندوق اصلی");

@@ -9,7 +9,7 @@ const ROLE_LABEL: Record<Role, string> = {
   kitchen: "آشپز",
 };
 
-function UsersScreen() {
+export function UsersScreen() {
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);

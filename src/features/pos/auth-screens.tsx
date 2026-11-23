@@ -3,12 +3,12 @@ import { Card, Field, inputCls } from "./bits";
 import { phpApi, type ApiUser } from "@/lib/api/php-client";
 import { useAppearance } from "@/lib/appearance";
 
-function AuthFrame({ children }: { children: ReactNode }) {
+export function AuthFrame({ children }: { children: ReactNode }) {
  const {settings:appearance}=useAppearance();
  return <div className="pos-auth-shell grid min-h-screen place-items-center bg-bg p-4"><Card className="pos-auth-card w-full max-w-md">{appearance.logoUrl?<img src={appearance.logoUrl} alt="لوگوی فروشگاه" className="mx-auto mb-3 h-16 max-w-40 object-contain"/>:null}{children}</Card></div>;
 }
 
-function PhpLoginScreen({ setupRequired, onAuthenticated }: { setupRequired: boolean; onAuthenticated: (user: ApiUser) => void }) {
+export function PhpLoginScreen({ setupRequired, onAuthenticated }: { setupRequired: boolean; onAuthenticated: (user: ApiUser) => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("مدیر");
@@ -49,7 +49,7 @@ function PhpLoginScreen({ setupRequired, onAuthenticated }: { setupRequired: boo
   );
 }
 
-function ChangePasswordScreen({ user, onChanged }: { user: ApiUser; onChanged: () => void }) {
+export function ChangePasswordScreen({ user, onChanged }: { user: ApiUser; onChanged: () => void }) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [error, setError] = useState("");
