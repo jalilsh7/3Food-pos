@@ -5,7 +5,7 @@ import { usePos } from "@/lib/pos/store";
 import { phpApi } from "@/lib/api/php-client";
 import { tehranDate } from "@/lib/pos/formatters";
 
-export function SuppliersScreen({ saveCentralRecord, onPurchaseSaved }: { saveCentralRecord: (resource: string, item: unknown, apply: () => void) => Promise<boolean>; onPurchaseSaved: () => Promise<void> }){
+export function SuppliersScreen({ saveCentralRecord, onPurchaseSaved }: { saveCentralRecord: <T extends { id: string | number }>(resource: string, item: T, apply: () => void) => Promise<boolean>; onPurchaseSaved: () => Promise<void> }){
   type Supplier={id:string;name:string;phone:string;contact:string;notes:string;balance:number;active:boolean};
   type Purchase={id:string;supplierId:string;title:string;amount:number;date:string;paid:number;note:string;kind?:string;ingredientId?:string;quantity?:number;unitCost?:number};
   const ingredients=usePos((s)=>s.ingredients);
