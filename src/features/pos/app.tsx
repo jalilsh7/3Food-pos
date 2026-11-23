@@ -667,7 +667,7 @@ function PosScreen({ role }: { role: Role }) {
           {q.codeDiscount ? <p className="flex justify-between text-sm"><span>کد</span><span>{money(q.codeDiscount)}</span></p> : null}
           <p className="flex justify-between text-base font-bold"><span>قابل پرداخت</span><span>{money(q.total)}</span></p>
           {msg ? <p className="text-sm text-leaf">{msg}</p> : null}
-          <Btn onClick={checkout} disabled={!cart.length || submitting}>{submitting ? "در حال ثبت در سرور..." : "ثبت سفارش"}</Btn>
+          <Btn onClick={checkout} disabled={!cart.length || submitting || (stockPolicy === "block" && stockShortages.length > 0)}>{submitting ? "در حال ثبت در سرور..." : "ثبت سفارش"}</Btn>
         </div>
       </Card>
       {optFor ? (
