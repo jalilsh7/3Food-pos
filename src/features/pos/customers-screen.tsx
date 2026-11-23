@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Btn, Card, Empty, PageHeading, inputCls } from "./bits";
+import { Btn, Card, Empty, Field, PageHeading, inputCls } from "./bits";
 import { money, TIER_LABEL, tierOf, uid, type Role } from "@/lib/pos/model";
 import { usePos } from "@/lib/pos/store";
 import { normalizeIranPhone } from "@/lib/pos/formatters";
@@ -36,13 +36,13 @@ export function CustomersScreen({ role, saveRecord }: CustomersScreenProps) {
             <Field label="به‌ازای هر چند تومان خرید، یک امتیاز؟">
               <input className={inputCls} type="number" min="1" value={settings.pointsPerToman} onChange={(e) => patchSettings({ pointsPerToman: Math.max(1, Number(e.target.value)) })} onBlur={() => {
                 const current = usePos.getState().settings;
-                void saveCentralRecord("settings", { id: "main", ...current, smsUser: "", smsKey: "", smsFrom: "" }, () => {});
+                void saveRecord("settings", { id: "main", ...current, smsUser: "", smsKey: "", smsFrom: "" }, () => {});
               }} />
             </Field>
             <Field label="ارزش هر امتیاز به تومان">
               <input className={inputCls} type="number" min="1" value={settings.tomanPerPoint} onChange={(e) => patchSettings({ tomanPerPoint: Math.max(1, Number(e.target.value)) })} onBlur={() => {
                 const current = usePos.getState().settings;
-                void saveCentralRecord("settings", { id: "main", ...current, smsUser: "", smsKey: "", smsFrom: "" }, () => {});
+                void saveRecord("settings", { id: "main", ...current, smsUser: "", smsKey: "", smsFrom: "" }, () => {});
               }} />
             </Field>
           </div>
@@ -54,7 +54,7 @@ export function CustomersScreen({ role, saveRecord }: CustomersScreenProps) {
           e.preventDefault();
           if (!form.phone) return;
           const item = { id: uid("cu"), name: form.name || "بدون نام", phone: form.phone, points: 0, birthday: form.birthday, smsConsent: form.smsConsent, totalSpent: 0, visits: 0, createdAt: new Date().toISOString() };
-          void saveCentralRecord("customers", item, () => saveCustomer(item)).then((ok) => { if (ok) setForm({ name: "", phone: "", birthday: "", smsConsent: false }); });
+          void saveRecord("customers", item, () => saveCustomer(item)).then((ok) => { if (ok) setForm({ name: "", phone: "", birthday: "", smsConsent: false }); });
         }}>
           <input className={inputCls} placeholder="نام" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input className={inputCls} placeholder="موبایل" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
@@ -71,7 +71,7 @@ export function CustomersScreen({ role, saveRecord }: CustomersScreenProps) {
             <p className="text-sm">{TIER_LABEL[tierOf(c.points,settings)]} — {c.points.toLocaleString("fa-IR")} امتیاز — {money(c.totalSpent)}</p>
           </div>
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={c.smsConsent === true} onChange={e=>{const updated={...c,smsConsent:e.target.checked};void saveCentralRecord("customers",updated,()=>saveCustomer(updated));}}/>رضایت پیامک تبلیغاتی</label>
+            <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={c.smsConsent === true} onChange={e=>{const updated={...c,smsConsent:e.target.checked};void saveRecord("customers",updated,()=>saveCustomer(updated));}}/>رضایت پیامک تبلیغاتی</label>
             <p className="text-xs text-muted">{orders.filter((o) => o.customerId === c.id || normalizeIranPhone(o.customerPhone) === normalizeIranPhone(c.phone)).length.toLocaleString("fa-IR")} سفارش ثبت‌شده</p>
             <Btn tone="ghost" onClick={() => setSelectedCustomerId(selectedCustomerId === c.id ? null : c.id)}>{selectedCustomerId === c.id ? "بستن سوابق" : "گزارش خریدها"}</Btn>
           </div>
