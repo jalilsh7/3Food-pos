@@ -131,7 +131,7 @@ export type Settings = {
   phone: string;
   taxPercent: number;
   taxEnabled: boolean;
-  stockPolicy: "block" | "warn_and_allow" | "allow_negative";
+  stockPolicy: "warn_and_allow";
   orderDelayMinutes?: number;
   pointsPerToman: number;
   tomanPerPoint: number;

@@ -237,8 +237,6 @@ if ($method === 'POST' && $path === '/orders') {
     if (!is_array($taxSettings)) $taxSettings = [];
     $taxEnabled = !array_key_exists('taxEnabled', $taxSettings) || $taxSettings['taxEnabled'] !== false;
     $taxPercent = (float)($taxSettings['taxPercent'] ?? 0);
-    $stockPolicy = (string)($taxSettings['stockPolicy'] ?? 'warn_and_allow');
-    if (!in_array($stockPolicy, ['block', 'warn_and_allow', 'allow_negative'], true)) $stockPolicy = 'warn_and_allow';
     if (!is_finite($taxPercent) || $taxPercent < 0 || $taxPercent > 100) {
         json_response(['ok' => false, 'error' => 'invalid_tax_settings', 'message' => 'تنظیم درصد مالیات معتبر نیست'], 409);
     }
@@ -341,12 +339,8 @@ if ($method === 'POST' && $path === '/orders') {
                 json_response(['ok' => false, 'error' => 'ingredient_not_found', 'message' => 'یکی از مواد اولیه دستور محصول در انبار پیدا نشد'], 409);
             }
             $available = (float)($ingredient['stock'] ?? 0);
-            if ($stockPolicy === 'block' && $available + 0.000001 < $needed) {
-                $pdo->rollBack();
-                json_response(['ok' => false, 'error' => 'insufficient_stock', 'message' => 'موجودی یکی از مواد اولیه کافی نیست: ' . (string)($ingredient['name'] ?? $ingredientId)], 409);
-            }
-            // warn_and_allow keeps the operator informed in the POS; allow_negative skips the warning.
-            // Negative stock is retained as an explicit backorder/shortage signal for replenishment reports.
+            // Stock shortages are warnings only: never block checkout. Negative stock
+            // records the quantity owed so sales can continue and replenishment can follow.
             $ingredient['stock'] = round($available - $needed, 3);
             $ingredientUpdate->execute([
                 json_encode($ingredient, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),

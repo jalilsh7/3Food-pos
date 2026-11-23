@@ -33,8 +33,6 @@ if (preg_match('#^/orders/(\d+)$#', $path, $editMatch) && $method === 'PATCH') {
     $rawTaxSettings = $taxSettingsStmt->fetchColumn();
     $taxSettings = is_string($rawTaxSettings) ? json_decode($rawTaxSettings, true) : [];
     if (!is_array($taxSettings)) $taxSettings = [];
-    $stockPolicy = (string)($taxSettings['stockPolicy'] ?? 'warn_and_allow');
-    if (!in_array($stockPolicy, ['block', 'warn_and_allow', 'allow_negative'], true)) $stockPolicy = 'warn_and_allow';
     $oldRedemptionStmt = $pdo->prepare('SELECT id, discount_id FROM pos_discount_redemptions WHERE order_id = ? AND reversed_at IS NULL FOR UPDATE');
     $oldRedemptionStmt->execute([$id]);
     $oldRedemption = $oldRedemptionStmt->fetch();
@@ -409,10 +407,8 @@ if (preg_match('#^/orders/(\d+)$#', $path, $editMatch) && $method === 'PATCH') {
                 json_response(['ok' => false, 'error' => 'ingredient_not_found', 'message' => 'یکی از مواد اولیه دستور محصول در انبار پیدا نشد'], 409);
             }
             $available = (float)($ingredient['stock'] ?? 0);
-            if ($stockPolicy === 'block' && $available + 0.000001 < $needed) {
-                $pdo->rollBack();
-                json_response(['ok' => false, 'error' => 'insufficient_stock', 'message' => 'موجودی یکی از مواد اولیه کافی نیست: ' . (string)($ingredient['name'] ?? $ingredientId)], 409);
-            }
+            // Stock shortages are warnings only: never block order edits. Negative
+            // stock records the shortage while allowing the operator to continue.
             $ingredient['stock'] = round($available - $needed, 3);
             $ingredientUpdate->execute([
                 json_encode($ingredient, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),

@@ -110,13 +110,10 @@ export function SettingsScreen({ saveRecord }: { saveRecord: <T extends { id: st
         <Field label="آستانه هشدار تأخیر سفارش (دقیقه)">
           <input className={inputCls} type="number" min="1" max="240" value={settings.orderDelayMinutes ?? 20} onChange={(e) => patchSettings({ orderDelayMinutes: Math.min(240, Math.max(1, Number(e.target.value) || 1)) })} onBlur={persistSettings} />
         </Field>
-        <Field label="سیاست فروش با موجودی ناکافی">
-          <select className={inputCls} value={settings.stockPolicy ?? "warn_and_allow"} onChange={(e) => patchSettings({ stockPolicy: e.target.value as Settings["stockPolicy"] })} onBlur={persistSettings}>
-            <option value="block">جلوگیری از ثبت سفارش</option>
-            <option value="warn_and_allow">نمایش هشدار و اجازه ادامه فروش</option>
-            <option value="allow_negative">اجازه موجودی منفی بدون نمایش هشدار</option>
-          </select>
-        </Field>
+        <div className="rounded-xl border border-line p-3 text-sm">
+          <p className="font-semibold">فروش با هشدار کمبود موجودی</p>
+          <p className="mt-1 text-muted">در صورت ناکافی‌بودن موجودی، هشدار نمایش داده می‌شود؛ ثبت سفارش متوقف نمی‌شود و کسری در موجودی انبار ثبت خواهد شد.</p>
+        </div>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.taxEnabled !== false} onChange={(e) => { const value = e.target.checked; patchSettings({ taxEnabled: value }); const current = usePos.getState().settings; void saveRecord("settings", { id: "main", ...current, taxEnabled: value, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} />محاسبه مالیات فعال باشد</label>
         <Field label="هر چند تومان یک امتیاز"><input className={inputCls} type="number" min="1" step="1" value={settings.pointsPerToman} onChange={(e) => patchSettings({ pointsPerToman: Math.max(1, Math.floor(Number(e.target.value) || 1)) })} onBlur={persistSettings} /></Field>
         <Field label="ارزش هر امتیاز"><input className={inputCls} type="number" min="1" step="1" value={settings.tomanPerPoint} onChange={(e) => patchSettings({ tomanPerPoint: Math.max(1, Math.floor(Number(e.target.value) || 1)) })} onBlur={persistSettings} /></Field>

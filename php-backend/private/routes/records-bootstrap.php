@@ -28,6 +28,8 @@ if ($method === 'GET' && $path === '/bootstrap') {
             // Provider credentials must never be returned by the POS data API.
             if ($resource === 'settings') {
                 unset($value['smsUser'], $value['smsKey'], $value['smsFrom']);
+                // Legacy stock policies must never disable sales in V2.
+                $value['stockPolicy'] = 'warn_and_allow';
             }
             // Cashiers need current stock for checkout warnings, but never ingredient cost data.
             if ($resource === 'ingredients' && $user['role'] === 'cashier') {
@@ -202,11 +204,12 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
         if ($resource === 'settings') {
             unset($item['smsUser'], $item['smsKey'], $item['smsFrom']);
             $allowedStockPolicies = ['block', 'warn_and_allow', 'allow_negative'];
-            if (array_key_exists('stockPolicy', $item)) {
-                if (!is_string($item['stockPolicy']) || !in_array($item['stockPolicy'], $allowedStockPolicies, true)) {
-                    json_response(['ok' => false, 'error' => 'invalid_stock_policy', 'message' => 'سیاست موجودی انتخاب‌شده معتبر نیست'], 422);
-                }
+            if (array_key_exists('stockPolicy', $item) &&
+                (!is_string($item['stockPolicy']) || !in_array($item['stockPolicy'], $allowedStockPolicies, true))) {
+                json_response(['ok' => false, 'error' => 'invalid_stock_policy', 'message' => 'سیاست موجودی انتخاب‌شده معتبر نیست'], 422);
             }
+            // Legacy values are accepted for compatibility, but V2 always warns and allows.
+            $item['stockPolicy'] = 'warn_and_allow';
             if (array_key_exists('taxPercent', $item)) {
                 if (!is_numeric($item['taxPercent']) || !is_finite((float)$item['taxPercent']) ||
                     (float)$item['taxPercent'] < 0 || (float)$item['taxPercent'] > 100) {
@@ -222,14 +225,6 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
                     }
                     $item[$pointsField] = $pointsValue;
                 }
-            }
-            if (!array_key_exists('stockPolicy', $item)) {
-                $existingSettingsStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'settings' AND id = ? LIMIT 1");
-                $existingSettingsStmt->execute([$id]);
-                $existingSettingsRaw = $existingSettingsStmt->fetchColumn();
-                $existingSettings = is_string($existingSettingsRaw) ? json_decode($existingSettingsRaw, true) : null;
-                $existingPolicy = is_array($existingSettings) ? ($existingSettings['stockPolicy'] ?? null) : null;
-                $item['stockPolicy'] = is_string($existingPolicy) && in_array($existingPolicy, $allowedStockPolicies, true) ? $existingPolicy : 'warn_and_allow';
             }
         }
         // Supplier balances are ledger-owned. Generic profile edits may change

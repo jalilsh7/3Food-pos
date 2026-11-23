@@ -352,21 +352,7 @@ function PosScreen({ role }: { role: Role }) {
   const [optFor, setOptFor] = useState<Product | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [note, setNote] = useState("");
-  const [stockWarningMutedUntil, setStockWarningMutedUntil] = useState(0);
-  const [stockClock, setStockClock] = useState(INITIAL_RENDER_TIME);
   useEffect(()=>{let active=true;void phpApi.listAvailableTerminals().then(result=>{if(!active)return;setTerminalOptions(result.items);const preferred=result.items.find(t=>t.is_default||t.isDefault)??result.items[0];if(preferred)setSelectedTerminalId(preferred.id);}).catch(()=>{if(active)setTerminalOptions([]);});return()=>{active=false;};},[]);
-  useEffect(() => {
-    queueMicrotask(() => {
-      try {
-        setStockWarningMutedUntil(Number(window.localStorage.getItem("3food-pos-stock-warning-muted-until") || 0));
-      } catch {
-        setStockWarningMutedUntil(0);
-      }
-      setStockClock(Date.now());
-    });
-    const timer = window.setInterval(() => setStockClock(Date.now()), 30000);
-    return () => window.clearInterval(timer);
-  }, []);
   const requiredIngredients = new Map<string, number>();
   for (const line of cart) {
     const product = products.find((item) => item.id === line.productId);
@@ -384,19 +370,7 @@ function PosScreen({ role }: { role: Role }) {
     const ingredient = ingredients.find((item) => item.id === ingredientId);
     return ingredient && ingredient.stock < required ? [{ name: ingredient.name, stock: ingredient.stock, required, unit: ingredient.unit }] : [];
   });
-  const stockPolicy = settings.stockPolicy ?? "warn_and_allow";
-  const showStockWarning = stockShortages.length > 0 && stockPolicy !== "allow_negative" &&
-    (stockPolicy === "block" || stockClock >= stockWarningMutedUntil);
-  function muteStockWarningForHour() {
-    const until = Date.now() + 60 * 60 * 1000;
-    setStockWarningMutedUntil(until);
-    setStockClock(Date.now());
-    try {
-      window.localStorage.setItem("3food-pos-stock-warning-muted-until", String(until));
-    } catch {
-      // The alert remains dismissible for this session if storage is unavailable.
-    }
-  }
+  const showStockWarning = stockShortages.length > 0;
   const customer = customers.find((c) => normalizeIranPhone(c.phone) === normalizeIranPhone(phone)) ?? null;
   function updateCustomerPhone(value: string) {
     setPhone(value);
@@ -638,8 +612,7 @@ function PosScreen({ role }: { role: Role }) {
           <div role="status" className="mb-3 rounded-xl border border-warn bg-warn-bg p-3 text-sm text-warn">
             <p className="font-bold">هشدار کمبود موجودی</p>
             <p className="mt-1">{stockShortages.map((item) => `${item.name}: موجودی ${item.stock.toLocaleString("fa-IR")}، نیاز سفارش ${item.required.toLocaleString("fa-IR")} ${item.unit}`).join(" · ")}</p>
-            <p className="mt-1">{stockPolicy === "block" ? "ثبت سفارش تا تأمین موجودی متوقف می‌شود." : "ثبت سفارش ادامه پیدا می‌کند و کسری موجودی در انبار ثبت خواهد شد."}</p>
-            {stockPolicy === "warn_and_allow" ? <Btn tone="ghost" onClick={muteStockWarningForHour}>خاموش‌کردن هشدار برای یک ساعت</Btn> : null}
+            <p className="mt-1">ثبت سفارش متوقف نمی‌شود؛ فروش ادامه پیدا می‌کند و کسری موجودی در انبار ثبت خواهد شد.</p>
           </div>
         ) : null}
         {cart.length === 0 ? <Empty text="آیتمی انتخاب نشده" /> : null}
@@ -681,7 +654,7 @@ function PosScreen({ role }: { role: Role }) {
           {q.codeDiscount ? <p className="flex justify-between text-sm"><span>کد</span><span>{money(q.codeDiscount)}</span></p> : null}
           <p className="flex justify-between text-base font-bold"><span>قابل پرداخت</span><span>{money(q.total)}</span></p>
           {msg ? <p className="text-sm text-leaf">{msg}</p> : null}
-          <Btn onClick={checkout} disabled={!cart.length || submitting || (stockPolicy === "block" && stockShortages.length > 0)}>{submitting ? "در حال ثبت در سرور..." : "ثبت سفارش"}</Btn>
+          <Btn onClick={checkout} disabled={!cart.length || submitting}>{submitting ? "در حال ثبت در سرور..." : "ثبت سفارش"}</Btn>
         </div>
       </Card>
       {optFor ? (
