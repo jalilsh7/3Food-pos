@@ -197,6 +197,7 @@ const packagedFiles = [
   "public/index.html",
   "public/.htaccess",
   "public/api/index.php",
+  "public/uploads/.htaccess",
   "private/.htaccess",
   "private/api-bootstrap.php",
   "private/routes/appearance.php",
@@ -213,6 +214,7 @@ const packagedFiles = [
   "private/birthday-sms.php",
   "private/birthday-sms-inbox.php",
   "database/schema.sql",
+  "database/migrations/README-FA.md",
   "DEPLOYMENT-FA.md",
 ];
 for (const relativePath of packagedFiles) {
@@ -223,10 +225,13 @@ for (const relativePath of packagedFiles) {
 if (existsSync(resolve(privateRoot, "config.php"))) {
   throw new Error("A real private config must never be included in the generated package.");
 }
-const archivePath = resolve(root, "3food-pos-cpanel.zip");
-rmSync(archivePath, { force: true });
+// Never overwrite the historical archive or a previously generated update.
+const archivePath = resolve(root, "3food-pos-v2-update.zip");
+if (existsSync(archivePath)) {
+  throw new Error("Refusing to overwrite existing 3food-pos-v2-update.zip; move it aside or choose a new output name.");
+}
 const archiveEntries = writeZip(packageRoot, archivePath);
 if (!existsSync(archivePath) || statSync(archivePath).size < 1024 || archiveEntries < 10) {
   throw new Error("cPanel ZIP archive was not created correctly.");
 }
-console.log("cPanel package created and validated at dist-cpanel/ and 3food-pos-cpanel.zip (" + archiveEntries + " files).");
+console.log("cPanel package created and validated at dist-cpanel/ and 3food-pos-v2-update.zip (" + archiveEntries + " files).");
