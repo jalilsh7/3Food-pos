@@ -796,7 +796,7 @@ try {
     $kitchenBootstrap = api('GET', '/api/v1/bootstrap');
     check($kitchenBootstrap['status'] === 200, 'kitchen bootstrap');
     $kitchenData = $kitchenBootstrap['json']['data'] ?? [];
-    check(array_keys($kitchenData) === ['categories', 'products', 'orders'], 'kitchen bootstrap contains only preparation resources');
+    check(array_keys($kitchenData) === ['settings', 'orders'], 'kitchen bootstrap contains only sanitized settings and preparation orders');
     check(!array_key_exists('customerName', $kitchenData['orders'][0] ?? []), 'kitchen cannot see customer name');
     check(!array_key_exists('customerPhone', $kitchenData['orders'][0] ?? []), 'kitchen cannot see customer phone');
     check(!array_key_exists('customerId', $kitchenData['orders'][0] ?? []), 'kitchen cannot see customer id');
