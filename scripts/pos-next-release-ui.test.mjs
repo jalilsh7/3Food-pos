@@ -56,7 +56,7 @@ test("order edits reverse the previous active effect before recording its replac
 test("cancelling an order restores its stock effect even when the balance remains negative", () => {
   assert.match(orderStatus, /\$restoredStock = round\(\(float\)\(\$ingredient\['stock'\] \?\? 0\) \+ \$ingredientQuantities\[\$ingredientId\], 3\)/);
   assert.match(orderStatus, /Negative stock is a valid shortage signal in V2/);
-  assert.match(orderStatus, /reversed_at = NOW\(\) WHERE id IN \(\$marks\) AND reversed_at IS NULL/);
+  assert.match(orderStatus, /SET reversed_at = NOW\(\), reversed_by = \? WHERE id IN \(\$marks\) AND reversed_at IS NULL/);
 });
 
 test("receipt QR uses the V2-local component and degrades safely for oversized payloads", () => {
