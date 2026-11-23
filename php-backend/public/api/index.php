@@ -1909,6 +1909,17 @@ if ($method === 'POST' && $path === '/orders') {
             $available = (float)($ingredient['stock'] ?? 0);
             if ($stockPolicy === 'block' && $available + 0.000001 < $needed) {
                 $pdo->rollBack();
+                $rollbackProbeStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'ingredients' AND id = ? LIMIT 1");
+                $rollbackProbeStmt->execute([$ingredientId]);
+                $rollbackProbeRaw = $rollbackProbeStmt->fetchColumn();
+                $rollbackProbe = is_string($rollbackProbeRaw) ? json_decode($rollbackProbeRaw, true) : null;
+                error_log('[3Food POS] Stock rejection rollback probe: ' . json_encode([
+                    'ingredient_id' => $ingredientId,
+                    'available_before_rejection' => $available,
+                    'needed' => $needed,
+                    'stock_after_rollback' => is_array($rollbackProbe) ? ($rollbackProbe['stock'] ?? null) : null,
+                    'transaction_active' => $pdo->inTransaction(),
+                ], JSON_UNESCAPED_SLASHES));
                 json_response(['ok' => false, 'error' => 'insufficient_stock', 'message' => 'موجودی یکی از مواد اولیه کافی نیست: ' . (string)($ingredient['name'] ?? $ingredientId)], 409);
             }
             // warn_and_allow keeps the operator informed in the POS; allow_negative skips the warning.
