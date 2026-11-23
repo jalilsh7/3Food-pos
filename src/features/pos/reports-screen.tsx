@@ -17,7 +17,6 @@ const REPORT_INITIAL_TO = tehranDate();
 const REPORT_INITIAL_FROM = tehranDate(Date.now() - 6 * 86400000);
 
 export function ReportsScreen({ loadCategories, saveRecord, deleteRecord }: ReportsScreenProps) {
-  const orders = usePos((s) => s.orders);
   const expenses = usePos((s) => s.expenses);
   const addExpense = usePos((s) => s.addExpense);
   const saveExpense = usePos((s) => s.saveExpense);
