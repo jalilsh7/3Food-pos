@@ -689,7 +689,8 @@ function OrdersScreen({ role }: { role: Role }) {
   const steps: Order["status"][] = role === "kitchen"
     ? ["preparing", "ready"]
     : role === "manager" ? ["preparing", "ready", "delivered", "cancelled"] : [];
-  const editCustomer = customers.find((c) => c.phone === editPhone.trim()) ?? null;
+  const normalizedEditPhone = normalizeIranPhone(editPhone);
+  const editCustomer = customers.find((c) => normalizeIranPhone(c.phone) === normalizedEditPhone) ?? null;
   const editCodeUses = editCustomer && editCode
     ? Math.max(0, customerCodeUses(orders, editCustomer.id, editCode) - (editing?.customerId === editCustomer.id && editing.discountCode.toUpperCase() === editCode.trim().toUpperCase() ? 1 : 0))
     : 0;
