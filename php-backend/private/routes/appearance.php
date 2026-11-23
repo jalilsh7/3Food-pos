@@ -48,7 +48,7 @@ if ($method === 'POST' && $path === '/appearance/logo') {
         (int)$imageInfo[0]<1||(int)$imageInfo[1]<1||(int)$imageInfo[0]>2000||(int)$imageInfo[1]>2000) {
         json_response(['ok'=>false,'error'=>'invalid_logo','message'=>'فقط تصویر سالم PNG، JPG یا WebP تا ابعاد ۲۰۰۰ پیکسل پذیرفته می‌شود'],422);
     }
-    $uploadDir=dirname(__DIR__).'/uploads/appearance';
+    $uploadDir=dirname(__DIR__,2).'/public/uploads/appearance';
     if (!is_dir($uploadDir)&&!mkdir($uploadDir,0755,true)&&!is_dir($uploadDir)) json_response(['ok'=>false,'error'=>'logo_storage_unavailable'],500);
     $filename=bin2hex(random_bytes(16)).'.'.$extensions[$mime]; $target=$uploadDir.'/'.$filename;
     if (file_put_contents($target,$binary,LOCK_EX)===false) json_response(['ok'=>false,'error'=>'logo_storage_failed'],500);

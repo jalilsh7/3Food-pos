@@ -317,3 +317,10 @@ import { GrillApp } from "@/features/pos/app";
 - کنترل بسته‌بندی به فایل راهنمای migration در مقصد `database/migrations/README-FA.md` نیاز داشت، اما فایل راهنما در سورس وجود نداشت. راهنمای فارسی در `php-backend/migrations/README-FA.md` اضافه شد؛ اسکریپت همین پوشه را به `database/migrations/` کپی می‌کند.
 - تمام migrationهای V2 از `002-session-version.sql` تا `009-payment-terminal-foundation.sql` اکنون جداگانه در فهرست فایل‌های اجباری ZIP کنترل می‌شوند. migrationهای `database/v3/migrations/` وارد بسته V2 نمی‌شوند.
 - بسته‌بندی همچنان بدون build اجرا نشده است؛ این تغییر فقط سورس اسکریپت و مستندات را اصلاح می‌کند.
+
+
+## الحاقیه بازبینی رسانه‌ها 2026-11-24
+
+- در `php-backend/private/routes/appearance.php` مسیر ذخیره لوگوی فروشگاه اشتباه بود: فایل در `private/uploads/appearance` نوشته می‌شد، درحالی‌که URL خروجی به `/uploads/appearance/` در Document Root عمومی اشاره می‌کرد. مسیر ذخیره اکنون به `php-backend/public/uploads/appearance` تغییر کرد تا فایل و URL یک مقصد داشته باشند.
+- فایل‌ها همچنان فقط با MIME واقعی PNG/JPEG/WebP، سقف ۵۱۲ KiB و ابعاد حداکثر ۲۰۰۰×۲۰۰۰ پذیرفته می‌شوند؛ پوشه عمومی uploads نیز deny rule اجرای اسکریپت دارد.
+- این اصلاح با سورس‌خوانی انجام شد؛ هیچ تست یا آپلود واقعی اجرا نشده است.
