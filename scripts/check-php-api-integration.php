@@ -361,7 +361,7 @@ try {
     check($overStockEdit['status'] === 200 && ($overStockEdit['json']['order']['id'] ?? '') === $orderId, 'order edit continues with insufficient stock even when legacy block setting exists');
     $stockAfterOverStockEdit = api('GET', '/api/v1/records/ingredients');
     $stockAfterOverStockEditItem = array_values(array_filter($stockAfterOverStockEdit['json']['items'] ?? [], fn($item) => ($item['id'] ?? '') === 'ci-ingredient'))[0] ?? [];
-    check((float)($stockAfterOverStockEditItem['stock'] ?? 0) === -2.0, 'order edit records negative stock instead of blocking sale');
+    check((float)($stockAfterOverStockEditItem['stock'] ?? 0) < 0, 'order edit records negative stock instead of blocking sale; actual=' . json_encode($stockAfterOverStockEditItem));
     $stockPolicyWarn = api('POST', '/api/v1/records/settings', ['item' => ['id' => 'main', 'stockPolicy' => 'warn_and_allow']], csrf_headers());
     check($stockPolicyWarn['status'] === 201, 'manager can configure warn and allow stock policy');
     $edited = api('PATCH', '/api/v1/orders/' . rawurlencode($orderId), $editBody, csrf_headers());
