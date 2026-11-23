@@ -137,7 +137,10 @@ export function GrillApp() {
       inFlight = true;
       try {
         const result = await phpApi.bootstrap<ServerBootstrap>();
-        if (active) hydratePosFromServer(result.data, result.next_order, user.role);
+        if (active) {
+          hydratePosFromServer(result.data, result.next_order, user.role);
+          setSessionError("");
+        }
       } catch (error) {
         // A revoked/expired PHP session must immediately clear the old role's
         // in-memory data; only transient network/server errors retain the snapshot.
@@ -211,12 +214,12 @@ export function GrillApp() {
           </button>
         </div>
       </header>
-      <PosWorkspace allowed={allowed} initialView={viewFallback?.id ?? "orders"} role={user.role} />
+      <PosWorkspace allowed={allowed} initialView={viewFallback?.id ?? "orders"} role={user.role} sessionError={sessionError} />
     </div>
   );
 }
 
-function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; initialView: View; role: Role }) {
+function PosWorkspace({ allowed, initialView, role, sessionError }: { allowed: typeof NAV; initialView: View; role: Role; sessionError: string }) {
   const [view, setView] = useState<View>(initialView);
   const [showAllNav, setShowAllNav] = useState(false);
   const current = allowed.some((n) => n.id === view) ? view : allowed[0]?.id ?? "orders";
@@ -257,6 +260,7 @@ function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; ini
         </div>
       </nav>
       <main className="pos-main min-w-0">
+        {sessionError ? <div role="status" className="mb-3 rounded-xl border border-warn/30 bg-warn/10 p-3 text-sm text-warn">{sessionError} — اطلاعات تازه از سرور دریافت نشده؛ عملیات ثبت تا برقراری ارتباط با MySQL انجام نمی‌شود.</div> : null}
         {current === "pos" ? <PosScreen role={role} /> : null}
         {current === "orders" ? <OrdersScreen role={role} /> : null}
         {current === "menu" ? <MenuScreen /> : null}
