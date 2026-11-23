@@ -430,7 +430,17 @@ function PosScreen({ role }: { role: Role }) {
         }
         // A retry must keep the original terminal even if its agent is now offline
         // or the operator changed the selected terminal after a lost response.
-        const created=await phpApi.createTerminalPayment({terminalId:request.terminalId,amount,idempotencyKey:request.key});
+        let created;
+        try {
+          created=await phpApi.createTerminalPayment({terminalId:request.terminalId,amount,idempotencyKey:request.key});
+        } catch(error) {
+          // A definite client rejection means no queue row was committed. Keep
+          // the key only for ambiguous/network failures or an idempotency clash.
+          if(error instanceof PhpApiError && error.status>=400 && error.status<500 && error.code!=="terminal_payment_idempotency_conflict") {
+            pendingTerminalRequest.current=null;
+          }
+          throw error;
+        }
         pending={id:created.payment.id,amount,terminalId:request.terminalId};pendingTerminalPayment.current=pending;
       }
     }
