@@ -251,7 +251,7 @@ export function quoteOrder(input: {
     else if (
       found.audience !== "all" &&
       found.audience !== "club" &&
-      (!input.customer || tierOf(input.customer.points) !== found.audience)
+      (!input.customer || tierOf(input.customer.points, input.settings) !== found.audience)
     )
       codeError = "برای سطح عضویت شما نیست";
     else if (found.perCustomer > 0 && (input.usesSoFar ?? 0) >= found.perCustomer)
