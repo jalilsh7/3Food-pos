@@ -181,6 +181,6 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: 3food-pos-cpanel-zip
-          path: 3food-pos-cpanel.zip
+          path: 3food-pos-v2-update.zip
           if-no-files-found: error
           retention-days: 14
