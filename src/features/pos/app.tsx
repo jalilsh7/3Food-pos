@@ -210,7 +210,9 @@ export function GrillApp() {
 
 function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; initialView: View; role: Role }) {
   const [view, setView] = useState<View>(initialView);
+  const [showAllNav, setShowAllNav] = useState(false);
   const current = allowed.some((n) => n.id === view) ? view : allowed[0]?.id ?? "orders";
+  const visibleNav = showAllNav ? allowed : allowed.slice(0, 5);
   return (
     <div className="pos-layout mx-auto grid w-full max-w-[1600px] min-w-0 gap-4 px-3 py-4 sm:px-5 lg:grid-cols-[248px_minmax(0,1fr)] lg:gap-6 lg:px-7 lg:py-7">
       <nav className="pos-nav min-w-0 lg:sticky lg:top-[92px] lg:flex lg:h-[calc(100vh-116px)] lg:flex-col">
@@ -219,7 +221,7 @@ function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; ini
           <p className="mt-1 text-sm font-extrabold">دسترسی سریع</p>
         </div>
         <div className="pos-nav-list flex min-w-0 gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
-          {allowed.map((n) => {
+          {visibleNav.map((n) => {
             const Icon = n.icon;
             const on = current === n.id;
             return (
@@ -229,6 +231,16 @@ function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; ini
               </button>
             );
           })}
+          {allowed.length > 5 ? (
+            <button
+              type="button"
+              aria-expanded={showAllNav}
+              onClick={() => setShowAllNav((expanded) => !expanded)}
+              className="pos-nav-item inline-flex shrink-0 items-center justify-center rounded-2xl border border-line px-4 py-3 text-sm font-semibold"
+            >
+              {showAllNav ? "نمایش کمتر" : "نمایش بیشتر"}
+            </button>
+          ) : null}
         </div>
         <div className="mt-auto hidden rounded-2xl border border-line bg-surface/80 p-4 lg:block">
           <p className="text-xs font-bold text-ink">3Food POS</p>
