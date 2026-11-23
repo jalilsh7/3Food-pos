@@ -632,6 +632,13 @@ try {
         'password' => 'CI-Cashier-Password-2026!',
     ]);
     check($cashierLogin['status'] === 200 && ($cashierLogin['json']['user']['role'] ?? '') === 'cashier', 'cashier login');
+    $cashierPasswordChange = api('POST', '/api/v1/auth/change-password', [
+        'current_password' => 'CI-Cashier-Password-2026!',
+        'new_password' => 'CI-Cashier-Updated-Password-2026!',
+    ], csrf_headers());
+    check($cashierPasswordChange['status'] === 200, 'cashier completes required first-login password change');
+    $csrf = (string)($cashierPasswordChange['json']['csrf_token'] ?? '');
+    check(strlen($csrf) >= 32, 'cashier receives refreshed CSRF token after password change');
     $cashierCannotReadManagerPayment = api('GET', '/api/v1/terminal-payments/' . rawurlencode($terminalPaymentId));
     check($cashierCannotReadManagerPayment['status'] === 404 && ($cashierCannotReadManagerPayment['json']['error'] ?? '') === 'terminal_payment_not_found', 'cashier cannot read another users terminal payment; actual=' . json_encode($cashierCannotReadManagerPayment));
     $cashierEdit = api('PATCH', '/api/v1/orders/' . rawurlencode($guestOrderId), [
@@ -646,7 +653,7 @@ try {
     check($cashierBackup['status'] === 403, 'cashier cannot export full customer and order backup');
     $cashierRestore = api('POST', '/api/v1/backup/restore', ['backup' => $backupData], csrf_headers());
     check($cashierRestore['status'] === 403, 'cashier cannot restore MySQL backup');
-    $csrf = (string)($cashierLogin['json']['csrf_token'] ?? '');
+    // Keep the refreshed token returned by the mandatory password-change flow.
     check(strlen($csrf) >= 32, 'cashier receives CSRF token');
 
     $cashierBootstrap = api('GET', '/api/v1/bootstrap');
