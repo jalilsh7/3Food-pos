@@ -139,6 +139,14 @@ export function GrillApp() {
         const result = await phpApi.bootstrap<ServerBootstrap>();
         if (active) hydratePosFromServer(result.data, result.next_order, user.role);
       } catch (error) {
+        // A revoked/expired PHP session must immediately clear the old role's
+        // in-memory data; only transient network/server errors retain the snapshot.
+        if (active && error instanceof PhpApiError && error.status === 401 && error.code === "unauthorized") {
+          resetPosForRole("manager");
+          setUser(null);
+          setSessionError("");
+          return;
+        }
         // A temporary network failure must not log the user out or replace
         // the last known good state. The next poll/focus event retries.
         if (active && showError) {
