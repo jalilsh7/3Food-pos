@@ -217,7 +217,12 @@ export const usePos = create<PosState & Actions>()(
             const product = s.products.find((p) => p.id === line.productId);
             const rec = product?.recipe.find((r) => r.ingredientId === ing.id);
             if (rec) need += rec.qty * line.qty;
-            if (line.optionLabels.some((l) => l.includes("پنیر")) && ing.id === "i3") need += line.qty;
+            for (const optionId of line.optionIds) {
+              const option = product?.options.find((item) => item.id === optionId);
+              if (option?.ingredientId && option.ingredientQty && option.ingredientQty > 0) {
+                need += option.ingredientQty * line.qty;
+              }
+            }
           }
           return { ...ing, stock: +(ing.stock - need).toFixed(2) };
         });

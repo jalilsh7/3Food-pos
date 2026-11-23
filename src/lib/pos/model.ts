@@ -2,7 +2,7 @@ export type Role = "manager" | "cashier" | "kitchen";
 
 export type Category = { id: string; name: string };
 
-export type Option = { id: string; name: string; price: number };
+export type Option = { id: string; name: string; price: number; ingredientId?: string; ingredientQty?: number };
 
 export type RecipeLine = { ingredientId: string; qty: number };
 

@@ -85,7 +85,20 @@ if ($method === 'POST' && $path === '/orders') {
             if (!is_array($option) || !isset($option['id'])) continue;
             $optionPrice = filter_var($option['price'] ?? 0, FILTER_VALIDATE_INT);
             if ($optionPrice === false) continue;
-            $validOptions[(string)$option['id']] = ['price' => $optionPrice, 'name' => substr((string)($option['name'] ?? ''), 0, 120)];
+            $validOption = ['price' => $optionPrice, 'name' => substr((string)($option['name'] ?? ''), 0, 120)];
+            $optionIngredientId = trim((string)($option['ingredientId'] ?? ''));
+            if ($optionIngredientId !== '') {
+                $optionIngredientQty = $option['ingredientQty'] ?? null;
+                if (!preg_match('/^[A-Za-z0-9_-]{1,100}$/D', $optionIngredientId) ||
+                    !is_numeric($optionIngredientQty) || !is_finite((float)$optionIngredientQty) ||
+                    (float)$optionIngredientQty <= 0 || (float)$optionIngredientQty > 1000000 ||
+                    round((float)$optionIngredientQty, 3) !== (float)$optionIngredientQty) {
+                    json_response(['ok' => false, 'error' => 'invalid_product_option_ingredient', 'message' => 'مصرف ماده اولیه گزینه محصول معتبر نیست'], 409);
+                }
+                $validOption['ingredientId'] = $optionIngredientId;
+                $validOption['ingredientQty'] = (float)$optionIngredientQty;
+            }
+            $validOptions[(string)$option['id']] = $validOption;
         }
         $rawOptionIds = $line['optionIds'] ?? [];
         if (!is_array($rawOptionIds) || count($rawOptionIds) > 30) json_response(['ok' => false, 'error' => 'invalid_product_option'], 422);
@@ -94,8 +107,13 @@ if ($method === 'POST' && $path === '/orders') {
         $optionLabels = [];
         foreach ($optionIds as $optionId) {
             if (!array_key_exists($optionId, $validOptions)) json_response(['ok' => false, 'error' => 'invalid_product_option'], 422);
-            $unitPrice += $validOptions[$optionId]['price'];
-            $optionLabels[] = $validOptions[$optionId]['name'];
+            $selectedOption = $validOptions[$optionId];
+            $unitPrice += $selectedOption['price'];
+            $optionLabels[] = $selectedOption['name'];
+            if (!empty($selectedOption['ingredientId'])) {
+                $ingredientId = $selectedOption['ingredientId'];
+                $ingredientNeeds[$ingredientId] = ($ingredientNeeds[$ingredientId] ?? 0) + ($selectedOption['ingredientQty'] * (int)$line['qty']);
+            }
         }
         if ($unitPrice < 0 || $unitPrice > 100000000000) json_response(['ok' => false, 'error' => 'invalid_order_item_price'], 422);
         if (isset($line['unitPrice']) && (!is_numeric($line['unitPrice']) || (float)$line['unitPrice'] !== (float)$unitPrice)) json_response(['ok' => false, 'error' => 'price_changed', 'message' => 'قیمت محصول تغییر کرده است؛ سبد را تازه‌سازی کنید'], 409);

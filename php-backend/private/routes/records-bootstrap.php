@@ -248,6 +248,7 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
             }
             $canonicalOptions = [];
             $optionIds = [];
+            $optionIngredientIds = [];
             foreach ($options as $option) {
                 if (!is_array($option)) {
                     json_response(['ok' => false, 'error' => 'invalid_product_option', 'message' => 'هر گزینه محصول باید اطلاعات معتبر داشته باشد'], 422);
@@ -263,7 +264,23 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
                     json_response(['ok' => false, 'error' => 'invalid_product_option', 'message' => 'نام، شناسه یا مبلغ یکی از گزینه‌های محصول معتبر نیست'], 422);
                 }
                 $optionIds[] = $optionId;
-                $canonicalOptions[] = ['id' => $optionId, 'name' => $optionName, 'price' => (int)$optionPrice];
+                $canonicalOption = ['id' => $optionId, 'name' => $optionName, 'price' => (int)$optionPrice];
+                $optionIngredientId = trim((string)($option['ingredientId'] ?? ''));
+                if ($optionIngredientId !== '') {
+                    $optionIngredientQty = $option['ingredientQty'] ?? null;
+                    if (!preg_match('/^[A-Za-z0-9_-]{1,100}$/D', $optionIngredientId) ||
+                        !is_numeric($optionIngredientQty) || !is_finite((float)$optionIngredientQty) ||
+                        (float)$optionIngredientQty <= 0 || (float)$optionIngredientQty > 1000000 ||
+                        round((float)$optionIngredientQty, 3) !== (float)$optionIngredientQty) {
+                        json_response(['ok' => false, 'error' => 'invalid_product_option_ingredient', 'message' => 'ماده اولیه یا مقدار مصرف گزینه محصول معتبر نیست'], 422);
+                    }
+                    $canonicalOption['ingredientId'] = $optionIngredientId;
+                    $canonicalOption['ingredientQty'] = (float)$optionIngredientQty;
+                    $optionIngredientIds[] = $optionIngredientId;
+                } elseif (isset($option['ingredientQty']) && (float)$option['ingredientQty'] > 0) {
+                    json_response(['ok' => false, 'error' => 'invalid_product_option_ingredient', 'message' => 'برای مقدار مصرف گزینه باید ماده اولیه انتخاب شود'], 422);
+                }
+                $canonicalOptions[] = $canonicalOption;
             }
             $item['options'] = $canonicalOptions;
 
@@ -271,7 +288,7 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
             if (!is_array($recipe) || count($recipe) > 100) {
                 json_response(['ok' => false, 'error' => 'invalid_product_recipe', 'message' => 'دستور ساخت محصول معتبر نیست'], 422);
             }
-            $ingredientIds = [];
+            $recipeIngredientIds = [];
             foreach ($recipe as $recipeLine) {
                 if (!is_array($recipeLine) || !is_string($recipeLine['ingredientId'] ?? null) ||
                     !preg_match('/^[A-Za-z0-9_-]{1,100}$/D', $recipeLine['ingredientId']) ||
@@ -282,11 +299,12 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
                 if (!is_finite($quantity) || $quantity <= 0 || $quantity > 1000000 || round($quantity, 3) !== $quantity) {
                     json_response(['ok' => false, 'error' => 'invalid_product_recipe_quantity', 'message' => 'مقدار هر ماده اولیه باید مثبت و حداکثر سه رقم اعشار باشد'], 422);
                 }
-                $ingredientIds[] = $recipeLine['ingredientId'];
+                $recipeIngredientIds[] = $recipeLine['ingredientId'];
             }
-            if (count($ingredientIds) !== count(array_unique($ingredientIds))) {
+            if (count($recipeIngredientIds) !== count(array_unique($recipeIngredientIds))) {
                 json_response(['ok' => false, 'error' => 'duplicate_product_recipe_ingredient', 'message' => 'هر ماده اولیه فقط یک‌بار در دستور ساخت محصول درج شود'], 422);
             }
+            $ingredientIds = array_values(array_unique(array_merge($recipeIngredientIds, $optionIngredientIds)));
             sort($ingredientIds, SORT_STRING);
             $pdo->beginTransaction();
             $ingredientExists = $pdo->prepare("SELECT id FROM pos_records WHERE resource = 'ingredients' AND id = ? FOR UPDATE");

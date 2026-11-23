@@ -977,14 +977,35 @@ function MenuScreen() {
               <Btn tone="ghost" onClick={() => setDraft({ ...draft, options: [...draft.options, { id: uid("op"), name: "", price: 0 }] })}>افزودن گزینه</Btn>
             </div>
             {draft.options.length ? draft.options.map((option, index) => (
-              <div key={option.id} className="grid gap-2 rounded-xl border border-line p-3 sm:grid-cols-[minmax(0,1fr)_160px_auto]">
+              <div key={option.id} className="grid gap-2 rounded-xl border border-line p-3 sm:grid-cols-2">
                 <Field label={`نام گزینه ${index + 1}`}>
                   <input className={inputCls} value={option.name} onChange={(e) => setDraft({ ...draft, options: draft.options.map((item) => item.id === option.id ? { ...item, name: e.target.value } : item) })} placeholder="مثلاً پنیر اضافه" />
                 </Field>
                 <Field label="مبلغ اضافه (تومان)">
                   <input className={inputCls} type="number" min="0" max="100000000000" step="1" value={option.price} onChange={(e) => setDraft({ ...draft, options: draft.options.map((item) => item.id === option.id ? { ...item, price: Number(e.target.value) } : item) })} />
                 </Field>
-                <div className="flex items-end">
+                <Field label="کسر از موجودی انبار">
+                  <select className={inputCls} value={option.ingredientId ?? ""} onChange={(e) => {
+                    const ingredientId = e.target.value;
+                    setDraft({ ...draft, options: draft.options.map((item) => {
+                      if (item.id !== option.id) return item;
+                      if (!ingredientId) {
+                        const { ingredientId: _ingredientId, ingredientQty: _ingredientQty, ...withoutIngredient } = item;
+                        return withoutIngredient;
+                      }
+                      return { ...item, ingredientId, ingredientQty: item.ingredientQty && item.ingredientQty > 0 ? item.ingredientQty : 1 };
+                    }) });
+                  }}>
+                    <option value="">بدون مصرف ماده اولیه</option>
+                    {ingredients.map((ingredient) => <option key={ingredient.id} value={ingredient.id}>{ingredient.name} ({ingredient.unit})</option>)}
+                  </select>
+                </Field>
+                {option.ingredientId ? (
+                  <Field label={"مقدار مصرف هر گزینه (" + (ingredients.find((item) => item.id === option.ingredientId)?.unit ?? "") + ")"}>
+                    <input className={inputCls} type="number" min="0.001" max="1000000" step="0.001" value={option.ingredientQty ?? 1} onChange={(e) => setDraft({ ...draft, options: draft.options.map((item) => item.id === option.id ? { ...item, ingredientQty: Number(e.target.value) } : item) })} />
+                  </Field>
+                ) : null}
+                <div className="flex items-end sm:col-span-2">
                   <Btn tone="ghost" onClick={() => setDraft({ ...draft, options: draft.options.filter((item) => item.id !== option.id) })}>حذف</Btn>
                 </div>
               </div>
