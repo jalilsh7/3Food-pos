@@ -1,6 +1,6 @@
 import { money, type Order, type Settings } from "@/lib/pos/model";
 import { useAppearance } from "@/lib/appearance";
-import { ReceiptQr } from "@/components/grill/receipt-qr";
+import { ReceiptQr } from "./receipt-qr";
 
 const pay: Record<Order["payment"], string> = {
   cash: "نقد",

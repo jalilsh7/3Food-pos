@@ -26,3 +26,14 @@ export function isoToJalali(value:string){
   const part=(type:string)=>parts.find(item=>item.type===type)?.value??"";
   return `${part("year")}/${part("month")}/${part("day")}`;
 }
+export function tehranDate(value: number | Date = Date.now()): string {
+  const date = value instanceof Date ? value : new Date(value);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Tehran",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}

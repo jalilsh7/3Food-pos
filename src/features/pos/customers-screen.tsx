@@ -96,8 +96,3 @@ export function CustomersScreen({ role, saveRecord }: CustomersScreenProps) {
     </div>
   );
 }
-
-
-const REPORT_INITIAL_TO = tehranDate();
-const REPORT_INITIAL_FROM = tehranDate(Date.now() - 6 * 86400000);
-
