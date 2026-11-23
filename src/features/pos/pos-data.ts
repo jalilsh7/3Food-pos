@@ -99,6 +99,8 @@ export function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, r
     settings: {
       ...current.settings,
       ...(serverSettings ?? {}),
+      pointsPerToman: Math.max(1, Math.floor(Number(serverSettings?.pointsPerToman ?? current.settings.pointsPerToman) || 1)),
+      tomanPerPoint: Math.max(1, Math.floor(Number(serverSettings?.tomanPerPoint ?? current.settings.tomanPerPoint) || 1)),
       smsUser: "",
       smsKey: "",
       smsFrom: "",

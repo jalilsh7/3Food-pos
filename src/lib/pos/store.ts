@@ -187,8 +187,10 @@ export const usePos = create<PosState & Actions>()(
             customerId = created.id;
           }
         }
-        const earned = customerId ? Math.floor(q.total / s.settings.pointsPerToman) : 0;
-        const spentPts = q.pointsDiscount > 0 ? Math.ceil(q.pointsDiscount / s.settings.tomanPerPoint) : 0;
+        const pointsPerToman = Math.max(1, Math.floor(Number(s.settings.pointsPerToman) || 1));
+        const tomanPerPoint = Math.max(1, Math.floor(Number(s.settings.tomanPerPoint) || 1));
+        const earned = customerId ? Math.floor(q.total / pointsPerToman) : 0;
+        const spentPts = q.pointsDiscount > 0 ? Math.ceil(q.pointsDiscount / tomanPerPoint) : 0;
         const order: Order = {
           id: input.serverOrder?.id ?? uid("or"),
           number: input.serverOrder?.number ?? s.nextOrder,

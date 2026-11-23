@@ -186,7 +186,17 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
                 if (!is_string($item['stockPolicy']) || !in_array($item['stockPolicy'], $allowedStockPolicies, true)) {
                     json_response(['ok' => false, 'error' => 'invalid_stock_policy', 'message' => 'سیاست موجودی انتخاب‌شده معتبر نیست'], 422);
                 }
-            } else {
+            }
+            foreach (['pointsPerToman', 'tomanPerPoint'] as $pointsField) {
+                if (array_key_exists($pointsField, $item)) {
+                    $pointsValue = filter_var($item[$pointsField], FILTER_VALIDATE_INT);
+                    if ($pointsValue === false || $pointsValue < 1 || $pointsValue > 1000000000) {
+                        json_response(['ok' => false, 'error' => 'invalid_loyalty_conversion', 'message' => 'نرخ تبدیل امتیاز باید عدد صحیح و حداقل یک باشد'], 422);
+                    }
+                    $item[$pointsField] = $pointsValue;
+                }
+            }
+            if (!array_key_exists('stockPolicy', $item)) {
                 $existingSettingsStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource = 'settings' AND id = ? LIMIT 1");
                 $existingSettingsStmt->execute([$id]);
                 $existingSettingsRaw = $existingSettingsStmt->fetchColumn();

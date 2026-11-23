@@ -268,11 +268,12 @@ export function quoteOrder(input: {
   let pointsDiscount = 0;
   let pointsError = "";
   const want = Math.max(0, Math.floor(input.pointsToUse));
+  const tomanPerPoint = Math.max(1, Math.floor(Number(input.tomanPerPoint) || 1));
   if (want > 0) {
     if (!input.customer) pointsError = "اول مشتری را انتخاب کنید";
     else if (want > input.customer.points) pointsError = "امتیاز کافی نیست";
     else {
-      pointsDiscount = Math.min(afterCode, want * input.tomanPerPoint);
+      pointsDiscount = Math.min(afterCode, want * tomanPerPoint);
     }
   }
   const taxable = Math.max(0, afterCode - pointsDiscount);
