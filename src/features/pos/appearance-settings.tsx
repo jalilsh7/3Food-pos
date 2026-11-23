@@ -3,7 +3,7 @@ import { Btn, Card, Field, inputCls } from "./bits";
 import type { AppearanceSettings } from "@/lib/api/php-client";
 import { APPEARANCE_PRESETS, useAppearance } from "@/lib/appearance";
 
-function AppearanceSettingsPanel(){
+export function AppearanceSettingsPanel(){
  const {settings,update,save,reset,uploadLogo}=useAppearance();
  const [busy,setBusy]=useState(false),[logoBusy,setLogoBusy]=useState(false),[note,setNote]=useState("");
  async function persist(){setBusy(true);setNote("");try{await save();setNote("ظاهر جدید برای همه کاربران ذخیره شد.");}catch(e){setNote(e instanceof Error?e.message:"ذخیره ظاهر انجام نشد.");}finally{setBusy(false);}}
