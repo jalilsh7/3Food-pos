@@ -200,3 +200,5 @@ import { GrillApp } from "@/features/pos/app";
 
 ---
 آخرین به‌روزرسانی این سند: 2026-11-23
+
+- **یافته مهم پس از refactor صفحه‌ها:** کدهای `ServerBootstrap`، `readLegacyBrowserPosState`، `hydratePosFromServer` و `SettingsScreen` در انتهای `expenses-screen.tsx` قرار گرفته بودند، درحالی‌که app آن‌ها را import نمی‌کرد؛ خود صفحه هزینه‌ها نیز به‌جای props دریافتی به نام‌های تعریف‌نشده `saveCentralRecord/deleteCentralRecord` متکی بود. این مشکل در commit `7182632` با جداسازی `pos-data.ts` و `settings-screen.tsx` و اصلاح callbackهای `ExpensesScreen` برطرف شد. در ادامه، سایر فایل‌های استخراج‌شده را نیز از نظر import/prop boundary و ارجاع به نمادهای تعریف‌نشده بازبینی کنید؛ تست ممنوع است، پس فقط مطالعه سورس و بازخوانی مجاز است.
