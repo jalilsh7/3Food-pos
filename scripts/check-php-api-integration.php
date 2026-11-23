@@ -338,6 +338,9 @@ try {
     $orderId = (string)($created['json']['order']['id'] ?? '');
     check($orderId !== '', 'created order id');
     check(($created['json']['order']['items'][0]['name'] ?? '') === 'CI Test Product', 'server canonical product name');
+    $stockImmediatelyAfterCreate = api('GET', '/api/v1/records/ingredients');
+    $stockImmediatelyAfterCreateItem = array_values(array_filter($stockImmediatelyAfterCreate['json']['items'] ?? [], fn($item) => ($item['id'] ?? '') === 'ci-ingredient'))[0] ?? [];
+    check((float)($stockImmediatelyAfterCreateItem['stock'] ?? 0) === 8.0, 'new order deducts exactly the recipe quantity once; actual=' . json_encode($stockImmediatelyAfterCreateItem));
     $managerSnapshot = api('GET', '/api/v1/bootstrap');
     check($managerSnapshot['status'] === 200 && ($managerSnapshot['json']['data']['orders'][0]['payment'] ?? '') === 'cash', 'bootstrap preserves selected payment method');
     $editBody = $orderBody;
