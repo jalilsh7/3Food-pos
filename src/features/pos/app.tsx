@@ -531,7 +531,7 @@ function PosScreen({ role }: { role: Role }) {
       const vars = orderVars(order, String(fresh?.points ?? 0));
       void pushSms("order_created", order.customerPhone, vars);
       if (shouldSendInvoiceSms && order.customerPhone) {
-        const invoice = [`${settings.shopName} - فاکتور سفارش ${order.number}`, ...order.lines.map(line => `${line.name} × ${line.qty}: ${money(line.unitPrice * line.qty)}`), `جمع: ${money(order.subtotal)}`, `تخفیف: ${money(order.tierDiscount + order.codeDiscount + order.pointsDiscount)}`, `مالیات: ${money(order.tax)}`, `مبلغ نهایی: ${money(order.total)}`, `تاریخ: ${new Date(order.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})}`].join("\\n").slice(0, 950);
+        const invoice = [`${settings.shopName} - فاکتور سفارش ${order.number}`, ...order.lines.map(line => `${line.name} × ${line.qty}: ${money(line.unitPrice * line.qty)}`), `جمع: ${money(order.subtotal)}`, `تخفیف: ${money(order.tierDiscount + order.codeDiscount + order.pointsDiscount)}`, `مالیات: ${money(order.tax)}`, `مبلغ نهایی: ${money(order.total)}`, `تاریخ: ${new Date(order.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})}`].join("\n").slice(0, 950);
         void postSms(order.customerPhone, invoice, "order_invoice", "");
       }
       if (order.pointsEarned) void pushSms("points_earned", order.customerPhone, vars);
