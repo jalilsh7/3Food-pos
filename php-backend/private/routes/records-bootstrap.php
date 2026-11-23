@@ -209,6 +209,47 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
         }
         $productWrite = $resource === 'products' && $actor['role'] === 'manager';
         if ($productWrite) {
+            $productName = trim((string)($item['name'] ?? ''));
+            $productNameLength = preg_match_all('/./us', $productName, $productNameChars);
+            $productPrice = filter_var($item['price'] ?? null, FILTER_VALIDATE_INT);
+            $productCost = filter_var($item['cost'] ?? 0, FILTER_VALIDATE_INT);
+            $productActive = $item['active'] ?? true;
+            if ($productName === '' || $productNameLength === false || $productNameLength > 160 ||
+                $productPrice === false || $productPrice < 0 || $productPrice > 100000000000 ||
+                $productCost === false || $productCost < 0 || $productCost > 100000000000 ||
+                !in_array($productActive, [true, false, 0, 1, '0', '1'], true)) {
+                json_response(['ok' => false, 'error' => 'invalid_product', 'message' => 'نام، قیمت یا وضعیت محصول معتبر نیست'], 422);
+            }
+            $item['name'] = $productName;
+            $item['price'] = (int)$productPrice;
+            $item['cost'] = (int)$productCost;
+            $item['active'] = in_array($productActive, [true, 1, '1'], true);
+
+            $options = $item['options'] ?? [];
+            if (!is_array($options) || count($options) > 30) {
+                json_response(['ok' => false, 'error' => 'invalid_product_options', 'message' => 'فهرست گزینه‌های محصول معتبر نیست'], 422);
+            }
+            $canonicalOptions = [];
+            $optionIds = [];
+            foreach ($options as $option) {
+                if (!is_array($option)) {
+                    json_response(['ok' => false, 'error' => 'invalid_product_option', 'message' => 'هر گزینه محصول باید اطلاعات معتبر داشته باشد'], 422);
+                }
+                $optionId = (string)($option['id'] ?? '');
+                $optionName = trim((string)($option['name'] ?? ''));
+                $optionNameLength = preg_match_all('/./us', $optionName, $optionNameChars);
+                $optionPrice = filter_var($option['price'] ?? null, FILTER_VALIDATE_INT);
+                if (!preg_match('/^[A-Za-z0-9_-]{1,100}$/D', $optionId) ||
+                    in_array($optionId, $optionIds, true) ||
+                    $optionName === '' || $optionNameLength === false || $optionNameLength > 120 ||
+                    $optionPrice === false || $optionPrice < 0 || $optionPrice > 100000000000) {
+                    json_response(['ok' => false, 'error' => 'invalid_product_option', 'message' => 'نام، شناسه یا مبلغ یکی از گزینه‌های محصول معتبر نیست'], 422);
+                }
+                $optionIds[] = $optionId;
+                $canonicalOptions[] = ['id' => $optionId, 'name' => $optionName, 'price' => (int)$optionPrice];
+            }
+            $item['options'] = $canonicalOptions;
+
             $recipe = $item['recipe'] ?? [];
             if (!is_array($recipe) || count($recipe) > 100) {
                 json_response(['ok' => false, 'error' => 'invalid_product_recipe', 'message' => 'دستور ساخت محصول معتبر نیست'], 422);
