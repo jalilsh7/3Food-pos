@@ -86,7 +86,9 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
                 // An order may consume the same ingredient through multiple products
                 // or recipe lines. Restore the full aggregated quantity exactly once.
                 $restoredStock = round((float)($ingredient['stock'] ?? 0) + $ingredientQuantities[$ingredientId], 3);
-                if (!is_finite($restoredStock) || $restoredStock < 0 || $restoredStock > 1000000000) {
+                // Negative stock is a valid shortage signal in V2. Cancellation must
+                // restore this order's quantity even if other sales leave stock below zero.
+                if (!is_finite($restoredStock) || $restoredStock > 1000000000 || $restoredStock < -1000000000) {
                     throw new RuntimeException('Invalid ingredient stock while reversing order ' . $id);
                 }
                 $ingredient['stock'] = $restoredStock;
