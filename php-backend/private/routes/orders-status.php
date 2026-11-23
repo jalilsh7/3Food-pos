@@ -20,6 +20,11 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
         }
         $currentStatus = (string)$currentOrder['status'];
         $currentPaymentMethod = (string)($currentOrder['payment_method'] ?? 'cash');
+        // Enforce the kitchen role's exact workflow on the server, not only in UI.
+        if ($actor['role'] === 'kitchen' && !in_array($status, ['preparing', 'ready'], true)) {
+            $pdo->rollBack();
+            json_response(['ok' => false, 'error' => 'forbidden', 'message' => 'نقش آشپز فقط مجاز به شروع آماده‌سازی و اعلام آماده‌شدن سفارش است'], 403);
+        }
         if ($status === 'cancelled' && in_array($currentPaymentMethod, ['card','online'], true)) {
             $pdo->rollBack();
             json_response(['ok' => false, 'error' => 'payment_reconciliation_required', 'message' => 'لغو سفارش پرداخت‌شده بدون تعیین‌تکلیف تراکنش و بازپرداخت مجاز نیست'], 409);
