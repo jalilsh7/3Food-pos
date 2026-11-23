@@ -1,3 +1,4 @@
+<?php
 function request_is_https(): bool {
     return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || (strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https');
