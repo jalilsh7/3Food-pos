@@ -217,8 +217,17 @@ if (preg_match('#^/terminal-agent/payments/([a-f0-9-]{36})/result$#iD',$path,$m)
     $message=substr(trim((string)($body['responseMessage']??'')),0,240);
     if($status==='approved'&&$external===''&&$trace===''&&$rrn==='') json_response(['ok'=>false,'error'=>'terminal_approval_reference_missing'],422);
     $safe=['providerCode'=>substr(preg_replace('/[^a-zA-Z0-9_-]/','',(string)($body['providerCode']??'')),0,64),'responseCode'=>$code];
-    $update=$pdo->prepare('UPDATE pos_terminal_payments SET status=?,external_transaction_id=?,trace_number=?,retrieval_reference_number=?,response_code=?,response_message=?,safe_response=?,completed_at=UTC_TIMESTAMP() WHERE id=? AND status=\'processing\'');
+    // Claim the processing -> final transition atomically. Concurrent callbacks
+    // must not report success when a conflicting result was already committed.
+    $update=$pdo->prepare('UPDATE pos_terminal_payments SET status=?,external_transaction_id=?,trace_number=?,retrieval_reference_number=?,response_code=?,response_message=?,safe_response=?,completed_at=UTC_TIMESTAMP() WHERE id=? AND status=\\'processing\\'');
     $update->execute([$status,$external!==''?$external:null,$trace!==''?$trace:null,$rrn!==''?$rrn:null,$code!==''?$code:null,$message!==''?$message:null,json_encode($safe,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$m[1]]);
+    if($update->rowCount()!==1){
+        $current=$pdo->prepare('SELECT p.status,t.agent_id FROM pos_terminal_payments p JOIN pos_payment_terminals t ON t.id=p.terminal_id WHERE p.id=? LIMIT 1');
+        $current->execute([$m[1]]);$latest=$current->fetch();
+        if(is_array($latest)&&(string)$latest['agent_id']===(string)$agent['id']&&(string)$latest['status']===$status)
+            json_response(['ok'=>true,'status'=>$status,'replayed'=>true]);
+        json_response(['ok'=>false,'error'=>'terminal_payment_already_final','message'=>'وضعیت تراکنش هم‌زمان توسط درخواست دیگری تعیین شده است'],409);
+    }
     audit($pdo,null,'terminal_payment_result','terminal_payment',$m[1],['status'=>$status,'trace_present'=>$trace!=='','rrn_present'=>$rrn!=='']);
     json_response(['ok'=>true,'status'=>$status]);
 }
