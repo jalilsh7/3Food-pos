@@ -12,20 +12,20 @@ import {
 import { lowStock, usePos } from "@/lib/pos/store";
 import { phpApi, type ApiUser } from "@/lib/api/php-client";
 import { useAppearance } from "@/lib/appearance";
-import { AppearanceSettingsPanel } from "./appearance-settings";
 
 import { asciiDigits, isoToJalali, jalaliToIso } from "@/lib/iranian-date";
 import { createXlsxBlob } from "@/lib/xlsx-export";
 import { normalizeIranPhone, tehranDate, formatElapsed } from "@/lib/pos/formatters";
 import { UsersScreen } from "./users-screen";
 import { AuthFrame, PhpLoginScreen, ChangePasswordScreen } from "./auth-screens";
-import { TerminalSettingsPanel } from "./terminal-settings";
 import { SmsScreen } from "./sms-screen";
 import { SuppliersScreen } from "./suppliers-screen";
 import { ExpensesScreen } from "./expenses-screen";
 import { CodesScreen } from "./codes-screen";
 import { CustomersScreen } from "./customers-screen";
 import { ReportsScreen } from "./reports-screen";
+import { SettingsScreen } from "./settings-screen";
+import { hydratePosFromServer, type ExpenseCategory, type ServerBootstrap } from "./pos-data";
 
 const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
   { id: "expense-cat-utilities", name: "قبوض آب، برق و گاز", active: true },
@@ -260,7 +260,7 @@ function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; ini
         {current === "suppliers" ? <SuppliersScreen saveCentralRecord={saveCentralRecord} onPurchaseSaved={async () => { const snapshot = await phpApi.bootstrap<ServerBootstrap>(); hydratePosFromServer(snapshot.data, snapshot.next_order, "manager"); }} /> : null}
         {current === "sms" ? <SmsScreen sendRaw={sendRaw} saveCentralRecord={saveCentralRecord} /> : null}
         {current === "users" ? <UsersScreen /> : null}
-        {current === "settings" ? <SettingsScreen /> : null}
+        {current === "settings" ? <SettingsScreen saveRecord={saveCentralRecord} /> : null}
       </main>
     </div>
   );
