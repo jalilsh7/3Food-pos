@@ -7,24 +7,22 @@ const app = readFileSync(new URL("../src/features/pos/app.tsx", import.meta.url)
 const posData = readFileSync(new URL("../src/features/pos/pos-data.ts", import.meta.url), "utf8");
 
 test("POS business state is not persisted through Zustand browser-storage middleware", () => {
-  assert.doesNotMatch(store, /zustand\\/middleware|\\bpersist\\s*\\(/);
-  assert.match(store, /categories:\\s*\\[\\]/);
-  assert.match(store, /products:\\s*\\[\\]/);
-  assert.match(store, /orders:\\s*\\[\\]/);
-  assert.match(store, /nextOrder:\\s*1/);
-  assert.doesNotMatch(store, /resetDemo/);
+  assert.ok(!store.includes("zustand/middleware"));
+  assert.ok(!/\bpersist\s*\(/.test(store));
+  for (const key of ["categories: []", "products: []", "orders: []", "nextOrder: 1"]) assert.ok(store.includes(key));
+  assert.ok(!store.includes("resetDemo"));
 });
 
 test("the app hydrates role-scoped business data from the PHP/MySQL bootstrap", () => {
-  assert.match(app, /phpApi\\.bootstrap<ServerBootstrap>/);
-  assert.match(app, /hydratePosFromServer\\(snapshot\\.data, snapshot\\.next_order, role\\)/);
-  assert.match(posData, /export function hydratePosFromServer/);
-  assert.match(posData, /export function resetPosForRole/);
+  assert.ok(app.includes("phpApi.bootstrap<ServerBootstrap>"));
+  assert.ok(app.includes("hydratePosFromServer(snapshot.data, snapshot.next_order, role)"));
+  assert.ok(posData.includes("export function hydratePosFromServer"));
+  assert.ok(posData.includes("export function resetPosForRole"));
 });
 
 test("legacy data is only read by the explicit one-time migration helper", () => {
-  assert.match(posData, /window\\.localStorage\\.getItem\\("grillcash-v1"\\)/);
-  assert.match(posData, /export function readLegacyBrowserPosState/);
-  assert.match(posData, /smsUser: "",\\s*smsKey: "",\\s*smsFrom: ""/);
-  assert.doesNotMatch(app, /window\\.localStorage/);
+  assert.ok(posData.includes('window.localStorage.getItem("grillcash-v1")'));
+  assert.ok(posData.includes("export function readLegacyBrowserPosState"));
+  assert.ok(posData.includes('smsUser: "",\n        smsKey: "",\n        smsFrom: "",'));
+  assert.ok(!app.includes("window.localStorage"));
 });

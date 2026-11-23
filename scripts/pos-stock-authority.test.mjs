@@ -7,13 +7,13 @@ const client = readFileSync(new URL("../src/lib/api/php-client.ts", import.meta.
 const app = readFileSync(new URL("../src/features/pos/app.tsx", import.meta.url), "utf8");
 
 test("inventory adjustments are server-atomic, audited and reject negative manual adjustments", () => {
-  assert.match(inventory, /SELECT payload FROM pos_records WHERE resource = 'ingredients' AND id = \\? FOR UPDATE/);
-  assert.match(inventory, /insufficient_stock/);
-  assert.match(inventory, /ingredient_stock_adjusted/);
-  assert.match(client, /adjustIngredientStock/);
+  assert.ok(inventory.includes("SELECT payload FROM pos_records WHERE resource = 'ingredients' AND id = ? FOR UPDATE"));
+  assert.ok(inventory.includes("insufficient_stock"));
+  assert.ok(inventory.includes("ingredient_stock_adjusted"));
+  assert.ok(client.includes("adjustIngredientStock"));
 });
 
 test("inventory UI adopts the canonical stock value returned by MySQL", () => {
-  assert.match(app, /adjustCentralStock<typeof ingredients\\[number\\]>\\(id,direction\\*amount,commit\\)/);
-  assert.doesNotMatch(app, /saveCentralRecord\\("ingredients",\\s*next/);
+  assert.ok(app.includes("const result = await phpApi.adjustIngredientStock<TItem>(id, delta);"));
+  assert.ok(app.includes("adjustCentralStock<typeof ingredients[number]>(id,direction*amount,commit);"));
 });
