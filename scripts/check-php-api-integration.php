@@ -784,6 +784,15 @@ try {
         'password' => 'CI-Kitchen-Password-2026!',
     ]);
     check($kitchenLogin['status'] === 200 && ($kitchenLogin['json']['user']['role'] ?? '') === 'kitchen', 'kitchen login');
+    $csrf = (string)($kitchenLogin['json']['csrf_token'] ?? '');
+    check(strlen($csrf) >= 32, 'kitchen receives initial CSRF token');
+    $kitchenPasswordChange = api('POST', '/api/v1/auth/change-password', [
+        'current_password' => 'CI-Kitchen-Password-2026!',
+        'new_password' => 'CI-Kitchen-Updated-Password-2026!',
+    ], csrf_headers());
+    check($kitchenPasswordChange['status'] === 200, 'kitchen completes required first-login password change; actual=' . json_encode($kitchenPasswordChange));
+    $csrf = (string)($kitchenPasswordChange['json']['csrf_token'] ?? '');
+    check(strlen($csrf) >= 32, 'kitchen receives refreshed CSRF token');
     $kitchenBootstrap = api('GET', '/api/v1/bootstrap');
     check($kitchenBootstrap['status'] === 200, 'kitchen bootstrap');
     $kitchenData = $kitchenBootstrap['json']['data'] ?? [];
