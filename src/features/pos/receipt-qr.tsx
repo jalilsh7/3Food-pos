@@ -4,24 +4,39 @@ import { qrcode } from "@/lib/vendor/qrcode-generator";
 type ReceiptQrProps = { value: string; size?: number };
 type QRCodeInstance = { addData: (input: string, mode?: string) => void; make: () => void; getModuleCount: () => number; isDark: (row: number, col: number) => boolean };
 type QRFactory = ((typeNumber: number, level: string) => QRCodeInstance) & { stringToBytes: (input: string) => number[] };
+type QRMatrix = { count: number; cells: Array<[number, number]>; unavailable: boolean };
 
 const qrFactory = qrcode as unknown as QRFactory;
 qrFactory.stringToBytes = (input: string) => Array.from(new TextEncoder().encode(input));
 
 export function ReceiptQr({ value, size = 112 }: ReceiptQrProps) {
-  const matrix = useMemo(() => {
-    const code = qrFactory(0, "M");
-    code.addData(value, "Byte");
-    code.make();
-    const count = code.getModuleCount();
-    const cells: Array<[number, number]> = [];
-    for (let row = 0; row < count; row += 1) {
-      for (let col = 0; col < count; col += 1) {
-        if (code.isDark(row, col)) cells.push([row, col]);
+  const matrix = useMemo<QRMatrix>(() => {
+    try {
+      const code = qrFactory(0, "M");
+      code.addData(value, "Byte");
+      code.make();
+      const count = code.getModuleCount();
+      const cells: Array<[number, number]> = [];
+      for (let row = 0; row < count; row += 1) {
+        for (let col = 0; col < count; col += 1) {
+          if (code.isDark(row, col)) cells.push([row, col]);
+        }
       }
+      return { count, cells, unavailable: false };
+    } catch {
+      // A long receipt can exceed the QR standard's maximum payload capacity.
+      // Keep the printable receipt usable even when its optional QR cannot fit.
+      return { count: 0, cells: [], unavailable: true };
     }
-    return { count, cells };
   }, [value]);
+
+  if (matrix.unavailable) {
+    return (
+      <p className="text-center text-[10px] text-muted" role="status">
+        متن این فاکتور برای ظرفیت کد QR طولانی است؛ جزئیات کامل در فیش چاپی موجود است.
+      </p>
+    );
+  }
 
   return (
     <svg
