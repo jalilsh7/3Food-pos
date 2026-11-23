@@ -801,7 +801,9 @@ function OrdersScreen({ role }: { role: Role }) {
       // A network response can be lost after the server commits. Reconcile from
       // MySQL before reporting failure so the operator does not repeat a valid
       // transition or miss its one-time notification.
-      if (isServerOrder) {
+      const ambiguousResponse = error instanceof PhpApiError &&
+        (error.status === 0 || error.status === 408 || error.status >= 500 || error.code === "invalid_response");
+      if (isServerOrder && ambiguousResponse) {
         try {
           const snapshot = await phpApi.bootstrap<ServerBootstrap>();
           hydratePosFromServer(snapshot.data, snapshot.next_order, role);
