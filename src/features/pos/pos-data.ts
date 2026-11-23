@@ -8,7 +8,7 @@ type ServerOrder = {
   orderNumber: number;
   status: Order["status"];
   items: CartLine[];
-  totals: Partial<Pick<Order, "subtotal" | "tierDiscount" | "codeDiscount" | "pointsDiscount" | "tax" | "total">>;
+  totals?: Partial<Pick<Order, "subtotal" | "tierDiscount" | "codeDiscount" | "pointsDiscount" | "tax" | "total">>;
   created_at?: string;
   createdAt?: string;
   customerId?: string | null;
