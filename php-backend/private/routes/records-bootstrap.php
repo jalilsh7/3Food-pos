@@ -71,7 +71,9 @@ if ($method === 'GET' && $path === '/bootstrap') {
     unset($order);
     $result['orders'] = $orders;
     if ($user['role'] === 'kitchen') {
-        $result = ['categories' => $result['categories'] ?? [], 'products' => $result['products'] ?? [], 'orders' => $result['orders']];
+        // Order snapshots already contain product and option labels needed for
+        // preparation; the kitchen does not need the priced catalog or recipes.
+        $result = ['orders' => $result['orders']];
     }
     $counter = (int)$pdo->query("SELECT counter_value FROM pos_counters WHERE counter_key = 'order_number'")->fetchColumn();
     json_response(['ok' => true, 'data' => $result, 'next_order' => $counter + 1, 'user' => ['id' => (int)$user['id'], 'username' => $user['username'], 'display_name' => $user['display_name'], 'role' => $user['role']]]);
