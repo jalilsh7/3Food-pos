@@ -632,11 +632,13 @@ try {
         'password' => 'CI-Cashier-Password-2026!',
     ]);
     check($cashierLogin['status'] === 200 && ($cashierLogin['json']['user']['role'] ?? '') === 'cashier', 'cashier login');
+    $csrf = (string)($cashierLogin['json']['csrf_token'] ?? '');
+    check(strlen($csrf) >= 32, 'cashier receives initial CSRF token');
     $cashierPasswordChange = api('POST', '/api/v1/auth/change-password', [
         'current_password' => 'CI-Cashier-Password-2026!',
         'new_password' => 'CI-Cashier-Updated-Password-2026!',
     ], csrf_headers());
-    check($cashierPasswordChange['status'] === 200, 'cashier completes required first-login password change');
+    check($cashierPasswordChange['status'] === 200, 'cashier completes required first-login password change; actual=' . json_encode($cashierPasswordChange));
     $csrf = (string)($cashierPasswordChange['json']['csrf_token'] ?? '');
     check(strlen($csrf) >= 32, 'cashier receives refreshed CSRF token after password change');
     $cashierCannotReadManagerPayment = api('GET', '/api/v1/terminal-payments/' . rawurlencode($terminalPaymentId));
