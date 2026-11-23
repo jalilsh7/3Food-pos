@@ -148,14 +148,24 @@ if (preg_match('#^/orders/(\d+)$#', $path, $editMatch) && $method === 'PATCH') {
         $productId = (string)$line['productId'];
         $productsById[$productId] = $product;
         $productSnapshots[$productId] = hash('sha256', (string)$productRaw);
-        // Derive ingredient consumption from the server-side recipe, never from browser input.
-        foreach (($product['recipe'] ?? []) as $recipeLine) {
-            if (!is_array($recipeLine) || !isset($recipeLine['ingredientId'], $recipeLine['qty'])) continue;
-            $ingredientId = (string)$recipeLine['ingredientId'];
-            $recipeQty = (float)$recipeLine['qty'];
-            if ($ingredientId !== '' && $recipeQty > 0 && is_finite($recipeQty)) {
-                $ingredientNeeds[$ingredientId] = ($ingredientNeeds[$ingredientId] ?? 0) + ($recipeQty * (int)$line['qty']);
+        // Apply the same strict server-side recipe validation as order creation;
+        // malformed legacy recipes must never silently bypass inventory deduction.
+        $recipe = $product['recipe'] ?? [];
+        if (!is_array($recipe) || count($recipe) > 100) {
+            json_response(['ok' => false, 'error' => 'invalid_product_recipe', 'message' => 'دستور ساخت یکی از محصولات معتبر نیست'], 409);
+        }
+        foreach ($recipe as $recipeLine) {
+            if (!is_array($recipeLine) || !is_string($recipeLine['ingredientId'] ?? null) ||
+                !preg_match('/^[A-Za-z0-9_-]{1,100}$/D', $recipeLine['ingredientId']) ||
+                !is_numeric($recipeLine['qty'] ?? null)) {
+                json_response(['ok' => false, 'error' => 'invalid_product_recipe', 'message' => 'دستور ساخت یکی از محصولات ناقص است؛ ابتدا منوی محصول را اصلاح کنید'], 409);
             }
+            $ingredientId = $recipeLine['ingredientId'];
+            $recipeQty = (float)$recipeLine['qty'];
+            if (!is_finite($recipeQty) || $recipeQty <= 0 || $recipeQty > 1000000 || round($recipeQty, 3) !== $recipeQty) {
+                json_response(['ok' => false, 'error' => 'invalid_product_recipe_quantity', 'message' => 'مقدار ماده اولیه در دستور ساخت معتبر نیست'], 409);
+            }
+            $ingredientNeeds[$ingredientId] = ($ingredientNeeds[$ingredientId] ?? 0) + ($recipeQty * (int)$line['qty']);
         }
         $basePrice = filter_var($product['price'] ?? null, FILTER_VALIDATE_INT);
         if ($basePrice === false || $basePrice < 0) json_response(['ok' => false, 'error' => 'invalid_product_price'], 409);
