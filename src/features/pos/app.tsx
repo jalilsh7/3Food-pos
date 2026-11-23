@@ -247,7 +247,7 @@ function PosWorkspace({ allowed, initialView, role }: { allowed: typeof NAV; ini
         </div>
       </nav>
       <main className="pos-main min-w-0">
-        {current === "pos" ? <PosScreen /> : null}
+        {current === "pos" ? <PosScreen role={role} /> : null}
         {current === "orders" ? <OrdersScreen role={role} /> : null}
         {current === "menu" ? <MenuScreen /> : null}
         {current === "stock" ? <StockScreen /> : null}
@@ -307,7 +307,7 @@ async function postSms(phone: string, text: string, event: string, bodyId: strin
   return log.ok;
 }
 
-function PosScreen() {
+function PosScreen({ role }: { role: Role }) {
   const categories = usePos((s) => s.categories);
   const ingredients = usePos((s) => s.ingredients);
   const customers = usePos((s) => s.customers);
@@ -498,28 +498,44 @@ function PosScreen() {
         payment: pay,
         ...(terminalPaymentId ? { terminalPaymentId } : {}),
       });
-      const res = placeOrder({
-        lines: cart, customer: checkoutCustomer, code, pointsToUse: points, taxEnabled: settings.taxEnabled !== false, payment: pay,
-        guestName, guestPhone: phone.trim(),
+      const localResult = placeOrder({
+        lines: cart,
+        customer: checkoutCustomer,
+        code,
+        pointsToUse: points,
+        taxEnabled: settings.taxEnabled !== false,
+        payment: pay,
+        guestName,
+        guestPhone: phone.trim(),
         serverOrder: { id: server.order.id, number: server.order.orderNumber, createdAt: server.order.createdAt },
       });
-      if (!res.ok) {
-        setMsg(`سفارش در سرور ثبت شد اما همگام‌سازی محلی انجام نشد: ${res.error}. صفحه را تازه‌سازی کنید.`);
+      let order: Order | null = localResult.ok ? localResult.order : null;
+      try {
+        // The MySQL snapshot is authoritative for stock, loyalty, coupons and
+        // the canonical order. Refresh immediately after the committed write.
+        const snapshot = await phpApi.bootstrap<ServerBootstrap>();
+        hydratePosFromServer(snapshot.data, snapshot.next_order, role);
+        order = usePos.getState().orders.find((item) => item.id === server.order.id) ?? order;
+      } catch {
+        // Keep the local fallback; the periodic bootstrap retries the snapshot.
+      }
+      if (!order) {
+        setMsg(`سفارش در سرور ثبت شد، اما همگام‌سازی محلی انجام نشد: ${localResult.ok ? "سفارش در snapshot پیدا نشد" : localResult.error}. صفحه را تازه‌سازی کنید.`);
         return;
       }
       pendingIdempotencyKey.current = null;
       pendingTerminalPayment.current = null;
-      setMsg(`سفارش ${res.order.number.toLocaleString("fa-IR")} ثبت شد`);
-      setCart([]); setPhone(""); setGuestName("مشتری عزیز"); setCode(""); setPoints(0); setSendInvoiceSms(null); setPrinted(res.order);
-      const fresh = usePos.getState().customers.find((c) => c.id === res.order.customerId);
-      const vars = orderVars(res.order, String(fresh?.points ?? 0));
-      void pushSms("order_created", res.order.customerPhone, vars);
-      if (shouldSendInvoiceSms && res.order.customerPhone) {
-        const invoice = [`${settings.shopName} - فاکتور سفارش ${res.order.number}`, ...res.order.lines.map(line => `${line.name} × ${line.qty}: ${money(line.unitPrice * line.qty)}`), `جمع: ${money(res.order.subtotal)}`, `تخفیف: ${money(res.order.tierDiscount + res.order.codeDiscount + res.order.pointsDiscount)}`, `مالیات: ${money(res.order.tax)}`, `مبلغ نهایی: ${money(res.order.total)}`, `تاریخ: ${new Date(res.order.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})}`].join("\n").slice(0, 950);
-        void postSms(res.order.customerPhone, invoice, "order_invoice", "");
+      setMsg(`سفارش ${order.number.toLocaleString("fa-IR")} ثبت شد`);
+      setCart([]); setPhone(""); setGuestName("مشتری عزیز"); setCode(""); setPoints(0); setSendInvoiceSms(null); setPrinted(order);
+      const fresh = usePos.getState().customers.find((c) => c.id === order.customerId);
+      const vars = orderVars(order, String(fresh?.points ?? 0));
+      void pushSms("order_created", order.customerPhone, vars);
+      if (shouldSendInvoiceSms && order.customerPhone) {
+        const invoice = [`${settings.shopName} - فاکتور سفارش ${order.number}`, ...order.lines.map(line => `${line.name} × ${line.qty}: ${money(line.unitPrice * line.qty)}`), `جمع: ${money(order.subtotal)}`, `تخفیف: ${money(order.tierDiscount + order.codeDiscount + order.pointsDiscount)}`, `مالیات: ${money(order.tax)}`, `مبلغ نهایی: ${money(order.total)}`, `تاریخ: ${new Date(order.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})}`].join("\\n").slice(0, 950);
+        void postSms(order.customerPhone, invoice, "order_invoice", "");
       }
-      if (res.order.pointsEarned) void pushSms("points_earned", res.order.customerPhone, vars);
-      if (res.order.discountCode) void pushSms("discount_used", res.order.customerPhone, vars);
+      if (order.pointsEarned) void pushSms("points_earned", order.customerPhone, vars);
+      if (order.discountCode) void pushSms("discount_used", order.customerPhone, vars);
       if (settings.autoPrint) setTimeout(() => window.print(), 300);
     } catch (error) {
       setMsg(error instanceof Error ? error.message : "ثبت سفارش در سرور انجام نشد");
