@@ -219,7 +219,7 @@ if (preg_match('#^/terminal-agent/payments/([a-f0-9-]{36})/result$#iD',$path,$m)
     $safe=['providerCode'=>substr(preg_replace('/[^a-zA-Z0-9_-]/','',(string)($body['providerCode']??'')),0,64),'responseCode'=>$code];
     // Claim the processing -> final transition atomically. Concurrent callbacks
     // must not report success when a conflicting result was already committed.
-    $update=$pdo->prepare('UPDATE pos_terminal_payments SET status=?,external_transaction_id=?,trace_number=?,retrieval_reference_number=?,response_code=?,response_message=?,safe_response=?,completed_at=UTC_TIMESTAMP() WHERE id=? AND status=\\'processing\\'');
+    $update=$pdo->prepare('UPDATE pos_terminal_payments SET status=?,external_transaction_id=?,trace_number=?,retrieval_reference_number=?,response_code=?,response_message=?,safe_response=?,completed_at=UTC_TIMESTAMP() WHERE id=? AND status=\'processing\'');
     $update->execute([$status,$external!==''?$external:null,$trace!==''?$trace:null,$rrn!==''?$rrn:null,$code!==''?$code:null,$message!==''?$message:null,json_encode($safe,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$m[1]]);
     if($update->rowCount()!==1){
         $current=$pdo->prepare('SELECT p.status,t.agent_id FROM pos_terminal_payments p JOIN pos_payment_terminals t ON t.id=p.terminal_id WHERE p.id=? LIMIT 1');
