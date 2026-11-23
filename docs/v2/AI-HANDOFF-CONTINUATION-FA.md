@@ -1,0 +1,171 @@
+# دفتر تحویل ادامه توسعه — 3Food POS V2
+
+> این سند برای تحویل کار به دستیار/ربات توسعه‌دهنده بعدی نوشته شده است. پیش از هر تغییر، وضعیت واقعی شاخه و آخرین commit را دوباره از GitHub بخوانید؛ این سند ممکن است با تغییرات بعدی قدیمی شود.
+
+## 1) هویت پروژه و محدوده مجاز
+
+- مخزن: `jalilsh7/3Food-pos`
+- محصول: **3Food POS V2** (نه V3)
+- شاخه کاری مجاز طبق درخواست کاربر: `feature/3food-pos-next-release-v2`
+- شاخه‌های دیگر، به‌ویژه `main` و شاخه‌های V3، نباید تغییر داده شوند.
+- V2 برای استفاده روزمره یک فست‌فود/مغازه طراحی می‌شود.
+- کاربر به چند صندوق نیاز ندارد؛ طراحی و پذیرش عملیاتی بر اساس **یک صندوق** است.
+- هدف کاربر کوچک‌کردن یا حذف قابلیت‌ها نیست؛ هدف، ساختار مرتب، قابل نگهداری و قابل استفاده است.
+- آرشیو ZIP اصلی پروژه باید حفظ شود و بدون بررسی و اجازه حذف یا بازنویسی نشود.
+
+## 2) آخرین وضعیت ثبت‌شده
+
+آخرین commit هنگام نگارش این سند:
+
+`551ff377566610ca3faa79b173bf5ff84d498659`
+
+پیام commit:
+
+`refactor(v2): group POS screens under feature module`
+
+Commit قبلیِ مبنای این مرحله:
+
+`9351f46117e4e37207bf79b5de13da4f1482c426`
+
+### تغییرات انجام‌شده در این مرحله
+
+شش فایل رابط صندوق از `src/components/grill/` به `src/features/pos/` منتقل شده‌اند:
+
+- `app.tsx`
+- `auth-screens.tsx`
+- `bits.tsx`
+- `receipt.tsx`
+- `receipt-qr.tsx`
+- `users-screen.tsx`
+
+مسیر ورود برنامه در `src/routes/index.tsx` به import جدید تغییر کرده است:
+
+```ts
+import { GrillApp } from "@/features/pos/app";
+```
+
+درخت جدید دیگر فایل اجرایی در `src/components/grill/` ندارد. فایل‌های منتقل‌شده باید با importهای نسبی و aliasهای فعلی کار کنند؛ اما build کامل هنوز از سمت توسعه‌دهنده به‌صورت محلی اجرا نشده است.
+
+## 3) ساختار و نقاط بزرگ فعلی
+
+در commit مبنا، اندازه فایل‌های اصلی تقریباً چنین بوده است:
+
+| مسیر | اندازه تقریبی | نکته |
+|---|---:|---|
+| `src/components/grill/app.tsx` پیش از انتقال | 159 KB | اکنون در `src/features/pos/app.tsx` است؛ فایل یکپارچه و چندصفحه‌ای |
+| `php-backend/public/api/index.php` | 212 KB | API یکپارچه PHP؛ نیازمند تفکیک مرحله‌ای |
+| `src/lib/multiplayer/p2p.ts` | 20 KB | منطق ارتباط P2P؛ بدون بررسی حذف نشود |
+| `src/lib/api/php-client.ts` | 13 KB | قرارداد فرانت‌اند با API |
+| `src/lib/pos/store.ts` | 9 KB | وضعیت و ذخیره POS |
+| `src/lib/pos/model.ts` | 8 KB | مدل‌ها و قواعد دامنه |
+
+پوشه‌های مهم فعلی:
+- `src/features/pos/`: رابط و صفحات POS
+- `src/lib/pos/`: مدل، فرمت‌کننده‌ها و store
+- `src/lib/api/`: کلاینت API
+- `php-backend/public/api/`: ورودی API عمومی
+- `php-backend/private/`: تنظیمات و فایل‌های خصوصی؛ خارج از Document Root نگه داشته شود
+- `php-backend/migrations/`: مهاجرت‌های دیتابیس؛ ترتیب و سازگاری آن‌ها حیاتی است
+- `scripts/`: تست‌ها، audit و بسته‌بندی cPanel
+
+## 4) وضعیت CI مشاهده‌شده
+
+برای commit `551ff377566610ca3faa79b173bf5ff84d498659`، چند workflow در GitHub اجرا شدند:
+
+- V3 Backend Validation: موفق
+- V3 Frontend Validation: موفق
+- V3 Database Engine Validation: موفق
+- Windows terminal agent: موفق
+- PHP migration checks: ناموفق
+
+جزئیات شکست PHP migration checks:
+- Job: `Run PHP API integration tests`
+- خطای نهایی: `seed products` با پاسخ `recipe_ingredient_not_found`
+- پیام API: یکی از مواد اولیه دستور ساخت محصول در انبار وجود ندارد.
+- ابتدای لاگ همچنین یک تلاش اتصال ناموفق به `127.0.0.1:8099` دارد، اما اسکریپت ادامه داده و خطای قطعی گزارش‌شده در seed محصولات است.
+
+این شکست را نباید به جابه‌جایی فایل‌های React نسبت داد؛ ظاهراً مربوط به داده/fixture تست API یا ترتیب seed مواد اولیه و محصولات است. با این حال، تا بررسی اسکریپت integration test و اجرای مجدد، کل commit را سبز اعلام نکنید.
+
+## 5) تصمیم‌های محصول و قیود مهم
+
+- ورود همه کاربران با نام کاربری و رمز عبور و احراز هویت واقعی سمت سرور.
+- نقش‌ها و مجوزها باید سمت سرور enforce شوند؛ کنترل UI به‌تنهایی امنیت نیست.
+- گردش سفارش، پرداخت، تخفیف، مالیات، موجودی، مشتریان، وفاداری، هزینه‌ها، تأمین‌کنندگان و پیامک باید حفظ شوند.
+- پیامک باید با اعتبارنامه واقعی در staging آزمایش شود؛ خطای پیامک نباید ثبت سفارش را متوقف کند.
+- بکاپ و بازیابی باید روی دیتابیس آزمایشی بررسی شوند.
+- رفتار قطع و وصل شبکه و جلوگیری از سفارش تکراری (idempotency) باید تست شود.
+- اتصال کارتخوان LAN/Wi-Fi فقط با پروتکل/درایور مشخص و تست دستگاه واقعی قابل تأیید است.
+- تا زمانی که استقرار واقعی cPanel و آزمون پذیرش فروشگاهی انجام نشده، نرم‌افزار را production-ready اعلام نکنید.
+
+## 6) برنامه ادامه کار — به ترتیب
+
+### مرحله A: تثبیت refactor اخیر
+1. آخرین HEAD شاخه را بخوانید و مطمئن شوید کسی هم‌زمان commit جدیدی نداده است.
+2. `npm ci` را با lockfile موجود اجرا کنید.
+3. `npm run typecheck`، `npm test`، `npm run lint` و `npm run build:cpanel` را اجرا کنید.
+4. اگر خطا وجود داشت، ابتدا خطاهای ناشی از import/مسیر فایل‌های منتقل‌شده را جدا کنید.
+5. workflow ناموفق PHP را با بررسی fixture/seed در تست integration اصلاح کنید؛ مواد اولیه باید پیش از محصولاتی که recipe به آن‌ها ارجاع می‌دهد ساخته شوند. تست را تضعیف یا skip نکنید.
+
+### مرحله B: تفکیک رابط POS
+1. `src/features/pos/app.tsx` را کامل بخوانید و مرزهای صفحه‌ها/کامپوننت‌ها را استخراج کنید.
+2. صفحه‌ها و منطق‌های مستقل را به فایل‌های معنادار در همین feature منتقل کنید؛ نام‌گذاری پیشنهادی:
+   - `screens/pos-screen.tsx`
+   - `screens/orders-screen.tsx`
+   - `screens/menu-screen.tsx`
+   - `screens/stock-screen.tsx`
+   - `screens/customers-screen.tsx`
+   - `screens/reports-screen.tsx`
+   - `screens/settings-screen.tsx`
+   - `components/` برای اجزای مشترک
+   - `shared/types.ts` و `shared/constants.ts` فقط اگر واقعاً مشترک‌اند.
+3. state، callbackها، رفتارهای فرم و ترتیب محاسبات را بدون تغییر معنایی منتقل کنید.
+4. از ایجاد چرخه import خودداری کنید؛ وابستگی‌ها باید یک‌طرفه و قابل فهم باشند.
+5. بعد از هر گروه جابه‌جایی typecheck و تست را اجرا کنید.
+
+### مرحله C: تفکیک PHP API
+1. ابتدا تمام routeها، متدها، مجوزها و توابع کمکی `index.php` را فهرست کنید.
+2. قبل از انتقال، ترتیب bootstrap و تعریف توابع سراسری را مستند کنید.
+3. معماری پیشنهادی:
+   - `private/bootstrap.php`: config، session، headers، DB و CSRF
+   - `private/lib/`: توابع مشترک اعتبارسنجی/پاسخ/دسترسی
+   - `private/api/` یا `private/controllers/`: handlerهای دامنه‌ای مانند auth، orders، products، inventory، customers، reports، SMS، settings و terminals
+4. فایل عمومی `public/api/index.php` فقط bootstrap و dispatch را انجام دهد.
+5. مسیرهای HTTP، status codeها، payloadها، ترتیب middleware، CSRF، RBAC، audit log و تراکنش‌ها نباید تغییر کنند.
+6. فایل‌های private نباید از وب قابل دسترسی باشند؛ تنظیمات و secrets در private باقی بمانند.
+7. migrationها را صرفاً برای مرتب‌سازی تغییر ندهید؛ تغییر schema باید جداگانه، backward-compatible و با تست باشد.
+
+### مرحله D: تحویل قابل استفاده
+- تست‌های خودکار کامل
+- build cPanel و audit بسته
+- نصب staging روی محیط مشابه هاست واقعی
+- تست حساب مدیر/صندوق‌دار/آشپز و مجوزها
+- تست end-to-end سفارش تا پرداخت و رسید
+- تست موجودی، تخفیف، مالیات، لغو و بازپرداخت
+- تست پیامک واقعی
+- تست backup/restore
+- تست شبکه ناپایدار و سفارش تکراری
+- آزمون پذیرش با یک صندوق
+- سپس تولید ZIP نهایی از خروجی تأییدشده؛ ZIP قدیمی را بی‌اجازه overwrite نکنید.
+
+## 7) قواعد ایمنی توسعه‌دهنده بعدی
+
+- فقط روی شاخه `feature/3food-pos-next-release-v2` commit کنید، مگر کاربر صریحاً مسیر را تغییر دهد.
+- پیش از نوشتن، SHA شاخه را تازه بخوانید و هنگام update ref از expected SHA استفاده کنید.
+- هیچ شاخه یا PR دیگری را merge، حذف یا close نکنید.
+- فایل‌های بزرگ را با جابه‌جایی کور یا بازنویسی کامل «کوچک» نکنید؛ refactor باید بر اساس مرز مسئولیت و همراه با تست باشد.
+- هیچ قابلیت، صفحه، API، migration، فایل آرشیو یا داده‌ای را صرفاً به دلیل استفاده کم حذف نکنید.
+- از ثبت secret، رمز، کلید API یا داده مشتری در مخزن و مستندات خودداری کنید.
+- نتیجه CI را دقیق گزارش کنید؛ «workflow اجرا شد» به معنی «همه تست‌ها موفق‌اند» نیست.
+- تا زمانی که build و تست‌ها واقعاً اجرا و موفق نشده‌اند، تغییرات را تأییدشده اعلام نکنید.
+
+## 8) منابع شروع سریع
+
+- مخزن: https://github.com/jalilsh7/3Food-pos
+- شاخه کاری: https://github.com/jalilsh7/3Food-pos/tree/feature/3food-pos-next-release-v2
+- آخرین commit هنگام نگارش: https://github.com/jalilsh7/3Food-pos/commit/551ff377566610ca3faa79b173bf5ff84d498659
+- پوشه feature: https://github.com/jalilsh7/3Food-pos/tree/feature/3food-pos-next-release-v2/src/features/pos
+- PHP API فعلی: https://github.com/jalilsh7/3Food-pos/blob/feature/3food-pos-next-release-v2/php-backend/public/api/index.php
+- workflow ناموفق در این commit: https://github.com/jalilsh7/3Food-pos/actions/runs/45131980517
+
+---
+آخرین به‌روزرسانی این سند: 2026-11-23
