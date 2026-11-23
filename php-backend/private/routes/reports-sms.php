@@ -2,8 +2,9 @@
 // Route module loaded in the API dispatcher scope to preserve shared request context.
 if ($method === 'GET' && $path === '/reports/summary') {
     $actor = require_role($pdo, ['manager']);
-    $from = (string)($_GET['from'] ?? date('Y-m-01'));
-    $to = (string)($_GET['to'] ?? date('Y-m-d'));
+    $tehranNow = new DateTimeImmutable('now', new DateTimeZone('Asia/Tehran'));
+    $from = (string)($_GET['from'] ?? $tehranNow->modify('first day of this month')->format('Y-m-d'));
+    $to = (string)($_GET['to'] ?? $tehranNow->format('Y-m-d'));
     if (!preg_match('/^\\d{4}-\\d{2}-\\d{2}$/D', $from) || !preg_match('/^\\d{4}-\\d{2}-\\d{2}$/D', $to)) {
         json_response(['ok'=>false,'error'=>'invalid_report_range','message'=>'بازه تاریخ گزارش معتبر نیست'],422);
     }

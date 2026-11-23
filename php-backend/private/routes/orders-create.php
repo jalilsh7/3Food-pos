@@ -203,7 +203,7 @@ if ($method === 'POST' && $path === '/orders') {
         $maxUses = max(0, (int)($discountRecord['maxUses'] ?? 0));
         $usedCount = max(0, (int)($discountRecord['usedCount'] ?? 0));
         $perCustomer = max(0, (int)($discountRecord['perCustomer'] ?? 0));
-        $today = date('Y-m-d');
+        $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Tehran')))->format('Y-m-d');
         $startsAt = trim((string)($discountRecord['startsAt'] ?? ''));
         $endsAt = trim((string)($discountRecord['endsAt'] ?? ''));
         $audience = (string)($discountRecord['audience'] ?? 'all');
