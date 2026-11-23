@@ -1,8 +1,8 @@
 # وضعیت build مستقل و بسته cPanel
 
-آخرین بررسی: 2026-11-18  
-شاخه: `cleanup/remove-grok-dependencies`  
-PR: https://github.com/jalilsh7/3Food-pos/pull/1
+آخرین بازبینی مستند: 2026-11-23  
+شاخه فعال توسعه: `feature/3food-pos-next-release-v2`  
+سابقه پاک‌سازی پلتفرم: شاخه `cleanup/remove-grok-dependencies` و PR #1 (تاریخی)
 
 ## معماری build
 
@@ -22,10 +22,10 @@ PR: https://github.com/jalilsh7/3Food-pos/pull/1
 
 ساختار بسته:
 - `dist-cpanel/public/`: HTML، JS/CSS، assets، `.htaccess` و PHP API
-- `dist-cpanel/private/`: فقط نمونه config و deny rule؛ بیرون Document Root
+- `dist-cpanel/private/`: bootstrap PHP، تمام routeهای API، helperهای پیامک، نمونه config و deny rule؛ بیرون Document Root
 - `dist-cpanel/database/`: schema و migrationهای MySQL
 
-## نتیجه CI
+## نتیجه CI تاریخی — مربوط به commitهای قبلی، نه HEAD فعلی
 
 اجرای کامل [GitHub Actions run 44280981233](https://github.com/jalilsh7/3Food-pos/actions/runs/44280981233) موفق شد:
 - PHP syntax checks
@@ -54,3 +54,12 @@ Artifact:
 - backup/restore و پیامک با credential واقعی و opt-in
 
 موفقیت CI و artifact به معنی استقرار یا تأیید production نیست. هیچ فایل زنده cPanel یا دیتابیس production در این پاک‌سازی تغییر نکرده است.
+
+
+## وضعیت فعلی شاخه فعال — 2026-11-23
+
+- اسکریپت `scripts/package-cpanel.mjs` بازبینی شد و نقص مهم بسته‌بندی اصلاح شد: فایل `private/api-bootstrap.php` و کل پوشه `private/routes/` اکنون در خروجی cPanel کپی می‌شوند و تک‌تک routeهای موردنیاز در فهرست فایل‌های اجباری بسته قرار دارند. helperهای پیامک و نمونه config نیز بسته‌بندی می‌شوند.
+- بررسی ایستای مسیرهای `require_once` در API نشان داد تمام فایل‌های خصوصی موردنیاز dispatcher در فهرست بسته‌بندی قرار گرفته‌اند.
+- طبق دستور مالک پروژه، روی HEAD فعلی هیچ build، تست، lint یا typecheck اجرا نشده است. CI تاریخی بالا فقط سابقه commitهای قبلی است و نباید به‌عنوان تأیید HEAD فعلی تلقی شود.
+- فایل‌های فونت IRANYekanWeb FarsiNum (شش وزن WOFF) در Git شاخه موجود نیستند و بسته فعلی آن‌ها را عمداً جایگزین نمی‌کند؛ در آپدیت هاست باید از نسخه موجود `public/fonts/` حفظ و منتقل شوند. فایل `iranyekanwebmediumfanum.woff` قبلاً روی هاست با خطای بارگذاری گزارش شده بود و باید در مرحله پذیرش واقعی جداگانه بررسی شود.
+- ZIP نهایی جدید هنوز تولید نشده است؛ ZIP اصلی `3food-pos-php-migration(1).zip` دست‌نخورده می‌ماند.
