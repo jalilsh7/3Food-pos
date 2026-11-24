@@ -143,7 +143,11 @@ export const usePos = create<PosState & Actions>()(
       saveExpense: (e) => set((s) => ({ expenses: s.expenses.some((x) => x.id === e.id) ? s.expenses.map((x) => x.id === e.id ? e : x) : [e, ...s.expenses] })),
       removeExpense: (id) => set((s) => ({ expenses: s.expenses.filter((e) => e.id !== id) })),
       saveTemplate: (t) =>
-        set((s) => ({ templates: s.templates.map((x) => (x.event === t.event ? t : x)) })),
+        set((s) => ({
+          templates: s.templates.some((x) => x.event === t.event)
+            ? s.templates.map((x) => (x.event === t.event ? t : x))
+            : [...s.templates, t],
+        })),
       placeOrder: (input) => {
         const s = get();
         if (!input.lines.length) return { ok: false, error: "سبد خالی است" };
