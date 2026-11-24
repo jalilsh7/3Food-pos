@@ -1150,6 +1150,20 @@ function StockScreen() {
                 const updated = { ...i, minStock };
                 void saveCentralRecord("ingredients", updated, () => saveIngredient(updated));
               }}>حد هشدار</Btn>
+              <Btn tone="ghost" onClick={() => {
+                const raw = window.prompt("موجودی شمارش‌شده " + i.name + " (" + i.unit + ") را وارد کنید:", String(i.stock));
+                if (raw === null) return;
+                const counted = Number(raw);
+                if (!Number.isFinite(counted) || counted < 0 || counted > 1000000000 || Math.round(counted * 1000) !== counted * 1000) {
+                  window.alert("مقدار شمارش باید عددی معتبر و حداکثر سه رقم اعشار باشد.");
+                  return;
+                }
+                const delta = Math.round((counted - Number(i.stock)) * 1000) / 1000;
+                if (delta === 0) { window.alert("موجودی با شمارش شما مطابقت دارد."); return; }
+                void adjustCentralStock<typeof ingredients[number]>(i.id, delta, saveIngredient).then((ok) => {
+                  if (ok) window.alert("موجودی بر اساس شمارش جدید اصلاح شد.");
+                });
+              }}>انبارگردانی</Btn>
               <Btn tone="ghost" onClick={() => adjustIngredient(i.id,-1,saveIngredient)}>کاهش</Btn>
               <Btn tone="leaf" onClick={() => adjustIngredient(i.id,1,saveIngredient)}>افزایش</Btn>
             </div>
