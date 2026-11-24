@@ -194,7 +194,7 @@ function SmsGatewaySettingsPanel() {
         inboxLocation:form.inboxLocation,inboxFrom:form.inboxFrom,
       });
       setHasApiKey(result.hasApiKey);setHasPassword(result.hasPassword);setForm(current=>({...current,apiKey:"",password:""}));
-      setNote("تنظیمات پیامک به‌صورت رمزگذاری‌شده در سرور ذخیره شد.");
+      setNote("تنظیمات پیامک به‌صورت رمزگذاری‌شده ذخیره شد؛ اتصال هنوز تأیید نشده است. برای تأیید، پیام آزمایشی ارسال کنید.");
     }catch(error){setNote(error instanceof Error?error.message:"ذخیره تنظیمات پیامک انجام نشد.");}
     finally{setBusy(false);}
   }
@@ -207,7 +207,7 @@ function SmsGatewaySettingsPanel() {
     setBusy(true);setNote("");
     try{
       const result=await phpApi.sendSms({to:testPhone.replace(/[^0-9]/g,""),text:testText.trim(),event:"manual",testMode:"standard"});
-      setNote(result.sent?"درخواست پیامک از خط اختصاصی عادی پذیرفته شد؛ تحویل به گوشی را از گزارش ارسال بررسی کنید.":`ارسال پذیرفته نشد: ${result.detail}`);
+      setNote(result.sent?"اتصال و ارسال از خط اختصاصی عادی تأیید شد؛ تحویل نهایی به گوشی را از گزارش ارسال بررسی کنید.":`اتصال/ارسال تأیید نشد: ${result.detail}`);
     }catch(error){setNote(error instanceof Error?error.message:"ارسال پیامک آزمایشی انجام نشد.");}
     finally{setBusy(false);}
   }
@@ -237,6 +237,7 @@ function SmsGatewaySettingsPanel() {
       </>:null}
       <Field label="شناسه صندوق ورودی (دریافت پاسخ تولد)"><input className={inputCls} inputMode="numeric" value={form.inboxLocation} onChange={e=>patch({inboxLocation:e.target.value})}/></Field>
       <Field label="سرشماره دریافت‌کننده پیامک ورودی"><input className={inputCls} value={form.inboxFrom} onChange={e=>patch({inboxFrom:e.target.value})}/></Field>
+      <p className="text-xs text-amber-700 sm:col-span-2">ارسال آزمایشی یک پیامک واقعی است و ممکن است از اعتبار پنل هزینه کسر کند.</p>
       <Field label="شماره موبایل مقصد تست"><input className={inputCls} inputMode="tel" placeholder="09xxxxxxxxx" value={testPhone} onChange={e=>setTestPhone(e.target.value)}/></Field>
       <Field label="متن پیام آزمایشی با خط اختصاصی عادی"><input className={inputCls} value={testText} onChange={e=>setTestText(e.target.value)} maxLength={500}/></Field>
     </div>
