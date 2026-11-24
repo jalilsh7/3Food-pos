@@ -349,8 +349,20 @@ if ($method === 'POST' && $path === '/sms/send') {
         json_response(['ok'=>false,'error'=>'invalid_sms_recipient','message'=>'شماره موبایل معتبر نیست'],422);
     }
     // Order-status notifications must never fall back to free-text/ordinary SMS.
-    if (in_array($event, $statusEvents, true) && $bodyId === '') {
-        json_response(['ok'=>false,'error'=>'service_template_required','message'=>'برای پیامک وضعیت سفارش، الگوی خدماتی تأییدشده باید تنظیم شود؛ ارسال متن آزاد مجاز نیست'],422);
+    if (in_array($event, $statusEvents, true)) {
+        if ($bodyId === '') {
+            json_response(['ok'=>false,'error'=>'service_template_required','message'=>'برای پیامک وضعیت سفارش، الگوی خدماتی تأییدشده باید تنظیم شود؛ ارسال متن آزاد مجاز نیست'],422);
+        }
+        $templateStmt = $pdo->prepare("SELECT payload FROM pos_records WHERE resource='templates' AND id=? LIMIT 1");
+        $templateStmt->execute([$event]);
+        $templateRaw = $templateStmt->fetchColumn();
+        $savedTemplate = is_string($templateRaw) ? json_decode($templateRaw, true) : null;
+        $savedVariables = is_array($savedTemplate) && is_array($savedTemplate['variables'] ?? null) ? $savedTemplate['variables'] : [];
+        if (!is_array($savedTemplate) || empty($savedTemplate['enabled']) ||
+            trim((string)($savedTemplate['bodyId'] ?? '')) !== $bodyId ||
+            count($savedVariables) !== (is_array($variables) ? count($variables) : -1)) {
+            json_response(['ok'=>false,'error'=>'status_template_mismatch','message'=>'الگوی فعال این وضعیت با شناسه یا تعداد متغیرهای ارسالی مطابقت ندارد؛ ارسال انجام نشد'],409);
+        }
     }
     if ($bodyId === '' && ($message === '' || utf8_length($message)>1000)) {
         json_response(['ok'=>false,'error'=>'invalid_sms','message'=>'متن پیامک معتبر نیست'],422);
