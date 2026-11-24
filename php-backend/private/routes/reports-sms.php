@@ -170,7 +170,7 @@ if ($path === '/sms/settings' && $method === 'POST') {
     $supportTwo = trim((string)($body['senderSupportTwo'] ?? ''));
     $inboxLocation = trim((string)($body['inboxLocation'] ?? ($old['inboxLocation'] ?? '')));
     $inboxFrom = trim((string)($body['inboxFrom'] ?? ($old['inboxFrom'] ?? '')));
-    if (!in_array($mode, ['standard','smart_sms'], true) || ($enabled && ($username === '' || ($apiKey === '' && $password === '') || $sender === '')) ||
+    if (!in_array($mode, ['standard','smart_sms'], true) || ($enabled && ($username === '' || ($apiKey === '' && $password === '') || $sender === '' || ($mode === 'smart_sms' && $apiKey === ''))) ||
         strlen($username)>120 || strlen($apiKey)>500 || strlen($password)>500 || strlen($sender)>40 || strlen($supportOne)>40 || strlen($supportTwo)>40 || ($inboxLocation!=='' && (!ctype_digit($inboxLocation) || (int)$inboxLocation>99)) || strlen($inboxFrom)>40) {
         json_response(['ok'=>false,'error'=>'invalid_sms_settings','message'=>'نام کاربری، کلید API، سرشماره یا حالت ارسال معتبر نیست'],422);
     }
