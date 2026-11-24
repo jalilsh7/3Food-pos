@@ -94,7 +94,7 @@ const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[
 ];
 
 const EVENT_LABEL: Record<SmsEvent, string> = {
-  order_created: "ثبت سفارش", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_delivered: "تحویل", order_cancelled: "لغو سفارش",
+  order_created: "ثبت سفارش", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_delivered: "تحویل", order_cancelled: "لغو سفارش", order_invoice: "ریز فاکتور",
   points_earned: "کسب امتیاز", discount_used: "استفاده از کد",
 };
 
@@ -313,7 +313,7 @@ async function postSms(phone: string, text: string, event: string, bodyId: strin
   };
   try {
     const data = await phpApi.sendSms({ to: phone, text, bodyId, event, ...(bodyId ? { variables } : {}), ...(testMode ? { testMode } : {}) });
-    log = { ...log, ok: data.sent, detail: data.detail };
+    log = { ...log, ok: data.sent, detail: data.detail, mode: bodyId ? "خدماتی" : "عادی", bodyId: bodyId || undefined, variables: bodyId ? variables : undefined, providerResponse: data.providerResponse, httpStatus: data.httpStatus, providerEndpoint: data.providerEndpoint, responseAt: new Date().toISOString() };
   } catch (err) {
     log = { ...log, detail: err instanceof Error ? err.message : "خطا در ارسال پیامک" };
   }
@@ -563,8 +563,7 @@ function PosScreen({ role }: { role: Role }) {
       const vars = orderVars(order, String(fresh?.points ?? 0));
       void pushSms("order_created", order.customerPhone, vars);
       if (shouldSendInvoiceSms && order.customerPhone) {
-        const invoice = [`${settings.shopName} - فاکتور سفارش ${order.number}`, ...order.lines.map(line => `${line.name} × ${line.qty}: ${money(line.unitPrice * line.qty)}`), `جمع: ${money(order.subtotal)}`, `تخفیف: ${money(order.tierDiscount + order.codeDiscount + order.pointsDiscount)}`, `مالیات: ${money(order.tax)}`, `مبلغ نهایی: ${money(order.total)}`, `تاریخ: ${new Date(order.createdAt).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})}`].join("\n").slice(0, 950);
-        void postSms(order.customerPhone, invoice, "order_invoice", "");
+        void pushSms("order_invoice", order.customerPhone, vars);
       }
       if (settings.autoPrint) setTimeout(() => window.print(), 300);
     } catch (error) {
