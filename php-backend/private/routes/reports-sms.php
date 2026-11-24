@@ -160,7 +160,7 @@ if ($path === '/sms/diagnostics' && $method === 'GET') {
         $ciphertext = base64_decode((string)($stored['ciphertext'] ?? ''), true);
         $iv = base64_decode((string)($stored['iv'] ?? ''), true);
         $tag = base64_decode((string)($stored['tag'] ?? ''), true);
-        if ($ciphertext !== false && $iv !== false && $tag !== false && strlen($iv) === 12) {
+        if ($ciphertext !== false && $iv !== false && $tag !== false && strlen($iv) === 12 && strlen($tag) === 16) {
             $plain = openssl_decrypt($ciphertext, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, '3food-sms-gateway-v1');
             $decoded = is_string($plain) ? json_decode($plain, true) : null;
             if (is_array($decoded)) {
