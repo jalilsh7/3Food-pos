@@ -27,7 +27,7 @@ return [
     'sms' => [
         'provider' => 'none',
         'username' => '',
-        'password' => '',
+        'api_key' => '',
         'sender' => '',
         // Inbox settings for GetMessages. Set inbox_location to the value
         // assigned by National Payamak for the receiving mailbox/line.
