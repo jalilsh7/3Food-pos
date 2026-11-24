@@ -262,7 +262,7 @@ export const phpApi = {
     }),
 
   sendSms: (input: { to: string; text: string; event?: string; bodyId?: string; variables?: string[]; testMode?: "standard" }) =>
-    request<ApiEnvelope<{ sent: boolean; detail: string }>>("/sms/send", {
+    request<ApiEnvelope<{ sent: boolean; detail: string; providerResponse?: string; httpStatus?: number | null; providerEndpoint?: string; mode?: string; bodyId?: string | null; variableCount?: number }>>("/sms/send", {
       method: "POST",
       csrf: true,
       body: input,
