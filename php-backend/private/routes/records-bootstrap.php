@@ -90,6 +90,105 @@ if ($method === 'GET' && $path === '/bootstrap') {
 }
 
 
+if (preg_match('#^/suppliers/([A-Za-z0-9_-]+)/invoices$#D', $path, $invoiceMatch) && $method === 'POST') {
+    $actor = require_role($pdo, ['manager']);
+    require_csrf();
+    $supplierId = $invoiceMatch[1];
+    $body = request_json();
+    $invoice = $body['invoice'] ?? null;
+    $lines = is_array($invoice) ? ($invoice['items'] ?? null) : null;
+    if (!is_array($invoice) || !is_array($lines) || count($lines) < 1 || count($lines) > 100 ||
+        !preg_match('/^[A-Za-z0-9_-]{1,100}$/D', (string)($invoice['id'] ?? '')) ||
+        !is_numeric($invoice['paid'] ?? null) || trim((string)($invoice['title'] ?? '')) === '') {
+        json_response(['ok'=>false,'error'=>'invalid_supplier_invoice','message'=>'اطلاعات فاکتور خرید معتبر نیست'],422);
+    }
+    $paidRaw=(float)$invoice['paid'];
+    if (!is_finite($paidRaw) || floor($paidRaw)!==$paidRaw || $paidRaw<0 || $paidRaw>100000000000) {
+        json_response(['ok'=>false,'error'=>'invalid_supplier_invoice_paid','message'=>'مبلغ پرداختی فاکتور معتبر نیست'],422);
+    }
+    $total=0; $normalizedLines=[]; $ingredientIds=[];
+    foreach ($lines as $line) {
+        if (!is_array($line) || !preg_match('/^[A-Za-z0-9_-]{1,100}$/D',(string)($line['ingredientId']??'')) ||
+            !is_numeric($line['quantity']??null) || !is_numeric($line['unitCost']??null)) {
+            json_response(['ok'=>false,'error'=>'invalid_supplier_invoice_line','message'=>'هر ردیف فاکتور باید ماده اولیه، مقدار و قیمت معتبر داشته باشد'],422);
+        }
+        $qty=(float)$line['quantity']; $cost=(float)$line['unitCost'];
+        if (!is_finite($qty)||$qty<=0||$qty>1000000000||round($qty,3)!==$qty||
+            !is_finite($cost)||$cost<=0||floor($cost)!==$cost||$cost>100000000000) {
+            json_response(['ok'=>false,'error'=>'invalid_supplier_invoice_line','message'=>'مقدار یا قیمت یکی از اقلام فاکتور معتبر نیست'],422);
+        }
+        $lineTotal=(int)round($qty*$cost);
+        if ($lineTotal<=0 || $lineTotal>100000000000 || $total>100000000000-$lineTotal) {
+            json_response(['ok'=>false,'error'=>'supplier_invoice_total_invalid','message'=>'جمع فاکتور از محدوده مجاز بیشتر است'],422);
+        }
+        $total+=$lineTotal;
+        $ingredientIds[]=(string)$line['ingredientId'];
+        $normalizedLines[]=['ingredientId'=>(string)$line['ingredientId'],'quantity'=>$qty,'unitCost'=>(int)$cost,'amount'=>$lineTotal];
+    }
+    if ((float)$paidRaw>$total) json_response(['ok'=>false,'error'=>'supplier_invoice_paid_exceeds_total','message'=>'مبلغ پرداختی نمی‌تواند از جمع فاکتور بیشتر باشد'],422);
+    if (count($ingredientIds)!==count(array_unique($ingredientIds))) json_response(['ok'=>false,'error'=>'duplicate_supplier_invoice_ingredient','message'=>'هر ماده اولیه فقط یک‌بار در فاکتور ثبت شود'],422);
+    sort($ingredientIds,SORT_STRING);
+    try {
+        $pdo->beginTransaction();
+        $supplierStmt=$pdo->prepare("SELECT payload FROM pos_records WHERE resource='suppliers' AND id=? FOR UPDATE");
+        $supplierStmt->execute([$supplierId]); $supplierRaw=$supplierStmt->fetchColumn();
+        $supplier=is_string($supplierRaw)?json_decode($supplierRaw,true):null;
+        if (!is_array($supplier)||empty($supplier['active'])) {
+            $pdo->rollBack(); json_response(['ok'=>false,'error'=>'supplier_not_found','message'=>'برای ثبت فاکتور باید تأمین‌کننده فعال باشد'],404);
+        }
+        $ingredientStmt=$pdo->prepare("SELECT payload FROM pos_records WHERE resource='ingredients' AND id=? FOR UPDATE");
+        $ingredientsById=[];
+        foreach($ingredientIds as $ingredientId) {
+            $ingredientStmt->execute([$ingredientId]); $raw=$ingredientStmt->fetchColumn();
+            $ingredient=is_string($raw)?json_decode($raw,true):null;
+            if(!is_array($ingredient)) {
+                $pdo->rollBack(); json_response(['ok'=>false,'error'=>'ingredient_not_found','message'=>'یکی از اقلام فاکتور در انبار پیدا نشد'],404);
+            }
+            $ingredientsById[$ingredientId]=$ingredient;
+        }
+        foreach($normalizedLines as &$line) {
+            $ingredient=$ingredientsById[$line['ingredientId']];
+            $oldStock=max(0,(float)($ingredient['stock']??0));
+            $oldCost=max(0,(float)($ingredient['costPerUnit']??0));
+            $qty=$line['quantity']; $cost=$line['unitCost'];
+            $newStock=round($oldStock+$qty,3);
+            $newCost=$oldStock>0?round((($oldStock*$oldCost)+($qty*$cost))/($oldStock+$qty),2):$cost;
+            $ingredient['stock']=$newStock; $ingredient['costPerUnit']=$newCost;
+            $ingredientsById[$line['ingredientId']]=$ingredient;
+            $line['ingredientName']=substr((string)($ingredient['name']??''),0,160);
+            $line['unit']=(string)($ingredient['unit']??'');
+            $line['stockAfter']=$newStock; $line['weightedCostAfter']=$newCost;
+        }
+        unset($line);
+        $updateIngredient=$pdo->prepare("UPDATE pos_records SET payload=?,updated_by=? WHERE resource='ingredients' AND id=?");
+        foreach($ingredientsById as $ingredientId=>$ingredient) {
+            $updateIngredient->execute([json_encode($ingredient,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR),(int)$actor['id'],$ingredientId]);
+        }
+        $currentBalance=max(0,(int)($supplier['balance']??0));
+        $paid=(int)$paidRaw; $balance=max(0,$currentBalance+$total-$paid);
+        $supplier['balance']=$balance;
+        $now=new DateTimeImmutable('now',new DateTimeZone('Asia/Tehran'));
+        $record=[
+            'id'=>(string)$invoice['id'],'supplierId'=>$supplierId,'kind'=>'purchase',
+            'title'=>substr(trim((string)$invoice['title']),0,160),'amount'=>$total,'paid'=>$paid,
+            'note'=>substr(trim((string)($invoice['note']??'')),0,1000),
+            'invoiceNumber'=>substr(trim((string)($invoice['invoiceNumber']??'')),0,80),
+            'items'=>$normalizedLines,'date'=>$now->format('Y-m-d'),'createdAt'=>$now->format('c'),
+        ];
+        $insert=$pdo->prepare("INSERT INTO pos_records (id,resource,payload,updated_by) VALUES (?,'supplier_purchases',?,?)");
+        $insert->execute([$record['id'],json_encode($record,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR),(int)$actor['id']]);
+        $updateSupplier=$pdo->prepare("UPDATE pos_records SET payload=?,updated_by=? WHERE resource='suppliers' AND id=?");
+        $updateSupplier->execute([json_encode($supplier,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR),(int)$actor['id'],$supplierId]);
+        audit($pdo,(int)$actor['id'],'supplier_invoice_recorded','supplier',$supplierId,['invoice_id'=>$record['id'],'amount'=>$total,'paid'=>$paid,'items'=>count($normalizedLines),'balance'=>$balance]);
+        $pdo->commit();
+        json_response(['ok'=>true,'item'=>$record,'supplier'=>$supplier]);
+    } catch(Throwable $e) {
+        if($pdo->inTransaction())$pdo->rollBack();
+        error_log('[3Food POS] Supplier invoice failed: '.$e->getMessage());
+        json_response(['ok'=>false,'error'=>'supplier_invoice_failed','message'=>'ثبت فاکتور و ورود اقلام انجام نشد'],500);
+    }
+}
+
 if (preg_match('#^/suppliers/([A-Za-z0-9_-]+)/purchases$#D', $path, $supplierMatch) && $method === 'POST') {
     $actor = require_role($pdo, ['manager']);
     require_csrf();
