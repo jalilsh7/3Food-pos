@@ -44,7 +44,6 @@ function seed(): PosState {
       tomanPerPoint: 1000,
       paperWidth: 80,
       autoPrint: false,
-      invoiceSmsEnabledDefault: false,
       loyaltySilverPoints: 500,
       loyaltyGoldPoints: 1500,
       loyaltyPlatinumPoints: 4000,
