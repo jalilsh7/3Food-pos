@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ChefHat, ClipboardList, LayoutDashboard, MessageSquare, Percent,
-  Settings as SettingsIcon, ShoppingBag, Users, UtensilsCrossed, Warehouse, Truck, LogOut,
+  Settings as SettingsIcon, ShoppingBag, Users, UtensilsCrossed, Warehouse, LogOut,
 } from "lucide-react";
 import { Btn, Card, Empty, Field, PageHeading, inputCls } from "./bits";
 import { ReceiptView } from "./receipt";
@@ -76,7 +76,7 @@ async function deleteCentralRecord(resource: string, id: string, commit: () => v
 
 const INITIAL_RENDER_TIME = Date.now();
 
-type View = "pos" | "orders" | "menu" | "stock" | "customers" | "reports" | "expenses" | "suppliers" | "sms" | "users" | "settings";
+type View = "pos" | "orders" | "menu" | "stock" | "customers" | "reports" | "expenses" | "sms" | "users" | "settings";
 
 const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[] = [
   { id: "pos", label: "فروش", icon: ShoppingBag, roles: ["manager", "cashier"] },
