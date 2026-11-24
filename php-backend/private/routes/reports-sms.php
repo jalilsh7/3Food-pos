@@ -144,6 +144,72 @@ if ($method === 'GET' && $path === '/reports/summary') {
 }
 
 
+if ($path === '/sms/diagnostics' && $method === 'GET') {
+    require_role($pdo, ['manager']);
+    $payloadRaw = $pdo->query("SELECT payload FROM pos_records WHERE resource='system_meta' AND id='sms_gateway_config' LIMIT 1")->fetchColumn();
+    $storedExists = is_string($payloadRaw) && $payloadRaw !== '';
+    $stored = $storedExists ? json_decode((string)$payloadRaw, true) : null;
+    $jsonValid = is_array($stored);
+    $versionSupported = $jsonValid && (int)($stored['version'] ?? 0) === 1;
+    $opensslAvailable = function_exists('openssl_decrypt');
+    $decryptionSucceeded = false;
+    $storedGateway = null;
+    $decryptError = null;
+    if ($versionSupported && $opensslAvailable) {
+        $key = hash('sha256', (string)($config['app_key'] ?? ''), true);
+        $ciphertext = base64_decode((string)($stored['ciphertext'] ?? ''), true);
+        $iv = base64_decode((string)($stored['iv'] ?? ''), true);
+        $tag = base64_decode((string)($stored['tag'] ?? ''), true);
+        if ($ciphertext !== false && $iv !== false && $tag !== false && strlen($iv) === 12) {
+            $plain = openssl_decrypt($ciphertext, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, '3food-sms-gateway-v1');
+            $decoded = is_string($plain) ? json_decode($plain, true) : null;
+            if (is_array($decoded)) {
+                $decryptionSucceeded = true;
+                $storedGateway = $decoded;
+            } else {
+                $decryptError = 'authentication_or_payload_invalid';
+            }
+        } else {
+            $decryptError = 'encrypted_payload_malformed';
+        }
+    }
+    $fallback = $config['sms'] ?? [];
+    $gateway = is_array($storedGateway) ? $storedGateway : [
+        'enabled' => (($fallback['provider'] ?? 'none') === 'national_payamak'),
+        'username' => (string)($fallback['username'] ?? ''),
+        'apiKey' => (string)($fallback['api_key'] ?? ''),
+        'sender' => (string)($fallback['sender'] ?? ''),
+        'inboxLocation' => (string)($fallback['inbox_location'] ?? ''),
+        'inboxFrom' => (string)($fallback['inbox_from'] ?? ''),
+    ];
+    $reason = 'ready';
+    if (empty($gateway['enabled'])) $reason = 'gateway_disabled';
+    elseif (trim((string)($gateway['username'] ?? '')) === '') $reason = 'username_missing';
+    elseif (trim((string)($gateway['apiKey'] ?? '')) === '') $reason = 'api_key_missing';
+    elseif (trim((string)($gateway['sender'] ?? '')) === '') $reason = 'sender_missing_for_standard_sms';
+    if ($storedExists && (!$jsonValid || !$versionSupported || !$opensslAvailable || !$decryptionSucceeded)) {
+        $reason = 'encrypted_settings_unreadable_fallback_used';
+    }
+    json_response([
+        'ok'=>true,
+        'generatedAt'=>gmdate('c'),
+        'provider'=>'national_payamak',
+        'storageSource'=>$decryptionSucceeded ? 'encrypted_database' : 'config_fallback',
+        'storedPayloadExists'=>$storedExists,
+        'storedPayloadJsonValid'=>$jsonValid,
+        'storedPayloadVersionSupported'=>$versionSupported,
+        'opensslDecryptAvailable'=>$opensslAvailable,
+        'decryptionSucceeded'=>$decryptionSucceeded,
+        'decryptError'=>$decryptError,
+        'enabled'=>(bool)($gateway['enabled'] ?? false),
+        'usernamePresent'=>trim((string)($gateway['username'] ?? '')) !== '',
+        'apiKeyPresent'=>trim((string)($gateway['apiKey'] ?? '')) !== '',
+        'senderPresent'=>trim((string)($gateway['sender'] ?? '')) !== '',
+        'reason'=>$reason,
+        'note'=>'No credentials, API keys, recipient numbers, or message contents are included.',
+    ]);
+}
+
 if ($path === '/sms/settings' && $method === 'GET') {
     require_role($pdo, ['manager']);
     $gateway = threefood_sms_gateway_read($pdo, $config['sms'] ?? [], (string)($config['app_key'] ?? ''));
