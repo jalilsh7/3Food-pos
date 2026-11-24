@@ -21,7 +21,6 @@ function threefood_sms_gateway_read(PDO $pdo, array $fallback, string $appKey): 
     }
     return [
         'enabled' => (($fallback['provider'] ?? 'none') === 'national_payamak'),
-        'mode' => 'standard',
         'username' => (string)($fallback['username'] ?? ''),
         'apiKey' => (string)($fallback['api_key'] ?? ''),
         'sender' => (string)($fallback['sender'] ?? ''),
@@ -148,7 +147,7 @@ if ($method === 'GET' && $path === '/reports/summary') {
 if ($path === '/sms/settings' && $method === 'GET') {
     require_role($pdo, ['manager']);
     $gateway = threefood_sms_gateway_read($pdo, $config['sms'] ?? [], (string)($config['app_key'] ?? ''));
-    json_response(['ok'=>true,'enabled'=>(bool)($gateway['enabled']??false),'mode'=>'standard','username'=>(string)($gateway['username']??''),'hasApiKey'=>trim((string)($gateway['apiKey']??''))!=='','sender'=>(string)($gateway['sender']??''),'inboxLocation'=>(string)($gateway['inboxLocation']??''),'inboxFrom'=>(string)($gateway['inboxFrom']??''),'inboxConfigured'=>is_numeric($gateway['inboxLocation']??null)]);
+    json_response(['ok'=>true,'enabled'=>(bool)($gateway['enabled']??false),'username'=>(string)($gateway['username']??''),'hasApiKey'=>trim((string)($gateway['apiKey']??''))!=='','sender'=>(string)($gateway['sender']??''),'inboxLocation'=>(string)($gateway['inboxLocation']??''),'inboxFrom'=>(string)($gateway['inboxFrom']??''),'inboxConfigured'=>is_numeric($gateway['inboxLocation']??null)]);
 }
 if ($path === '/sms/settings' && $method === 'POST') {
     $actor = require_role($pdo, ['manager']);
