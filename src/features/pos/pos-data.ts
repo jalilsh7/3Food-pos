@@ -39,7 +39,6 @@ const EMPTY_ROLE_SETTINGS = {
   tomanPerPoint: 1000,
   paperWidth: 80 as const,
   autoPrint: false,
-  invoiceSmsEnabledDefault: false,
   printCustomer: false,
   printKitchen: true,
   headerNote: "",
