@@ -371,7 +371,7 @@ if ($method === 'POST' && $path === '/sms/send') {
     $gateway = threefood_sms_gateway_read($pdo, $config['sms'] ?? [], (string)($config['app_key'] ?? ''));
     $username = trim((string)($gateway['username'] ?? ''));
     $apiKey = trim((string)($gateway['apiKey'] ?? ''));
-    $password = trim((string)($gateway['password'] ?? ''));
+    $password = $apiKey; // API Key is used for ordinary and service REST authentication.
     $sender = trim((string)($gateway['sender'] ?? ''));
     $mode = 'standard'; // All non-template messages use the ordinary dedicated sender line.
     if (empty($gateway['enabled']) || $username === '' || ($standardTest ? ($sender === '' || $apiKey === '') : ($bodyId !== '' ? $apiKey === '' : ($sender === '' || ($apiKey === ''))))) {
