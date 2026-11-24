@@ -169,6 +169,7 @@ function SmsGatewaySettingsPanel() {
   const [busy,setBusy]=useState(false);
   const [note,setNote]=useState("");
   const [connectionState,setConnectionState]=useState<"unknown"|"saved"|"connected"|"failed">("unknown");
+  const [diagnosticsBusy,setDiagnosticsBusy]=useState(false);
   useEffect(()=>{
     let active=true;
     void phpApi.getSmsGatewaySettings().then(result=>{
@@ -194,6 +195,37 @@ function SmsGatewaySettingsPanel() {
       setNote("تنظیمات پیامک به‌صورت رمزگذاری‌شده ذخیره شد؛ اتصال هنوز تأیید نشده است. برای تأیید، پیام آزمایشی ارسال کنید.");
     }catch(error){setNote(error instanceof Error?error.message:"ذخیره تنظیمات پیامک انجام نشد.");}
     finally{setBusy(false);}
+  }
+  async function downloadDiagnostics(){
+    if(diagnosticsBusy)return;
+    setDiagnosticsBusy(true);setNote("");
+    try{
+      const report=await phpApi.getSmsDiagnostics();
+      const lines=[
+        "3Food POS - SMS diagnostic report",
+        "Generated: "+report.generatedAt,
+        "Provider: "+report.provider,
+        "Storage source: "+report.storageSource,
+        "Stored payload exists: "+report.storedPayloadExists,
+        "Stored payload JSON valid: "+report.storedPayloadJsonValid,
+        "Stored payload version supported: "+report.storedPayloadVersionSupported,
+        "OpenSSL decrypt available: "+report.opensslDecryptAvailable,
+        "Decryption succeeded: "+report.decryptionSucceeded,
+        "Decrypt error: "+(report.decryptError??"none"),
+        "Gateway enabled: "+report.enabled,
+        "Username present: "+report.usernamePresent,
+        "API key present: "+report.apiKeyPresent,
+        "Sender present: "+report.senderPresent,
+        "Diagnosis: "+report.reason,
+        "",
+        "No credentials, API keys, recipient numbers, or message contents are included."
+      ];
+      const blob=new Blob([lines.join("\\n")],{type:"text/plain;charset=utf-8"});
+      const url=URL.createObjectURL(blob);
+      const link=document.createElement("a");link.href=url;link.download="3food-sms-diagnostics.txt";document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+      setNote("گزارش عیب‌یابی آماده شد؛ فایل 3food-sms-diagnostics.txt دریافت شد.");
+    }catch(error){setNote(error instanceof Error?error.message:"تهیه گزارش عیب‌یابی پیامک انجام نشد.");}
+    finally{setDiagnosticsBusy(false);}
   }
   async function test(){
     if(busy)return;
@@ -231,6 +263,7 @@ function SmsGatewaySettingsPanel() {
     </div>
     <div className="mt-3 flex flex-wrap gap-2">
       <Btn onClick={()=>void save()} disabled={busy}>{busy?"در حال ذخیره...":"ذخیره تنظیمات پیامک"}</Btn>
+      <Btn tone="ghost" onClick={()=>void downloadDiagnostics()} disabled={busy||diagnosticsBusy}>{diagnosticsBusy?"در حال تهیه گزارش...":"دریافت گزارش عیب‌یابی"}</Btn>
       <Btn tone="ghost" onClick={()=>void test()} disabled={busy||!form.enabled}>{busy?"در حال انجام...":"تست ارسال از خط اختصاصی عادی"}</Btn>
     </div>
     {note?<p className="mt-2 text-sm" role="status">{note}</p>:null}
