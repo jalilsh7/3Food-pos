@@ -76,6 +76,7 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
           <Field label="ترتیب متغیرهای الگوی خدماتی">
             <input className={inputCls} placeholder="name;order;total;shop" value={(t.variables ?? []).join(";")} onChange={(e) => saveTemplate({ ...t, variables: e.target.value.split(";").map((v) => v.trim()).filter(Boolean) })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
           </Field>
+          <div className="mt-2"><Btn onClick={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }}>ذخیره الگو</Btn></div>
           <p className="text-xs text-muted">کلیدهای قابل استفاده: name، order، total، points، code، balance، shop. برای جدا کردن متغیرها حتماً از علامت ; استفاده کنید (مثال: name;order;total;shop). ترتیب را دقیقاً مطابق الگوی تأییدشده پنل ملی‌پیامک وارد کنید؛ فقط مقادیر متغیرها ارسال می‌شوند.</p>
         </Card>
       ))}
