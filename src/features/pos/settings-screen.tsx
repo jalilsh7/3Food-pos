@@ -170,8 +170,7 @@ function SmsGatewaySettingsPanel() {
   const [hasApiKey,setHasApiKey]=useState(false);
   const [hasPassword,setHasPassword]=useState(false);
   const [testPhone,setTestPhone]=useState("");
-  const [testBodyId,setTestBodyId]=useState("");
-  const [testVariables,setTestVariables]=useState("");
+  const [testText,setTestText]=useState("پیام آزمایشی اتصال سامانه فروشگاهی 3Food");
   const [busy,setBusy]=useState(false);
   const [note,setNote]=useState("");
   useEffect(()=>{
@@ -201,15 +200,15 @@ function SmsGatewaySettingsPanel() {
   }
   async function test(){
     if(busy)return;
-    if(!/^09[0-9]{9}$/.test(testPhone.replace(/[^0-9]/g,""))){setNote("شماره آزمایش باید یک موبایل معتبر ایران باشد.");return;}
-    if(!/^[0-9]{1,12}$/.test(testBodyId.trim())){setNote("شناسه الگوی خدماتی تأییدشده را وارد کنید.");return;}
-    const variables=testVariables.trim()===""?[]:testVariables.split(";").map(value=>value.trim());
-    if(variables.some(value=>value.includes(";"))){setNote("مقادیر متغیرها را با ; جدا کنید.");return;}
+    if(!/^09[0-9]{9}$/.test(testPhone.replace(/[^0-9]/g,""))){setNote("شماره مقصد باید یک موبایل معتبر ایران باشد.");return;}
+    if(!testText.trim() || testText.trim().length>500){setNote("متن تست را وارد کنید (حداکثر ۵۰۰ نویسه).");return;}
+    if(!form.username.trim() || !form.password.trim() && !hasPassword){setNote("برای تست خط اختصاصی عادی، نام کاربری و رمز عبور حساب لازم است.");return;}
+    if(!form.sender.trim()){setNote("سرشماره اختصاصی عادی مشتری را وارد کنید.");return;}
     setBusy(true);setNote("");
     try{
-      const result=await phpApi.sendSms({to:testPhone.replace(/[^0-9]/g,""),text:"",event:"manual",bodyId:testBodyId.trim(),variables});
-      setNote(result.sent?"سرویس، درخواست ارسال الگوی خدماتی را پذیرفت. این نتیجه به معنی تحویل قطعی به گوشی نیست.":`ارسال تأیید نشد: ${result.detail}`);
-    }catch(error){setNote(error instanceof Error?error.message:"آزمایش اتصال انجام نشد.");}
+      const result=await phpApi.sendSms({to:testPhone.replace(/[^0-9]/g,""),text:testText.trim(),event:"manual",testMode:"standard"});
+      setNote(result.sent?"درخواست پیامک از خط اختصاصی عادی پذیرفته شد؛ تحویل به گوشی را از گزارش ارسال بررسی کنید.":`ارسال پذیرفته نشد: ${result.detail}`);
+    }catch(error){setNote(error instanceof Error?error.message:"ارسال پیامک آزمایشی انجام نشد.");}
     finally{setBusy(false);}
   }
   return <Card>
@@ -238,14 +237,13 @@ function SmsGatewaySettingsPanel() {
       </>:null}
       <Field label="شناسه صندوق ورودی (دریافت پاسخ تولد)"><input className={inputCls} inputMode="numeric" value={form.inboxLocation} onChange={e=>patch({inboxLocation:e.target.value})}/></Field>
       <Field label="سرشماره دریافت‌کننده پیامک ورودی"><input className={inputCls} value={form.inboxFrom} onChange={e=>patch({inboxFrom:e.target.value})}/></Field>
-      <Field label="شماره موبایل برای تست الگوی خدماتی"><input className={inputCls} inputMode="tel" placeholder="09xxxxxxxxx" value={testPhone} onChange={e=>setTestPhone(e.target.value)}/></Field>
-      <Field label="شناسه الگوی تأییدشده برای تست"><input className={inputCls} inputMode="numeric" placeholder="مثلاً 344438" value={testBodyId} onChange={e=>setTestBodyId(e.target.value)}/></Field>
-      <Field label="مقادیر متغیر الگو به ترتیب (با ; جدا شوند)"><input className={inputCls} placeholder="مثلاً ۱۲۳۴۵" value={testVariables} onChange={e=>setTestVariables(e.target.value)}/></Field>
+      <Field label="شماره موبایل مقصد تست"><input className={inputCls} inputMode="tel" placeholder="09xxxxxxxxx" value={testPhone} onChange={e=>setTestPhone(e.target.value)}/></Field>
+      <Field label="متن پیام آزمایشی با خط اختصاصی عادی"><input className={inputCls} value={testText} onChange={e=>setTestText(e.target.value)} maxLength={500}/></Field>
     </div>
     {form.mode==="smart_sms"?<p className="mt-2 text-xs text-muted">طبق مستند SmartSMS، پیام‌های این مسیر باید با «لغو11» تمام شوند. برنامه متن پیام را خودکار تغییر نمی‌دهد؛ این قاعده در زمان ارسال کنترل می‌شود.</p>:null}
     <div className="mt-3 flex flex-wrap gap-2">
       <Btn onClick={()=>void save()} disabled={busy}>{busy?"در حال ذخیره...":"ذخیره تنظیمات پیامک"}</Btn>
-      <Btn tone="ghost" onClick={()=>void test()} disabled={busy||!form.enabled}>{busy?"در حال انجام...":"تست ارسال الگوی خدماتی"}</Btn>
+      <Btn tone="ghost" onClick={()=>void test()} disabled={busy||!form.enabled}>{busy?"در حال انجام...":"تست ارسال از خط اختصاصی عادی"}</Btn>
     </div>
     {note?<p className="mt-2 text-sm" role="status">{note}</p>:null}
   </Card>;
