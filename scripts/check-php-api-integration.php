@@ -660,9 +660,10 @@ try {
 
     $cashierBootstrap = api('GET', '/api/v1/bootstrap');
     check($cashierBootstrap['status'] === 200, 'cashier bootstrap');
-    foreach (['expenses', 'templates'] as $restrictedResource) {
-        check(!array_key_exists($restrictedResource, $cashierBootstrap['json']['data'] ?? []), 'cashier bootstrap excludes ' . $restrictedResource);
-    }
+    check(!array_key_exists('expenses', $cashierBootstrap['json']['data'] ?? []), 'cashier bootstrap excludes expenses');
+    check(array_key_exists('templates', $cashierBootstrap['json']['data'] ?? []), 'cashier bootstrap exposes approved SMS templates for order notifications');
+    $cashierTemplateWrite = api('POST', '/api/v1/records/templates', ['item' => ['id'=>'ci-cashier-template','name'=>'Cashier must not edit','bodyId'=>'12345','variables'=>['order']]], csrf_headers());
+    check($cashierTemplateWrite['status'] === 403, 'cashier can read SMS templates but cannot manage them');
     $cashierIngredient = array_values(array_filter($cashierBootstrap['json']['data']['ingredients'] ?? [], fn($item) => ($item['id'] ?? '') === 'ci-ingredient'))[0] ?? [];
     check((float)($cashierIngredient['stock'] ?? -1) >= 0 && ($cashierIngredient['name'] ?? '') !== '', 'cashier receives ingredient stock needed for checkout warnings');
     foreach (['costPerUnit', 'cost', 'unitCost'] as $costField) {
