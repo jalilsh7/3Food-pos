@@ -76,15 +76,14 @@ async function deleteCentralRecord(resource: string, id: string, commit: () => v
 
 const INITIAL_RENDER_TIME = Date.now();
 
-type View = "pos" | "orders" | "menu" | "stock" | "customers" | "codes" | "reports" | "expenses" | "suppliers" | "sms" | "users" | "settings";
+type View = "pos" | "orders" | "menu" | "stock" | "customers" | "reports" | "expenses" | "suppliers" | "sms" | "users" | "settings";
 
 const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[] = [
   { id: "pos", label: "فروش", icon: ShoppingBag, roles: ["manager", "cashier"] },
   { id: "orders", label: "سفارش‌ها", icon: ClipboardList, roles: ["manager", "cashier", "kitchen"] },
   { id: "menu", label: "منو", icon: UtensilsCrossed, roles: ["manager"] },
   { id: "stock", label: "انبار", icon: Warehouse, roles: ["manager"] },
-  { id: "customers", label: "باشگاه", icon: Users, roles: ["manager", "cashier"] },
-  { id: "codes", label: "کد تخفیف", icon: Percent, roles: ["manager"] },
+  { id: "customers", label: "باشگاه و تخفیف", icon: Users, roles: ["manager", "cashier"] },
   { id: "reports", label: "گزارش", icon: LayoutDashboard, roles: ["manager"] },
   { id: "expenses", label: "هزینه‌ها", icon: ClipboardList, roles: ["manager"] },
   { id: "suppliers", label: "تأمین‌کنندگان", icon: Truck, roles: ["manager"] },
@@ -253,8 +252,7 @@ function PosWorkspace({ allowed, initialView, role, sessionError }: { allowed: t
         {current === "orders" ? <OrdersScreen role={role} /> : null}
         {current === "menu" ? <MenuScreen /> : null}
         {current === "stock" ? <StockScreen /> : null}
-        {current === "customers" ? <CustomersScreen role={role} saveRecord={saveCentralRecord} /> : null}
-        {current === "codes" ? <CodesScreen saveRecord={saveCentralRecord} deleteRecord={deleteCentralRecord} /> : null}
+        {current === "customers" ? <ClubAndDiscountsScreen role={role} saveRecord={saveCentralRecord} deleteRecord={deleteCentralRecord} /> : null}
         {current === "reports" ? <ReportsScreen loadCategories={loadExpenseCategories} saveRecord={saveCentralRecord} deleteRecord={deleteCentralRecord} /> : null}
         {current === "expenses" ? <ExpensesScreen loadCategories={loadExpenseCategories} saveRecord={saveCentralRecord} deleteRecord={deleteCentralRecord} /> : null}
         {current === "suppliers" ? <SuppliersScreen saveCentralRecord={saveCentralRecord} onPurchaseSaved={async () => { const snapshot = await phpApi.bootstrap<ServerBootstrap>(); hydratePosFromServer(snapshot.data, snapshot.next_order, "manager"); }} /> : null}
@@ -262,6 +260,23 @@ function PosWorkspace({ allowed, initialView, role, sessionError }: { allowed: t
         {current === "users" ? <UsersScreen /> : null}
         {current === "settings" ? <SettingsScreen saveRecord={saveCentralRecord} /> : null}
       </main>
+    </div>
+  );
+}
+
+function ClubAndDiscountsScreen({ role, saveRecord, deleteRecord }: {
+  role: Role;
+  saveRecord: <T extends { id: string | number }>(resource: string, item: T, commit: () => void) => Promise<boolean>;
+  deleteRecord: (resource: string, id: string, commit: () => void) => Promise<boolean>;
+}) {
+  const [section, setSection] = useState<"club" | "discounts">("club");
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2 rounded-2xl border border-line bg-surface p-2">
+        <button type="button" onClick={() => setSection("club")} className={`rounded-xl px-4 py-2 text-sm font-semibold ${section === "club" ? "bg-leaf text-white" : "text-muted"}`}>باشگاه مشتریان</button>
+        {role === "manager" ? <button type="button" onClick={() => setSection("discounts")} className={`rounded-xl px-4 py-2 text-sm font-semibold ${section === "discounts" ? "bg-leaf text-white" : "text-muted"}`}>کدهای تخفیف</button> : null}
+      </div>
+      {section === "club" ? <CustomersScreen role={role} saveRecord={saveRecord} /> : role === "manager" ? <CodesScreen saveRecord={saveRecord} deleteRecord={deleteRecord} /> : null}
     </div>
   );
 }
