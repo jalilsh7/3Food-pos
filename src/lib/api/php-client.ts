@@ -269,6 +269,7 @@ export const phpApi = {
     }),
 
   getSmsGatewaySettings: () => request<ApiEnvelope<{enabled:boolean;username:string;hasApiKey:boolean;sender:string;inboxLocation:string;inboxFrom:string;inboxConfigured:boolean}>>("/sms/settings"),
+  getSmsDiagnostics: () => request<ApiEnvelope<{generatedAt:string;provider:string;storageSource:string;storedPayloadExists:boolean;storedPayloadJsonValid:boolean;storedPayloadVersionSupported:boolean;opensslDecryptAvailable:boolean;decryptionSucceeded:boolean;decryptError:string|null;enabled:boolean;usernamePresent:boolean;apiKeyPresent:boolean;senderPresent:boolean;reason:string;note:string}>>("/sms/diagnostics"),
   saveSmsGatewaySettings: (input:{enabled:boolean;username:string;apiKey?:string;sender:string;inboxLocation?:string;inboxFrom?:string}) => request<ApiEnvelope<{saved:boolean;hasApiKey:boolean}>>("/sms/settings",{method:"POST",csrf:true,body:input}),
   syncBirthdaySmsInbox: () =>
     request<ApiEnvelope<{ received: number; processed: number; duplicates: number; birthdays_saved: number; unmatched: number; ignored: number }>>("/sms/birthday-sync", {
