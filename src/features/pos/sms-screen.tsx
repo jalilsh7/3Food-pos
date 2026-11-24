@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Btn, Card, Empty, Field, inputCls, PageHeading } from "./bits";
 import { phpApi } from "@/lib/api/php-client";
 import { tierOf, type SmsEvent } from "@/lib/pos/model";
@@ -12,7 +12,8 @@ const EVENT_LABEL: Record<SmsEvent, string> = {
 };
 
 export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: string, text: string) => Promise<boolean>; saveCentralRecord: <T extends { id: string | number }>(resource: string, item: T, commit: () => void) => Promise<boolean> }) {
-  const templates = usePos((s) => s.templates.filter((item) => ["order_created","order_preparing","order_ready","order_delivered","order_cancelled"].includes(item.event)));
+  const allTemplates = usePos((s) => s.templates);
+  const templates = useMemo(() => allTemplates.filter((item) => ["order_created","order_preparing","order_ready","order_delivered","order_cancelled"].includes(item.event)), [allTemplates]);
   const logs = usePos((s) => s.smsLogs);
   const saveTemplate = usePos((s) => s.saveTemplate);
   const customers = usePos((s) => s.customers);
