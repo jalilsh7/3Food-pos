@@ -174,7 +174,7 @@ function SmsGatewaySettingsPanel() {
     let active=true;
     void phpApi.getSmsGatewaySettings().then(result=>{
       if(!active)return;
-      setForm(current=>({...current,enabled:result.enabled,mode:result.mode,username:result.username,sender:result.sender,senderSupportOne:result.senderSupportOne,senderSupportTwo:result.senderSupportTwo}));
+      setForm(current=>({...current,enabled:result.enabled,mode:result.mode,username:result.username,sender:result.sender,senderSupportOne:result.senderSupportOne,senderSupportTwo:result.senderSupportTwo,inboxLocation:result.inboxLocation,inboxFrom:result.inboxFrom}));
       setHasApiKey(result.hasApiKey);
     }).catch(error=>{if(active)setNote(error instanceof Error?error.message:"بارگذاری تنظیمات پیامک انجام نشد.");});
     return()=>{active=false;};
