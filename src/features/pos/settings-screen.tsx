@@ -157,7 +157,6 @@ type SmsGatewayForm = {
   mode: "standard" | "smart_sms";
   username: string;
   apiKey: string;
-  password: string;
   sender: string;
   senderSupportOne: string;
   senderSupportTwo: string;
@@ -166,9 +165,8 @@ type SmsGatewayForm = {
 };
 
 function SmsGatewaySettingsPanel() {
-  const [form,setForm]=useState<SmsGatewayForm>({enabled:false,mode:"standard",username:"",apiKey:"",password:"",sender:"",senderSupportOne:"",senderSupportTwo:"",inboxLocation:"",inboxFrom:""});
+  const [form,setForm]=useState<SmsGatewayForm>({enabled:false,mode:"standard",username:"",apiKey:"",sender:"",senderSupportOne:"",senderSupportTwo:"",inboxLocation:"",inboxFrom:""});
   const [hasApiKey,setHasApiKey]=useState(false);
-  const [hasPassword,setHasPassword]=useState(false);
   const [testPhone,setTestPhone]=useState("");
   const [testText,setTestText]=useState("پیام آزمایشی اتصال سامانه فروشگاهی 3Food");
   const [busy,setBusy]=useState(false);
@@ -180,7 +178,6 @@ function SmsGatewaySettingsPanel() {
       if(!active)return;
       setForm(current=>({...current,enabled:result.enabled,mode:result.mode,username:result.username,sender:result.sender,senderSupportOne:result.senderSupportOne,senderSupportTwo:result.senderSupportTwo,inboxLocation:result.inboxLocation,inboxFrom:result.inboxFrom}));
       setHasApiKey(result.hasApiKey);
-      setHasPassword(result.hasPassword);
       setConnectionState(result.enabled ? "saved" : "unknown");
     }).catch(error=>{if(active)setNote(error instanceof Error?error.message:"بارگذاری تنظیمات پیامک انجام نشد.");});
     return()=>{active=false;};
@@ -191,11 +188,11 @@ function SmsGatewaySettingsPanel() {
     setBusy(true);setNote("");
     try{
       const result=await phpApi.saveSmsGatewaySettings({
-        enabled:form.enabled,mode:form.mode,username:form.username,apiKey:form.apiKey,password:form.password,
+        enabled:form.enabled,mode:form.mode,username:form.username,apiKey:form.apiKey,
         sender:form.sender,senderSupportOne:form.senderSupportOne,senderSupportTwo:form.senderSupportTwo,
         inboxLocation:form.inboxLocation,inboxFrom:form.inboxFrom,
       });
-      setHasApiKey(result.hasApiKey);setHasPassword(result.hasPassword);setForm(current=>({...current,apiKey:"",password:""}));
+      setHasApiKey(result.hasApiKey);setForm(current=>({...current,apiKey:""}));
       setConnectionState("saved");
       setNote("تنظیمات پیامک به‌صورت رمزگذاری‌شده ذخیره شد؛ اتصال هنوز تأیید نشده است. برای تأیید، پیام آزمایشی ارسال کنید.");
     }catch(error){setNote(error instanceof Error?error.message:"ذخیره تنظیمات پیامک انجام نشد.");}
@@ -205,7 +202,7 @@ function SmsGatewaySettingsPanel() {
     if(busy)return;
     if(!/^09[0-9]{9}$/.test(testPhone.replace(/[^0-9]/g,""))){setNote("شماره مقصد باید یک موبایل معتبر ایران باشد.");return;}
     if(!testText.trim() || testText.trim().length>500){setNote("متن تست را وارد کنید (حداکثر ۵۰۰ نویسه).");return;}
-    if(!form.username.trim() || !form.password.trim() && !hasPassword){setNote("برای تست خط اختصاصی عادی، نام کاربری و رمز عبور حساب لازم است.");return;}
+    if(!form.username.trim() || !form.apiKey.trim() && !hasApiKey){setNote("برای تست ارسال، نام کاربری و API Key لازم است.");return;}
     if(!form.sender.trim()){setNote("سرشماره اختصاصی عادی مشتری را وارد کنید.");return;}
     setBusy(true);setNote("");
     try{
@@ -218,7 +215,7 @@ function SmsGatewaySettingsPanel() {
   return <Card>
     <div className="mb-2">
       <h3 className="font-semibold">اتصال پیامک ملی‌پیامک</h3>
-      <p className="mt-1 text-xs text-muted">نام کاربری، رمز عبور و API Key فقط در سمت سرور و با رمزگذاری AES-256-GCM ذخیره می‌شوند؛ مقادیر محرمانه پس از ذخیره دوباره نمایش داده نمی‌شوند.</p>
+      <p className="mt-1 text-xs text-muted">فقط نام کاربری و API Key ملی‌پیامک لازم است. کلید فقط در سمت سرور و با رمزگذاری AES-256-GCM ذخیره می‌شود و پس از ذخیره دوباره نمایش داده نمی‌شود.</p>
       <p className="mt-2 text-sm" role="status">{connectionState==="connected"?"وضعیت اتصال: تأییدشده با پاسخ موفق سرویس":connectionState==="saved"?"وضعیت اتصال: تنظیمات ذخیره شده؛ هنوز اتصال تأیید نشده":connectionState==="failed"?"وضعیت اتصال: آخرین آزمایش ناموفق بود":"وضعیت اتصال: هنوز بررسی نشده"}</p>
     </div>
     <div className="grid gap-3 sm:grid-cols-2">
@@ -230,11 +227,10 @@ function SmsGatewaySettingsPanel() {
         </select>
       </Field>
       <Field label="نام کاربری ملی‌پیامک"><input className={inputCls} autoComplete="off" value={form.username} onChange={e=>patch({username:e.target.value})}/></Field>
-      <Field label={hasPassword?"رمز عبور حساب (برای تغییر وارد کنید)":"رمز عبور حساب"}><input className={inputCls} type="password" autoComplete="new-password" placeholder={hasPassword?"ذخیره شده؛ خالی بگذارید تا حفظ شود":"رمز عبور وب‌سرویس ارسال معمولی"} value={form.password} onChange={e=>patch({password:e.target.value})}/></Field>
       <Field label={hasApiKey?"API Key (برای تغییر وارد کنید)":"API Key"}>
         <input className={inputCls} type="password" autoComplete="new-password" placeholder={hasApiKey?"کلید ذخیره شده؛ خالی بگذارید تا حفظ شود":"API Key وب‌سرویس"} value={form.apiKey} onChange={e=>patch({apiKey:e.target.value})}/>
       </Field>
-      <p className="text-xs text-muted sm:col-span-2">ارسال معمولی از رمز عبور حساب استفاده می‌کند؛ SmartSMS و الگوهای خدماتی از API Key استفاده می‌کنند. هر دو مقدار رمزگذاری‌شده و فقط در سرور ذخیره می‌شوند.</p>
+      <p className="text-xs text-muted sm:col-span-2">تمام درخواست‌های وب‌سرویس ملی‌پیامک، از جمله ارسال معمولی و الگوهای خدماتی، با API Key احراز هویت می‌شوند.</p>
       <Field label="سرشماره اصلی"><input className={inputCls} value={form.sender} onChange={e=>patch({sender:e.target.value})}/></Field>
       {form.mode==="smart_sms"?<>
         <Field label="سرشماره پشتیبان ۱"><input className={inputCls} value={form.senderSupportOne} onChange={e=>patch({senderSupportOne:e.target.value})}/></Field>
