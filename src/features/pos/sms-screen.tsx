@@ -7,7 +7,7 @@ import { normalizeIranPhone, tehranDate } from "@/lib/pos/formatters";
 
 const INITIAL_RENDER_TIME = Date.now();
 const EVENT_LABEL: Record<SmsEvent, string> = {
-  order_created: "ثبت سفارش", order_ready: "آماده شدن", order_delivered: "تحویل",
+  order_created: "ثبت سفارش", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_delivered: "تحویل",
   points_earned: "کسب امتیاز", discount_used: "استفاده از کد",
 };
 
@@ -58,7 +58,7 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
       <PageHeading title="مرکز پیامک" description="قالب‌های اطلاع‌رسانی، ارسال دستی و کمپین‌های مشتریان را مدیریت کنید." />
       <Card>
         <p className="text-sm">اعتبارنامهٔ ملی‌پیامک فقط در فایل خصوصی سرور (private/config.php) تنظیم می‌شود و در این صفحه یا مرورگر نگهداری نمی‌شود.</p>
-        <p className="mt-2 text-xs text-muted">برای فعال‌سازی، مدیر سرور باید provider را روی national_payamak قرار دهد و نام کاربری، رمز/API Key و سرشماره را در تنظیمات خصوصی هاست وارد کند. برای آزمایش، ابتدا ارسال دستی را به شمارهٔ آزمایشی خود انجام دهید.</p>
+        <p className="mt-2 text-xs text-muted">اتصال و کلید API از بخش تنظیمات فروشگاه ثبت می‌شود و فقط به‌صورت رمزگذاری‌شده در سرور نگهداری خواهد شد. برای الگوی خدماتی، شناسه واقعی الگوی تأییدشده و ترتیب متغیرها را وارد کنید.</p>
       </Card>
       {templates.map((t) => (
         <Card key={t.event}>
@@ -68,6 +68,10 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
           </label>
           <textarea className={`${inputCls} mt-2`} rows={2} value={t.body} onChange={(e) => saveTemplate({ ...t, body: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
           <Field label="شناسه پترن (اختیاری)"><input className={inputCls} value={t.bodyId} onChange={(e) => saveTemplate({ ...t, bodyId: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} /></Field>
+          <Field label="ترتیب متغیرهای الگوی خدماتی">
+            <input className={inputCls} placeholder="name,order,total,shop" value={(t.variables ?? []).join(",")} onChange={(e) => saveTemplate({ ...t, variables: e.target.value.split(",").map((v) => v.trim()).filter(Boolean) })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
+          </Field>
+          <p className="text-xs text-muted">کلیدهای قابل استفاده: name، order، total، points، code، balance، shop. ترتیب را دقیقاً مطابق متغیرهای الگوی تأییدشده پنل ملی‌پیامک وارد کنید؛ مقادیر با همین ترتیب ارسال می‌شوند.</p>
         </Card>
       ))}
       <Card>
