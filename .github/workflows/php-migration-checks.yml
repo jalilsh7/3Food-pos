@@ -162,14 +162,14 @@ jobs:
           mkdir -p performance-results
           node scripts/performance-smoke.mjs http://127.0.0.1:8099/ | tee performance-results/performance.json
       - name: Upload performance report
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: 3food-pos-performance-report
           path: performance-results/performance.json
           if-no-files-found: error
           retention-days: 14
       - name: Upload cPanel deployment package
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: 3food-pos-cpanel
           path: dist-cpanel/
@@ -178,7 +178,7 @@ jobs:
           retention-days: 14
 
       - name: Upload cPanel ZIP for direct installation
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: 3food-pos-cpanel-zip
           path: 3food-pos-v2-update.zip
