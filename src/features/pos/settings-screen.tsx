@@ -170,6 +170,8 @@ function SmsGatewaySettingsPanel() {
   const [hasApiKey,setHasApiKey]=useState(false);
   const [hasPassword,setHasPassword]=useState(false);
   const [testPhone,setTestPhone]=useState("");
+  const [testBodyId,setTestBodyId]=useState("");
+  const [testVariables,setTestVariables]=useState("");
   const [busy,setBusy]=useState(false);
   const [note,setNote]=useState("");
   useEffect(()=>{
@@ -200,11 +202,13 @@ function SmsGatewaySettingsPanel() {
   async function test(){
     if(busy)return;
     if(!/^09[0-9]{9}$/.test(testPhone.replace(/[^0-9]/g,""))){setNote("شماره آزمایش باید یک موبایل معتبر ایران باشد.");return;}
+    if(!/^[0-9]{1,12}$/.test(testBodyId.trim())){setNote("شناسه الگوی خدماتی تأییدشده را وارد کنید.");return;}
+    const variables=testVariables.trim()===""?[]:testVariables.split(";").map(value=>value.trim());
+    if(variables.some(value=>value.includes(";"))){setNote("مقادیر متغیرها را با ; جدا کنید.");return;}
     setBusy(true);setNote("");
     try{
-      const text=form.mode==="smart_sms"?"آزمایش اتصال پیامک 3Food لغو11":"آزمایش اتصال پیامک 3Food";
-      const result=await phpApi.sendSms({to:testPhone.replace(/[^0-9]/g,""),text});
-      setNote(result.sent?"پاسخ سرویس، پذیرش ارسال را تأیید کرد. هزینه پیامک ممکن است محاسبه شود.":`ارسال تأیید نشد: ${result.detail}`);
+      const result=await phpApi.sendSms({to:testPhone.replace(/[^0-9]/g,""),text:"",event:"manual",bodyId:testBodyId.trim(),variables});
+      setNote(result.sent?"سرویس، درخواست ارسال الگوی خدماتی را پذیرفت. این نتیجه به معنی تحویل قطعی به گوشی نیست.":`ارسال تأیید نشد: ${result.detail}`);
     }catch(error){setNote(error instanceof Error?error.message:"آزمایش اتصال انجام نشد.");}
     finally{setBusy(false);}
   }
@@ -234,12 +238,14 @@ function SmsGatewaySettingsPanel() {
       </>:null}
       <Field label="شناسه صندوق ورودی (دریافت پاسخ تولد)"><input className={inputCls} inputMode="numeric" value={form.inboxLocation} onChange={e=>patch({inboxLocation:e.target.value})}/></Field>
       <Field label="سرشماره دریافت‌کننده پیامک ورودی"><input className={inputCls} value={form.inboxFrom} onChange={e=>patch({inboxFrom:e.target.value})}/></Field>
-      <Field label="شماره موبایل برای آزمایش اتصال"><input className={inputCls} inputMode="tel" placeholder="09xxxxxxxxx" value={testPhone} onChange={e=>setTestPhone(e.target.value)}/></Field>
+      <Field label="شماره موبایل برای تست الگوی خدماتی"><input className={inputCls} inputMode="tel" placeholder="09xxxxxxxxx" value={testPhone} onChange={e=>setTestPhone(e.target.value)}/></Field>
+      <Field label="شناسه الگوی تأییدشده برای تست"><input className={inputCls} inputMode="numeric" placeholder="مثلاً 344438" value={testBodyId} onChange={e=>setTestBodyId(e.target.value)}/></Field>
+      <Field label="مقادیر متغیر الگو به ترتیب (با ; جدا شوند)"><input className={inputCls} placeholder="مثلاً ۱۲۳۴۵" value={testVariables} onChange={e=>setTestVariables(e.target.value)}/></Field>
     </div>
     {form.mode==="smart_sms"?<p className="mt-2 text-xs text-muted">طبق مستند SmartSMS، پیام‌های این مسیر باید با «لغو11» تمام شوند. برنامه متن پیام را خودکار تغییر نمی‌دهد؛ این قاعده در زمان ارسال کنترل می‌شود.</p>:null}
     <div className="mt-3 flex flex-wrap gap-2">
       <Btn onClick={()=>void save()} disabled={busy}>{busy?"در حال ذخیره...":"ذخیره تنظیمات پیامک"}</Btn>
-      <Btn tone="ghost" onClick={()=>void test()} disabled={busy||!form.enabled}>{busy?"در حال انجام...":"آزمایش ارسال پیامک"}</Btn>
+      <Btn tone="ghost" onClick={()=>void test()} disabled={busy||!form.enabled}>{busy?"در حال انجام...":"تست ارسال الگوی خدماتی"}</Btn>
     </div>
     {note?<p className="mt-2 text-sm" role="status">{note}</p>:null}
   </Card>;
