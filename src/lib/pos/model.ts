@@ -106,6 +106,7 @@ export type SmsEvent =
   | "order_preparing"
   | "order_ready"
   | "order_delivered"
+  | "order_cancelled"
   | "points_earned"
   | "discount_used";
 
