@@ -13,7 +13,12 @@ const EVENT_LABEL: Record<SmsEvent, string> = {
 
 export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: string, text: string) => Promise<boolean>; saveCentralRecord: <T extends { id: string | number }>(resource: string, item: T, commit: () => void) => Promise<boolean> }) {
   const allTemplates = usePos((s) => s.templates);
-  const templates = useMemo(() => allTemplates.filter((item) => ["order_created","order_preparing","order_ready","order_delivered","order_cancelled"].includes(item.event)), [allTemplates]);
+  const templates = useMemo(() => {
+    const events: SmsEvent[] = ["order_created", "order_preparing", "order_ready", "order_delivered", "order_cancelled"];
+    return events.map((event) => allTemplates.find((item) => item.event === event) ?? {
+      id: event, event, enabled: false, body: "", bodyId: "", variables: [],
+    });
+  }, [allTemplates]);
   const logs = usePos((s) => s.smsLogs);
   const saveTemplate = usePos((s) => s.saveTemplate);
   const customers = usePos((s) => s.customers);
@@ -30,15 +35,6 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
   const [campaignBusy,setCampaignBusy]=useState(false);
   const [campaignProgress,setCampaignProgress]=useState("");
   const [campaignClock,setCampaignClock]=useState(INITIAL_RENDER_TIME);
-  useEffect(() => {
-    const defaults: SmsEvent[] = ["order_created","order_preparing","order_ready","order_delivered","order_cancelled"];
-    const existing = new Set(usePos.getState().templates.map((item) => item.event));
-    for (const event of defaults) {
-      if (existing.has(event)) continue;
-      const item = { id: event, event, enabled: false, body: "", bodyId: "", variables: [] as string[] };
-      void saveCentralRecord("templates", item, () => saveTemplate(item));
-    }
-  }, [saveCentralRecord, saveTemplate]);
   useEffect(() => { const timer=window.setInterval(()=>setCampaignClock(Date.now()),60000); return ()=>window.clearInterval(timer); }, []);
   const activeCampaignFilters = Object.entries(campaignFilters).filter(([,value])=>value!=="");
   const campaignRecipients=customers.filter(customer=>{
