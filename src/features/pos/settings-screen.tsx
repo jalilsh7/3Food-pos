@@ -220,7 +220,7 @@ function SmsGatewaySettingsPanel() {
         "",
         "No credentials, API keys, recipient numbers, or message contents are included."
       ];
-      const blob=new Blob([lines.join("\\n")],{type:"text/plain;charset=utf-8"});
+      const blob=new Blob([lines.join("\n")],{type:"text/plain;charset=utf-8"});
       const url=URL.createObjectURL(blob);
       const link=document.createElement("a");link.href=url;link.download="3food-sms-diagnostics.txt";document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
       setNote("گزارش عیب‌یابی آماده شد؛ فایل 3food-sms-diagnostics.txt دریافت شد.");
