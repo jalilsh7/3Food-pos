@@ -57,7 +57,7 @@ jobs:
       - name: Build and audit cPanel package
         run: npm run build:cpanel
       - name: Upload cPanel package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: 3food-pos-v2-cpanel-${{ github.sha }}
           path: |
