@@ -344,6 +344,11 @@ if ($method === 'POST' && $path === '/sms/send') {
     $bodyId = trim((string)($body['bodyId'] ?? ''));
     $event = trim((string)($body['event'] ?? 'manual'));
     $variables = $body['variables'] ?? [];
+    $testMode = (string)($body['testMode'] ?? '');
+    $standardTest = $testMode === 'standard' && $event === 'manual' && $bodyId === '';
+    if ($testMode !== '' && !$standardTest) {
+        json_response(['ok'=>false,'error'=>'invalid_sms_test_mode','message'=>'حالت تست فقط برای ارسال دستی از خط اختصاصی عادی مجاز است'],422);
+    }
     $statusEvents = ['order_created','order_preparing','order_ready','order_delivered','order_cancelled'];
     if (!preg_match('/^\\+?[0-9]{10,15}$/D', $to)) {
         json_response(['ok'=>false,'error'=>'invalid_sms_recipient','message'=>'شماره موبایل معتبر نیست'],422);
@@ -373,7 +378,7 @@ if ($method === 'POST' && $path === '/sms/send') {
     $password = trim((string)($gateway['password'] ?? ''));
     $sender = trim((string)($gateway['sender'] ?? ''));
     $mode = (string)($gateway['mode'] ?? 'standard');
-    if (empty($gateway['enabled']) || $username === '' || ($bodyId !== '' ? $apiKey === '' : ($sender === '' || ($mode === 'smart_sms' ? $apiKey === '' : $password === '')))) {
+    if (empty($gateway['enabled']) || $username === '' || ($standardTest ? ($sender === '' || $password === '') : ($bodyId !== '' ? $apiKey === '' : ($sender === '' || ($mode === 'smart_sms' ? $apiKey === '' : $password === ''))))) {
         json_response(['ok'=>false,'error'=>'sms_not_configured','message'=>'تنظیمات سرویس پیامک کامل نیست؛ برای الگوی خدماتی نام کاربری و API Key لازم است'],503);
     }
     if ($bodyId !== '') {
@@ -388,6 +393,10 @@ if ($method === 'POST' && $path === '/sms/send') {
         // National Payamak BaseServiceNumber: one recipient; ordered variables separated by semicolons.
         $endpoint = 'https://rest.payamak-panel.com/api/SendSMS/BaseServiceNumber';
         $fields = ['username'=>$username,'password'=>$apiKey,'to'=>$to,'text'=>implode(';',array_map('strval',$variables)),'bodyId'=>$bodyId];
+    } elseif ($standardTest) {
+        // Settings test is deliberately pinned to the customer's ordinary dedicated sender line.
+        $endpoint = 'https://rest.payamak-panel.com/api/SendSMS/SendSMS';
+        $fields = ['username'=>$username,'password'=>$password,'to'=>$to,'from'=>$sender,'text'=>$message,'isFlash'=>'false'];
     } elseif ($mode === 'smart_sms') {
         if (!str_ends_with($message, 'لغو11')) {
             json_response(['ok'=>false,'error'=>'sms_optout_suffix_required','message'=>'طبق مستند SmartSMS، متن پیامک باید با «لغو11» تمام شود'],422);
@@ -432,7 +441,7 @@ if ($method === 'POST' && $path === '/sms/send') {
             $numeric = (int)preg_replace('/[^0-9-]/', '', $rawValue);
             $accepted = $numeric > 0;
         }
-        audit($pdo, (int)$actor['id'], 'sms_sent', 'sms', null, ['to'=>$to,'ok'=>$accepted,'mode'=>$bodyId!==''?'shared_service':$mode,'body_id'=>$bodyId!==''?$bodyId:null,'event'=>$event]);
+        audit($pdo, (int)$actor['id'], 'sms_sent', 'sms', null, ['to'=>$to,'ok'=>$accepted,'mode'=>$bodyId!==''?'shared_service':($standardTest?'standard_test':$mode),'body_id'=>$bodyId!==''?$bodyId:null,'event'=>$event]);
         json_response(['ok'=>true,'sent'=>$accepted,'detail'=>$accepted?'پذیرش درخواست ارسال توسط سرویس ثبت شد':('پاسخ سرویس: '.substr($rawValue,0,180))]);
     } catch (Throwable $e) {
         error_log('[3Food POS] SMS provider request failed: '.$e->getMessage());
