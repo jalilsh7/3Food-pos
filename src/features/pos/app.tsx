@@ -1096,6 +1096,12 @@ function StockScreen() {
   const [unit, setUnit] = useState("عدد");
   const [minimumStock, setMinimumStock] = useState("5");
   const [adjustmentAmount, setAdjustmentAmount] = useState("1");
+  const [stockSearch, setStockSearch] = useState("");
+  const [lowOnly, setLowOnly] = useState(false);
+  const visibleIngredients = ingredients.filter((item) =>
+    (!lowOnly || item.stock <= item.minStock) &&
+    (!stockSearch.trim() || item.name.toLocaleLowerCase("fa-IR").includes(stockSearch.trim().toLocaleLowerCase("fa-IR")))
+  );
   function adjustIngredient(id:string, direction:1|-1, commit:(item:typeof ingredients[number])=>void){
     const amount=Number(adjustmentAmount);
     if(!Number.isFinite(amount)||amount<=0||amount>1000000||Math.round(amount*1000)!==amount*1000){
@@ -1129,7 +1135,12 @@ function StockScreen() {
         <label className="space-y-1 text-xs text-muted"><span>حد هشدار موجودی</span><input className={inputCls} type="number" min="0" max="1000000" step="0.001" value={minimumStock} onChange={(e) => setMinimumStock(e.target.value)} /></label>
         <Btn type="submit">افزودن</Btn>
       </form>
-      {ingredients.map((i) => (
+      <div className="flex flex-wrap gap-2">
+        <input className={inputCls+" min-w-0 flex-1"} placeholder="جستجوی مواد اولیه..." value={stockSearch} onChange={(e) => setStockSearch(e.target.value)} />
+        <Btn tone={lowOnly ? "leaf" : "ghost"} onClick={() => setLowOnly((value) => !value)}>{lowOnly ? "نمایش همه اقلام" : "فقط اقلام کم‌موجود"}</Btn>
+      </div>
+      {visibleIngredients.length === 0 ? <p className="text-sm text-muted">ماده اولیه‌ای با این فیلتر پیدا نشد.</p> : null}
+      {visibleIngredients.map((i) => (
         <Card key={i.id}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
