@@ -2,14 +2,14 @@
 
 آخرین بازبینی: 2026-11-22  
 مخزن: `jalilsh7/3Food-pos`  
-شاخه فعال V2 برای ادامه کار: `feature/3food-pos-next-release-v2`  
-شاخه پایه: `migration/php-mysql`  
-شاخه پاک‌سازی مستقل: `cleanup/remove-grok-dependencies`  
+شاخه فعال V2 برای ادامه کار: `v2/clean-mainline`  
+شاخه پایه: `v2/clean-mainline`  
+شاخه پاک‌سازی مستقل: `v2/clean-mainline`  
 PR پاک‌سازی: https://github.com/jalilsh7/3Food-pos/pull/1
 
 > این سند وضعیت فعلی را خلاصه می‌کند؛ قبل از هر تغییر، شاخه و آخرین commit را از GitHub بررسی کنید. وجود کد یا build در GitHub به معنی استقرار روی هاست نیست.
 >
-> **دستور ادامه فعلی مالک:** فقط شاخه `feature/3food-pos-next-release-v2` را تغییر دهید. هدف تحویل، نسخه V2 مرتب و قابل استفاده به‌همراه ZIP آپدیت cPanel است؛ کوچک‌سازی فایل‌ها هدف مستقل نیست. تست جامع، build و اعتبارسنجی ZIP تا پایان کار عقب افتاده‌اند. شاخه‌های `main`، V3 و سایر شاخه‌ها را تغییر ندهید.
+> **دستور ادامه فعلی مالک:** تا زمان انتقال رسمی، فقط شاخه `v2/clean-mainline` مبنای کار V2 است. پس از انتقال و تأیید، `main` مرجع واحد ادامه توسعه خواهد بود. این مخزن/شاخه فقط V2 را پوشش می‌دهد؛ کد و مستندات V3 خارج از محدوده‌اند. هدف، نسخه V2 مرتب و قابل استفاده به‌همراه ZIP آپدیت cPanel است؛ کوچک‌سازی فایل‌ها هدف مستقل نیست. تست جامع، build و اعتبارسنجی ZIP در پایان فاز پیامک اجرا شوند.
 
 ## 1) هدف و الزامات مالک
 
@@ -38,7 +38,7 @@ PR پاک‌سازی: https://github.com/jalilsh7/3Food-pos/pull/1
 
 ## 3) وضعیت شاخه پاک‌سازی
 
-شاخه `cleanup/remove-grok-dependencies` بر پایه `migration/php-mysql` ساخته شده و PR شماره 1 باز است؛ این شاخه هنوز merge نشده است.
+شاخه `v2/clean-mainline` بر پایه `v2/clean-mainline` ساخته شده و PR شماره 1 باز است؛ این شاخه هنوز merge نشده است.
 
 تغییرات پاک‌سازی موجود:
 - کدهای متروک Better Auth، OAuth broker/Grok، PGLite/PostgreSQL، TanStack Start server functions و App Builder connector از سورس حذف شده‌اند؛ این مسیرها متعلق به معماری قدیمی بودند و از entrypoint فعال React/PHP استفاده نمی‌شدند.
