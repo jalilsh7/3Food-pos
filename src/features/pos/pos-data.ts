@@ -28,6 +28,7 @@ export type ServerBootstrap = Partial<Omit<PosState, "orders" | "settings">> & {
 
 const EMPTY_ROLE_SETTINGS = {
   shopName: "",
+  defaultCustomerLabel: "مشتری عزیز",
   address: "",
   phone: "",
   taxPercent: 0,
