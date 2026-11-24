@@ -24,7 +24,6 @@ function threefood_sms_gateway_read(PDO $pdo, array $fallback, string $appKey): 
         'mode' => 'standard',
         'username' => (string)($fallback['username'] ?? ''),
         'apiKey' => (string)($fallback['api_key'] ?? ''),
-        'password' => (string)($fallback['password'] ?? ''),
         'sender' => (string)($fallback['sender'] ?? ''),
         'inboxLocation' => (string)($fallback['inbox_location'] ?? ''),
         'inboxFrom' => (string)($fallback['inbox_from'] ?? ''),
@@ -157,20 +156,17 @@ if ($path === '/sms/settings' && $method === 'POST') {
     $body = request_json();
     $old = threefood_sms_gateway_read($pdo, $config['sms'] ?? [], (string)($config['app_key'] ?? ''));
     $enabled = ($body['enabled'] ?? false) === true;
-    $mode = 'standard'; // V2 supports ordinary dedicated-line SMS and approved service templates only.
     $username = trim((string)($body['username'] ?? ''));
     $apiKey = trim((string)($body['apiKey'] ?? ''));
     if ($apiKey === '') $apiKey = (string)($old['apiKey'] ?? '');
-    // National Payamak REST authentication uses API Key in the password parameter.
-    $password = $apiKey;
     $sender = trim((string)($body['sender'] ?? ''));
     $inboxLocation = trim((string)($body['inboxLocation'] ?? ($old['inboxLocation'] ?? '')));
     $inboxFrom = trim((string)($body['inboxFrom'] ?? ($old['inboxFrom'] ?? '')));
     if (($enabled && ($username === '' || $apiKey === '')) ||
-        strlen($username)>120 || strlen($apiKey)>500 || strlen($password)>500 || strlen($sender)>40 || ($inboxLocation!=='' && (!ctype_digit($inboxLocation) || (int)$inboxLocation>99)) || strlen($inboxFrom)>40) {
+        strlen($username)>120 || strlen($apiKey)>500 || strlen($sender)>40 || ($inboxLocation!=='' && (!ctype_digit($inboxLocation) || (int)$inboxLocation>99)) || strlen($inboxFrom)>40) {
         json_response(['ok'=>false,'error'=>'invalid_sms_settings','message'=>'برای ارسال الگوی خدماتی، نام کاربری و API Key معتبر لازم است'],422);
     }
-    $newGateway = ['enabled'=>$enabled,'mode'=>$mode,'username'=>$username,'apiKey'=>$apiKey,'password'=>$apiKey,'sender'=>$sender,'inboxLocation'=>$inboxLocation,'inboxFrom'=>$inboxFrom];
+    $newGateway = ['enabled'=>$enabled,'mode'=>$mode,'username'=>$username,'apiKey'=>$apiKey,'sender'=>$sender,'inboxLocation'=>$inboxLocation,'inboxFrom'=>$inboxFrom];
     try {
         threefood_sms_gateway_save($pdo, $newGateway, $config, (int)$actor['id']);
         audit($pdo, (int)$actor['id'], 'sms_gateway_settings_updated', 'sms', null, ['enabled'=>$enabled,'mode'=>$mode,'username_set'=>$username!=='','api_key_set'=>$apiKey!=='','api_key_used_for_auth'=>$apiKey!=='']);
@@ -188,12 +184,12 @@ if ($method === 'POST' && $path === '/sms/birthday-sync') {
     $sms['inbox_location'] = $sms['inboxLocation'] ?? ($sms['inbox_location'] ?? null);
     $sms['inbox_from'] = $sms['inboxFrom'] ?? ($sms['inbox_from'] ?? '');
     $username = trim((string)($sms['username'] ?? ''));
-    $password = trim((string)($sms['apiKey'] ?? ($sms['password'] ?? ''))); // API Key is passed as the provider's PassWord parameter.
+    $apiKey = trim((string)($sms['apiKey'] ?? ''));
     $location = $sms['inbox_location'] ?? null;
     $from = trim((string)($sms['inbox_from'] ?? ''));
     $index = trim((string)($sms['inbox_index'] ?? '1'));
     $count = (int)($sms['inbox_count'] ?? 50);
-    if (empty($sms['enabled']) || $username === '' || $password === ''
+    if (empty($sms['enabled']) || $username === '' || $apiKey === ''
         || !is_numeric($location) || (int)$location < 0 || (int)$location > 99
         || !preg_match('/^[0-9]{1,12}$/D', $index) || $count < 1 || $count > 100) {
         json_response(['ok' => false, 'error' => 'sms_inbox_not_configured', 'message' => 'تنظیم صندوق ورودی پیامک در تنظیمات فروشگاه کامل نیست'], 503);
@@ -201,7 +197,7 @@ if ($method === 'POST' && $path === '/sms/birthday-sync') {
     $endpoint = 'https://rest.payamak-panel.com/api/SendSMS/GetMessages';
     $fields = [
         'UserName' => $username,
-        'PassWord' => $password,
+        'PassWord' => $apiKey,
         'Location' => (string)(int)$location,
         'From' => $from,
         'Index' => $index,
@@ -371,9 +367,7 @@ if ($method === 'POST' && $path === '/sms/send') {
     $gateway = threefood_sms_gateway_read($pdo, $config['sms'] ?? [], (string)($config['app_key'] ?? ''));
     $username = trim((string)($gateway['username'] ?? ''));
     $apiKey = trim((string)($gateway['apiKey'] ?? ''));
-    $password = $apiKey; // API Key is used for ordinary and service REST authentication.
     $sender = trim((string)($gateway['sender'] ?? ''));
-    $mode = 'standard'; // All non-template messages use the ordinary dedicated sender line.
     if (empty($gateway['enabled']) || $username === '' || ($standardTest ? ($sender === '' || $apiKey === '') : ($bodyId !== '' ? $apiKey === '' : ($sender === '' || ($apiKey === ''))))) {
         json_response(['ok'=>false,'error'=>'sms_not_configured','message'=>'تنظیمات سرویس پیامک کامل نیست؛ برای الگوی خدماتی نام کاربری و API Key لازم است'],503);
     }
@@ -423,7 +417,7 @@ if ($method === 'POST' && $path === '/sms/send') {
             $numeric = (int)preg_replace('/[^0-9-]/', '', $rawValue);
             $accepted = $numeric > 0;
         }
-        audit($pdo, (int)$actor['id'], 'sms_sent', 'sms', null, ['to'=>$to,'ok'=>$accepted,'mode'=>$bodyId!==''?'shared_service':($standardTest?'standard_test':$mode),'body_id'=>$bodyId!==''?$bodyId:null,'event'=>$event]);
+        audit($pdo, (int)$actor['id'], 'sms_sent', 'sms', null, ['to'=>$to,'ok'=>$accepted,'mode'=>$bodyId!==''?'shared_service':($standardTest?'standard_test':'standard'),'body_id'=>$bodyId!==''?$bodyId:null,'event'=>$event]);
         json_response(['ok'=>true,'sent'=>$accepted,'detail'=>$accepted?'پذیرش درخواست ارسال توسط سرویس ثبت شد':('پاسخ سرویس: '.substr($rawValue,0,180))]);
     } catch (Throwable $e) {
         error_log('[3Food POS] SMS provider request failed: '.$e->getMessage());
