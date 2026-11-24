@@ -27,6 +27,8 @@ function threefood_sms_gateway_read(PDO $pdo, array $fallback): array {
         'sender' => (string)($fallback['sender'] ?? ''),
         'senderSupportOne' => '',
         'senderSupportTwo' => '',
+        'inboxLocation' => (string)($fallback['inbox_location'] ?? ''),
+        'inboxFrom' => (string)($fallback['inbox_from'] ?? ''),
     ];
 }
 
@@ -148,7 +150,7 @@ if ($method === 'GET' && $path === '/reports/summary') {
 if ($path === '/sms/settings' && $method === 'GET') {
     require_role($pdo, ['manager']);
     $gateway = threefood_sms_gateway_read($pdo, $config['sms'] ?? []);
-    json_response(['ok'=>true,'enabled'=>(bool)($gateway['enabled']??false),'mode'=>in_array($gateway['mode']??'standard',['standard','smart_sms'],true)?$gateway['mode']:'standard','username'=>(string)($gateway['username']??''),'hasApiKey'=>trim((string)($gateway['apiKey']??''))!=='','sender'=>(string)($gateway['sender']??''),'senderSupportOne'=>(string)($gateway['senderSupportOne']??''),'senderSupportTwo'=>(string)($gateway['senderSupportTwo']??''),'inboxConfigured'=>isset(($config['sms']??[])['inbox_location']) && is_numeric(($config['sms']??[])['inbox_location'])]);
+    json_response(['ok'=>true,'enabled'=>(bool)($gateway['enabled']??false),'mode'=>in_array($gateway['mode']??'standard',['standard','smart_sms'],true)?$gateway['mode']:'standard','username'=>(string)($gateway['username']??''),'hasApiKey'=>trim((string)($gateway['apiKey']??''))!=='','sender'=>(string)($gateway['sender']??''),'senderSupportOne'=>(string)($gateway['senderSupportOne']??''),'senderSupportTwo'=>(string)($gateway['senderSupportTwo']??''),'inboxLocation'=>(string)($gateway['inboxLocation']??''),'inboxFrom'=>(string)($gateway['inboxFrom']??''),'inboxConfigured'=>is_numeric($gateway['inboxLocation']??null)]);
 }
 if ($path === '/sms/settings' && $method === 'POST') {
     $actor = require_role($pdo, ['manager']);
@@ -163,11 +165,13 @@ if ($path === '/sms/settings' && $method === 'POST') {
     $sender = trim((string)($body['sender'] ?? ''));
     $supportOne = trim((string)($body['senderSupportOne'] ?? ''));
     $supportTwo = trim((string)($body['senderSupportTwo'] ?? ''));
+    $inboxLocation = trim((string)($body['inboxLocation'] ?? ($old['inboxLocation'] ?? '')));
+    $inboxFrom = trim((string)($body['inboxFrom'] ?? ($old['inboxFrom'] ?? '')));
     if (!in_array($mode, ['standard','smart_sms'], true) || ($enabled && ($username === '' || $apiKey === '' || $sender === '')) ||
-        strlen($username)>120 || strlen($apiKey)>500 || strlen($sender)>40 || strlen($supportOne)>40 || strlen($supportTwo)>40) {
+        strlen($username)>120 || strlen($apiKey)>500 || strlen($sender)>40 || strlen($supportOne)>40 || strlen($supportTwo)>40 || ($inboxLocation!=='' && (!ctype_digit($inboxLocation) || (int)$inboxLocation>99)) || strlen($inboxFrom)>40) {
         json_response(['ok'=>false,'error'=>'invalid_sms_settings','message'=>'نام کاربری، کلید API، سرشماره یا حالت ارسال معتبر نیست'],422);
     }
-    $GLOBALS['threefood_sms_gateway_write'] = ['enabled'=>$enabled,'mode'=>$mode,'username'=>$username,'apiKey'=>$apiKey,'sender'=>$sender,'senderSupportOne'=>$supportOne,'senderSupportTwo'=>$supportTwo];
+    $GLOBALS['threefood_sms_gateway_write'] = ['enabled'=>$enabled,'mode'=>$mode,'username'=>$username,'apiKey'=>$apiKey,'sender'=>$sender,'senderSupportOne'=>$supportOne,'senderSupportTwo'=>$supportTwo,'inboxLocation'=>$inboxLocation,'inboxFrom'=>$inboxFrom];
     try {
         threefood_sms_gateway_save($pdo, $config, (int)$actor['id']);
         audit($pdo, (int)$actor['id'], 'sms_gateway_settings_updated', 'sms', null, ['enabled'=>$enabled,'mode'=>$mode,'username_set'=>$username!=='','api_key_set'=>$apiKey!=='']);
@@ -183,7 +187,9 @@ if ($path === '/sms/settings' && $method === 'POST') {
 if ($method === 'POST' && $path === '/sms/birthday-sync') {
     $actor = require_role($pdo, ['manager']);
     require_csrf();
-    $sms = $config['sms'] ?? [];
+    $sms = array_merge($config['sms'] ?? [], threefood_sms_gateway_read($pdo, $config['sms'] ?? []));
+    $sms['inbox_location'] = $sms['inboxLocation'] ?? ($sms['inbox_location'] ?? null);
+    $sms['inbox_from'] = $sms['inboxFrom'] ?? ($sms['inbox_from'] ?? '');
     $username = trim((string)($sms['username'] ?? ''));
     $password = trim((string)($sms['password'] ?? ''));
     $location = $sms['inbox_location'] ?? null;
