@@ -17,7 +17,7 @@ if ($method === 'GET' && $path === '/bootstrap') {
             $marker->execute(['{"seeded":true}', (int)$user['id']]);
         }
     }
-    $resources = $user['role'] === 'kitchen' ? ['settings'] : ($user['role'] === 'cashier' ? ['categories','products','ingredients','customers','discounts','settings','sms_logs'] : ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings','sms_logs']);
+    $resources = $user['role'] === 'kitchen' ? ['settings'] : ($user['role'] === 'cashier' ? ['categories','products','ingredients','customers','discounts','settings','templates','sms_logs'] : ['categories','products','ingredients','customers','discounts','expenses','expense_categories','suppliers','supplier_purchases','templates','settings','sms_logs']);
     $result = [];
     foreach ($resources as $resource) {
         $q = $pdo->prepare('SELECT id, payload FROM pos_records WHERE resource = ? ORDER BY created_at ASC');
