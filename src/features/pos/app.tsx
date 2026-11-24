@@ -784,6 +784,7 @@ function OrdersScreen({ role }: { role: Role }) {
       if (status === "preparing") void pushSms("order_preparing", updatedOrder.customerPhone, orderVars(updatedOrder));
       if (status === "ready") void pushSms("order_ready", updatedOrder.customerPhone, orderVars(updatedOrder));
       if (status === "delivered") void pushSms("order_delivered", updatedOrder.customerPhone, orderVars(updatedOrder));
+      if (status === "cancelled") void pushSms("order_cancelled", updatedOrder.customerPhone, orderVars(updatedOrder));
     };
     try {
       if (isServerOrder) await phpApi.setOrderStatus(order.id, status);
