@@ -50,6 +50,8 @@ if (preg_match('#^/ingredients/([A-Za-z0-9_-]+)/stock$#D', $path, $stockMatch) &
 if ($method === 'GET' && $path === '/backup/export') {
     $actor = require_role($pdo, ['manager']);
     $records = $pdo->query('SELECT id, resource, payload, updated_by, created_at, updated_at FROM pos_records ORDER BY resource, id')->fetchAll();
+    // Gateway credentials are encrypted with this installation's app_key; never export them.
+    $records = array_values(array_filter($records, static fn(array $record): bool => !($record['resource'] === 'system_meta' && $record['id'] === 'sms_gateway_config')));
     foreach ($records as &$record) {
         $record['payload'] = json_decode((string)$record['payload'], true) ?: [];
         if ($record['resource'] === 'settings' && is_array($record['payload'])) {
