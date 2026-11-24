@@ -286,8 +286,10 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
   const s = usePos.getState();
   const tpl = s.templates.find((t) => t.event === event);
   if (!tpl?.enabled || !phone) return;
-  const text = fillTemplate(tpl.body, { ...vars, shop: s.settings.shopName });
-  await postSms(phone, text, event, tpl.bodyId);
+  const values = { ...vars, shop: s.settings.shopName };
+  const text = fillTemplate(tpl.body, values);
+  const variables = tpl.variables?.map((key) => values[key] ?? "") ?? [];
+  await postSms(phone, text, event, tpl.bodyId, variables);
 }
 
 async function sendRaw(phone: string, text: string) {
@@ -296,7 +298,7 @@ async function sendRaw(phone: string, text: string) {
   return await postSms(normalized, text, "manual", "");
 }
 
-async function postSms(phone: string, text: string, event: string, bodyId: string) {
+async function postSms(phone: string, text: string, event: string, bodyId: string, variables: string[] = []) {
   let log: SmsLog = {
     id: uid("sm"),
     at: new Date().toISOString(),
@@ -307,7 +309,7 @@ async function postSms(phone: string, text: string, event: string, bodyId: strin
     detail: "ارسال انجام نشد",
   };
   try {
-    const data = await phpApi.sendSms({ to: phone, text, bodyId });
+    const data = await phpApi.sendSms({ to: phone, text, bodyId, ...(bodyId ? { variables } : {}) });
     log = { ...log, ok: data.sent, detail: data.detail };
   } catch (err) {
     log = { ...log, detail: err instanceof Error ? err.message : "خطا در ارسال پیامک" };
@@ -779,6 +781,7 @@ function OrdersScreen({ role }: { role: Role }) {
   async function jump(order: Order, status: Order["status"]) {
     const isServerOrder = /^\d+$/.test(order.id);
     const notify = (updatedOrder: Order) => {
+      if (status === "preparing") void pushSms("order_preparing", updatedOrder.customerPhone, orderVars(updatedOrder));
       if (status === "ready") void pushSms("order_ready", updatedOrder.customerPhone, orderVars(updatedOrder));
       if (status === "delivered") void pushSms("order_delivered", updatedOrder.customerPhone, orderVars(updatedOrder));
     };
