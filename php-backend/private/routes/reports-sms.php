@@ -26,8 +26,6 @@ function threefood_sms_gateway_read(PDO $pdo, array $fallback, string $appKey): 
         'apiKey' => (string)($fallback['api_key'] ?? ''),
         'password' => (string)($fallback['password'] ?? ''),
         'sender' => (string)($fallback['sender'] ?? ''),
-        'senderSupportOne' => '',
-        'senderSupportTwo' => '',
         'inboxLocation' => (string)($fallback['inbox_location'] ?? ''),
         'inboxFrom' => (string)($fallback['inbox_from'] ?? ''),
     ];
@@ -151,7 +149,7 @@ if ($method === 'GET' && $path === '/reports/summary') {
 if ($path === '/sms/settings' && $method === 'GET') {
     require_role($pdo, ['manager']);
     $gateway = threefood_sms_gateway_read($pdo, $config['sms'] ?? [], (string)($config['app_key'] ?? ''));
-    json_response(['ok'=>true,'enabled'=>(bool)($gateway['enabled']??false),'mode'=>in_array($gateway['mode']??'standard',['standard','smart_sms'],true)?$gateway['mode']:'standard','username'=>(string)($gateway['username']??''),'hasApiKey'=>trim((string)($gateway['apiKey']??''))!=='','hasPassword'=>trim((string)($gateway['password']??''))!=='','sender'=>(string)($gateway['sender']??''),'senderSupportOne'=>(string)($gateway['senderSupportOne']??''),'senderSupportTwo'=>(string)($gateway['senderSupportTwo']??''),'inboxLocation'=>(string)($gateway['inboxLocation']??''),'inboxFrom'=>(string)($gateway['inboxFrom']??''),'inboxConfigured'=>is_numeric($gateway['inboxLocation']??null)]);
+    json_response(['ok'=>true,'enabled'=>(bool)($gateway['enabled']??false),'mode'=>'standard','username'=>(string)($gateway['username']??''),'hasApiKey'=>trim((string)($gateway['apiKey']??''))!=='','sender'=>(string)($gateway['sender']??''),'inboxLocation'=>(string)($gateway['inboxLocation']??''),'inboxFrom'=>(string)($gateway['inboxFrom']??''),'inboxConfigured'=>is_numeric($gateway['inboxLocation']??null)]);
 }
 if ($path === '/sms/settings' && $method === 'POST') {
     $actor = require_role($pdo, ['manager']);
@@ -159,26 +157,24 @@ if ($path === '/sms/settings' && $method === 'POST') {
     $body = request_json();
     $old = threefood_sms_gateway_read($pdo, $config['sms'] ?? [], (string)($config['app_key'] ?? ''));
     $enabled = ($body['enabled'] ?? false) === true;
-    $mode = (string)($body['mode'] ?? 'standard');
+    $mode = 'standard'; // V2 supports ordinary dedicated-line SMS and approved service templates only.
     $username = trim((string)($body['username'] ?? ''));
     $apiKey = trim((string)($body['apiKey'] ?? ''));
     if ($apiKey === '') $apiKey = (string)($old['apiKey'] ?? '');
     // National Payamak REST authentication uses API Key in the password parameter.
     $password = $apiKey;
     $sender = trim((string)($body['sender'] ?? ''));
-    $supportOne = trim((string)($body['senderSupportOne'] ?? ''));
-    $supportTwo = trim((string)($body['senderSupportTwo'] ?? ''));
     $inboxLocation = trim((string)($body['inboxLocation'] ?? ($old['inboxLocation'] ?? '')));
     $inboxFrom = trim((string)($body['inboxFrom'] ?? ($old['inboxFrom'] ?? '')));
     if (($enabled && ($username === '' || $apiKey === '')) ||
-        strlen($username)>120 || strlen($apiKey)>500 || strlen($password)>500 || strlen($sender)>40 || strlen($supportOne)>40 || strlen($supportTwo)>40 || ($inboxLocation!=='' && (!ctype_digit($inboxLocation) || (int)$inboxLocation>99)) || strlen($inboxFrom)>40) {
+        strlen($username)>120 || strlen($apiKey)>500 || strlen($password)>500 || strlen($sender)>40 || ($inboxLocation!=='' && (!ctype_digit($inboxLocation) || (int)$inboxLocation>99)) || strlen($inboxFrom)>40) {
         json_response(['ok'=>false,'error'=>'invalid_sms_settings','message'=>'برای ارسال الگوی خدماتی، نام کاربری و API Key معتبر لازم است'],422);
     }
-    $newGateway = ['enabled'=>$enabled,'mode'=>$mode,'username'=>$username,'apiKey'=>$apiKey,'password'=>$apiKey,'sender'=>$sender,'senderSupportOne'=>$supportOne,'senderSupportTwo'=>$supportTwo,'inboxLocation'=>$inboxLocation,'inboxFrom'=>$inboxFrom];
+    $newGateway = ['enabled'=>$enabled,'mode'=>$mode,'username'=>$username,'apiKey'=>$apiKey,'password'=>$apiKey,'sender'=>$sender,'inboxLocation'=>$inboxLocation,'inboxFrom'=>$inboxFrom];
     try {
         threefood_sms_gateway_save($pdo, $newGateway, $config, (int)$actor['id']);
         audit($pdo, (int)$actor['id'], 'sms_gateway_settings_updated', 'sms', null, ['enabled'=>$enabled,'mode'=>$mode,'username_set'=>$username!=='','api_key_set'=>$apiKey!=='','api_key_used_for_auth'=>$apiKey!=='']);
-        json_response(['ok'=>true,'saved'=>true,'hasApiKey'=>$apiKey!=='','hasPassword'=>$apiKey!=='']);
+        json_response(['ok'=>true,'saved'=>true,'hasApiKey'=>$apiKey!=='']);
     } catch (Throwable $e) {
         error_log('[3Food POS] SMS settings save failed: '.$e->getMessage());
         json_response(['ok'=>false,'error'=>'sms_settings_save_failed','message'=>'ذخیره امن تنظیمات پیامک انجام نشد'],500);
@@ -192,7 +188,7 @@ if ($method === 'POST' && $path === '/sms/birthday-sync') {
     $sms['inbox_location'] = $sms['inboxLocation'] ?? ($sms['inbox_location'] ?? null);
     $sms['inbox_from'] = $sms['inboxFrom'] ?? ($sms['inbox_from'] ?? '');
     $username = trim((string)($sms['username'] ?? ''));
-    $password = trim((string)($sms['password'] ?? ''));
+    $password = trim((string)($sms['apiKey'] ?? ($sms['password'] ?? ''))); // API Key is passed as the provider's PassWord parameter.
     $location = $sms['inbox_location'] ?? null;
     $from = trim((string)($sms['inbox_from'] ?? ''));
     $index = trim((string)($sms['inbox_index'] ?? '1'));
@@ -377,7 +373,7 @@ if ($method === 'POST' && $path === '/sms/send') {
     $apiKey = trim((string)($gateway['apiKey'] ?? ''));
     $password = trim((string)($gateway['password'] ?? ''));
     $sender = trim((string)($gateway['sender'] ?? ''));
-    $mode = (string)($gateway['mode'] ?? 'standard');
+    $mode = 'standard'; // All non-template messages use the ordinary dedicated sender line.
     if (empty($gateway['enabled']) || $username === '' || ($standardTest ? ($sender === '' || $apiKey === '') : ($bodyId !== '' ? $apiKey === '' : ($sender === '' || ($apiKey === ''))))) {
         json_response(['ok'=>false,'error'=>'sms_not_configured','message'=>'تنظیمات سرویس پیامک کامل نیست؛ برای الگوی خدماتی نام کاربری و API Key لازم است'],503);
     }
@@ -397,14 +393,6 @@ if ($method === 'POST' && $path === '/sms/send') {
         // Settings test is deliberately pinned to the customer's ordinary dedicated sender line.
         $endpoint = 'https://rest.payamak-panel.com/api/SendSMS/SendSMS';
         $fields = ['username'=>$username,'password'=>$apiKey,'to'=>$to,'from'=>$sender,'text'=>$message,'isFlash'=>'false'];
-    } elseif ($mode === 'smart_sms') {
-        if (!str_ends_with($message, 'لغو11')) {
-            json_response(['ok'=>false,'error'=>'sms_optout_suffix_required','message'=>'طبق مستند SmartSMS، متن پیامک باید با «لغو11» تمام شود'],422);
-        }
-        $endpoint = 'https://rest.payamak-panel.com/api/SmartSMS/Send';
-        $fields = ['username'=>$username,'password'=>$apiKey,'to'=>$to,'text'=>$message,'from'=>$sender];
-        if (trim((string)($gateway['senderSupportOne'] ?? '')) !== '') $fields['fromSupportOne'] = trim((string)$gateway['senderSupportOne']);
-        if (trim((string)($gateway['senderSupportTwo'] ?? '')) !== '') $fields['fromSupportTwo'] = trim((string)$gateway['senderSupportTwo']);
     } else {
         $endpoint = 'https://rest.payamak-panel.com/api/SendSMS/SendSMS';
         $fields = ['username'=>$username,'password'=>$apiKey,'to'=>$to,'from'=>$sender,'text'=>$message,'isFlash'=>'false'];
@@ -431,12 +419,6 @@ if ($method === 'POST' && $path === '/sms/send') {
             $strStatus = is_array($decoded) ? strtolower(trim((string)($decoded['StrRetStatus'] ?? ''))) : '';
             // Docs: RetStatus=1, StrRetStatus=Ok and Value is a numeric record ID > 15 digits.
             $accepted = $retStatus === 1 && $strStatus === 'ok' && ctype_digit($value) && strlen($value)>15;
-        } elseif ($httpOk && $mode === 'smart_sms') {
-            $decoded = json_decode($rawValue, true);
-            $value = is_array($decoded) ? trim((string)($decoded['Value'] ?? '')) : '';
-            $retStatus = is_array($decoded) ? (int)($decoded['RetStatus'] ?? 0) : 0;
-            $strStatus = is_array($decoded) ? strtolower(trim((string)($decoded['StrRetStatus'] ?? ''))) : '';
-            $accepted = $retStatus === 1 && $strStatus === 'ok' && $value !== '' && preg_match('/^[0-9,]+$/D', $value) === 1;
         } elseif ($httpOk) {
             $numeric = (int)preg_replace('/[^0-9-]/', '', $rawValue);
             $accepted = $numeric > 0;
