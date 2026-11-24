@@ -86,7 +86,7 @@ const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[
   { id: "customers", label: "باشگاه و تخفیف", icon: Users, roles: ["manager", "cashier"] },
   { id: "reports", label: "گزارش", icon: LayoutDashboard, roles: ["manager"] },
   { id: "expenses", label: "هزینه‌ها", icon: ClipboardList, roles: ["manager"] },
-  { id: "suppliers", label: "تأمین‌کنندگان", icon: Truck, roles: ["manager"] },
+
   { id: "sms", label: "پیامک", icon: MessageSquare, roles: ["manager"] },
   { id: "users", label: "کاربران", icon: Users, roles: ["manager"] },
   { id: "settings", label: "تنظیمات", icon: SettingsIcon, roles: ["manager"] },
@@ -255,7 +255,6 @@ function PosWorkspace({ allowed, initialView, role, sessionError }: { allowed: t
         {current === "customers" ? <ClubAndDiscountsScreen role={role} saveRecord={saveCentralRecord} deleteRecord={deleteCentralRecord} /> : null}
         {current === "reports" ? <ReportsScreen loadCategories={loadExpenseCategories} saveRecord={saveCentralRecord} deleteRecord={deleteCentralRecord} /> : null}
         {current === "expenses" ? <ExpensesScreen loadCategories={loadExpenseCategories} saveRecord={saveCentralRecord} deleteRecord={deleteCentralRecord} /> : null}
-        {current === "suppliers" ? <SuppliersScreen saveCentralRecord={saveCentralRecord} onPurchaseSaved={async () => { const snapshot = await phpApi.bootstrap<ServerBootstrap>(); hydratePosFromServer(snapshot.data, snapshot.next_order, "manager"); }} /> : null}
         {current === "sms" ? <SmsScreen sendRaw={sendRaw} saveCentralRecord={saveCentralRecord} /> : null}
         {current === "users" ? <UsersScreen /> : null}
         {current === "settings" ? <SettingsScreen saveRecord={saveCentralRecord} /> : null}
@@ -1151,6 +1150,10 @@ function StockScreen() {
           </div>
         </Card>
       ))}
+      <SuppliersScreen saveCentralRecord={saveCentralRecord} onPurchaseSaved={async () => {
+        const snapshot = await phpApi.bootstrap<ServerBootstrap>();
+        hydratePosFromServer(snapshot.data, snapshot.next_order, "manager");
+      }} />
     </div>
   );
 }
