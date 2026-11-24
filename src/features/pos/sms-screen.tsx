@@ -66,7 +66,6 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
     <div className="space-y-4">
       <PageHeading title="مرکز پیامک" description="قالب‌های اطلاع‌رسانی، ارسال دستی و کمپین‌های مشتریان را مدیریت کنید." />
       <Card>
-        <p className="text-sm">اعتبارنامهٔ ملی‌پیامک فقط در فایل خصوصی سرور (private/config.php) تنظیم می‌شود و در این صفحه یا مرورگر نگهداری نمی‌شود.</p>
         <p className="mt-2 text-xs text-muted">اتصال و کلید API از بخش تنظیمات فروشگاه ثبت می‌شود و فقط به‌صورت رمزگذاری‌شده در سرور نگهداری خواهد شد. برای الگوی خدماتی، شناسه واقعی الگوی تأییدشده و ترتیب متغیرها را وارد کنید.</p>
       </Card>
       {templates.map((t) => (
@@ -75,8 +74,8 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
             <input type="checkbox" checked={t.enabled} onChange={(e) => { const item = { ...t, enabled: e.target.checked }; void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
             {EVENT_LABEL[t.event]}
           </label>
-          <textarea className={`${inputCls} mt-2`} rows={2} value={t.body} onChange={(e) => saveTemplate({ ...t, body: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
-          <Field label="شناسه پترن (اختیاری)"><input className={inputCls} value={t.bodyId} onChange={(e) => saveTemplate({ ...t, bodyId: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} /></Field>
+          <label className="mt-2 block text-sm font-medium">متن پیامک معمولی (وقتی شناسه الگوی خدماتی خالی است)</label><textarea className={`${inputCls} mt-2`} rows={2} value={t.body} onChange={(e) => saveTemplate({ ...t, body: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
+          <Field label="شناسه الگوی خدماتی تأییدشده (اختیاری)"><input className={inputCls} value={t.bodyId} onChange={(e) => saveTemplate({ ...t, bodyId: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} /></Field>
           <Field label="ترتیب متغیرهای الگوی خدماتی">
             <input className={inputCls} placeholder="name,order,total,shop" value={(t.variables ?? []).join(",")} onChange={(e) => saveTemplate({ ...t, variables: e.target.value.split(",").map((v) => v.trim()).filter(Boolean) })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
           </Field>
