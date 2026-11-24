@@ -24,10 +24,13 @@ test("Iranian mobile normalization supports Persian digits and international pre
   assert.match(app, /customers\.find\(\(item\) => normalizeIranPhone\(item\.phone\) === normalizeIranPhone\(value\)\)/);
 });
 
-test("invoice SMS is an optional per-order choice with a configurable default", () => {
-  assert.match(app, /sendInvoiceSms \?\? settings\.invoiceSmsEnabledDefault \?\? false/);
-  assert.match(app, /if \(shouldSendInvoiceSms && order\.customerPhone\)/);
+test("invoice SMS follows the SMS screen event toggle without a per-order checkbox", () => {
+  assert.match(app, /The SMS screen event toggle is the single source of truth for invoice SMS/);
   assert.match(app, /pushSms\("order_invoice", order\.customerPhone, vars\)/);
+  assert.match(app, /if \(!tpl\?\.enabled \|\| !phone\) return/);
+  assert.doesNotMatch(app, /sendInvoiceSms|shouldSendInvoiceSms/);
+  assert.doesNotMatch(app, /ارسال پیامک ریز فاکتور برای مشتری/);
+  assert.doesNotMatch(settings, /invoiceSmsEnabledDefault/);
 });
 
 test("stock shortages show a warning but never disable checkout", () => {
