@@ -286,15 +286,12 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
   const s = usePos.getState();
   const tpl = s.templates.find((t) => t.event === event);
   if (!tpl?.enabled || !phone) return;
-  // Status notifications are service-template only: never fall back to free text.
-  if (!tpl.bodyId || !Array.isArray(tpl.variables)) {
-    await postSms(phone, "", event, "", []);
-    return;
-  }
+  // Status notifications send only the approved template ID and ordered values.
+  // The message body lives in National Payamak and is never composed here.
+  if (!tpl.bodyId || !Array.isArray(tpl.variables) || tpl.variables.length > 20) return;
   const values = { ...vars, shop: s.settings.shopName };
-  const text = fillTemplate(tpl.body, values);
   const variables = tpl.variables.map((key) => values[key] ?? "");
-  await postSms(phone, text, event, tpl.bodyId, variables);
+  await postSms(phone, "", event, tpl.bodyId, variables);
 }
 
 async function sendRaw(phone: string, text: string) {
