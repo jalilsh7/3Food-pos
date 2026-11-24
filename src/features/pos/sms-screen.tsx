@@ -12,7 +12,7 @@ const EVENT_LABEL: Record<SmsEvent, string> = {
 };
 
 export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: string, text: string) => Promise<boolean>; saveCentralRecord: <T extends { id: string | number }>(resource: string, item: T, commit: () => void) => Promise<boolean> }) {
-  const templates = usePos((s) => s.templates);
+  const templates = usePos((s) => s.templates.filter((item) => ["order_created","order_preparing","order_ready","order_delivered","order_cancelled"].includes(item.event)));
   const logs = usePos((s) => s.smsLogs);
   const saveTemplate = usePos((s) => s.saveTemplate);
   const customers = usePos((s) => s.customers);
@@ -30,7 +30,7 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
   const [campaignProgress,setCampaignProgress]=useState("");
   const [campaignClock,setCampaignClock]=useState(INITIAL_RENDER_TIME);
   useEffect(() => {
-    const defaults: SmsEvent[] = ["order_created","order_preparing","order_ready","order_delivered","order_cancelled","points_earned","discount_used"];
+    const defaults: SmsEvent[] = ["order_created","order_preparing","order_ready","order_delivered","order_cancelled"];
     const existing = new Set(usePos.getState().templates.map((item) => item.event));
     for (const event of defaults) {
       if (existing.has(event)) continue;
@@ -64,7 +64,7 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
   }
   return (
     <div className="space-y-4">
-      <PageHeading title="مرکز پیامک" description="قالب‌های اطلاع‌رسانی، ارسال دستی و کمپین‌های مشتریان را مدیریت کنید." />
+      <PageHeading title="الگوهای پیامک وضعیت سفارش" description="اعلان‌های وضعیت سفارش فقط از طریق الگوی خدماتی تأییدشده ارسال می‌شوند." />
       <Card>
         <p className="mt-2 text-xs text-muted">اتصال و کلید API از بخش تنظیمات فروشگاه ثبت می‌شود و فقط به‌صورت رمزگذاری‌شده در سرور نگهداری خواهد شد. برای الگوی خدماتی، شناسه واقعی الگوی تأییدشده و ترتیب متغیرها را وارد کنید.</p>
       </Card>
@@ -74,12 +74,12 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
             <input type="checkbox" checked={t.enabled} onChange={(e) => { const item = { ...t, enabled: e.target.checked }; void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
             {EVENT_LABEL[t.event]}
           </label>
-          <label className="mt-2 block text-sm font-medium">متن پیامک معمولی (وقتی شناسه الگوی خدماتی خالی است)</label><textarea className={`${inputCls} mt-2`} rows={2} value={t.body} onChange={(e) => saveTemplate({ ...t, body: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
-          <Field label="شناسه الگوی خدماتی تأییدشده (اختیاری)"><input className={inputCls} value={t.bodyId} onChange={(e) => saveTemplate({ ...t, bodyId: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} /></Field>
+          <p className="mt-2 text-xs text-muted">برای این وضعیت هیچ متن آزاد یا روش ارسال جایگزینی استفاده نمی‌شود.</p>
+          <Field label="شناسه الگوی خدماتی تأییدشده"><input className={inputCls} value={t.bodyId} onChange={(e) => saveTemplate({ ...t, bodyId: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} /></Field>
           <Field label="ترتیب متغیرهای الگوی خدماتی">
             <input className={inputCls} placeholder="name,order,total,shop" value={(t.variables ?? []).join(",")} onChange={(e) => saveTemplate({ ...t, variables: e.target.value.split(",").map((v) => v.trim()).filter(Boolean) })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
           </Field>
-          <p className="text-xs text-muted">کلیدهای قابل استفاده: name، order، total، points، code، balance، shop. ترتیب را دقیقاً مطابق متغیرهای الگوی تأییدشده پنل ملی‌پیامک وارد کنید؛ مقادیر با همین ترتیب ارسال می‌شوند.</p>
+          <p className="text-xs text-muted">کلیدهای قابل استفاده: name، order، total، points، code، balance، shop. ترتیب را دقیقاً مطابق متغیرهای الگوی تأییدشده پنل ملی‌پیامک وارد کنید؛ فقط مقادیر متغیرها ارسال می‌شوند.</p>
         </Card>
       ))}
       <Card>
