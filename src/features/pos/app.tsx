@@ -348,8 +348,6 @@ function PosScreen({ role }: { role: Role }) {
   const pendingTerminalPayment=useRef<{id:string;amount:number;terminalId:string}|null>(null);
   // Retain the request key before network I/O so a lost response can be replayed safely.
   const pendingTerminalRequest=useRef<{key:string;amount:number;terminalId:string}|null>(null);
-  const [sendInvoiceSms, setSendInvoiceSms] = useState<boolean | null>(null);
-  const shouldSendInvoiceSms = sendInvoiceSms ?? settings.invoiceSmsEnabledDefault ?? false;
   const [msg, setMsg] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const pendingIdempotencyKey = useRef<string | null>(null);
@@ -558,13 +556,13 @@ function PosScreen({ role }: { role: Role }) {
       pendingTerminalPayment.current = null;
       pendingTerminalRequest.current = null;
       setMsg(`سفارش ${order.number.toLocaleString("fa-IR")} ثبت شد`);
-      setCart([]); setPhone(""); setGuestName(settings.defaultCustomerLabel || "مشتری عزیز"); setCode(""); setPoints(0); setSendInvoiceSms(null); setPrinted(order);
+      setCart([]); setPhone(""); setGuestName(settings.defaultCustomerLabel || "مشتری عزیز"); setCode(""); setPoints(0); setPrinted(order);
       const fresh = usePos.getState().customers.find((c) => c.id === order.customerId);
       const vars = orderVars(order, String(fresh?.points ?? 0));
       void pushSms("order_created", order.customerPhone, vars);
-      if (shouldSendInvoiceSms && order.customerPhone) {
-        void pushSms("order_invoice", order.customerPhone, vars);
-      }
+      // The SMS screen event toggle is the single source of truth for invoice SMS.
+      // pushSms checks order_invoice.enabled and does nothing when the event is disabled.
+      void pushSms("order_invoice", order.customerPhone, vars);
       if (settings.autoPrint) setTimeout(() => window.print(), 300);
     } catch (error) {
       // A definite 4xx rejection means no order was committed; allow a corrected
@@ -650,7 +648,6 @@ function PosScreen({ role }: { role: Role }) {
             <button type="button" disabled title="پس از اتصال درگاه بانکی فعال می‌شود" className="flex-1 cursor-not-allowed rounded-xl border border-line py-3 text-sm opacity-50">آنلاین (به‌زودی)</button>
             {pay==="card"?<div className="mt-2 w-full"><Field label="کارتخوان"><select className={inputCls} value={selectedTerminalId} onChange={e=>setSelectedTerminalId(e.target.value)}><option value="">انتخاب کارتخوان آنلاین</option>{terminalOptions.map(t=><option key={t.id} value={t.id}>{t.name} · {t.provider_code??"شرکت نامشخص"}</option>)}</select></Field><p className="mt-1 text-xs text-muted">مبلغ نهایی سفارش ({money(q.total)}) پس از تأیید به کارتخوان ارسال می‌شود.</p></div>:null}
           </div>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={shouldSendInvoiceSms} onChange={e=>setSendInvoiceSms(e.target.checked)}/>ارسال پیامک ریز فاکتور برای مشتری</label>
           <p className="flex justify-between text-sm"><span>جمع</span><span>{money(q.subtotal)}</span></p>
           {q.tierDiscount ? <p className="flex justify-between text-sm"><span>سطح عضویت</span><span>{money(q.tierDiscount)}</span></p> : null}
           {q.codeDiscount ? <p className="flex justify-between text-sm"><span>کد</span><span>{money(q.codeDiscount)}</span></p> : null}
