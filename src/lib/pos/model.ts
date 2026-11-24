@@ -103,6 +103,7 @@ export type Expense = {
 
 export type SmsEvent =
   | "order_created"
+  | "order_preparing"
   | "order_ready"
   | "order_delivered"
   | "points_earned"
@@ -113,6 +114,8 @@ export type SmsTemplate = {
   enabled: boolean;
   body: string;
   bodyId: string;
+  /** Ordered variable keys for an approved National Payamak service template. */
+  variables?: string[];
 };
 
 export type SmsLog = {
