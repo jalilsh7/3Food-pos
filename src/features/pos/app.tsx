@@ -289,7 +289,7 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
   // Status notifications send only the approved template ID and ordered values.
   // The message body lives in National Payamak and is never composed here.
   if (!tpl.bodyId || !Array.isArray(tpl.variables) || tpl.variables.length > 20) return;
-  const values = { ...vars, shop: s.settings.shopName };
+  const values: Record<string, string> = { ...vars, shop: s.settings.shopName };
   const variables = tpl.variables.map((key) => values[key] ?? "");
   await postSms(phone, "", event, tpl.bodyId, variables);
 }
