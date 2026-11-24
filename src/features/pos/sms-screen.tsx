@@ -128,7 +128,7 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
       </Card>
       <Card>
         <h3 className="mb-2 font-semibold">کمپین باشگاه مشتریان</h3>
-        <p className="mb-2 text-xs text-muted">فقط اعضایی انتخاب می‌شوند که رضایت دریافت پیامک تبلیغاتی را ثبت کرده باشند. می‌توانید چند شرط را ترکیب کنید. اگر روش SmartSMS فعال است، متن کمپین باید صریحاً با «لغو11» پایان یابد.</p>
+        <p className="mb-2 text-xs text-muted">فقط اعضایی انتخاب می‌شوند که رضایت دریافت پیامک تبلیغاتی را ثبت کرده باشند. می‌توانید چند شرط را ترکیب کنید. کمپین‌ها همیشه از خط اختصاصی عادی فروشگاه ارسال می‌شوند.</p>
         <Field label="نحوه ترکیب شروط"><select className={inputCls} value={campaignLogic} onChange={e=>setCampaignLogic(e.target.value as "all"|"any")}><option value="all">همه شروط برقرار باشند (AND)</option><option value="any">حداقل یکی از شروط برقرار باشد (OR)</option></select></Field>
         <div className="grid gap-2 sm:grid-cols-2">
           <Field label="سطح عضویت"><select className={inputCls} value={campaignFilters.tier} onChange={e=>setCampaignFilters({...campaignFilters,tier:e.target.value})}><option value="">همه سطوح</option><option value="bronze">برنز</option><option value="silver">نقره</option><option value="gold">طلا</option><option value="platinum">پلاتین</option></select></Field>
