@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Btn, Card, Field, PageHeading, inputCls } from "./bits";
 import { AppearanceSettingsPanel } from "./appearance-settings";
 import { TerminalSettingsPanel } from "./terminal-settings";
@@ -102,6 +102,7 @@ export function SettingsScreen({ saveRecord }: { saveRecord: <T extends { id: st
       <PageHeading title="تنظیمات فروشگاه" description="ظاهر سامانه، اطلاعات فروشگاه، فیش‌پرینتر و پشتیبان‌گیری را پیکربندی کنید." />
       <AppearanceSettingsPanel />
       <TerminalSettingsPanel />
+      <SmsGatewaySettingsPanel />
       <Card className="grid gap-2 sm:grid-cols-2">
         <Field label="نام فروشگاه"><input className={inputCls} value={settings.shopName} onChange={(e) => patchSettings({ shopName: e.target.value })} onBlur={persistSettings} /></Field>
         <Field label="تلفن"><input className={inputCls} value={settings.phone} onChange={(e) => patchSettings({ phone: e.target.value })} onBlur={persistSettings} /></Field>
@@ -148,4 +149,93 @@ export function SettingsScreen({ saveRecord }: { saveRecord: <T extends { id: st
       </Card>
     </div>
   );
+}
+
+
+type SmsGatewayForm = {
+  enabled: boolean;
+  mode: "standard" | "smart_sms";
+  username: string;
+  apiKey: string;
+  sender: string;
+  senderSupportOne: string;
+  senderSupportTwo: string;
+  inboxLocation: string;
+  inboxFrom: string;
+};
+
+function SmsGatewaySettingsPanel() {
+  const [form,setForm]=useState<SmsGatewayForm>({enabled:false,mode:"standard",username:"",apiKey:"",sender:"",senderSupportOne:"",senderSupportTwo:"",inboxLocation:"",inboxFrom:""});
+  const [hasApiKey,setHasApiKey]=useState(false);
+  const [testPhone,setTestPhone]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [note,setNote]=useState("");
+  useEffect(()=>{
+    let active=true;
+    void phpApi.getSmsGatewaySettings().then(result=>{
+      if(!active)return;
+      setForm(current=>({...current,enabled:result.enabled,mode:result.mode,username:result.username,sender:result.sender,senderSupportOne:result.senderSupportOne,senderSupportTwo:result.senderSupportTwo}));
+      setHasApiKey(result.hasApiKey);
+    }).catch(error=>{if(active)setNote(error instanceof Error?error.message:"بارگذاری تنظیمات پیامک انجام نشد.");});
+    return()=>{active=false;};
+  },[]);
+  function patch(p:Partial<SmsGatewayForm>){setForm(current=>({...current,...p}));}
+  async function save(){
+    if(busy)return;
+    setBusy(true);setNote("");
+    try{
+      const result=await phpApi.saveSmsGatewaySettings({
+        enabled:form.enabled,mode:form.mode,username:form.username,apiKey:form.apiKey,
+        sender:form.sender,senderSupportOne:form.senderSupportOne,senderSupportTwo:form.senderSupportTwo,
+        inboxLocation:form.inboxLocation,inboxFrom:form.inboxFrom,
+      });
+      setHasApiKey(result.hasApiKey);setForm(current=>({...current,apiKey:""}));
+      setNote("تنظیمات پیامک به‌صورت رمزگذاری‌شده در سرور ذخیره شد.");
+    }catch(error){setNote(error instanceof Error?error.message:"ذخیره تنظیمات پیامک انجام نشد.");}
+    finally{setBusy(false);}
+  }
+  async function test(){
+    if(busy)return;
+    if(!/^09[0-9]{9}$/.test(testPhone.replace(/[^0-9]/g,""))){setNote("شماره آزمایش باید یک موبایل معتبر ایران باشد.");return;}
+    setBusy(true);setNote("");
+    try{
+      const text=form.mode==="smart_sms"?"آزمایش اتصال پیامک 3Food لغو11":"آزمایش اتصال پیامک 3Food";
+      const result=await phpApi.sendSms({to:testPhone.replace(/[^0-9]/g,""),text});
+      setNote(result.sent?"پاسخ سرویس، پذیرش ارسال را تأیید کرد. هزینه پیامک ممکن است محاسبه شود.":`ارسال تأیید نشد: ${result.detail}`);
+    }catch(error){setNote(error instanceof Error?error.message:"آزمایش اتصال انجام نشد.");}
+    finally{setBusy(false);}
+  }
+  return <Card>
+    <div className="mb-2">
+      <h3 className="font-semibold">اتصال پیامک ملی‌پیامک</h3>
+      <p className="mt-1 text-xs text-muted">نام کاربری و API Key فقط در سمت سرور و با رمزگذاری AES-256-GCM ذخیره می‌شوند؛ مقدار کلید پس از ذخیره دوباره نمایش داده نمی‌شود.</p>
+    </div>
+    <div className="grid gap-3 sm:grid-cols-2">
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.enabled} onChange={e=>patch({enabled:e.target.checked})}/>ارسال پیامک فعال باشد</label>
+      <Field label="روش ارسال">
+        <select className={inputCls} value={form.mode} onChange={e=>patch({mode:e.target.value as SmsGatewayForm["mode"]})}>
+          <option value="standard">ارسال معمولی با سرشماره اختصاصی</option>
+          <option value="smart_sms">SmartSMS با API Key و خطوط پشتیبان</option>
+        </select>
+      </Field>
+      <Field label="نام کاربری ملی‌پیامک"><input className={inputCls} autoComplete="off" value={form.username} onChange={e=>patch({username:e.target.value})}/></Field>
+      <Field label={hasApiKey?"API Key (برای تغییر وارد کنید)":"API Key"}>
+        <input className={inputCls} type="password" autoComplete="new-password" placeholder={hasApiKey?"کلید ذخیره شده؛ خالی بگذارید تا حفظ شود":"API Key وب‌سرویس"} value={form.apiKey} onChange={e=>patch({apiKey:e.target.value})}/>
+      </Field>
+      <Field label="سرشماره اصلی"><input className={inputCls} value={form.sender} onChange={e=>patch({sender:e.target.value})}/></Field>
+      {form.mode==="smart_sms"?<>
+        <Field label="سرشماره پشتیبان ۱"><input className={inputCls} value={form.senderSupportOne} onChange={e=>patch({senderSupportOne:e.target.value})}/></Field>
+        <Field label="سرشماره پشتیبان ۲"><input className={inputCls} value={form.senderSupportTwo} onChange={e=>patch({senderSupportTwo:e.target.value})}/></Field>
+      </>:null}
+      <Field label="شناسه صندوق ورودی (دریافت پاسخ تولد)"><input className={inputCls} inputMode="numeric" value={form.inboxLocation} onChange={e=>patch({inboxLocation:e.target.value})}/></Field>
+      <Field label="سرشماره دریافت‌کننده پیامک ورودی"><input className={inputCls} value={form.inboxFrom} onChange={e=>patch({inboxFrom:e.target.value})}/></Field>
+      <Field label="شماره موبایل برای آزمایش اتصال"><input className={inputCls} inputMode="tel" placeholder="09xxxxxxxxx" value={testPhone} onChange={e=>setTestPhone(e.target.value)}/></Field>
+    </div>
+    {form.mode==="smart_sms"?<p className="mt-2 text-xs text-muted">طبق مستند SmartSMS، پیام‌های این مسیر باید با «لغو11» تمام شوند. برنامه متن پیام را خودکار تغییر نمی‌دهد؛ این قاعده در زمان ارسال کنترل می‌شود.</p>:null}
+    <div className="mt-3 flex flex-wrap gap-2">
+      <Btn onClick={()=>void save()} disabled={busy}>{busy?"در حال ذخیره...":"ذخیره تنظیمات پیامک"}</Btn>
+      <Btn tone="ghost" onClick={()=>void test()} disabled={busy||!form.enabled}>{busy?"در حال انجام...":"آزمایش ارسال پیامک"}</Btn>
+    </div>
+    {note?<p className="mt-2 text-sm" role="status">{note}</p>:null}
+  </Card>;
 }
