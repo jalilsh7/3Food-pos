@@ -1,18 +1,48 @@
-# 3Food POS V2
+# 3Food POS — V2
 
-Private repository for the 3Food POS application.
+نسخهٔ فعال و مبنای ادامهٔ توسعهٔ این مخزن، **V2** است. از این پس شاخهٔ `main` مرجع واحد تغییرات، اصلاحات و انتشارهای V2 خواهد بود.
 
-## Migration status
+## معماری V2
+- رابط کاربری: React 19، TypeScript و Vite به‌صورت SPA استاتیک.
+- بک‌اند: API مبتنی بر PHP در `php-backend/public/api` با مسیر same-origin زیر `/api/v1`.
+- پایگاه داده: MySQL با InnoDB؛ داده‌های عملیاتی از سمت سرور مدیریت می‌شوند.
+- احراز هویت: نشست سمت PHP، کوکی امن HttpOnly و کنترل مجوزها در سرور.
+- هاست مقصد: cPanel/LiteSpeed؛ روی هاست نهایی به Node.js نیاز نیست.
+- بستهٔ استقرار: اجرای `npm run build:cpanel` خروجی استاتیک و بستهٔ ZIP قابل انتقال به cPanel را تولید و ممیزی می‌کند.
 
-The original application is a React 19 / TypeScript / Vite / TanStack Start project. The PHP/MySQL migration archive adds an initial PHP API and MySQL schema, but it is not yet a deployable replacement.
+Node.js فقط برای نصب وابستگی‌ها، build و اجرای بررسی‌ها در محیط توسعه یا CI لازم است؛ اجرای روزمرهٔ برنامه روی هاست با PHP و MySQL انجام می‌شود.
 
-Outstanding work before production:
+## ساختارهای اصلی
+- `src/` — رابط کاربری و منطق سمت مرورگر
+- `php-backend/` — API، تنظیمات خصوصی نمونه، مسیرها و schema/migrations مربوط به V2
+- `database/` — فایل‌های دیتابیس موردنیاز V2
+- `docs/v2/` — مستندات فنی، وضعیت پیاده‌سازی و راهنمای ادامهٔ توسعه
+- `.github/workflows/` — گردش‌کارهای بررسی و بسته‌بندی V2
 
-- Connect the React UI to the PHP API and remove browser storage as the source of truth.
-- Complete server-side order pricing, discounts, loyalty, inventory and concurrency handling.
-- Complete customer-only SMS integration with server-side credentials.
-- Complete backup/restore, multi-device and role-based end-to-end tests.
-- Produce and verify a static frontend build for PHP-only hosting.
-- Run integration tests against a real staging MySQL database.
+## ادامهٔ توسعه
+- شاخهٔ فعال: `main`
+- تمام تغییرات بعدی V2 باید مستقیماً روی `main` انجام شوند؛ شاخه‌های قدیمی فقط سابقهٔ کار هستند و مبنای توسعهٔ جدید نیستند.
+- پیش از هر تغییر، آخرین commit شاخهٔ `main` و فایل‌های مرتبط بررسی شوند.
+- تغییرات V2 باید معماری PHP/MySQL و سازگاری با cPanel را حفظ کنند.
+- کدهای محیط‌های قدیمی مانند Grok/App Builder، سرویس‌های احراز هویت میزبانی‌شده، PostgreSQL/PGLite و runtimeهای سمت سرور Node نباید به مسیر اجرای cPanel بازگردند.
+- اطلاعات محرمانه مانند `private/config.php`، رمز دیتابیس، کلیدها و توکن‌ها نباید وارد Git شوند.
+- هیچ تغییری روی هاست یا دیتابیس عملیاتی انجام نمی‌شود مگر با تأیید صریح مالک پروژه.
 
-Do not deploy to the production host until these checks pass. The original source archive must remain preserved unchanged.
+## وضعیت پیامک
+اتصال پیامک در بک‌اند PHP قرار دارد و اعتبارنامه‌ها باید فقط در تنظیمات خصوصی سرور نگهداری شوند. تکمیل و اعتبارسنجی تنظیمات قابل‌استفاده در پنل، ارسال عادی و خدماتی، رویدادهای پیامکی و کمپین‌ها همچنان جزو کارهای جاری V2 است؛ وجود endpoint یا کد پیامک به‌تنهایی به معنی تکمیل این قابلیت‌ها نیست.
+
+## بررسی و بسته‌بندی
+```bash
+npm ci
+npm run typecheck
+npm test
+npm run lint
+npm run build:cpanel
+```
+بررسی‌های PHP، دیتابیس و API نیز در workflow مربوط به PHP/MySQL تعریف شده‌اند. فقط بررسی‌هایی را موفق اعلام کنید که واقعاً روی commit موردنظر اجرا شده باشند.
+
+## مستندات
+- [راهنمای تحویل و ادامهٔ توسعه](docs/v2/AI_HANDOFF_FA.md)
+- [وضعیت پیاده‌سازی V2](docs/v2/IMPLEMENTATION-STATUS-FA.md)
+- [ممیزی منبع PHP/MySQL](docs/v2/SOURCE-AUDIT-PHP-MYSQL-FA.md)
+- [قرارداد کلاینت API PHP](docs/v2/php-api-client-contract.md)

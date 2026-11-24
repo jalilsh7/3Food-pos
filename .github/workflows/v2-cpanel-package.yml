@@ -1,6 +1,8 @@
+# Registered on the default branch so pushes to this V2 branch can trigger it.
 name: V2 cPanel deployment package
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - feature/3food-pos-next-release-v2
