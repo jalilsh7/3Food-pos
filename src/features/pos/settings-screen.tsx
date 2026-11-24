@@ -105,6 +105,7 @@ export function SettingsScreen({ saveRecord }: { saveRecord: <T extends { id: st
       <SmsGatewaySettingsPanel />
       <Card className="grid gap-2 sm:grid-cols-2">
         <Field label="نام فروشگاه"><input className={inputCls} value={settings.shopName} onChange={(e) => patchSettings({ shopName: e.target.value })} onBlur={persistSettings} /></Field>
+        <Field label="عنوان پیش‌فرض مشتری در صندوق"><input className={inputCls} value={settings.defaultCustomerLabel ?? "مشتری عزیز"} onChange={(e) => patchSettings({ defaultCustomerLabel: e.target.value })} onBlur={persistSettings} placeholder="مثلاً مشتری خالی" /><p className="text-xs text-muted">این عبارت به‌عنوان نام اولیه مشتری در صندوق نمایش داده می‌شود و هر زمان قابل تغییر است.</p></Field>
         <Field label="تلفن"><input className={inputCls} value={settings.phone} onChange={(e) => patchSettings({ phone: e.target.value })} onBlur={persistSettings} /></Field>
         <Field label="آدرس"><input className={inputCls} value={settings.address} onChange={(e) => patchSettings({ address: e.target.value })} onBlur={persistSettings} /></Field>
         <Field label="مالیات درصد"><input className={inputCls} type="number" min="0" max="100" step="0.01" value={settings.taxPercent} onChange={(e) => patchSettings({ taxPercent: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })} onBlur={persistSettings} /></Field>
