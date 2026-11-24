@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - v2/clean-mainline
       - main
     paths:
       - "src/**"
@@ -21,15 +20,17 @@ on:
 permissions:
   contents: read
 
+# Never cancel a running validation because a later documentation or code
+# commit arrives. Runs are serialized per branch instead.
 concurrency:
   group: v2-quality-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   quality:
     name: V2 checks and cPanel package
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - name: Set up PHP
