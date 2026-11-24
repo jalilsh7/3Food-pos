@@ -1,59 +1,54 @@
-# 3Food POS
+# 3Food POS — V2
 
-Private repository for the 3Food POS application.
+> **این مخزن در این شاخه فقط پروژه V2 را دنبال می‌کند.** شاخه پاک‌سازی و تجمیع V2: `v2/clean-mainline`. پس از انتقال و تأیید، `main` مرجع ادامه توسعه خواهد بود. V3 خارج از محدوده این README و workflow است.
 
-## Current architecture
+## معرفی
+صندوق فروشگاهی فارسی و RTL برای رستوران و فست‌فود، با رابط React و بک‌اند مستقل PHP/MySQL، قابل استقرار روی cPanel/LiteSpeed.
 
-- Frontend: React 19 + TypeScript + Vite + TanStack Router, built as a static SPA.
-- Backend: same-origin PHP API under `php-backend/public/api`.
-- Database: MySQL/InnoDB; no Node server is required on the cPanel host.
-- Authentication: PHP server-side sessions, username/password and server-enforced role permissions.
-- Deployment target: cPanel/LiteSpeed with PHP 8.2 and MySQL.
-- Release package: `npm run build:cpanel` produces `dist-cpanel/` and `3food-pos-cpanel.zip`; the ZIP contains the public app, private config template and database migration files, never a live private config.
+## معماری
+- Frontend: React 19 + TypeScript + Vite + TanStack Router، خروجی SPA استاتیک.
+- Backend: PHP API در `php-backend/public/api` با مسیر هم‌مبدأ `/api/v1`.
+- Database: MySQL/InnoDB.
+- Authentication: نشست PHP، کوکی امن HttpOnly، CSRF و RBAC سمت سرور.
+- Roles: `manager`، `cashier`، `kitchen`.
+- Hosting: cPanel/LiteSpeed با PHP 8.2 و MySQL؛ Node فقط برای توسعه، build و CI لازم است.
+- Build: `npm run build:cpanel`؛ تولید خروجی استاتیک و بسته ZIP. فایل تنظیمات خصوصی واقعی نباید وارد Git یا ZIP عمومی شود.
 
-The active cPanel runtime must remain independent of Grok/App Builder, Better Auth, TanStack Start/Nitro, PostgreSQL/PGLite, preview-host identity and injected platform scripts. Optional SMS delivery remains an explicitly configured server-side integration.
+## قابلیت‌های V2
+فروش و سفارش؛ گردش آشپزخانه؛ منو و محصولات؛ مواد اولیه و انبار؛ تأمین‌کننده؛ مشتریان و امتیاز وفاداری؛ کد تخفیف؛ هزینه‌ها و گزارش‌ها؛ تنظیمات فروشگاه؛ قالب‌ها، رویدادها و کمپین پیامکی.
 
-## Active development branch and update policy
+## پیامک
+دو مسیر باید مستقل پیاده‌سازی شوند:
+1. ارسال عادی از خط اختصاصی/شخصی برای پیام آزاد و کمپین.
+2. ارسال خدماتی اشتراکی بر اساس متن الگوی ثبت و تأییدشده و `bodyId`.
 
-The current active development branch is [`feature/3food-pos-next-release-v2`](https://github.com/jalilsh7/3Food-pos/tree/feature/3food-pos-next-release-v2).
+جزئیات endpointهای REST و SmartSMS، محدودیت‌ها، کدهای پاسخ و الزامات پنل در [دفترچه یکپارچه V2](docs/v2/V2-PROJECT-HANDBOOK-FA.md) ثبت شده است. اعتبارنامه فقط سمت سرور نگهداری شود؛ خطای پیامک نباید ثبت سفارش را متوقف کند.
 
-**The latest commit on the active development line is the source of truth for all ongoing work.** At the beginning of every task:
+## قواعد امنیت و توسعه
+- داده عملیاتی در MySQL؛ محاسبات مهم سفارش سمت سرور اعتبارسنجی شوند.
+- secrets/session/CSRF/API keys در localStorage یا Zustand persist قرار نگیرند.
+- مسیر اجرای cPanel به Grok/App Builder، Better Auth، TanStack Start/Nitro، PostgreSQL/PGLite وابسته نباشد.
+- همگام‌سازی فعلی چنددستگاهی polling دوره‌ای است، نه بلادرنگ.
+- هیچ استقرار production بدون تأیید مالک، backup و rollback plan انجام نشود.
 
-1. Fetch the latest remote branch state and inspect its HEAD commit and recent history.
-2. Start from that latest HEAD; do not use an old local checkout, stale archive, or previously downloaded project snapshot as the base.
-3. Keep changes on the active development branch unless the owner explicitly selects another branch.
-4. Before changing the active branch, compare candidate branches by commit ancestry and included work—not just branch names or timestamps—and choose the line that preserves the newest integrated POS updates.
-5. Do not base new work on `main` or `migration/php-mysql` when they are behind the active development line. Do not merge, reset, rebase destructively, or force-push branches without explicit approval.
-6. After changes, report the branch and commit updated, and distinguish checks actually run from checks not run.
+## وضعیت
+هسته PHP/MySQL، نشست و RBAC، endpointهای پایه سفارش و داده و بسته‌بندی cPanel در مستندات پیاده‌سازی‌شده گزارش شده‌اند؛ این گزارش جای تست روی commit جاری را نمی‌گیرد. اولویت جاری: تکمیل تنظیمات پیامک، ارسال عادی و خدماتی، رویدادها، کمپین و گزارش؛ سپس تست و build نهایی در پایان فاز. تست staging و پذیرش واقعی قبل از انتشار لازم است.
 
-If a newer development branch supersedes the current one, verify its history and update this section so the README always identifies the current source of truth. Production deployment remains a separate, explicitly approved operation.
+## دستورات
+```bash
+npm ci
+npm run typecheck
+npm test
+npm run lint
+npm run build:cpanel
+```
 
-## Platform cleanup history
+## مستندات مرجع
+- [دفترچه یکپارچه پروژه V2](docs/v2/V2-PROJECT-HANDBOOK-FA.md)
+- [راهنمای تحویل به توسعه‌دهنده بعدی](docs/v2/AI_HANDOFF_FA.md)
+- [وضعیت پیاده‌سازی](docs/v2/IMPLEMENTATION-STATUS-FA.md)
+- [قرارداد PHP API](docs/v2/php-api-client-contract.md)
+- [ممیزی تاریخی مهاجرت](docs/v2/SOURCE-AUDIT-PHP-MYSQL-FA.md)
 
-The platform-removal and dependency cleanup work was developed on [`cleanup/remove-grok-dependencies`](https://github.com/jalilsh7/3Food-pos/tree/cleanup/remove-grok-dependencies), with review history in [PR #1](https://github.com/jalilsh7/3Food-pos/pull/1). The active development line must be checked for the integrated state of that work; do not assume this historical cleanup branch is the current working base.
-
-The cleanup work included:
-- Removing orphaned Better Auth/OAuth, PGLite/PostgreSQL, TanStack Start server and App Builder connector source trees.
-- Removing obsolete preview-host helpers, old platform-specific brand/preview scripts and superseded auth analysis documents.
-- Removing direct package dependencies that belonged only to the retired runtime.
-- Adding source-graph and built-output audits to `build:cpanel`.
-- Updating the browser smoke runner to test the standalone SPA without platform auth/brand gates.
-- Preserving the PHP API, MySQL schema/migrations, POS screens, role model, stock/order logic and optional server-side SMS integration.
-
-Historical CI run: [44280981233](https://github.com/jalilsh7/3Food-pos/actions/runs/44280981233). Its reported checks covered PHP syntax, fresh MySQL schema, PHP API integration, TypeScript, unit tests, lint, cPanel build, Playwright smoke against the packaged app and artifact upload. Treat this as evidence for that run only; it does not replace checks on newer commits.
-
-## Release and deployment safeguards
-
-- The application is not considered production-ready solely because a branch or CI run is successful. Validate the current build on a staging cPanel host with the target PHP/MySQL configuration before production deployment.
-- Real staging/device end-to-end testing is required for sign-in/out, role restrictions, orders, stock and multi-device consistency.
-- Backup/restore and live SMS integration tests remain separate release gates.
-- Do not modify live cPanel files or the production database during ordinary development work.
-- All production changes require explicit owner approval, a backup and a rollback plan.
-
-## Project guidance
-
-- Persian handoff: [docs/v2/AI_HANDOFF_FA.md](docs/v2/AI_HANDOFF_FA.md)
-- Agent rules: [AGENTS.md](AGENTS.md)
-- Implementation status: [docs/v2/IMPLEMENTATION-STATUS-FA.md](docs/v2/IMPLEMENTATION-STATUS-FA.md)
-- Static build analysis: [docs/v2/static-build-readiness.md](docs/v2/static-build-readiness.md)
-- Historical migration audit: [docs/v2/SOURCE-AUDIT-PHP-MYSQL-FA.md](docs/v2/SOURCE-AUDIT-PHP-MYSQL-FA.md) (describes the pre-migration source snapshot, not the current architecture)
+## Workflow
+فایل `.github/workflows/v2-quality.yml` بررسی‌های PHP syntax، TypeScript، تست‌ها، lint و بسته‌بندی cPanel را برای تغییرات V2 اجرا می‌کند. CI موفق، جایگزین تست staging یا ارسال زنده SMS نیست.
