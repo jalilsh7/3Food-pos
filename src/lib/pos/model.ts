@@ -107,6 +107,7 @@ export type SmsEvent =
   | "order_ready"
   | "order_delivered"
   | "order_cancelled"
+  | "order_invoice"
   | "points_earned"
   | "discount_used";
 
@@ -127,6 +128,13 @@ export type SmsLog = {
   text: string;
   ok: boolean;
   detail: string;
+  mode?: string;
+  bodyId?: string;
+  variables?: string[];
+  providerResponse?: string;
+  httpStatus?: number | null;
+  providerEndpoint?: string;
+  responseAt?: string;
 };
 
 export type Settings = {
