@@ -2,6 +2,7 @@
 name: V2 cPanel deployment package
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - feature/3food-pos-next-release-v2
