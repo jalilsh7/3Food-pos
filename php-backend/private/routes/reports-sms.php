@@ -394,7 +394,12 @@ if ($method === 'POST' && $path === '/sms/send') {
         $rawValue = trim((string)$raw, " \\t\\n\\r\\0\\x0B\\\"");
         $accepted = false;
         if ($httpOk && $bodyId !== '') {
-            $accepted = ctype_digit($rawValue) && strlen($rawValue) > 15;
+            // BaseServiceNumber REST returns JSON: RetStatus=1, StrRetStatus=Ok,
+            // and a long numeric Value (record ID) when the request is accepted.
+            $decoded = json_decode($rawValue, true);
+            $value = is_array($decoded) ? trim((string)($decoded['Value'] ?? '')) : '';
+            $retStatus = is_array($decoded) ? (int)($decoded['RetStatus'] ?? 0) : 0;
+            $accepted = $retStatus === 1 && ctype_digit($value) && strlen($value) > 15;
         } elseif ($httpOk && $mode === 'smart_sms') {
             $decoded = json_decode($rawValue, true);
             $value = is_array($decoded) ? trim((string)($decoded['Value'] ?? '')) : '';
