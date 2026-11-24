@@ -211,7 +211,7 @@ function SmsGatewaySettingsPanel() {
   return <Card>
     <div className="mb-2">
       <h3 className="font-semibold">اتصال پیامک ملی‌پیامک</h3>
-      <p className="mt-1 text-xs text-muted">نام کاربری و API Key فقط در سمت سرور و با رمزگذاری AES-256-GCM ذخیره می‌شوند؛ مقدار کلید پس از ذخیره دوباره نمایش داده نمی‌شود.</p>
+      <p className="mt-1 text-xs text-muted">نام کاربری، رمز عبور و API Key فقط در سمت سرور و با رمزگذاری AES-256-GCM ذخیره می‌شوند؛ مقادیر محرمانه پس از ذخیره دوباره نمایش داده نمی‌شوند.</p>
     </div>
     <div className="grid gap-3 sm:grid-cols-2">
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.enabled} onChange={e=>patch({enabled:e.target.checked})}/>ارسال پیامک فعال باشد</label>
