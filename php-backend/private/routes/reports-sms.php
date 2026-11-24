@@ -170,9 +170,9 @@ if ($path === '/sms/settings' && $method === 'POST') {
     $supportTwo = trim((string)($body['senderSupportTwo'] ?? ''));
     $inboxLocation = trim((string)($body['inboxLocation'] ?? ($old['inboxLocation'] ?? '')));
     $inboxFrom = trim((string)($body['inboxFrom'] ?? ($old['inboxFrom'] ?? '')));
-    if (!in_array($mode, ['standard','smart_sms'], true) || ($enabled && ($username === '' || $sender === '' || ($mode === 'smart_sms' ? $apiKey === '' : $password === ''))) ||
+    if (($enabled && ($username === '' || $apiKey === '')) ||
         strlen($username)>120 || strlen($apiKey)>500 || strlen($password)>500 || strlen($sender)>40 || strlen($supportOne)>40 || strlen($supportTwo)>40 || ($inboxLocation!=='' && (!ctype_digit($inboxLocation) || (int)$inboxLocation>99)) || strlen($inboxFrom)>40) {
-        json_response(['ok'=>false,'error'=>'invalid_sms_settings','message'=>'نام کاربری، کلید API، سرشماره یا حالت ارسال معتبر نیست'],422);
+        json_response(['ok'=>false,'error'=>'invalid_sms_settings','message'=>'برای ارسال الگوی خدماتی، نام کاربری و API Key معتبر لازم است'],422);
     }
     $newGateway = ['enabled'=>$enabled,'mode'=>$mode,'username'=>$username,'apiKey'=>$apiKey,'password'=>$password,'sender'=>$sender,'senderSupportOne'=>$supportOne,'senderSupportTwo'=>$supportTwo,'inboxLocation'=>$inboxLocation,'inboxFrom'=>$inboxFrom];
     try {
@@ -342,9 +342,18 @@ if ($method === 'POST' && $path === '/sms/send') {
     $to = preg_replace('/[^0-9+]/', '', (string)($body['to'] ?? ''));
     $message = trim((string)($body['text'] ?? ''));
     $bodyId = trim((string)($body['bodyId'] ?? ''));
+    $event = trim((string)($body['event'] ?? 'manual'));
     $variables = $body['variables'] ?? [];
-    if (!preg_match('/^\\+?[0-9]{10,15}$/D', $to) || (!$bodyId && ($message === '' || utf8_length($message) > 1000))) {
-        json_response(['ok' => false, 'error' => 'invalid_sms', 'message' => 'شماره یا متن پیامک معتبر نیست'], 422);
+    $statusEvents = ['order_created','order_preparing','order_ready','order_delivered','order_cancelled'];
+    if (!preg_match('/^\\+?[0-9]{10,15}$/D', $to)) {
+        json_response(['ok'=>false,'error'=>'invalid_sms_recipient','message'=>'شماره موبایل معتبر نیست'],422);
+    }
+    // Order-status notifications must never fall back to free-text/ordinary SMS.
+    if (in_array($event, $statusEvents, true) && $bodyId === '') {
+        json_response(['ok'=>false,'error'=>'service_template_required','message'=>'برای پیامک وضعیت سفارش، الگوی خدماتی تأییدشده باید تنظیم شود؛ ارسال متن آزاد مجاز نیست'],422);
+    }
+    if ($bodyId === '' && ($message === '' || utf8_length($message)>1000)) {
+        json_response(['ok'=>false,'error'=>'invalid_sms','message'=>'متن پیامک معتبر نیست'],422);
     }
     $gateway = threefood_sms_gateway_read($pdo, $config['sms'] ?? [], (string)($config['app_key'] ?? ''));
     $username = trim((string)($gateway['username'] ?? ''));
@@ -352,24 +361,24 @@ if ($method === 'POST' && $path === '/sms/send') {
     $password = trim((string)($gateway['password'] ?? ''));
     $sender = trim((string)($gateway['sender'] ?? ''));
     $mode = (string)($gateway['mode'] ?? 'standard');
-    if (empty($gateway['enabled']) || $username === '' || (!$bodyId && $sender === '') || ($bodyId && $apiKey === '') || ($mode === 'smart_sms' && $apiKey === '') || ($mode === 'standard' && !$bodyId && $password === '')) {
-        json_response(['ok' => false, 'error' => 'sms_not_configured', 'message' => 'سرویس پیامک در تنظیمات فروشگاه فعال یا کامل نشده است'], 503);
+    if (empty($gateway['enabled']) || $username === '' || ($bodyId !== '' ? $apiKey === '' : ($sender === '' || ($mode === 'smart_sms' ? $apiKey === '' : $password === '')))) {
+        json_response(['ok'=>false,'error'=>'sms_not_configured','message'=>'تنظیمات سرویس پیامک کامل نیست؛ برای الگوی خدماتی نام کاربری و API Key لازم است'],503);
     }
     if ($bodyId !== '') {
-        if (!preg_match('/^[0-9]{1,12}$/D', $bodyId) || !is_array($variables) || count($variables) < 1 || count($variables) > 10) {
-            json_response(['ok'=>false,'error'=>'invalid_service_template','message'=>'شناسه الگوی خدماتی یا متغیرهای مرتب‌شده معتبر نیست'],422);
+        if (!preg_match('/^[0-9]{1,12}$/D', $bodyId) || !is_array($variables) || count($variables)>20) {
+            json_response(['ok'=>false,'error'=>'invalid_service_template','message'=>'شناسه الگوی خدماتی یا فهرست متغیرها معتبر نیست'],422);
         }
         foreach ($variables as $value) {
-            if (!is_scalar($value) || utf8_length((string)$value) > 250 || str_contains((string)$value, ';')) {
-                json_response(['ok'=>false,'error'=>'invalid_service_variables','message'=>'هر متغیر خدماتی باید مقدار متنی معتبر و بدون جداکننده سمی‌کالن داشته باشد'],422);
+            if (!is_scalar($value) || utf8_length((string)$value)>1000 || str_contains((string)$value, ';')) {
+                json_response(['ok'=>false,'error'=>'invalid_service_variables','message'=>'هر متغیر باید مقدار متنی معتبر و بدون جداکننده سمی‌کالن داشته باشد'],422);
             }
         }
-        // BaseServiceNumber accepts exactly one recipient and ordered values separated by semicolons.
+        // National Payamak BaseServiceNumber: one recipient; ordered variables separated by semicolons.
         $endpoint = 'https://rest.payamak-panel.com/api/SendSMS/BaseServiceNumber';
         $fields = ['username'=>$username,'password'=>$apiKey,'to'=>$to,'text'=>implode(';',array_map('strval',$variables)),'bodyId'=>$bodyId];
     } elseif ($mode === 'smart_sms') {
         if (!str_ends_with($message, 'لغو11')) {
-            json_response(['ok'=>false,'error'=>'sms_optout_suffix_required','message'=>'طبق مستند SmartSMS، متن پیامک باید با «لغو11» تمام شود؛ متن را اصلاح کنید.'],422);
+            json_response(['ok'=>false,'error'=>'sms_optout_suffix_required','message'=>'طبق مستند SmartSMS، متن پیامک باید با «لغو11» تمام شود'],422);
         }
         $endpoint = 'https://rest.payamak-panel.com/api/SmartSMS/Send';
         $fields = ['username'=>$username,'password'=>$apiKey,'to'=>$to,'text'=>$message,'from'=>$sender];
@@ -379,11 +388,12 @@ if ($method === 'POST' && $path === '/sms/send') {
         $endpoint = 'https://rest.payamak-panel.com/api/SendSMS/SendSMS';
         $fields = ['username'=>$username,'password'=>$password,'to'=>$to,'from'=>$sender,'text'=>$message,'isFlash'=>'false'];
     }
+    $requestBody = http_build_query($fields, '', '&', PHP_QUERY_RFC3986);
     $context = stream_context_create(['http'=>[
         'method'=>'POST',
-        'header'=>"Content-Type: application/x-www-form-urlencoded\\r\\n",
-        'content'=>http_build_query($fields, '', '&', PHP_QUERY_RFC3986),
-        'timeout'=>15,
+        'header'=>"Content-Type: application/x-www-form-urlencoded\\r\\nAccept: application/json\\r\\n",
+        'content'=>$requestBody,
+        'timeout'=>20,
         'ignore_errors'=>true,
     ],'ssl'=>['verify_peer'=>true,'verify_peer_name'=>true]]);
     try {
@@ -391,28 +401,29 @@ if ($method === 'POST' && $path === '/sms/send') {
         if ($raw === false) throw new RuntimeException('SMS provider request failed');
         $statusLine = $http_response_header[0] ?? '';
         $httpOk = preg_match('/\\s2[0-9]{2}\\s/', $statusLine) === 1;
-        $rawValue = trim((string)$raw, " \\t\\n\\r\\0\\x0B\\\"");
+        $rawValue = trim((string)$raw);
         $accepted = false;
         if ($httpOk && $bodyId !== '') {
-            // BaseServiceNumber REST returns JSON: RetStatus=1, StrRetStatus=Ok,
-            // and a long numeric Value (record ID) when the request is accepted.
             $decoded = json_decode($rawValue, true);
             $value = is_array($decoded) ? trim((string)($decoded['Value'] ?? '')) : '';
             $retStatus = is_array($decoded) ? (int)($decoded['RetStatus'] ?? 0) : 0;
-            $accepted = $retStatus === 1 && ctype_digit($value) && strlen($value) > 15;
+            $strStatus = is_array($decoded) ? strtolower(trim((string)($decoded['StrRetStatus'] ?? ''))) : '';
+            // Docs: RetStatus=1, StrRetStatus=Ok and Value is a numeric record ID > 15 digits.
+            $accepted = $retStatus === 1 && $strStatus === 'ok' && ctype_digit($value) && strlen($value)>15;
         } elseif ($httpOk && $mode === 'smart_sms') {
             $decoded = json_decode($rawValue, true);
             $value = is_array($decoded) ? trim((string)($decoded['Value'] ?? '')) : '';
             $retStatus = is_array($decoded) ? (int)($decoded['RetStatus'] ?? 0) : 0;
-            $accepted = $retStatus === 1 && $value !== '' && preg_match('/^[0-9,]+$/D', $value) === 1;
+            $strStatus = is_array($decoded) ? strtolower(trim((string)($decoded['StrRetStatus'] ?? ''))) : '';
+            $accepted = $retStatus === 1 && $strStatus === 'ok' && $value !== '' && preg_match('/^[0-9,]+$/D', $value) === 1;
         } elseif ($httpOk) {
             $numeric = (int)preg_replace('/[^0-9-]/', '', $rawValue);
             $accepted = $numeric > 0;
         }
-        audit($pdo, (int)$actor['id'], 'sms_sent', 'sms', null, ['to'=>$to,'ok'=>$accepted,'mode'=>$bodyId!==''?'shared_service':$mode,'body_id'=>$bodyId!==''?$bodyId:null]);
-        json_response(['ok'=>true,'sent'=>$accepted,'detail'=>$accepted?'پذیرش ارسال توسط سرویس پیامک ثبت شد':('پاسخ سرویس: '.substr($rawValue,0,120))]);
+        audit($pdo, (int)$actor['id'], 'sms_sent', 'sms', null, ['to'=>$to,'ok'=>$accepted,'mode'=>$bodyId!==''?'shared_service':$mode,'body_id'=>$bodyId!==''?$bodyId:null,'event'=>$event]);
+        json_response(['ok'=>true,'sent'=>$accepted,'detail'=>$accepted?'پذیرش درخواست ارسال توسط سرویس ثبت شد':('پاسخ سرویس: '.substr($rawValue,0,180))]);
     } catch (Throwable $e) {
         error_log('[3Food POS] SMS provider request failed: '.$e->getMessage());
-        json_response(['ok'=>false,'error'=>'sms_provider_unavailable','message'=>'ارتباط با سرویس پیامک برقرار نشد؛ وضعیت ارسال ممکن است نامشخص باشد و ارسال مجدد خودکار انجام نشد'],502);
+        json_response(['ok'=>false,'error'=>'sms_provider_unavailable','message'=>'ارتباط با سرویس پیامک برقرار نشد؛ وضعیت درخواست نامشخص است و ارسال مجدد خودکار انجام نشد'],502);
     }
 }
