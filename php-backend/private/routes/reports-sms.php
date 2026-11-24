@@ -191,15 +191,15 @@ if ($method === 'POST' && $path === '/sms/birthday-sync') {
     $sms['inbox_location'] = $sms['inboxLocation'] ?? ($sms['inbox_location'] ?? null);
     $sms['inbox_from'] = $sms['inboxFrom'] ?? ($sms['inbox_from'] ?? '');
     $username = trim((string)($sms['username'] ?? ''));
-    $password = trim((string)($sms['password'] ?? ''));
+    $password = trim((string)($sms['apiKey'] ?? ($sms['password'] ?? '')));
     $location = $sms['inbox_location'] ?? null;
     $from = trim((string)($sms['inbox_from'] ?? ''));
     $index = trim((string)($sms['inbox_index'] ?? '1'));
     $count = (int)($sms['inbox_count'] ?? 50);
-    if (($sms['provider'] ?? 'none') !== 'national_payamak' || $username === '' || $password === ''
+    if (empty($sms['enabled']) && ($sms['provider'] ?? 'none') !== 'national_payamak' || $username === '' || $password === ''
         || !is_numeric($location) || (int)$location < 0 || (int)$location > 99
         || !preg_match('/^[0-9]{1,12}$/D', $index) || $count < 1 || $count > 100) {
-        json_response(['ok' => false, 'error' => 'sms_inbox_not_configured', 'message' => 'تنظیم دریافت پیامک ورودی در private/config.php کامل نیست'], 503);
+        json_response(['ok' => false, 'error' => 'sms_inbox_not_configured', 'message' => 'تنظیم صندوق ورودی پیامک در تنظیمات فروشگاه کامل نیست'], 503);
     }
     $endpoint = 'https://rest.payamak-panel.com/api/SendSMS/GetMessages';
     $fields = [
