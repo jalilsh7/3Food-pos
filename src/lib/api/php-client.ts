@@ -223,6 +223,7 @@ export const phpApi = {
     request<ApiEnvelope<{ items: TItem[] }>>(`/records/${encodeURIComponent(resource)}`),
 
   createSupplierTransaction: <TItem, TSupplier>(supplierId: string, item: TItem) => request<ApiEnvelope<{item:TItem;supplier:TSupplier}>>(`/suppliers/${encodeURIComponent(supplierId)}/purchases`, { method: "POST", csrf: true, body: { item } }),
+  createSupplierInvoice: <TInvoice, TSupplier>(supplierId: string, invoice: TInvoice) => request<ApiEnvelope<{item:TInvoice;supplier:TSupplier}>>(`/suppliers/${encodeURIComponent(supplierId)}/invoices`, { method: "POST", csrf: true, body: { invoice } }),
 
   saveRecord: <TItem extends { id: string | number }>(resource: string, item: TItem) =>
     request<ApiEnvelope<{ item: TItem }>>(`/records/${encodeURIComponent(resource)}`, {
