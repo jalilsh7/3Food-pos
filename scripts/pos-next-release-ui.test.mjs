@@ -27,7 +27,7 @@ test("Iranian mobile normalization supports Persian digits and international pre
 test("invoice SMS is an optional per-order choice with a configurable default", () => {
   assert.match(app, /sendInvoiceSms \?\? settings\.invoiceSmsEnabledDefault \?\? false/);
   assert.match(app, /if \(shouldSendInvoiceSms && order\.customerPhone\)/);
-  assert.match(app, /postSms\(order\.customerPhone, invoice, "order_invoice"/);
+  assert.match(app, /pushSms\("order_invoice", order\.customerPhone, vars\)/);
 });
 
 test("stock shortages show a warning but never disable checkout", () => {
