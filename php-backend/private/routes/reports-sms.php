@@ -391,7 +391,7 @@ if ($method === 'POST' && $path === '/sms/send') {
     $requestBody = http_build_query($fields, '', '&', PHP_QUERY_RFC3986);
     $context = stream_context_create(['http'=>[
         'method'=>'POST',
-        'header'=>"Content-Type: application/x-www-form-urlencoded\\r\\nAccept: application/json\\r\\n",
+        'header'=>"Content-Type: application/x-www-form-urlencoded\r\nAccept: application/json\r\n",
         'content'=>$requestBody,
         'timeout'=>20,
         'ignore_errors'=>true,
