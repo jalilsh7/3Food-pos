@@ -157,7 +157,7 @@ if ($path === '/sms/settings' && $method === 'POST') {
     $actor = require_role($pdo, ['manager']);
     require_csrf();
     $body = request_json();
-    $old = threefood_sms_gateway_read($pdo, $config['sms'] ?? []);
+    $old = threefood_sms_gateway_read($pdo, $config['sms'] ?? [], (string)($config['app_key'] ?? ''));
     $enabled = ($body['enabled'] ?? false) === true;
     $mode = (string)($body['mode'] ?? 'standard');
     $username = trim((string)($body['username'] ?? ''));
@@ -178,7 +178,7 @@ if ($path === '/sms/settings' && $method === 'POST') {
     try {
         threefood_sms_gateway_save($pdo, $newGateway, $config, (int)$actor['id']);
         audit($pdo, (int)$actor['id'], 'sms_gateway_settings_updated', 'sms', null, ['enabled'=>$enabled,'mode'=>$mode,'username_set'=>$username!=='','api_key_set'=>$apiKey!=='','password_set'=>$password!=='']);
-        json_response(['ok'=>true,'saved'=>true,'hasApiKey'=>$apiKey!=='']);
+        json_response(['ok'=>true,'saved'=>true,'hasApiKey'=>$apiKey!=='','hasPassword'=>$password!=='']);
     } catch (Throwable $e) {
         error_log('[3Food POS] SMS settings save failed: '.$e->getMessage());
         json_response(['ok'=>false,'error'=>'sms_settings_save_failed','message'=>'ذخیره امن تنظیمات پیامک انجام نشد'],500);
@@ -188,7 +188,7 @@ if ($path === '/sms/settings' && $method === 'POST') {
 if ($method === 'POST' && $path === '/sms/birthday-sync') {
     $actor = require_role($pdo, ['manager']);
     require_csrf();
-    $sms = array_merge($config['sms'] ?? [], threefood_sms_gateway_read($pdo, $config['sms'] ?? []));
+    $sms = array_merge($config['sms'] ?? [], threefood_sms_gateway_read($pdo, $config['sms'] ?? [], (string)($config['app_key'] ?? '')));
     $sms['inbox_location'] = $sms['inboxLocation'] ?? ($sms['inbox_location'] ?? null);
     $sms['inbox_from'] = $sms['inboxFrom'] ?? ($sms['inbox_from'] ?? '');
     $username = trim((string)($sms['username'] ?? ''));
@@ -348,7 +348,7 @@ if ($method === 'POST' && $path === '/sms/send') {
     if (!preg_match('/^\\+?[0-9]{10,15}$/D', $to) || (!$bodyId && ($message === '' || utf8_length($message) > 1000))) {
         json_response(['ok' => false, 'error' => 'invalid_sms', 'message' => 'شماره یا متن پیامک معتبر نیست'], 422);
     }
-    $gateway = threefood_sms_gateway_read($pdo, $config['sms'] ?? []);
+    $gateway = threefood_sms_gateway_read($pdo, $config['sms'] ?? [], (string)($config['app_key'] ?? ''));
     $username = trim((string)($gateway['username'] ?? ''));
     $apiKey = trim((string)($gateway['apiKey'] ?? ''));
     $sender = trim((string)($gateway['sender'] ?? ''));
