@@ -163,8 +163,8 @@ if ($path === '/sms/settings' && $method === 'POST') {
     $username = trim((string)($body['username'] ?? ''));
     $apiKey = trim((string)($body['apiKey'] ?? ''));
     if ($apiKey === '') $apiKey = (string)($old['apiKey'] ?? '');
-    $password = trim((string)($body['password'] ?? ''));
-    if ($password === '') $password = (string)($old['password'] ?? '');
+    // National Payamak REST authentication uses API Key in the password parameter.
+    $password = $apiKey;
     $sender = trim((string)($body['sender'] ?? ''));
     $supportOne = trim((string)($body['senderSupportOne'] ?? ''));
     $supportTwo = trim((string)($body['senderSupportTwo'] ?? ''));
@@ -174,11 +174,11 @@ if ($path === '/sms/settings' && $method === 'POST') {
         strlen($username)>120 || strlen($apiKey)>500 || strlen($password)>500 || strlen($sender)>40 || strlen($supportOne)>40 || strlen($supportTwo)>40 || ($inboxLocation!=='' && (!ctype_digit($inboxLocation) || (int)$inboxLocation>99)) || strlen($inboxFrom)>40) {
         json_response(['ok'=>false,'error'=>'invalid_sms_settings','message'=>'برای ارسال الگوی خدماتی، نام کاربری و API Key معتبر لازم است'],422);
     }
-    $newGateway = ['enabled'=>$enabled,'mode'=>$mode,'username'=>$username,'apiKey'=>$apiKey,'password'=>$password,'sender'=>$sender,'senderSupportOne'=>$supportOne,'senderSupportTwo'=>$supportTwo,'inboxLocation'=>$inboxLocation,'inboxFrom'=>$inboxFrom];
+    $newGateway = ['enabled'=>$enabled,'mode'=>$mode,'username'=>$username,'apiKey'=>$apiKey,'password'=>$apiKey,'sender'=>$sender,'senderSupportOne'=>$supportOne,'senderSupportTwo'=>$supportTwo,'inboxLocation'=>$inboxLocation,'inboxFrom'=>$inboxFrom];
     try {
         threefood_sms_gateway_save($pdo, $newGateway, $config, (int)$actor['id']);
-        audit($pdo, (int)$actor['id'], 'sms_gateway_settings_updated', 'sms', null, ['enabled'=>$enabled,'mode'=>$mode,'username_set'=>$username!=='','api_key_set'=>$apiKey!=='','password_set'=>$password!=='']);
-        json_response(['ok'=>true,'saved'=>true,'hasApiKey'=>$apiKey!=='','hasPassword'=>$password!=='']);
+        audit($pdo, (int)$actor['id'], 'sms_gateway_settings_updated', 'sms', null, ['enabled'=>$enabled,'mode'=>$mode,'username_set'=>$username!=='','api_key_set'=>$apiKey!=='','api_key_used_for_auth'=>$apiKey!=='']);
+        json_response(['ok'=>true,'saved'=>true,'hasApiKey'=>$apiKey!=='','hasPassword'=>$apiKey!=='']);
     } catch (Throwable $e) {
         error_log('[3Food POS] SMS settings save failed: '.$e->getMessage());
         json_response(['ok'=>false,'error'=>'sms_settings_save_failed','message'=>'ذخیره امن تنظیمات پیامک انجام نشد'],500);
@@ -378,7 +378,7 @@ if ($method === 'POST' && $path === '/sms/send') {
     $password = trim((string)($gateway['password'] ?? ''));
     $sender = trim((string)($gateway['sender'] ?? ''));
     $mode = (string)($gateway['mode'] ?? 'standard');
-    if (empty($gateway['enabled']) || $username === '' || ($standardTest ? ($sender === '' || $password === '') : ($bodyId !== '' ? $apiKey === '' : ($sender === '' || ($mode === 'smart_sms' ? $apiKey === '' : $password === ''))))) {
+    if (empty($gateway['enabled']) || $username === '' || ($standardTest ? ($sender === '' || $apiKey === '') : ($bodyId !== '' ? $apiKey === '' : ($sender === '' || ($apiKey === ''))))) {
         json_response(['ok'=>false,'error'=>'sms_not_configured','message'=>'تنظیمات سرویس پیامک کامل نیست؛ برای الگوی خدماتی نام کاربری و API Key لازم است'],503);
     }
     if ($bodyId !== '') {
@@ -396,7 +396,7 @@ if ($method === 'POST' && $path === '/sms/send') {
     } elseif ($standardTest) {
         // Settings test is deliberately pinned to the customer's ordinary dedicated sender line.
         $endpoint = 'https://rest.payamak-panel.com/api/SendSMS/SendSMS';
-        $fields = ['username'=>$username,'password'=>$password,'to'=>$to,'from'=>$sender,'text'=>$message,'isFlash'=>'false'];
+        $fields = ['username'=>$username,'password'=>$apiKey,'to'=>$to,'from'=>$sender,'text'=>$message,'isFlash'=>'false'];
     } elseif ($mode === 'smart_sms') {
         if (!str_ends_with($message, 'لغو11')) {
             json_response(['ok'=>false,'error'=>'sms_optout_suffix_required','message'=>'طبق مستند SmartSMS، متن پیامک باید با «لغو11» تمام شود'],422);
@@ -407,7 +407,7 @@ if ($method === 'POST' && $path === '/sms/send') {
         if (trim((string)($gateway['senderSupportTwo'] ?? '')) !== '') $fields['fromSupportTwo'] = trim((string)$gateway['senderSupportTwo']);
     } else {
         $endpoint = 'https://rest.payamak-panel.com/api/SendSMS/SendSMS';
-        $fields = ['username'=>$username,'password'=>$password,'to'=>$to,'from'=>$sender,'text'=>$message,'isFlash'=>'false'];
+        $fields = ['username'=>$username,'password'=>$apiKey,'to'=>$to,'from'=>$sender,'text'=>$message,'isFlash'=>'false'];
     }
     $requestBody = http_build_query($fields, '', '&', PHP_QUERY_RFC3986);
     $context = stream_context_create(['http'=>[
