@@ -166,10 +166,10 @@ if ($path === '/sms/settings' && $method === 'POST') {
         strlen($username)>120 || strlen($apiKey)>500 || strlen($sender)>40 || ($inboxLocation!=='' && (!ctype_digit($inboxLocation) || (int)$inboxLocation>99)) || strlen($inboxFrom)>40) {
         json_response(['ok'=>false,'error'=>'invalid_sms_settings','message'=>'برای ارسال الگوی خدماتی، نام کاربری و API Key معتبر لازم است'],422);
     }
-    $newGateway = ['enabled'=>$enabled,'mode'=>$mode,'username'=>$username,'apiKey'=>$apiKey,'sender'=>$sender,'inboxLocation'=>$inboxLocation,'inboxFrom'=>$inboxFrom];
+    $newGateway = ['enabled'=>$enabled,'username'=>$username,'apiKey'=>$apiKey,'sender'=>$sender,'inboxLocation'=>$inboxLocation,'inboxFrom'=>$inboxFrom];
     try {
         threefood_sms_gateway_save($pdo, $newGateway, $config, (int)$actor['id']);
-        audit($pdo, (int)$actor['id'], 'sms_gateway_settings_updated', 'sms', null, ['enabled'=>$enabled,'mode'=>$mode,'username_set'=>$username!=='','api_key_set'=>$apiKey!=='','api_key_used_for_auth'=>$apiKey!=='']);
+        audit($pdo, (int)$actor['id'], 'sms_gateway_settings_updated', 'sms', null, ['enabled'=>$enabled,'username_set'=>$username!=='','api_key_set'=>$apiKey!=='','api_key_used_for_auth'=>$apiKey!=='']);
         json_response(['ok'=>true,'saved'=>true,'hasApiKey'=>$apiKey!=='']);
     } catch (Throwable $e) {
         error_log('[3Food POS] SMS settings save failed: '.$e->getMessage());
