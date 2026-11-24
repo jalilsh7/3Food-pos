@@ -349,6 +349,7 @@ if ($method === 'POST' && $path === '/sms/send') {
     $gateway = threefood_sms_gateway_read($pdo, $config['sms'] ?? [], (string)($config['app_key'] ?? ''));
     $username = trim((string)($gateway['username'] ?? ''));
     $apiKey = trim((string)($gateway['apiKey'] ?? ''));
+    $password = trim((string)($gateway['password'] ?? ''));
     $sender = trim((string)($gateway['sender'] ?? ''));
     $mode = (string)($gateway['mode'] ?? 'standard');
     if (empty($gateway['enabled']) || $username === '' || (!$bodyId && $sender === '') || ($bodyId && $apiKey === '') || ($mode === 'smart_sms' && $apiKey === '') || ($mode === 'standard' && !$bodyId && $password === '')) {
