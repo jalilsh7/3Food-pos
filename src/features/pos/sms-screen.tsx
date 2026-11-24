@@ -99,7 +99,7 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
         <p className="mb-2 text-xs text-muted">فقط به مشتریانی پیامک می‌فرستد که رضایت پیامکی دارند و تاریخ تولدشان ثبت نشده است. مشتری باید تاریخ را با قالب نمونه پاسخ دهد.</p>
         <textarea className={inputCls} rows={2} maxLength={950} value={settings.birthdaySmsPrompt ?? "برای ثبت تاریخ تولد در باشگاه مشتریان، لطفاً پاسخ دهید: تولد ۱۳۷۰/۰۵/۱۲"} onChange={e=>patchSettings({birthdaySmsPrompt:e.target.value})} onBlur={()=>{const current=usePos.getState().settings;void saveCentralRecord("settings",{id:"main",...current,smsUser:"",smsKey:"",smsFrom:""},()=>{});}} />
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <Btn disabled={birthdayPromptBusy || !(settings.birthdaySmsPrompt ?? "").trim()} onClick={async () => {
+          <Btn disabled={birthdayPromptBusy || !(settings.birthdaySmsPrompt ?? "برای ثبت تاریخ تولد در باشگاه مشتریان، لطفاً پاسخ دهید: تولد ۱۳۷۰/۰۵/۱۲").trim()} onClick={async () => {
             const targets = customers.filter(customer => customer.smsConsent === true && !customer.birthday && /^09[0-9]{9}$/.test(normalizeIranPhone(customer.phone)));
             if (!targets.length) { window.alert("مشتری واجد شرایطی برای دریافت درخواست وجود ندارد."); return; }
             if (!window.confirm(`درخواست ثبت تاریخ تولد برای ${targets.length.toLocaleString("fa-IR")} مشتری ارسال شود؟`)) return;
