@@ -193,8 +193,6 @@ if ($method === 'POST' && $path === '/sms/birthday-sync') {
     $sms['inbox_from'] = $sms['inboxFrom'] ?? ($sms['inbox_from'] ?? '');
     $username = trim((string)($sms['username'] ?? ''));
     $password = trim((string)($sms['password'] ?? ''));
-    $apiKey = trim((string)($sms['apiKey'] ?? ''));
-    if ($apiKey !== '') $password = $apiKey;
     $location = $sms['inbox_location'] ?? null;
     $from = trim((string)($sms['inbox_from'] ?? ''));
     $index = trim((string)($sms['inbox_index'] ?? '1'));
