@@ -26,6 +26,17 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
   const settings = usePos((s) => s.settings);
   const patchSettings = usePos((s) => s.patchSettings);
   const [manual, setManual] = useState({ to: "", text: "" });
+  // Keep the raw text while the user is typing. Parsing on every keystroke
+  // removed empty segments and caused the cursor/input to jump after ";".
+  const [variableDrafts, setVariableDrafts] = useState<Record<string, string>>({});
+  function persistTemplateVariables(event: SmsEvent) {
+    const current = usePos.getState().templates.find((x) => x.event === event);
+    const raw = variableDrafts[event] ?? (current?.variables ?? []).join(";");
+    const item = { ...(current ?? templates.find((x) => x.event === event)!), variables: raw.split(";").map((value) => value.trim()).filter(Boolean) };
+    saveTemplate(item);
+    void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item));
+    setVariableDrafts((drafts) => { const next = { ...drafts }; delete next[event]; return next; });
+  }
   const [birthdayPromptBusy, setBirthdayPromptBusy] = useState(false);
   const [birthdayPromptProgress, setBirthdayPromptProgress] = useState("");
   const products = usePos((s) => s.products);
@@ -74,7 +85,7 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
           <p className="mt-2 text-xs text-muted">برای این وضعیت هیچ متن آزاد یا روش ارسال جایگزینی استفاده نمی‌شود.</p>
           <Field label="شناسه الگوی خدماتی تأییدشده"><input className={inputCls} value={t.bodyId} onChange={(e) => saveTemplate({ ...t, bodyId: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} /></Field>
           <Field label="ترتیب متغیرهای الگوی خدماتی">
-            <input className={inputCls} placeholder="name;order;total;shop" value={(t.variables ?? []).join(";")} onChange={(e) => saveTemplate({ ...t, variables: e.target.value.split(";").map((v) => v.trim()).filter(Boolean) })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
+            <input className={inputCls} placeholder="name;order;total;shop" value={variableDrafts[t.event] ?? (t.variables ?? []).join(";")} onChange={(e) => setVariableDrafts((drafts) => ({ ...drafts, [t.event]: e.target.value }))} onBlur={() => persistTemplateVariables(t.event)} />
           </Field>
           <div className="mt-2"><Btn onClick={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }}>ذخیره الگو</Btn></div>
           <p className="text-xs text-muted">کلیدهای قابل استفاده: name، order، total، points، code، balance، shop. برای جدا کردن متغیرها حتماً از علامت ; استفاده کنید (مثال: name;order;total;shop). ترتیب را دقیقاً مطابق الگوی تأییدشده پنل ملی‌پیامک وارد کنید؛ فقط مقادیر متغیرها ارسال می‌شوند.</p>
