@@ -1,0 +1,91 @@
+# دفترچه یکپارچه پروژه 3Food POS V2
+آخرین تجمیع: 2026-11-25
+مخزن: jalilsh7/3Food-pos
+شاخه مبنا: v2/clean-mainline
+
+> این دفترچه فقط V2 را پوشش می‌دهد. V3 خارج از محدوده این شاخه، README و workflow است. سورس و مستندات جاری بر گزارش‌های تاریخی مقدم‌اند.
+
+## هدف و استقرار
+POS فارسی و RTL برای رستوران و فست‌فود، قابل استقرار روی cPanel/LiteSpeed با PHP و MySQL. Node فقط برای توسعه، build و CI لازم است؛ هاست نهایی به Node نیاز ندارد.
+
+## معماری
+- Frontend: React 19 + TypeScript + Vite + TanStack Router، خروجی SPA استاتیک.
+- Backend: PHP API در php-backend/public/api با مسیر هم‌مبدأ /api/v1.
+- Database: MySQL/InnoDB؛ منبع حقیقت داده‌های عملیاتی سمت سرور.
+- Auth: PHP session، کوکی HttpOnly امن، CSRF و RBAC سمت سرور.
+- Roles: manager، cashier، kitchen.
+- Build: npm run build:cpanel؛ خروجی dist-cpanel و ZIP قابل استقرار.
+- runtime نباید به Grok/App Builder، Better Auth، TanStack Start/Nitro، PostgreSQL یا PGLite وابسته باشد.
+
+## دامنه قابلیت‌ها
+فروش و سبد خرید؛ مدیریت سفارش و گردش آشپزخانه؛ منو، دسته‌بندی و محصول؛ مواد اولیه، انبار و تأمین‌کننده؛ مشتریان و امتیاز وفاداری؛ تخفیف؛ هزینه‌ها و گزارش‌ها؛ تنظیمات فروشگاه؛ قالب‌ها، رویدادها و کمپین پیامکی.
+
+## قرارداد داده و امنیت
+- قیمت، گزینه‌ها، تخفیف، مالیات، امتیاز، موجودی و idempotency سمت سرور اعتبارسنجی شوند.
+- secrets، رمز، session ID، setup token، CSRF و API key در localStorage/sessionStorage قرار نگیرند.
+- اعتبارنامه پیامک فقط در تنظیمات خصوصی سرور باشد؛ secrets در Git، ZIP یا log قرار نگیرد.
+- پیامک اختیاری است و خطای آن نباید ثبت سفارش را متوقف کند.
+- backup/restore باید مدیرمحور و تراکنشی باشد؛ restore دیتابیس پر بدون سیاست امن مجاز نیست.
+- همگام‌سازی چنددستگاهی در مستندات موجود polling دوره‌ای است، نه بلادرنگ.
+- تاریخچه سفارش‌های قدیمی در ابزار انتقال legacy کامل منتقل نشده؛ پذیرش نهایی staging لازم است.
+
+## پیامک: دو مسیر مستقل
+### ارسال عادی با خط اختصاصی
+نمونه Rest-Sample.zip:
+- POST https://rest.payamak-panel.com/api/SendSMS/SendSMS
+- Content-Type: application/x-www-form-urlencoded
+- پارامترها: username، password، to، from، text، isflash=false
+- استعلام: /api/SendSMS/GetDeliveries2 با username/password/recID
+- دریافت پیام‌ها: /api/SendSMS/GetMessages با location/from/index/count
+این مسیر برای پیام آزاد و کمپین از خط اختصاصی/شخصی است.
+
+### ارسال خدماتی اشتراکی با الگو
+نمونه Rest-Sample.zip و webservice-SharedNumber.pdf:
+- POST https://rest.payamak-panel.com/api/SendSMS/BaseServiceNumber
+- پارامترها: username، password، to (یک شماره در هر فراخوانی)، text (مقادیر متغیر به ترتیب و جداشده با ;) و bodyId.
+- متن ثابت باید ابتدا در پنل ارائه‌دهنده ثبت و تأیید شود؛ فقط پس از تأیید و دریافت bodyId قابل ارسال است.
+- سند SOAP متدهای SendByBaseNumber، SendByBaseNumber2، SendByBaseNumber3 و SendByBaseNumber4 را نیز توضیح می‌دهد؛ تفاوتشان در شکل متغیرها/bodyId و برخی خروجی‌هاست.
+- نمونه bodyId اعلامی مالک: 344438؛ متن «سفارش {0} ثبت شد. 3FOOD.IR». تأیید و اعتبار فعلی این شناسه از مستندات قابل اثبات نیست و باید در پنل بررسی شود.
+
+### SmartSMS
+webservice-Smart.pdf مسیرهای SmartSMS/Send، SendMultiple، GetDeliveries2 و GetDeliveries را توصیف می‌کند:
+- SendMultiple حداکثر 100 شماره؛ JSON؛ آرایه‌های to و text باید هم‌اندازه باشند.
+- شناسه هر ارسال باید برای پیگیری ذخیره شود.
+- کدهای وضعیت مستند: 0 ارسال به مخابرات، 1 رسیده به گوشی، 2 نرسیده، 3 خطای مخابراتی، 35 لیست سیاه، 200 ارسال‌شده، 300 فیلترشده، 400 در صف، 500 عدم پذیرش.
+- خطاهای مستند شامل اعتبارنامه، فرستنده، کلمات فیلترشده، محدودیت تعداد، عدم تطابق آرایه‌ها، لینک و قواعد لغو 11 است.
+- SmartSMS و REST عادی adapter/قرارداد مجزا داشته باشند.
+
+### الزامات پنل پیامک
+- فرم معمولی و واضح: فعال‌سازی، نوع ارسال، نام کاربری، رمز/API Key، خط فرستنده، تنظیمات پشتیبان در صورت نیاز و شناسه الگو.
+- secrets ماسک شوند و API آن‌ها را در پاسخ عمومی بازنگرداند.
+- سوییچ مستقل برای هر رویداد عملیاتی.
+- کمپین با فیلتر مخاطب/شرط، پیش‌نمایش تعداد گیرنده، ارسال از خط شخصی و ثبت نتیجه هر گیرنده.
+- ارسال گروهی chunk شود و محدودیت ارائه‌دهنده رعایت شود.
+- تست اتصال کنترل‌شده باشد و به مشتری واقعی پیام ناخواسته نفرستد.
+
+## وضعیت و کارهای باز
+مستندات موجود، هسته PHP/MySQL، نشست و RBAC، APIهای پایه داده و سفارش، اتصال بسیاری از صفحات CRUD و بسته‌بندی cPanel را گزارش می‌کنند. این موارد جای تست جاری را نمی‌گیرند.
+کار جاری اولویت‌دار طبق دستور مالک: تکمیل فرم تنظیمات پیامک، ارسال عادی و خدماتی، سوییچ رویدادها، کمپین و گزارش/ارسال؛ سپس تست و build نهایی در انتهای فاز. تست staging واقعی و پذیرش چنددستگاهی نیز پیش از انتشار لازم است. هیچ قابلیت یا تستی که اجرا نشده، تکمیل اعلام نشود.
+
+## روال استاندارد توسعه
+1. دریافت آخرین HEAD و خواندن README، این دفترچه، AI_HANDOFF_FA و IMPLEMENTATION-STATUS-FA.
+2. محدودکردن تغییرات به V2 و بررسی فایل‌های مرتبط.
+3. پیاده‌سازی دسته‌ای و حفظ سازگاری cPanel/PHP/MySQL.
+4. بازبینی secrets، CSRF، RBAC، تراکنش‌ها و عدم توقف فروش بر اثر SMS.
+5. تست‌های کم‌اهمیت و build کامل در انتهای فاز؛ تست حیاتی برای جلوگیری از آسیب مجاز است.
+6. ثبت commit، تغییرات، تست‌های واقعاً اجراشده و موارد باز در مستندات.
+7. استقرار production فقط با تأیید صریح مالک، backup و rollback plan.
+
+## فرمان‌ها
+npm ci
+npm run typecheck
+npm test
+npm run lint
+npm run build:cpanel
+
+## مستندات تکمیلی
+- docs/v2/AI_HANDOFF_FA.md
+- docs/v2/IMPLEMENTATION-STATUS-FA.md
+- docs/v2/php-api-client-contract.md
+- docs/v2/SOURCE-AUDIT-PHP-MYSQL-FA.md (تاریخی؛ snapshot اولیه)
+- فایل‌های مرجع SMS: webservice-Smart.pdf، webservice-SharedNumber.pdf و Rest-Sample.zip
