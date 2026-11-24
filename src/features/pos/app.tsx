@@ -297,10 +297,11 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
 async function sendRaw(phone: string, text: string) {
   const normalized=normalizeIranPhone(phone);
   if (!/^09[0-9]{9}$/.test(normalized) || !text) return false;
-  return await postSms(normalized, text, "manual", "");
+  // Campaigns and manual messages always use the customer's ordinary dedicated line.
+  return await postSms(normalized, text, "manual", "", [], "standard");
 }
 
-async function postSms(phone: string, text: string, event: string, bodyId: string, variables: string[] = []) {
+async function postSms(phone: string, text: string, event: string, bodyId: string, variables: string[] = [], testMode?: "standard") {
   let log: SmsLog = {
     id: uid("sm"),
     at: new Date().toISOString(),
@@ -311,7 +312,7 @@ async function postSms(phone: string, text: string, event: string, bodyId: strin
     detail: "ارسال انجام نشد",
   };
   try {
-    const data = await phpApi.sendSms({ to: phone, text, bodyId, event, ...(bodyId ? { variables } : {}) });
+    const data = await phpApi.sendSms({ to: phone, text, bodyId, event, ...(bodyId ? { variables } : {}), ...(testMode ? { testMode } : {}) });
     log = { ...log, ok: data.sent, detail: data.detail };
   } catch (err) {
     log = { ...log, detail: err instanceof Error ? err.message : "خطا در ارسال پیامک" };
