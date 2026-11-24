@@ -1,11 +1,11 @@
 <?php
 // Route module loaded in the API dispatcher scope to preserve shared request context.
-function threefood_sms_gateway_read(PDO $pdo, array $fallback): array {
+function threefood_sms_gateway_read(PDO $pdo, array $fallback, string $appKey): array {
     $row = $pdo->query("SELECT payload FROM pos_records WHERE resource='system_meta' AND id='sms_gateway_config' LIMIT 1")->fetchColumn();
     if (is_string($row) && $row !== '') {
         $stored = json_decode($row, true);
         if (is_array($stored) && ($stored['version'] ?? 0) === 1 && function_exists('openssl_decrypt')) {
-            $key = hash('sha256', (string)($GLOBALS['config']['app_key'] ?? ''), true);
+            $key = hash('sha256', $appKey, true);
             $plain = openssl_decrypt(
                 base64_decode((string)($stored['ciphertext'] ?? ''), true) ?: '',
                 'aes-256-gcm',
@@ -32,11 +32,11 @@ function threefood_sms_gateway_read(PDO $pdo, array $fallback): array {
     ];
 }
 
-function threefood_sms_gateway_save(PDO $pdo, array $config, int $actorId): void {
+function threefood_sms_gateway_save(PDO $pdo, array $gateway, array $config, int $actorId): void {
     if (!function_exists('openssl_encrypt')) throw new RuntimeException('sms_encryption_unavailable');
     $key = hash('sha256', (string)($config['app_key'] ?? ''), true);
     $iv = random_bytes(12);
-    $plain = json_encode($GLOBALS['threefood_sms_gateway_write'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    $plain = json_encode($gateway, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
     $tag = '';
     $cipher = openssl_encrypt($plain, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, '3food-sms-gateway-v1');
     if (!is_string($cipher)) throw new RuntimeException('sms_encryption_failed');
@@ -149,7 +149,7 @@ if ($method === 'GET' && $path === '/reports/summary') {
 
 if ($path === '/sms/settings' && $method === 'GET') {
     require_role($pdo, ['manager']);
-    $gateway = threefood_sms_gateway_read($pdo, $config['sms'] ?? []);
+    $gateway = threefood_sms_gateway_read($pdo, $config['sms'] ?? [], (string)($config['app_key'] ?? ''));
     json_response(['ok'=>true,'enabled'=>(bool)($gateway['enabled']??false),'mode'=>in_array($gateway['mode']??'standard',['standard','smart_sms'],true)?$gateway['mode']:'standard','username'=>(string)($gateway['username']??''),'hasApiKey'=>trim((string)($gateway['apiKey']??''))!=='','sender'=>(string)($gateway['sender']??''),'senderSupportOne'=>(string)($gateway['senderSupportOne']??''),'senderSupportTwo'=>(string)($gateway['senderSupportTwo']??''),'inboxLocation'=>(string)($gateway['inboxLocation']??''),'inboxFrom'=>(string)($gateway['inboxFrom']??''),'inboxConfigured'=>is_numeric($gateway['inboxLocation']??null)]);
 }
 if ($path === '/sms/settings' && $method === 'POST') {
@@ -171,16 +171,14 @@ if ($path === '/sms/settings' && $method === 'POST') {
         strlen($username)>120 || strlen($apiKey)>500 || strlen($sender)>40 || strlen($supportOne)>40 || strlen($supportTwo)>40 || ($inboxLocation!=='' && (!ctype_digit($inboxLocation) || (int)$inboxLocation>99)) || strlen($inboxFrom)>40) {
         json_response(['ok'=>false,'error'=>'invalid_sms_settings','message'=>'نام کاربری، کلید API، سرشماره یا حالت ارسال معتبر نیست'],422);
     }
-    $GLOBALS['threefood_sms_gateway_write'] = ['enabled'=>$enabled,'mode'=>$mode,'username'=>$username,'apiKey'=>$apiKey,'sender'=>$sender,'senderSupportOne'=>$supportOne,'senderSupportTwo'=>$supportTwo,'inboxLocation'=>$inboxLocation,'inboxFrom'=>$inboxFrom];
+    $newGateway = ['enabled'=>$enabled,'mode'=>$mode,'username'=>$username,'apiKey'=>$apiKey,'sender'=>$sender,'senderSupportOne'=>$supportOne,'senderSupportTwo'=>$supportTwo,'inboxLocation'=>$inboxLocation,'inboxFrom'=>$inboxFrom];
     try {
-        threefood_sms_gateway_save($pdo, $config, (int)$actor['id']);
+        threefood_sms_gateway_save($pdo, $newGateway, $config, (int)$actor['id']);
         audit($pdo, (int)$actor['id'], 'sms_gateway_settings_updated', 'sms', null, ['enabled'=>$enabled,'mode'=>$mode,'username_set'=>$username!=='','api_key_set'=>$apiKey!=='']);
         json_response(['ok'=>true,'saved'=>true,'hasApiKey'=>$apiKey!=='']);
     } catch (Throwable $e) {
         error_log('[3Food POS] SMS settings save failed: '.$e->getMessage());
         json_response(['ok'=>false,'error'=>'sms_settings_save_failed','message'=>'ذخیره امن تنظیمات پیامک انجام نشد'],500);
-    } finally {
-        unset($GLOBALS['threefood_sms_gateway_write']);
     }
 }
 
@@ -196,7 +194,7 @@ if ($method === 'POST' && $path === '/sms/birthday-sync') {
     $from = trim((string)($sms['inbox_from'] ?? ''));
     $index = trim((string)($sms['inbox_index'] ?? '1'));
     $count = (int)($sms['inbox_count'] ?? 50);
-    if (empty($sms['enabled']) && ($sms['provider'] ?? 'none') !== 'national_payamak' || $username === '' || $password === ''
+    if (empty($sms['enabled']) || $username === '' || $password === ''
         || !is_numeric($location) || (int)$location < 0 || (int)$location > 99
         || !preg_match('/^[0-9]{1,12}$/D', $index) || $count < 1 || $count > 100) {
         json_response(['ok' => false, 'error' => 'sms_inbox_not_configured', 'message' => 'تنظیم صندوق ورودی پیامک در تنظیمات فروشگاه کامل نیست'], 503);
