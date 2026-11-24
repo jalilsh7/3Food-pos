@@ -261,13 +261,15 @@ export const phpApi = {
       body: input,
     }),
 
-  sendSms: (input: { to: string; text: string; bodyId?: string }) =>
+  sendSms: (input: { to: string; text: string; bodyId?: string; variables?: string[] }) =>
     request<ApiEnvelope<{ sent: boolean; detail: string }>>("/sms/send", {
       method: "POST",
       csrf: true,
       body: input,
     }),
 
+  getSmsGatewaySettings: () => request<ApiEnvelope<{enabled:boolean;mode:"standard"|"smart_sms";username:string;hasApiKey:boolean;sender:string;senderSupportOne:string;senderSupportTwo:string;inboxConfigured:boolean}>>("/sms/settings"),
+  saveSmsGatewaySettings: (input:{enabled:boolean;mode:"standard"|"smart_sms";username:string;apiKey?:string;sender:string;senderSupportOne?:string;senderSupportTwo?:string}) => request<ApiEnvelope<{saved:boolean;hasApiKey:boolean}>>("/sms/settings",{method:"POST",csrf:true,body:input}),
   syncBirthdaySmsInbox: () =>
     request<ApiEnvelope<{ received: number; processed: number; duplicates: number; birthdays_saved: number; unmatched: number; ignored: number }>>("/sms/birthday-sync", {
       method: "POST",
