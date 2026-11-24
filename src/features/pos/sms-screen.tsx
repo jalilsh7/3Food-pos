@@ -143,8 +143,19 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
       </Card>
       <Card>
         <h3 className="mb-2 font-semibold">لاگ ارسال</h3>
-        {logs.length === 0 ? <Empty text="ارسالی ثبت نشده" /> : logs.slice(0, 20).map((l) => (
-          <p key={l.id} className="border-b border-line py-2 text-sm"><span className={l.ok ? "text-leaf" : "text-warn"}>{l.ok ? "موفق" : "ناموفق"}</span> — {l.to} — {l.detail}</p>
+        {logs.length === 0 ? <Empty text="ارسالی ثبت نشده" /> : logs.slice(0, 50).map((l) => (
+          <details key={l.id} className="border-b border-line py-2 text-sm">
+            <summary className="cursor-pointer"><span className={l.ok ? "text-leaf" : "text-warn"}>{l.ok ? "پذیرفته‌شده" : "ناموفق/نامشخص"}</span> — {l.to} — {new Date(l.at).toLocaleString("fa-IR",{timeZone:"Asia/Tehran"})} — {l.detail}</summary>
+            <div className="mt-2 space-y-1 rounded-lg bg-muted/20 p-2 text-xs">
+              <p>رویداد: {EVENT_LABEL[l.event as SmsEvent] ?? l.event} · روش: {l.mode ?? "نامشخص"} · HTTP: {l.httpStatus ?? "نامشخص"}</p>
+              {l.bodyId ? <p>شناسه الگو: {l.bodyId}</p> : null}
+              {l.variables?.length ? <p>متغیرها: {l.variables.join(";")}</p> : null}
+              {l.text ? <p className="break-words">متن: {l.text}</p> : null}
+              {l.providerEndpoint ? <p>مسیر سرویس: {l.providerEndpoint}</p> : null}
+              {l.providerResponse ? <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-surface p-2" dir="ltr">{l.providerResponse}</pre> : <p>پاسخ خام سرویس در دسترس نیست؛ {l.detail}</p>}
+              <p className="text-muted">پذیرش درخواست به معنی تحویل قطعی به گوشی نیست.</p>
+            </div>
+          </details>
         ))}
       </Card>
     </div>
