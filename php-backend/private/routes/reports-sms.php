@@ -23,7 +23,8 @@ function threefood_sms_gateway_read(PDO $pdo, array $fallback, string $appKey): 
         'enabled' => (($fallback['provider'] ?? 'none') === 'national_payamak'),
         'mode' => 'standard',
         'username' => (string)($fallback['username'] ?? ''),
-        'apiKey' => (string)($fallback['password'] ?? ''),
+        'apiKey' => (string)($fallback['api_key'] ?? ''),
+        'password' => (string)($fallback['password'] ?? ''),
         'sender' => (string)($fallback['sender'] ?? ''),
         'senderSupportOne' => '',
         'senderSupportTwo' => '',
@@ -150,7 +151,7 @@ if ($method === 'GET' && $path === '/reports/summary') {
 if ($path === '/sms/settings' && $method === 'GET') {
     require_role($pdo, ['manager']);
     $gateway = threefood_sms_gateway_read($pdo, $config['sms'] ?? [], (string)($config['app_key'] ?? ''));
-    json_response(['ok'=>true,'enabled'=>(bool)($gateway['enabled']??false),'mode'=>in_array($gateway['mode']??'standard',['standard','smart_sms'],true)?$gateway['mode']:'standard','username'=>(string)($gateway['username']??''),'hasApiKey'=>trim((string)($gateway['apiKey']??''))!=='','sender'=>(string)($gateway['sender']??''),'senderSupportOne'=>(string)($gateway['senderSupportOne']??''),'senderSupportTwo'=>(string)($gateway['senderSupportTwo']??''),'inboxLocation'=>(string)($gateway['inboxLocation']??''),'inboxFrom'=>(string)($gateway['inboxFrom']??''),'inboxConfigured'=>is_numeric($gateway['inboxLocation']??null)]);
+    json_response(['ok'=>true,'enabled'=>(bool)($gateway['enabled']??false),'mode'=>in_array($gateway['mode']??'standard',['standard','smart_sms'],true)?$gateway['mode']:'standard','username'=>(string)($gateway['username']??''),'hasApiKey'=>trim((string)($gateway['apiKey']??''))!=='','hasPassword'=>trim((string)($gateway['password']??''))!=='','sender'=>(string)($gateway['sender']??''),'senderSupportOne'=>(string)($gateway['senderSupportOne']??''),'senderSupportTwo'=>(string)($gateway['senderSupportTwo']??''),'inboxLocation'=>(string)($gateway['inboxLocation']??''),'inboxFrom'=>(string)($gateway['inboxFrom']??''),'inboxConfigured'=>is_numeric($gateway['inboxLocation']??null)]);
 }
 if ($path === '/sms/settings' && $method === 'POST') {
     $actor = require_role($pdo, ['manager']);
@@ -162,19 +163,21 @@ if ($path === '/sms/settings' && $method === 'POST') {
     $username = trim((string)($body['username'] ?? ''));
     $apiKey = trim((string)($body['apiKey'] ?? ''));
     if ($apiKey === '') $apiKey = (string)($old['apiKey'] ?? '');
+    $password = trim((string)($body['password'] ?? ''));
+    if ($password === '') $password = (string)($old['password'] ?? '');
     $sender = trim((string)($body['sender'] ?? ''));
     $supportOne = trim((string)($body['senderSupportOne'] ?? ''));
     $supportTwo = trim((string)($body['senderSupportTwo'] ?? ''));
     $inboxLocation = trim((string)($body['inboxLocation'] ?? ($old['inboxLocation'] ?? '')));
     $inboxFrom = trim((string)($body['inboxFrom'] ?? ($old['inboxFrom'] ?? '')));
-    if (!in_array($mode, ['standard','smart_sms'], true) || ($enabled && ($username === '' || $apiKey === '' || $sender === '')) ||
-        strlen($username)>120 || strlen($apiKey)>500 || strlen($sender)>40 || strlen($supportOne)>40 || strlen($supportTwo)>40 || ($inboxLocation!=='' && (!ctype_digit($inboxLocation) || (int)$inboxLocation>99)) || strlen($inboxFrom)>40) {
+    if (!in_array($mode, ['standard','smart_sms'], true) || ($enabled && ($username === '' || ($apiKey === '' && $password === '') || $sender === '')) ||
+        strlen($username)>120 || strlen($apiKey)>500 || strlen($password)>500 || strlen($sender)>40 || strlen($supportOne)>40 || strlen($supportTwo)>40 || ($inboxLocation!=='' && (!ctype_digit($inboxLocation) || (int)$inboxLocation>99)) || strlen($inboxFrom)>40) {
         json_response(['ok'=>false,'error'=>'invalid_sms_settings','message'=>'نام کاربری، کلید API، سرشماره یا حالت ارسال معتبر نیست'],422);
     }
-    $newGateway = ['enabled'=>$enabled,'mode'=>$mode,'username'=>$username,'apiKey'=>$apiKey,'sender'=>$sender,'senderSupportOne'=>$supportOne,'senderSupportTwo'=>$supportTwo,'inboxLocation'=>$inboxLocation,'inboxFrom'=>$inboxFrom];
+    $newGateway = ['enabled'=>$enabled,'mode'=>$mode,'username'=>$username,'apiKey'=>$apiKey,'password'=>$password,'sender'=>$sender,'senderSupportOne'=>$supportOne,'senderSupportTwo'=>$supportTwo,'inboxLocation'=>$inboxLocation,'inboxFrom'=>$inboxFrom];
     try {
         threefood_sms_gateway_save($pdo, $newGateway, $config, (int)$actor['id']);
-        audit($pdo, (int)$actor['id'], 'sms_gateway_settings_updated', 'sms', null, ['enabled'=>$enabled,'mode'=>$mode,'username_set'=>$username!=='','api_key_set'=>$apiKey!=='']);
+        audit($pdo, (int)$actor['id'], 'sms_gateway_settings_updated', 'sms', null, ['enabled'=>$enabled,'mode'=>$mode,'username_set'=>$username!=='','api_key_set'=>$apiKey!=='','password_set'=>$password!=='']);
         json_response(['ok'=>true,'saved'=>true,'hasApiKey'=>$apiKey!=='']);
     } catch (Throwable $e) {
         error_log('[3Food POS] SMS settings save failed: '.$e->getMessage());
@@ -189,7 +192,9 @@ if ($method === 'POST' && $path === '/sms/birthday-sync') {
     $sms['inbox_location'] = $sms['inboxLocation'] ?? ($sms['inbox_location'] ?? null);
     $sms['inbox_from'] = $sms['inboxFrom'] ?? ($sms['inbox_from'] ?? '');
     $username = trim((string)($sms['username'] ?? ''));
-    $password = trim((string)($sms['apiKey'] ?? ($sms['password'] ?? '')));
+    $password = trim((string)($sms['password'] ?? ''));
+    $apiKey = trim((string)($sms['apiKey'] ?? ''));
+    if ($apiKey !== '') $password = $apiKey;
     $location = $sms['inbox_location'] ?? null;
     $from = trim((string)($sms['inbox_from'] ?? ''));
     $index = trim((string)($sms['inbox_index'] ?? '1'));
@@ -348,7 +353,7 @@ if ($method === 'POST' && $path === '/sms/send') {
     $apiKey = trim((string)($gateway['apiKey'] ?? ''));
     $sender = trim((string)($gateway['sender'] ?? ''));
     $mode = (string)($gateway['mode'] ?? 'standard');
-    if (empty($gateway['enabled']) || $username === '' || $apiKey === '' || (!$bodyId && $sender === '')) {
+    if (empty($gateway['enabled']) || $username === '' || (!$bodyId && $sender === '') || ($bodyId && $apiKey === '') || ($mode === 'smart_sms' && $apiKey === '') || ($mode === 'standard' && !$bodyId && $password === '')) {
         json_response(['ok' => false, 'error' => 'sms_not_configured', 'message' => 'سرویس پیامک در تنظیمات فروشگاه فعال یا کامل نشده است'], 503);
     }
     if ($bodyId !== '') {
@@ -373,7 +378,7 @@ if ($method === 'POST' && $path === '/sms/send') {
         if (trim((string)($gateway['senderSupportTwo'] ?? '')) !== '') $fields['fromSupportTwo'] = trim((string)$gateway['senderSupportTwo']);
     } else {
         $endpoint = 'https://rest.payamak-panel.com/api/SendSMS/SendSMS';
-        $fields = ['username'=>$username,'password'=>$apiKey,'to'=>$to,'from'=>$sender,'text'=>$message,'isFlash'=>'false'];
+        $fields = ['username'=>$username,'password'=>$password,'to'=>$to,'from'=>$sender,'text'=>$message,'isFlash'=>'false'];
     }
     $context = stream_context_create(['http'=>[
         'method'=>'POST',
