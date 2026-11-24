@@ -286,9 +286,14 @@ async function pushSms(event: SmsEvent, phone: string, vars: Record<string, stri
   const s = usePos.getState();
   const tpl = s.templates.find((t) => t.event === event);
   if (!tpl?.enabled || !phone) return;
+  // Status notifications are service-template only: never fall back to free text.
+  if (!tpl.bodyId || !Array.isArray(tpl.variables)) {
+    await postSms(phone, "", event, "", []);
+    return;
+  }
   const values = { ...vars, shop: s.settings.shopName };
   const text = fillTemplate(tpl.body, values);
-  const variables = tpl.variables?.map((key) => values[key] ?? "") ?? [];
+  const variables = tpl.variables.map((key) => values[key] ?? "");
   await postSms(phone, text, event, tpl.bodyId, variables);
 }
 
@@ -309,7 +314,7 @@ async function postSms(phone: string, text: string, event: string, bodyId: strin
     detail: "ارسال انجام نشد",
   };
   try {
-    const data = await phpApi.sendSms({ to: phone, text, bodyId, ...(bodyId ? { variables } : {}) });
+    const data = await phpApi.sendSms({ to: phone, text, bodyId, event, ...(bodyId ? { variables } : {}) });
     log = { ...log, ok: data.sent, detail: data.detail };
   } catch (err) {
     log = { ...log, detail: err instanceof Error ? err.message : "خطا در ارسال پیامک" };
