@@ -339,7 +339,7 @@ function PosScreen({ role }: { role: Role }) {
   const [productQuery, setProductQuery] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [phone, setPhone] = useState("");
-  const [guestName, setGuestName] = useState("مشتری عزیز");
+  const [guestName, setGuestName] = useState(usePos.getState().settings.defaultCustomerLabel || "مشتری عزیز");
   const [code, setCode] = useState("");
   const [points, setPoints] = useState(0);
   const [pay, setPay] = useState<Order["payment"]>("cash");
@@ -380,7 +380,7 @@ function PosScreen({ role }: { role: Role }) {
   function updateCustomerPhone(value: string) {
     setPhone(value);
     const matched = customers.find((item) => normalizeIranPhone(item.phone) === normalizeIranPhone(value));
-    setGuestName(matched?.name || "مشتری عزیز");
+    setGuestName(matched?.name || settings.defaultCustomerLabel || "مشتری عزیز");
   }
   const uses = customer && code ? customerCodeUses(orders, customer.id, code) : 0;
   const q = quoteOrder({ lines: cart, customer, code, discounts, pointsToUse: points, taxPercent: settings.taxPercent, taxEnabled: settings.taxEnabled, tomanPerPoint: settings.tomanPerPoint, usesSoFar: uses, settings });
@@ -484,7 +484,7 @@ function PosScreen({ role }: { role: Role }) {
         } else {
           const createdCustomer = {
             id: uid("cu"),
-            name: guestName.trim() || "مشتری عزیز",
+            name: guestName.trim() || settings.defaultCustomerLabel || "مشتری عزیز",
             phone: normalizedPhone,
             points: 0,
             birthday: "",
@@ -558,7 +558,7 @@ function PosScreen({ role }: { role: Role }) {
       pendingTerminalPayment.current = null;
       pendingTerminalRequest.current = null;
       setMsg(`سفارش ${order.number.toLocaleString("fa-IR")} ثبت شد`);
-      setCart([]); setPhone(""); setGuestName("مشتری عزیز"); setCode(""); setPoints(0); setSendInvoiceSms(null); setPrinted(order);
+      setCart([]); setPhone(""); setGuestName(settings.defaultCustomerLabel || "مشتری عزیز"); setCode(""); setPoints(0); setSendInvoiceSms(null); setPrinted(order);
       const fresh = usePos.getState().customers.find((c) => c.id === order.customerId);
       const vars = orderVars(order, String(fresh?.points ?? 0));
       void pushSms("order_created", order.customerPhone, vars);
@@ -634,7 +634,7 @@ function PosScreen({ role }: { role: Role }) {
           ))}
         </ul>
         <div className="mt-3 space-y-2">
-          <Field label="نام مشتری"><input className={inputCls} value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="مشتری عزیز" /></Field>
+          <Field label="نام مشتری"><input className={inputCls} value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder={settings.defaultCustomerLabel || "مشتری عزیز"} /></Field>
           <Field label="موبایل مشتری"><input className={inputCls} value={phone} onChange={(e) => updateCustomerPhone(e.target.value)} placeholder="0912..." /></Field>
           {customer ? (
             <p className="rounded-xl bg-leaf-ink px-3 py-2 text-sm text-leaf">{TIER_LABEL[tierOf(customer.points,settings)]} ({customer.points.toLocaleString("fa-IR")} امتیاز، تخفیف {(tierOf(customer.points,settings)==="silver"?settings.loyaltySilverDiscount??3:tierOf(customer.points,settings)==="gold"?settings.loyaltyGoldDiscount??5:tierOf(customer.points,settings)==="platinum"?settings.loyaltyPlatinumDiscount??8:0).toLocaleString("fa-IR")}٪)</p>
