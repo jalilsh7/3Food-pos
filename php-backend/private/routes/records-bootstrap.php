@@ -556,8 +556,8 @@ if (preg_match('#^/records/([a-z_]+)$#', $path, $m)) {
         if ($resource === 'ingredients') {
             $recipeUsage = $pdo->prepare("SELECT 1 FROM pos_records WHERE resource = 'products' AND (JSON_SEARCH(payload, 'one', ?, NULL, '$.recipe[*].ingredientId') IS NOT NULL OR JSON_SEARCH(payload, 'one', ?, NULL, '$.options[*].ingredientId') IS NOT NULL) LIMIT 1");
             $recipeUsage->execute([$id, $id]);
-            $ledgerUsage = $pdo->prepare("SELECT 1 FROM pos_records WHERE resource = 'supplier_purchases' AND JSON_UNQUOTE(JSON_EXTRACT(payload, '$.ingredientId')) = ? LIMIT 1");
-            $ledgerUsage->execute([$id]);
+            $ledgerUsage = $pdo->prepare("SELECT 1 FROM pos_records WHERE resource = 'supplier_purchases' AND (JSON_UNQUOTE(JSON_EXTRACT(payload, '$.ingredientId')) = ? OR JSON_SEARCH(payload, 'one', ?, NULL, '$.items[*].ingredientId') IS NOT NULL) LIMIT 1");
+            $ledgerUsage->execute([$id, $id]);
             $orderUsage = $pdo->prepare("SELECT 1 FROM pos_order_effects WHERE effect_type = 'ingredient' AND resource_id = ? LIMIT 1");
             $orderUsage->execute([$id]);
             if ($recipeUsage->fetchColumn() !== false || $ledgerUsage->fetchColumn() !== false || $orderUsage->fetchColumn() !== false) {
