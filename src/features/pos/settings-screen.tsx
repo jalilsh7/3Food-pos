@@ -154,7 +154,7 @@ export function SettingsScreen({ saveRecord }: { saveRecord: <T extends { id: st
 
 type SmsGatewayForm = {
   enabled: boolean;
-    username: string;
+  username: string;
   apiKey: string;
   sender: string;
   inboxLocation: string;
