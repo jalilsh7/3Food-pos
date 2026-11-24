@@ -406,7 +406,7 @@ if ($method === 'POST' && $path === '/sms/send') {
     if ($testMode !== '' && !$standardTest) {
         json_response(['ok'=>false,'error'=>'invalid_sms_test_mode','message'=>'حالت تست فقط برای ارسال دستی از خط اختصاصی عادی مجاز است'],422);
     }
-    $statusEvents = ['order_created','order_preparing','order_ready','order_delivered','order_cancelled'];
+    $statusEvents = ['order_created','order_preparing','order_ready','order_delivered','order_cancelled','order_invoice'];
     if (!preg_match('/^\\+?[0-9]{10,15}$/D', $to)) {
         json_response(['ok'=>false,'error'=>'invalid_sms_recipient','message'=>'شماره موبایل معتبر نیست'],422);
     }
@@ -483,7 +483,7 @@ if ($method === 'POST' && $path === '/sms/send') {
             $accepted = $numeric > 0;
         }
         audit($pdo, (int)$actor['id'], 'sms_sent', 'sms', null, ['to'=>$to,'ok'=>$accepted,'mode'=>$bodyId!==''?'shared_service':($standardTest?'standard_test':'standard'),'body_id'=>$bodyId!==''?$bodyId:null,'event'=>$event]);
-        json_response(['ok'=>true,'sent'=>$accepted,'detail'=>$accepted?'پذیرش درخواست ارسال توسط سرویس ثبت شد':('پاسخ سرویس: '.substr($rawValue,0,180))]);
+        json_response(['ok'=>true,'sent'=>$accepted,'detail'=>$accepted?'پذیرش درخواست ارسال توسط سرویس ثبت شد':('پاسخ سرویس: '.substr($rawValue,0,180)),'providerResponse'=>$rawValue,'httpStatus'=>isset($http_response_header[0])?(int)preg_replace('/^HTTP\\/\\S+\\s+(\\d{3}).*/','$1',$http_response_header[0]):null,'providerEndpoint'=>$bodyId!==''?'BaseServiceNumber':'SendSMS','mode'=>$bodyId!==''?'shared_service':'standard','bodyId'=>$bodyId!==''?$bodyId:null,'variableCount'=>count($variables)]);
     } catch (Throwable $e) {
         error_log('[3Food POS] SMS provider request failed: '.$e->getMessage());
         json_response(['ok'=>false,'error'=>'sms_provider_unavailable','message'=>'ارتباط با سرویس پیامک برقرار نشد؛ وضعیت درخواست نامشخص است و ارسال مجدد خودکار انجام نشد'],502);
