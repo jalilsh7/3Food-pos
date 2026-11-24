@@ -7,7 +7,7 @@ import { normalizeIranPhone, tehranDate } from "@/lib/pos/formatters";
 
 const INITIAL_RENDER_TIME = Date.now();
 const EVENT_LABEL: Record<SmsEvent, string> = {
-  order_created: "ثبت سفارش", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_delivered: "تحویل",
+  order_created: "ثبت سفارش", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_delivered: "تحویل", order_cancelled: "لغو سفارش",
   points_earned: "کسب امتیاز", discount_used: "استفاده از کد",
 };
 
@@ -30,7 +30,7 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
   const [campaignProgress,setCampaignProgress]=useState("");
   const [campaignClock,setCampaignClock]=useState(INITIAL_RENDER_TIME);
   useEffect(() => {
-    const defaults: SmsEvent[] = ["order_created","order_preparing","order_ready","order_delivered","points_earned","discount_used"];
+    const defaults: SmsEvent[] = ["order_created","order_preparing","order_ready","order_delivered","order_cancelled","points_earned","discount_used"];
     const existing = new Set(usePos.getState().templates.map((item) => item.event));
     for (const event of defaults) {
       if (existing.has(event)) continue;
