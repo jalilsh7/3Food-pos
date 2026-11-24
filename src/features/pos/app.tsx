@@ -1091,6 +1091,7 @@ function StockScreen() {
   const ingredients = usePos((s) => s.ingredients);
   const saveIngredient = usePos((s) => s.saveIngredient);
   const lows = lowStock(ingredients);
+  const stockValue = ingredients.reduce((sum, item) => sum + Math.max(0, Number(item.stock) || 0) * Math.max(0, Number(item.costPerUnit) || 0), 0);
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("عدد");
   const [minimumStock, setMinimumStock] = useState("5");
@@ -1105,7 +1106,12 @@ function StockScreen() {
   }
   return (
     <div className="space-y-3">
-      <PageHeading title="انبار مواد اولیه" description="موجودی، حد هشدار و تغییرات روزانه مواد اولیه را کنترل کنید." />
+      <PageHeading title="انبار مواد اولیه" description="موجودی، حد هشدار، بهای مواد و خریدهای تأمین‌کنندگان را یکجا مدیریت کنید." />
+      <div className="grid gap-2 sm:grid-cols-3">
+        <Card><p className="text-xs text-muted">تعداد اقلام انبار</p><p className="mt-1 text-xl font-extrabold">{ingredients.length.toLocaleString("fa-IR")}</p></Card>
+        <Card><p className="text-xs text-muted">اقلام نیازمند شارژ</p><p className={`mt-1 text-xl font-extrabold ${lows.length ? "text-warn" : "text-leaf"}`}>{lows.length.toLocaleString("fa-IR")}</p></Card>
+        <Card><p className="text-xs text-muted">ارزش تقریبی موجودی (تومان)</p><p className="mt-1 text-xl font-extrabold">{money(stockValue)}</p></Card>
+      </div>
       {lows.length ? <Card className="bg-warn-bg text-warn">کمبود: {lows.map((i) => i.name).join("، ")}</Card> : <p className="text-sm text-leaf">موجودی بالای حد هشدار است.</p>}
       <form className="grid gap-2 sm:grid-cols-4" onSubmit={(e) => {
         e.preventDefault();
