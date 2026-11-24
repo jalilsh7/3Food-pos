@@ -7,14 +7,14 @@ import { normalizeIranPhone, tehranDate } from "@/lib/pos/formatters";
 
 const INITIAL_RENDER_TIME = Date.now();
 const EVENT_LABEL: Record<SmsEvent, string> = {
-  order_created: "ثبت سفارش", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_delivered: "تحویل", order_cancelled: "لغو سفارش",
+  order_created: "ثبت سفارش", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_delivered: "تحویل", order_cancelled: "لغو سفارش", order_invoice: "ریز فاکتور",
   points_earned: "کسب امتیاز", discount_used: "استفاده از کد",
 };
 
 export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: string, text: string) => Promise<boolean>; saveCentralRecord: <T extends { id: string | number }>(resource: string, item: T, commit: () => void) => Promise<boolean> }) {
   const allTemplates = usePos((s) => s.templates);
   const templates = useMemo(() => {
-    const events: SmsEvent[] = ["order_created", "order_preparing", "order_ready", "order_delivered", "order_cancelled"];
+    const events: SmsEvent[] = ["order_created", "order_preparing", "order_ready", "order_delivered", "order_cancelled", "order_invoice"];
     return events.map((event) => allTemplates.find((item) => item.event === event) ?? {
       id: event, event, enabled: false, body: "", bodyId: "", variables: [],
     });
@@ -74,9 +74,9 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
           <p className="mt-2 text-xs text-muted">برای این وضعیت هیچ متن آزاد یا روش ارسال جایگزینی استفاده نمی‌شود.</p>
           <Field label="شناسه الگوی خدماتی تأییدشده"><input className={inputCls} value={t.bodyId} onChange={(e) => saveTemplate({ ...t, bodyId: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} /></Field>
           <Field label="ترتیب متغیرهای الگوی خدماتی">
-            <input className={inputCls} placeholder="name,order,total,shop" value={(t.variables ?? []).join(",")} onChange={(e) => saveTemplate({ ...t, variables: e.target.value.split(",").map((v) => v.trim()).filter(Boolean) })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
+            <input className={inputCls} placeholder="name;order;total;shop" value={(t.variables ?? []).join(";")} onChange={(e) => saveTemplate({ ...t, variables: e.target.value.split(";").map((v) => v.trim()).filter(Boolean) })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
           </Field>
-          <p className="text-xs text-muted">کلیدهای قابل استفاده: name، order، total، points، code، balance، shop. ترتیب را دقیقاً مطابق متغیرهای الگوی تأییدشده پنل ملی‌پیامک وارد کنید؛ فقط مقادیر متغیرها ارسال می‌شوند.</p>
+          <p className="text-xs text-muted">کلیدهای قابل استفاده: name، order، total، points، code، balance، shop. برای جدا کردن متغیرها حتماً از علامت ; استفاده کنید (مثال: name;order;total;shop). ترتیب را دقیقاً مطابق الگوی تأییدشده پنل ملی‌پیامک وارد کنید؛ فقط مقادیر متغیرها ارسال می‌شوند.</p>
         </Card>
       ))}
       <Card>
