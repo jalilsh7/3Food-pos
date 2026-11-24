@@ -173,6 +173,7 @@ function SmsGatewaySettingsPanel() {
   const [testText,setTestText]=useState("پیام آزمایشی اتصال سامانه فروشگاهی 3Food");
   const [busy,setBusy]=useState(false);
   const [note,setNote]=useState("");
+  const [connectionState,setConnectionState]=useState<"unknown"|"saved"|"connected"|"failed">("unknown");
   useEffect(()=>{
     let active=true;
     void phpApi.getSmsGatewaySettings().then(result=>{
@@ -180,6 +181,7 @@ function SmsGatewaySettingsPanel() {
       setForm(current=>({...current,enabled:result.enabled,mode:result.mode,username:result.username,sender:result.sender,senderSupportOne:result.senderSupportOne,senderSupportTwo:result.senderSupportTwo,inboxLocation:result.inboxLocation,inboxFrom:result.inboxFrom}));
       setHasApiKey(result.hasApiKey);
       setHasPassword(result.hasPassword);
+      setConnectionState(result.enabled ? "saved" : "unknown");
     }).catch(error=>{if(active)setNote(error instanceof Error?error.message:"بارگذاری تنظیمات پیامک انجام نشد.");});
     return()=>{active=false;};
   },[]);
@@ -194,6 +196,7 @@ function SmsGatewaySettingsPanel() {
         inboxLocation:form.inboxLocation,inboxFrom:form.inboxFrom,
       });
       setHasApiKey(result.hasApiKey);setHasPassword(result.hasPassword);setForm(current=>({...current,apiKey:"",password:""}));
+      setConnectionState("saved");
       setNote("تنظیمات پیامک به‌صورت رمزگذاری‌شده ذخیره شد؛ اتصال هنوز تأیید نشده است. برای تأیید، پیام آزمایشی ارسال کنید.");
     }catch(error){setNote(error instanceof Error?error.message:"ذخیره تنظیمات پیامک انجام نشد.");}
     finally{setBusy(false);}
@@ -207,6 +210,7 @@ function SmsGatewaySettingsPanel() {
     setBusy(true);setNote("");
     try{
       const result=await phpApi.sendSms({to:testPhone.replace(/[^0-9]/g,""),text:testText.trim(),event:"manual",testMode:"standard"});
+      setConnectionState(result.sent ? "connected" : "failed");
       setNote(result.sent?"اتصال و ارسال از خط اختصاصی عادی تأیید شد؛ تحویل نهایی به گوشی را از گزارش ارسال بررسی کنید.":`اتصال/ارسال تأیید نشد: ${result.detail}`);
     }catch(error){setNote(error instanceof Error?error.message:"ارسال پیامک آزمایشی انجام نشد.");}
     finally{setBusy(false);}
@@ -215,6 +219,7 @@ function SmsGatewaySettingsPanel() {
     <div className="mb-2">
       <h3 className="font-semibold">اتصال پیامک ملی‌پیامک</h3>
       <p className="mt-1 text-xs text-muted">نام کاربری، رمز عبور و API Key فقط در سمت سرور و با رمزگذاری AES-256-GCM ذخیره می‌شوند؛ مقادیر محرمانه پس از ذخیره دوباره نمایش داده نمی‌شوند.</p>
+      <p className="mt-2 text-sm" role="status">{connectionState==="connected"?"وضعیت اتصال: تأییدشده با پاسخ موفق سرویس":connectionState==="saved"?"وضعیت اتصال: تنظیمات ذخیره شده؛ هنوز اتصال تأیید نشده":connectionState==="failed"?"وضعیت اتصال: آخرین آزمایش ناموفق بود":"وضعیت اتصال: هنوز بررسی نشده"}</p>
     </div>
     <div className="grid gap-3 sm:grid-cols-2">
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.enabled} onChange={e=>patch({enabled:e.target.checked})}/>ارسال پیامک فعال باشد</label>
