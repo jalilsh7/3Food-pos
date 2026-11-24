@@ -1,0 +1,106 @@
+name: Consolidate V2 onto main
+
+on:
+  push:
+    branches:
+      - feature/3food-pos-next-release-v2
+    paths:
+      - .github/workflows/v2-consolidate-main.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v2-consolidate-main
+  cancel-in-progress: false
+
+jobs:
+  consolidate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: feature/3food-pos-next-release-v2
+
+      - name: Rebuild main from V2 sources only
+        env:
+          SOURCE_BRANCH: feature/3food-pos-next-release-v2
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin main "${SOURCE_BRANCH}"
+          git checkout -B main origin/main
+
+          # Replace the old default-branch snapshot with the V2 source tree.
+          git rm -r -f . >/dev/null 2>&1 || true
+          git clean -fdx
+          git checkout "${SOURCE_BRANCH}" -- . \
+            ':!.github/workflows/v2-consolidate-main.yml' \
+            ':!.github/workflows/v3-*' \
+            ':!v3' \
+            ':!database/v3' \
+            ':!scripts/check-v3-*' \
+            ':!scripts/run-v3-*' \
+            ':!scripts/tamper-v3-*'
+
+          cat > README.md <<'EOF'
+          # 3Food POS — V2
+
+          نسخهٔ فعال و مبنای ادامهٔ توسعهٔ این مخزن، **V2** است. از این پس شاخهٔ `main` مرجع واحد تغییرات، اصلاحات و انتشارهای V2 خواهد بود.
+
+          ## معماری V2
+          - رابط کاربری: React 19، TypeScript و Vite به‌صورت SPA استاتیک.
+          - بک‌اند: API مبتنی بر PHP در `php-backend/public/api` با مسیر same-origin زیر `/api/v1`.
+          - پایگاه داده: MySQL با InnoDB؛ داده‌های عملیاتی از سمت سرور مدیریت می‌شوند.
+          - احراز هویت: نشست سمت PHP، کوکی امن HttpOnly و کنترل مجوزها در سرور.
+          - هاست مقصد: cPanel/LiteSpeed؛ روی هاست نهایی به Node.js نیاز نیست.
+          - بستهٔ استقرار: اجرای `npm run build:cpanel` خروجی استاتیک و بستهٔ ZIP قابل انتقال به cPanel را تولید و ممیزی می‌کند.
+
+          Node.js فقط برای نصب وابستگی‌ها، build و اجرای بررسی‌ها در محیط توسعه یا CI لازم است؛ اجرای روزمرهٔ برنامه روی هاست با PHP و MySQL انجام می‌شود.
+
+          ## ساختارهای اصلی
+          - `src/` — رابط کاربری و منطق سمت مرورگر
+          - `php-backend/` — API، تنظیمات خصوصی نمونه، مسیرها و schema/migrations مربوط به V2
+          - `database/` — فایل‌های دیتابیس موردنیاز V2
+          - `docs/v2/` — مستندات فنی، وضعیت پیاده‌سازی و راهنمای ادامهٔ توسعه
+          - `.github/workflows/` — گردش‌کارهای بررسی و بسته‌بندی V2
+
+          ## ادامهٔ توسعه
+          - شاخهٔ فعال: `main`
+          - تمام تغییرات بعدی V2 باید مستقیماً روی `main` انجام شوند؛ شاخه‌های قدیمی فقط سابقهٔ کار هستند و مبنای توسعهٔ جدید نیستند.
+          - پیش از هر تغییر، آخرین commit شاخهٔ `main` و فایل‌های مرتبط بررسی شوند.
+          - تغییرات V2 باید معماری PHP/MySQL و سازگاری با cPanel را حفظ کنند.
+          - کدهای محیط‌های قدیمی مانند Grok/App Builder، سرویس‌های احراز هویت میزبانی‌شده، PostgreSQL/PGLite و runtimeهای سمت سرور Node نباید به مسیر اجرای cPanel بازگردند.
+          - اطلاعات محرمانه مانند `private/config.php`، رمز دیتابیس، کلیدها و توکن‌ها نباید وارد Git شوند.
+          - هیچ تغییری روی هاست یا دیتابیس عملیاتی انجام نمی‌شود مگر با تأیید صریح مالک پروژه.
+
+          ## وضعیت پیامک
+          اتصال پیامک در بک‌اند PHP قرار دارد و اعتبارنامه‌ها باید فقط در تنظیمات خصوصی سرور نگهداری شوند. تکمیل و اعتبارسنجی تنظیمات قابل‌استفاده در پنل، ارسال عادی و خدماتی، رویدادهای پیامکی و کمپین‌ها همچنان جزو کارهای جاری V2 است؛ وجود endpoint یا کد پیامک به‌تنهایی به معنی تکمیل این قابلیت‌ها نیست.
+
+          ## بررسی و بسته‌بندی
+          ```bash
+          npm ci
+          npm run typecheck
+          npm test
+          npm run lint
+          npm run build:cpanel
+          ```
+          بررسی‌های PHP، دیتابیس و API نیز در workflow مربوط به PHP/MySQL تعریف شده‌اند. فقط بررسی‌هایی را موفق اعلام کنید که واقعاً روی commit موردنظر اجرا شده باشند.
+
+          ## مستندات
+          - [راهنمای تحویل و ادامهٔ توسعه](docs/v2/AI_HANDOFF_FA.md)
+          - [وضعیت پیاده‌سازی V2](docs/v2/IMPLEMENTATION-STATUS-FA.md)
+          - [ممیزی منبع PHP/MySQL](docs/v2/SOURCE-AUDIT-PHP-MYSQL-FA.md)
+          - [قرارداد کلاینت API PHP](docs/v2/php-api-client-contract.md)
+          EOF
+
+          if [ -f docs/v2/AI_HANDOFF_FA.md ]; then
+            sed -i 's/feature\/3food-pos-next-release-v2/main/g; s/migration\/php-mysql/main/g; s/cleanup\/remove-grok-dependencies/main/g' docs/v2/AI_HANDOFF_FA.md
+          fi
+          git add -A
+          git commit -m "chore(v2): make main the V2 source of truth"
+          git push origin HEAD:main
