@@ -1,5 +1,47 @@
 <?php
 // Route module loaded in the API dispatcher scope to preserve shared request context.
+function threefood_sms_gateway_read(PDO $pdo, array $fallback): array {
+    $row = $pdo->query("SELECT payload FROM pos_records WHERE resource='system_meta' AND id='sms_gateway_config' LIMIT 1")->fetchColumn();
+    if (is_string($row) && $row !== '') {
+        $stored = json_decode($row, true);
+        if (is_array($stored) && ($stored['version'] ?? 0) === 1 && function_exists('openssl_decrypt')) {
+            $key = hash('sha256', (string)($GLOBALS['config']['app_key'] ?? ''), true);
+            $plain = openssl_decrypt(
+                base64_decode((string)($stored['ciphertext'] ?? ''), true) ?: '',
+                'aes-256-gcm',
+                $key,
+                OPENSSL_RAW_DATA,
+                base64_decode((string)($stored['iv'] ?? ''), true) ?: '',
+                base64_decode((string)($stored['tag'] ?? ''), true) ?: '',
+                '3food-sms-gateway-v1'
+            );
+            $decoded = is_string($plain) ? json_decode($plain, true) : null;
+            if (is_array($decoded)) return $decoded;
+        }
+    }
+    return [
+        'enabled' => (($fallback['provider'] ?? 'none') === 'national_payamak'),
+        'mode' => 'standard',
+        'username' => (string)($fallback['username'] ?? ''),
+        'apiKey' => (string)($fallback['password'] ?? ''),
+        'sender' => (string)($fallback['sender'] ?? ''),
+        'senderSupportOne' => '',
+        'senderSupportTwo' => '',
+    ];
+}
+
+function threefood_sms_gateway_save(PDO $pdo, array $config, int $actorId): void {
+    if (!function_exists('openssl_encrypt')) throw new RuntimeException('sms_encryption_unavailable');
+    $key = hash('sha256', (string)($config['app_key'] ?? ''), true);
+    $iv = random_bytes(12);
+    $plain = json_encode($GLOBALS['threefood_sms_gateway_write'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    $tag = '';
+    $cipher = openssl_encrypt($plain, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, '3food-sms-gateway-v1');
+    if (!is_string($cipher)) throw new RuntimeException('sms_encryption_failed');
+    $payload = json_encode(['version'=>1,'iv'=>base64_encode($iv),'tag'=>base64_encode($tag),'ciphertext'=>base64_encode($cipher)], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    $stmt = $pdo->prepare("INSERT INTO pos_records (id,resource,payload,updated_by) VALUES ('sms_gateway_config','system_meta',?,?) ON DUPLICATE KEY UPDATE payload=VALUES(payload),updated_by=VALUES(updated_by)");
+    $stmt->execute([$payload, $actorId]);
+}
 if ($method === 'GET' && $path === '/reports/summary') {
     $actor = require_role($pdo, ['manager']);
     $tehranNow = new DateTimeImmutable('now', new DateTimeZone('Asia/Tehran'));
@@ -102,6 +144,41 @@ if ($method === 'GET' && $path === '/reports/summary') {
     json_response(['ok'=>true,'range'=>['from'=>$from,'to'=>$to],'sales'=>$sales,'orders'=>$count,'cancelled'=>$cancelled,'average_order'=>$count?intdiv($sales,$count):0,'tax_collected'=>$taxCollected,'discounts'=>$discountsTotal,'cost_of_goods'=>$cost,'expenses'=>$expenseTotal,'inventory_purchases'=>$inventoryPurchases,'gross_profit'=>$sales-$cost,'net_profit'=>$sales-$cost-$expenseTotal,'daily'=>array_map(static fn($d,$v)=>['date'=>$d,'sales'=>$v],array_keys($daily),array_values($daily)),'monthly'=>array_map(static fn($m,$v)=>['month'=>$m,'sales'=>$v],array_keys($monthly),array_values($monthly)),'payments'=>$byPayment,'products'=>array_slice(array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),0,100),'all_products'=>array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byProduct),array_values($byProduct)),'product_categories'=>array_map(static fn($name,$v)=>['name'=>$name]+$v,array_keys($byCategory),array_values($byCategory)),'expense_categories'=>$expenseGroups,'expense_items'=>$expenses,'inventory'=>['value'=>round($inventoryValue),'low_stock_count'=>count($lowStock)],'inventory_items'=>$allInventory,'inventory_consumption'=>$inventoryConsumption,'low_stock'=>$lowStock,'top_customers'=>array_slice($customerRows,0,20),'all_customers'=>$customerRows]);
 }
 
+
+if ($path === '/sms/settings' && $method === 'GET') {
+    require_role($pdo, ['manager']);
+    $gateway = threefood_sms_gateway_read($pdo, $config['sms'] ?? []);
+    json_response(['ok'=>true,'enabled'=>(bool)($gateway['enabled']??false),'mode'=>in_array($gateway['mode']??'standard',['standard','smart_sms'],true)?$gateway['mode']:'standard','username'=>(string)($gateway['username']??''),'hasApiKey'=>trim((string)($gateway['apiKey']??''))!=='','sender'=>(string)($gateway['sender']??''),'senderSupportOne'=>(string)($gateway['senderSupportOne']??''),'senderSupportTwo'=>(string)($gateway['senderSupportTwo']??''),'inboxConfigured'=>isset(($config['sms']??[])['inbox_location']) && is_numeric(($config['sms']??[])['inbox_location'])]);
+}
+if ($path === '/sms/settings' && $method === 'POST') {
+    $actor = require_role($pdo, ['manager']);
+    require_csrf();
+    $body = request_json();
+    $old = threefood_sms_gateway_read($pdo, $config['sms'] ?? []);
+    $enabled = ($body['enabled'] ?? false) === true;
+    $mode = (string)($body['mode'] ?? 'standard');
+    $username = trim((string)($body['username'] ?? ''));
+    $apiKey = trim((string)($body['apiKey'] ?? ''));
+    if ($apiKey === '') $apiKey = (string)($old['apiKey'] ?? '');
+    $sender = trim((string)($body['sender'] ?? ''));
+    $supportOne = trim((string)($body['senderSupportOne'] ?? ''));
+    $supportTwo = trim((string)($body['senderSupportTwo'] ?? ''));
+    if (!in_array($mode, ['standard','smart_sms'], true) || ($enabled && ($username === '' || $apiKey === '' || $sender === '')) ||
+        strlen($username)>120 || strlen($apiKey)>500 || strlen($sender)>40 || strlen($supportOne)>40 || strlen($supportTwo)>40) {
+        json_response(['ok'=>false,'error'=>'invalid_sms_settings','message'=>'نام کاربری، کلید API، سرشماره یا حالت ارسال معتبر نیست'],422);
+    }
+    $GLOBALS['threefood_sms_gateway_write'] = ['enabled'=>$enabled,'mode'=>$mode,'username'=>$username,'apiKey'=>$apiKey,'sender'=>$sender,'senderSupportOne'=>$supportOne,'senderSupportTwo'=>$supportTwo];
+    try {
+        threefood_sms_gateway_save($pdo, $config, (int)$actor['id']);
+        audit($pdo, (int)$actor['id'], 'sms_gateway_settings_updated', 'sms', null, ['enabled'=>$enabled,'mode'=>$mode,'username_set'=>$username!=='','api_key_set'=>$apiKey!=='']);
+        json_response(['ok'=>true,'saved'=>true,'hasApiKey'=>$apiKey!=='']);
+    } catch (Throwable $e) {
+        error_log('[3Food POS] SMS settings save failed: '.$e->getMessage());
+        json_response(['ok'=>false,'error'=>'sms_settings_save_failed','message'=>'ذخیره امن تنظیمات پیامک انجام نشد'],500);
+    } finally {
+        unset($GLOBALS['threefood_sms_gateway_write']);
+    }
+}
 
 if ($method === 'POST' && $path === '/sms/birthday-sync') {
     $actor = require_role($pdo, ['manager']);
@@ -258,41 +335,71 @@ if ($method === 'POST' && $path === '/sms/send') {
     $to = preg_replace('/[^0-9+]/', '', (string)($body['to'] ?? ''));
     $message = trim((string)($body['text'] ?? ''));
     $bodyId = trim((string)($body['bodyId'] ?? ''));
-    if (!preg_match('/^\\+?[0-9]{10,15}$/D', $to) || $message === '' || utf8_length($message) > 1000) {
+    $variables = $body['variables'] ?? [];
+    if (!preg_match('/^\\+?[0-9]{10,15}$/D', $to) || (!$bodyId && ($message === '' || utf8_length($message) > 1000))) {
         json_response(['ok' => false, 'error' => 'invalid_sms', 'message' => 'شماره یا متن پیامک معتبر نیست'], 422);
     }
-    $sms = $config['sms'] ?? [];
-    $username = trim((string)($sms['username'] ?? ''));
-    $password = trim((string)($sms['password'] ?? ''));
-    $sender = trim((string)($sms['sender'] ?? ''));
-    if (($sms['provider'] ?? 'none') !== 'national_payamak' || $username === '' || $password === '' || (!$bodyId && $sender === '')) {
-        json_response(['ok' => false, 'error' => 'sms_not_configured', 'message' => 'سرویس پیامک در تنظیمات سرور فعال نشده است'], 503);
+    $gateway = threefood_sms_gateway_read($pdo, $config['sms'] ?? []);
+    $username = trim((string)($gateway['username'] ?? ''));
+    $apiKey = trim((string)($gateway['apiKey'] ?? ''));
+    $sender = trim((string)($gateway['sender'] ?? ''));
+    $mode = (string)($gateway['mode'] ?? 'standard');
+    if (empty($gateway['enabled']) || $username === '' || $apiKey === '' || (!$bodyId && $sender === '')) {
+        json_response(['ok' => false, 'error' => 'sms_not_configured', 'message' => 'سرویس پیامک در تنظیمات فروشگاه فعال یا کامل نشده است'], 503);
     }
-    $endpoint = $bodyId
-        ? 'https://rest.payamak-panel.com/api/SendSMS/BaseServiceNumber'
-        : 'https://rest.payamak-panel.com/api/SendSMS/SendSMS';
-    $fields = $bodyId
-        ? ['username' => $username, 'password' => $password, 'text' => $message, 'to' => $to, 'bodyId' => $bodyId]
-        : ['username' => $username, 'password' => $password, 'to' => $to, 'from' => $sender, 'text' => $message, 'isFlash' => 'false'];
-    $context = stream_context_create(['http' => [
-        'method' => 'POST',
-        'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
-        'content' => http_build_query($fields),
-        'timeout' => 12,
-        'ignore_errors' => true,
-    ]]);
+    if ($bodyId !== '') {
+        if (!preg_match('/^[0-9]{1,12}$/D', $bodyId) || !is_array($variables) || count($variables) < 1 || count($variables) > 10) {
+            json_response(['ok'=>false,'error'=>'invalid_service_template','message'=>'شناسه الگوی خدماتی یا متغیرهای مرتب‌شده معتبر نیست'],422);
+        }
+        foreach ($variables as $value) {
+            if (!is_scalar($value) || utf8_length((string)$value) > 250 || str_contains((string)$value, ';')) {
+                json_response(['ok'=>false,'error'=>'invalid_service_variables','message'=>'هر متغیر خدماتی باید مقدار متنی معتبر و بدون جداکننده سمی‌کالن داشته باشد'],422);
+            }
+        }
+        // BaseServiceNumber accepts exactly one recipient and ordered values separated by semicolons.
+        $endpoint = 'https://rest.payamak-panel.com/api/SendSMS/BaseServiceNumber';
+        $fields = ['username'=>$username,'password'=>$apiKey,'to'=>$to,'text'=>implode(';',array_map('strval',$variables)),'bodyId'=>$bodyId];
+    } elseif ($mode === 'smart_sms') {
+        if (!str_ends_with($message, 'لغو11')) {
+            json_response(['ok'=>false,'error'=>'sms_optout_suffix_required','message'=>'طبق مستند SmartSMS، متن پیامک باید با «لغو11» تمام شود؛ متن را اصلاح کنید.'],422);
+        }
+        $endpoint = 'https://rest.payamak-panel.com/api/SmartSMS/Send';
+        $fields = ['username'=>$username,'password'=>$apiKey,'to'=>$to,'text'=>$message,'from'=>$sender];
+        if (trim((string)($gateway['senderSupportOne'] ?? '')) !== '') $fields['fromSupportOne'] = trim((string)$gateway['senderSupportOne']);
+        if (trim((string)($gateway['senderSupportTwo'] ?? '')) !== '') $fields['fromSupportTwo'] = trim((string)$gateway['senderSupportTwo']);
+    } else {
+        $endpoint = 'https://rest.payamak-panel.com/api/SendSMS/SendSMS';
+        $fields = ['username'=>$username,'password'=>$apiKey,'to'=>$to,'from'=>$sender,'text'=>$message,'isFlash'=>'false'];
+    }
+    $context = stream_context_create(['http'=>[
+        'method'=>'POST',
+        'header'=>"Content-Type: application/x-www-form-urlencoded\\r\\n",
+        'content'=>http_build_query($fields, '', '&', PHP_QUERY_RFC3986),
+        'timeout'=>15,
+        'ignore_errors'=>true,
+    ],'ssl'=>['verify_peer'=>true,'verify_peer_name'=>true]]);
     try {
         $raw = file_get_contents($endpoint, false, $context);
         if ($raw === false) throw new RuntimeException('SMS provider request failed');
         $statusLine = $http_response_header[0] ?? '';
         $httpOk = preg_match('/\\s2[0-9]{2}\\s/', $statusLine) === 1;
-        $numeric = (int)preg_replace('/[^0-9-]/', '', $raw);
-        $ok = $httpOk && $numeric > 0;
-        audit($pdo, (int)$actor['id'], 'sms_sent', 'sms', null, ['to' => $to, 'ok' => $ok]);
-        json_response(['ok' => true, 'sent' => $ok, 'detail' => substr(trim($raw), 0, 300)]);
+        $rawValue = trim((string)$raw, " \\t\\n\\r\\0\\x0B\\\"");
+        $accepted = false;
+        if ($httpOk && $bodyId !== '') {
+            $accepted = ctype_digit($rawValue) && strlen($rawValue) > 15;
+        } elseif ($httpOk && $mode === 'smart_sms') {
+            $decoded = json_decode($rawValue, true);
+            $value = is_array($decoded) ? trim((string)($decoded['Value'] ?? '')) : '';
+            $retStatus = is_array($decoded) ? (int)($decoded['RetStatus'] ?? 0) : 0;
+            $accepted = $retStatus === 1 && $value !== '' && preg_match('/^[0-9,]+$/D', $value) === 1;
+        } elseif ($httpOk) {
+            $numeric = (int)preg_replace('/[^0-9-]/', '', $rawValue);
+            $accepted = $numeric > 0;
+        }
+        audit($pdo, (int)$actor['id'], 'sms_sent', 'sms', null, ['to'=>$to,'ok'=>$accepted,'mode'=>$bodyId!==''?'shared_service':$mode,'body_id'=>$bodyId!==''?$bodyId:null]);
+        json_response(['ok'=>true,'sent'=>$accepted,'detail'=>$accepted?'پذیرش ارسال توسط سرویس پیامک ثبت شد':('پاسخ سرویس: '.substr($rawValue,0,120))]);
     } catch (Throwable $e) {
-        error_log('[3Food POS] SMS provider request failed: ' . $e->getMessage());
-        json_response(['ok' => false, 'error' => 'sms_provider_unavailable', 'message' => 'ارتباط با سرویس پیامک برقرار نشد'], 502);
+        error_log('[3Food POS] SMS provider request failed: '.$e->getMessage());
+        json_response(['ok'=>false,'error'=>'sms_provider_unavailable','message'=>'ارتباط با سرویس پیامک برقرار نشد؛ وضعیت ارسال ممکن است نامشخص باشد و ارسال مجدد خودکار انجام نشد'],502);
     }
 }
-
