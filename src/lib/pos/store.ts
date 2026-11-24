@@ -33,6 +33,7 @@ function seed(): PosState {
     smsLogs: [],
     settings: {
       shopName: "",
+      defaultCustomerLabel: "مشتری عزیز",
       address: "",
       phone: "",
       taxPercent: 0,
