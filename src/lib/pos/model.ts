@@ -139,6 +139,7 @@ export type SmsLog = {
 
 export type Settings = {
   shopName: string;
+  defaultCustomerLabel?: string;
   address: string;
   phone: string;
   taxPercent: number;
