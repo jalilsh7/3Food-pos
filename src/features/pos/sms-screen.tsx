@@ -29,6 +29,15 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
   const [campaignBusy,setCampaignBusy]=useState(false);
   const [campaignProgress,setCampaignProgress]=useState("");
   const [campaignClock,setCampaignClock]=useState(INITIAL_RENDER_TIME);
+  useEffect(() => {
+    const defaults: SmsEvent[] = ["order_created","order_preparing","order_ready","order_delivered","points_earned","discount_used"];
+    const existing = new Set(usePos.getState().templates.map((item) => item.event));
+    for (const event of defaults) {
+      if (existing.has(event)) continue;
+      const item = { id: event, event, enabled: false, body: "", bodyId: "", variables: [] as string[] };
+      void saveCentralRecord("templates", item, () => saveTemplate(item));
+    }
+  }, [saveCentralRecord, saveTemplate]);
   useEffect(() => { const timer=window.setInterval(()=>setCampaignClock(Date.now()),60000); return ()=>window.clearInterval(timer); }, []);
   const activeCampaignFilters = Object.entries(campaignFilters).filter(([,value])=>value!=="");
   const campaignRecipients=customers.filter(customer=>{
@@ -76,7 +85,7 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
       ))}
       <Card>
         <h3 className="mb-2 font-semibold">دریافت تاریخ تولد از پیامک</h3>
-        <p className="mb-2 text-xs text-muted">پس از تنظیم صندوق ورودی ملی‌پیامک در private/config.php، پاسخ‌های «تولد ۱۳۷۰/۰۵/۱۲» را دریافت و فقط برای شماره مشتری یکتای منطبق ثبت می‌کند. تاریخ تولد موجود بازنویسی نمی‌شود.</p>
+        <p className="mb-2 text-xs text-muted">پس از تنظیم صندوق ورودی در تنظیمات فروشگاه، پاسخ‌های «تولد ۱۳۷۰/۰۵/۱۲» را دریافت و فقط برای شماره مشتری یکتای منطبق ثبت می‌کند. تاریخ تولد موجود بازنویسی نمی‌شود.</p>
         <Btn onClick={async () => {
           try {
             const result = await phpApi.syncBirthdaySmsInbox();
@@ -120,7 +129,7 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
       </Card>
       <Card>
         <h3 className="mb-2 font-semibold">کمپین باشگاه مشتریان</h3>
-        <p className="mb-2 text-xs text-muted">فقط اعضایی انتخاب می‌شوند که رضایت دریافت پیامک تبلیغاتی را ثبت کرده باشند. می‌توانید چند شرط را ترکیب کنید.</p>
+        <p className="mb-2 text-xs text-muted">فقط اعضایی انتخاب می‌شوند که رضایت دریافت پیامک تبلیغاتی را ثبت کرده باشند. می‌توانید چند شرط را ترکیب کنید. اگر روش SmartSMS فعال است، متن کمپین باید صریحاً با «لغو11» پایان یابد.</p>
         <Field label="نحوه ترکیب شروط"><select className={inputCls} value={campaignLogic} onChange={e=>setCampaignLogic(e.target.value as "all"|"any")}><option value="all">همه شروط برقرار باشند (AND)</option><option value="any">حداقل یکی از شروط برقرار باشد (OR)</option></select></Field>
         <div className="grid gap-2 sm:grid-cols-2">
           <Field label="سطح عضویت"><select className={inputCls} value={campaignFilters.tier} onChange={e=>setCampaignFilters({...campaignFilters,tier:e.target.value})}><option value="">همه سطوح</option><option value="bronze">برنز</option><option value="silver">نقره</option><option value="gold">طلا</option><option value="platinum">پلاتین</option></select></Field>
