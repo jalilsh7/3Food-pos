@@ -16,6 +16,7 @@ const forbidden = [
   /x-grok-identity/i,
   /grok-auth\.bearer-token/i,
 ];
+const forbiddenLegacySmsUi = [/sendInvoiceSms/, /shouldSendInvoiceSms/, /invoiceSmsEnabledDefault/, /ارسال پیامک ریز فاکتور برای مشتری/];
 const externalHtmlAsset = /<(?:script|link)\b[^>]*\b(?:src|href)\s*=\s*["']https?:\/\//i;
 const externalCssImport = /@import\s+(?:url\()?\s*["']?https?:\/\//i;
 const externalCssUrl = /url\(\s*["']?(?:https?:)?\/\//i;
@@ -43,6 +44,14 @@ for (const path of files) {
   const source = readFileSync(path, "utf8");
   const relative = path.slice(root.length + 1);
   if (externalHtmlAsset.test(source)) failures.push(relative + ": remote script/stylesheet asset reference");
+  if ([".js", ".mjs"].includes(ext)) {
+    for (const pattern of forbiddenLegacySmsUi) {
+      if (pattern.test(source)) {
+        failures.push(relative + ": obsolete per-order invoice SMS UI/setting " + pattern);
+        break;
+      }
+    }
+  }
   if (ext === ".css" && externalCssImport.test(source)) failures.push(relative + ": remote CSS import");
   if (ext === ".css" && externalCssUrl.test(source)) failures.push(relative + ": remote CSS resource URL");
   if ([".js", ".mjs"].includes(ext) && externalJsRequest.test(source)) failures.push(relative + ": remote browser runtime request");
