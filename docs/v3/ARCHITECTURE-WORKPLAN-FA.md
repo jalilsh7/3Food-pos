@@ -66,3 +66,14 @@
 - database/v3/migrations دارای فایل‌های SQL ترتیبی مرکزی است؛ مالکیت migration به تفکیک ماژول و metadata هنوز نیازمند inventory و تثبیت است.
 - تست مستقل همه ماژول‌ها و اتصال logger به تمام مرزها هنوز تأیید نشده است.
 - گام بعدی: استخراج dependency graph و public entrypointها، سپس اصلاح composition/DI و قراردادهای اجرایی؛ تست جامع همچنان فقط پس از اتمام تطبیق کلی.
+
+
+## اصلاح اجرایی Composition و Idempotency — 2026-11-25
+- در `v3/backend/src/Orders/OrderService.php` وابستگی‌های OrderRepository، IdempotencyService و AuditLogService به constructor تزریق شدند؛ ساخت آن‌ها از داخل سرویس حذف شد.
+- در `v3/backend/src/Security/IdempotencyService.php`، IdempotencyRepository و TransactionManager به constructor تزریق شدند؛ ساخت concrete dependencyها از داخل سرویس حذف شد.
+- در `v3/backend/public/index.php`، Composition Root مسئول ساخت و اتصال این وابستگی‌ها شد.
+- هر سه فایل پس از commit دوباره از شاخه خوانده شدند و محتوای DI تأیید شد؛ تست یا Build اجرا نشده است.
+- مورد باز: PDO هنوز در callback تراکنش به Application نشت می‌کند و OrderService به concrete OrderRepository وابسته است. مرحله بعد طراحی transaction/persistence port با حفظ یکپارچگی تراکنش سفارش و idempotency است.
+- logger frontend در `src/core/observability/logger.ts` است و console-backed می‌باشد؛ در مسیر Backend logger مرکزی مستقل در tree مشاهده نشد. اتصال logger ساخت‌یافته مشترک Backend و فیلتر module هنوز باز است.
+- tree شاخه 319 فایل داشت. در `database/v3/migrations`، migrationهای 001 تا 012 مشاهده شدند؛ مالکیت دامنه‌ای و metadata هر migration هنوز باید از محتوای SQL استخراج شود.
+- تست جامع و Build طبق دستور کاربر همچنان معوق تا پایان تطبیق کلی هستند.
