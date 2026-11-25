@@ -149,6 +149,7 @@ export type Settings = {
   taxEnabled: boolean;
   stockPolicy: "warn_and_allow";
   orderDelayMinutes?: number;
+  orderStatusEnabled?: Partial<Record<OrderStatus, boolean>>;
   pointsPerToman: number;
   tomanPerPoint: number;
   paperWidth: 58 | 80;
