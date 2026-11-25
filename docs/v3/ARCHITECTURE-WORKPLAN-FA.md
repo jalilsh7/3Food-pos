@@ -77,3 +77,18 @@
 - logger frontend در `src/core/observability/logger.ts` است و console-backed می‌باشد؛ در مسیر Backend logger مرکزی مستقل در tree مشاهده نشد. اتصال logger ساخت‌یافته مشترک Backend و فیلتر module هنوز باز است.
 - tree شاخه 319 فایل داشت. در `database/v3/migrations`، migrationهای 001 تا 012 مشاهده شدند؛ مالکیت دامنه‌ای و metadata هر migration هنوز باید از محتوای SQL استخراج شود.
 - تست جامع و Build طبق دستور کاربر همچنان معوق تا پایان تطبیق کلی هستند.
+
+
+## اصلاح اجرایی مرزهای Orders و Security — 2026-11-25
+- `OrderService` دیگر PDO را import یا در callback تراکنش دریافت نمی‌کند.
+- `IdempotencyService` نیز callback بدون PDO دارد و به interfaceهای `IdempotencyStore` و `TransactionBoundary` وابسته است.
+- `TransactionManager` همچنان PDO را فقط در Infrastructure نگه می‌دارد و callback بدون آرگومان اجرا می‌کند.
+- `OrderStore` و `AuditLogWriter` به‌عنوان persistence port ایجاد شدند؛ implementationهای PDO در Infrastructure آن‌ها را پیاده‌سازی می‌کنند.
+- فایل‌های تازه با autoloader مبتنی بر namespace/path موجود سازگارند؛ bootstrap مسیر namespace را به فایل PHP نگاشت می‌کند.
+- Composition Root فعلی از یک PDO singleton برای OrderRepository، IdempotencyRepository، AuditLogRepository و TransactionManager استفاده می‌کند؛ این موضوع برای حفظ transaction atomicity حیاتی است.
+- هیچ build، lint یا تستی اجرا نشده؛ طبق دستور کاربر بررسی نهایی پس از تکمیل تطبیق کلی انجام می‌شود.
+
+## Migration inventory — استخراج اولیه 2026-11-25
+- در `database/v3/migrations` فایل‌های شماره‌دار 001 تا 012 شناسایی شدند.
+- جداول و دامنه‌های اولیه از SQL استخراج شده‌اند؛ سند مالکیت migration به‌صورت مستقل ثبت می‌شود.
+- migrationهای قبلی دست‌نخورده باقی مانده‌اند؛ تغییرات ساختاری جدید باید با migration افزایشی جدید انجام شوند.
