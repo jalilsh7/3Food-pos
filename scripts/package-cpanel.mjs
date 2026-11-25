@@ -223,6 +223,7 @@ const packagedFiles = [
   "database/migrations/007-order-payment-and-guest-details.sql",
   "database/migrations/008-global-appearance-settings.sql",
   "database/migrations/009-payment-terminal-foundation.sql",
+  "database/migrations/010-order-dispatched-status.sql",
   "DEPLOYMENT-FA.md",
 ];
 for (const relativePath of packagedFiles) {
