@@ -9,7 +9,7 @@ use PersiaCoder\PosV3\Http\Response;
 
 final readonly class RoleManagementController
 {
-    public function __construct(private RoleManagementService $roles) {}
+    public function __construct(private RoleManagementApplication $roles) {}
 
     public function list(Request $request): Response
     {

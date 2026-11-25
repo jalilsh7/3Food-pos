@@ -16,7 +16,7 @@ final readonly class AuthController
         private SessionStore $sessions,
         private AuditLogService $audit,
         private TransactionBoundary $transactions,
-        private AuthenticationService $authentication,
+        private AuthenticationApplication $authentication,
         private bool $secureCookies = true,
     ) {}
 

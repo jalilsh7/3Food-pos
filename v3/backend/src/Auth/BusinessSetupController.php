@@ -9,7 +9,7 @@ use PersiaCoder\PosV3\Http\Response;
 
 final readonly class BusinessSetupController
 {
-    public function __construct(private BusinessSetupService $setup) {}
+    public function __construct(private BusinessSetupApplication $setup) {}
 
     public function create(Request $request): Response
     {

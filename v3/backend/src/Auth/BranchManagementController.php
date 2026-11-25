@@ -9,7 +9,7 @@ use PersiaCoder\PosV3\Http\Response;
 
 final readonly class BranchManagementController
 {
-    public function __construct(private BranchManagementService $branches) {}
+    public function __construct(private BranchManagementApplication $branches) {}
 
     public function list(Request $request): Response
     {

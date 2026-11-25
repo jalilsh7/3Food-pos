@@ -8,7 +8,7 @@ use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
-final readonly class BranchManagementService
+final readonly class BranchManagementService implements BranchManagementApplication
 {
 
     public function __construct(

@@ -10,7 +10,7 @@ use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\LoginAttemptLimiter;
 use PersiaCoder\PosV3\Security\TransactionBoundary;
 
-final readonly class AuthenticationService
+final readonly class AuthenticationService implements AuthenticationApplication
 {
     private string $dummyPasswordHash;
 

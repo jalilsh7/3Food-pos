@@ -7,7 +7,7 @@ use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
-final readonly class RoleManagementService
+final readonly class RoleManagementService implements RoleManagementApplication
 {
 
     public function __construct(

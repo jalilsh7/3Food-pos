@@ -8,7 +8,7 @@ use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\TransactionBoundary;
 
-final readonly class BusinessSetupService
+final readonly class BusinessSetupService implements BusinessSetupApplication
 {
 
     public function __construct(

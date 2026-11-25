@@ -9,7 +9,7 @@ use PersiaCoder\PosV3\Http\Response;
 
 final readonly class UserManagementController
 {
-    public function __construct(private UserManagementService $users) {}
+    public function __construct(private UserManagementApplication $users) {}
 
     public function listBusinessUsers(Request $request): Response
     {
