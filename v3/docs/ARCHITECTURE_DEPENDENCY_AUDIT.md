@@ -55,3 +55,17 @@
 ## نتیجه این audit
 
 مرزهای Persistence و Composition برای بخش عمده ماژول‌های اصلی اصلاح شده‌اند و frontend feature importها در فایل‌های بررسی‌شده سالم به نظر می‌رسند. با این حال به دلیل خطاهای HTTP/auth context، چند dependency مستقیم، نبود test suites مستقل و اجرا نشدن تست/Build، معماری هنوز منطبق کامل اعلام نمی‌شود.
+
+
+## تکمیل Shared Context و Error Contracts
+- `BusinessScopeContext` به‌عنوان contract مشترک ایجاد شد و هر دو `Auth/BusinessScope` و `Security/BusinessContext` آن را پیاده‌سازی می‌کنند؛ IdempotencyService دیگر به Auth وابسته نیست.
+- سرویس‌های Catalog، Orders، Inventory، Dining، Finance، Recipes و Media اکنون ActorContext/BusinessContext می‌گیرند؛ Controllerها از session principal و resolved business scope این contextها را می‌سازند.
+- `PermissionChecker` جای وابستگی مستقیم OrderService به PermissionService را گرفته است.
+- `ApplicationException` خطای application است؛ Kernel آن را به HTTP response تبدیل می‌کند و HttpException فقط subclass سازگار با controllerهاست.
+- `AuditLogService` از Logger مرکزی استفاده می‌کند و action، module، request_id و شناسه‌های entity/scope را بدون snapshot یا secret log می‌کند.
+
+## Test Suite Scaffolding
+- برای 12 ماژول Backend تست‌های مستقل معماری در `v3/backend/tests/Modules/<Module>/ArchitectureTest.php` اضافه شد.
+- runner بدون وابستگی خارجی در `v3/backend/tests/run.php` قرار گرفت؛ اجرا: `php tests/run.php` از پوشه backend.
+- برای Frontend، Node built-in test runner با script `npm test` اضافه شد؛ تست‌ها عدم import مستقیم feature به feature، استقلال shared و composition در App را بررسی می‌کنند.
+- تست‌ها ایجاد شده‌اند اما هنوز اجرا نشده‌اند؛ این مطابق دستور تست نهایی در پایان تطبیق است.

@@ -139,3 +139,11 @@
 - Controllerهای متناظر context را از request attributes معتبر می‌سازند.
 - ماتریس شش قانون و معیار پایان در `v3/docs/ARCHITECTURE_CONFORMANCE_MATRIX.md` ثبت شد.
 - تست/build اجرا نشده؛ وضعیت تطبیق همچنان ناقص است.
+
+
+## Test suites مستقل ایجاد شد — 2026-11-25
+- Backend: runner مستقل `v3/backend/tests/run.php` و 12 suite ماژولی برای Auth، Catalog، Orders، Dining، Finance، Inventory، Recipes، Media، Security، Http، Support و Infrastructure ثبت شد.
+- Frontend: script `npm test` با Node built-in test runner و تست مستقل هر feature برای جلوگیری از cross-feature imports، استقلال Shared و composition App ثبت شد.
+- این تست‌ها هنوز اجرا نشده‌اند؛ طبق دستور کاربر، اجرای تست و build تا پایان تطبیق معماری معوق است.
+- AuditLogService اکنون رویداد audit را از طریق Logger مرکزی با module و request_id ثبت می‌کند.
+- BusinessScopeContext مشترک، IdempotencyService را از Auth جدا کرد؛ ActorContext/BusinessContext و PermissionChecker نیز coupling سرویس‌های ماژولی را کاهش دادند.

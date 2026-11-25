@@ -18,3 +18,8 @@ Support باید از ماژول‌های دامنه‌ای مستقل بمان�
 
 ## عملیات و لاگ
 فیلتر ماژول با `POS_V3_LOG_MODULES` تنظیم می‌شود؛ خالی بودن آن همه ماژول‌ها را فعال می‌کند.
+
+
+## Application error contract
+`ApplicationException` خطای transport-neutral برای use-caseهاست؛ `HttpException` subclass آن برای سازگاری adapterهای HTTP باقی مانده و Kernel خطای پایه را map می‌کند.
+تست مستقل معماری: `v3/backend/tests/Modules/Support/ArchitectureTest.php`.

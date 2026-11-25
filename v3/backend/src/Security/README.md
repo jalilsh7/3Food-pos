@@ -19,3 +19,10 @@ Application serviceها فقط interfaceها را می‌شناسند. PDO و lo
 
 ## عملیات و لاگ
 log مرکزی JSON دارای module و request_id است؛ کلیدهای password/token/secret/authorization/cookie/apiKey/credential باید redact شوند.
+
+
+## قراردادهای مشترک جدید
+- `BusinessScopeContext` برای مصرف scope توسط ماژول‌های مختلف؛ `Auth/BusinessScope` و `Security/BusinessContext` هر دو آن را پیاده‌سازی می‌کنند.
+- `ActorContext`, `BusinessContext`, `PermissionChecker` و `ApplicationException` قراردادهای کاربردی مشترک‌اند.
+- `AuditLogService` رویداد audit را به Logger مرکزی با module و request_id متصل می‌کند.
+- تست مستقل معماری: `v3/backend/tests/Modules/Security/ArchitectureTest.php`.
