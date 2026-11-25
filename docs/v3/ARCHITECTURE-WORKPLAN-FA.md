@@ -57,3 +57,12 @@
 - این commit فقط استاندارد معماری را تثبیت می‌کند؛ به معنی تطبیق کد موجود نیست.
 - مرحله تطبیق هنوز باز است: inventory واقعی همه ماژول‌ها و importها، dependency graph/cycle audit، اتصال logger به تمام مرزها، ثبت مالکیت migrationها و الگوی مستقل docs/tests باید تکمیل شود.
 - طبق دستور کاربر، تست جامع و build فقط پس از اتمام تطبیق کلی معماری اجرا می‌شود. تا آن زمان توسعه feature جدید شروع نمی‌شود؛ فقط کارهای inventory و اصلاح معماری مجاز است.
+
+## موجودی واقعی ساختار و مغایرت‌ها — 2026-11-25
+- گزارش v3/docs/ARCHITECTURE_CONFORMANCE_INVENTORY.md ایجاد شد.
+- Frontend دارای features جدا برای auth/catalog/customers/finance/inventory/kitchen/orders/pos/settings/storefront و shared/api و shared/ui است؛ این پوشه‌بندی اولیه است و به‌تنهایی اثبات استقلال ماژول‌ها نیست.
+- Backend دارای دامنه‌های Auth/Catalog/Dining/Finance/Http/Infrastructure/Inventory/Media/Orders/Security است.
+- مغایرت اجرایی مشخص: OrderService و IdempotencyService وابستگی‌های PDO/Repository/Transaction را درون خود می‌سازند؛ composition باید به Composition Root منتقل و قراردادهای application از infrastructure جدا شوند.
+- database/v3/migrations دارای فایل‌های SQL ترتیبی مرکزی است؛ مالکیت migration به تفکیک ماژول و metadata هنوز نیازمند inventory و تثبیت است.
+- تست مستقل همه ماژول‌ها و اتصال logger به تمام مرزها هنوز تأیید نشده است.
+- گام بعدی: استخراج dependency graph و public entrypointها، سپس اصلاح composition/DI و قراردادهای اجرایی؛ تست جامع همچنان فقط پس از اتمام تطبیق کلی.
