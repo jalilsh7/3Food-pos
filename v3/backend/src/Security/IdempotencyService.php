@@ -13,12 +13,11 @@ use PersiaCoder\PosV3\Infrastructure\Database\TransactionManager;
 
 final readonly class IdempotencyService
 {
-    private IdempotencyRepository $records;
-    private TransactionManager $transactions;
     private string $encryptionKey;
 
     public function __construct(
-        PDO $connection,
+        private IdempotencyRepository $records,
+        private TransactionManager $transactions,
         string $applicationKey,
         private int $retentionSeconds = 86400,
     ) {
@@ -28,8 +27,6 @@ final readonly class IdempotencyService
         if ($retentionSeconds < 60 || $retentionSeconds > 604800) {
             throw new \InvalidArgumentException('Idempotency retention must be between 60 and 604800 seconds.');
         }
-        $this->records = new IdempotencyRepository($connection);
-        $this->transactions = new TransactionManager($connection);
         $this->encryptionKey = hash('sha256', $applicationKey, true);
     }
 
