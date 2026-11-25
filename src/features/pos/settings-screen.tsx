@@ -103,6 +103,25 @@ export function SettingsScreen({ saveRecord }: { saveRecord: <T extends { id: st
       <AppearanceSettingsPanel />
       <TerminalSettingsPanel />
       <SmsGatewaySettingsPanel />
+
+      <Card>
+        <h3 className="mb-2 font-semibold">وضعیت‌های قابل استفاده سفارش</h3>
+        <p className="mb-3 text-xs text-muted">فقط وضعیت‌های روشن در مدیریت سفارش‌ها به‌عنوان گزینه تغییر وضعیت نمایش داده می‌شوند. وضعیت خاموش در این فهرست محو نمایش داده می‌شود.</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {STATUS_OPTIONS.map(([key, label]) => {
+            const enabled = settings.orderStatusEnabled?.[key] !== false;
+            return <label key={key} className={"flex items-center justify-between gap-3 rounded-xl border border-line p-3 transition " + (enabled ? "" : "opacity-50 blur-[0.35px]")}>
+              <span className="font-medium">{label}</span>
+              <input type="checkbox" checked={enabled} onChange={(e) => {
+                const next = { ...(settings.orderStatusEnabled ?? {}), [key]: e.target.checked };
+                patchSettings({ orderStatusEnabled: next });
+                const current = usePos.getState().settings;
+                void saveRecord("settings", { id: "main", ...current, orderStatusEnabled: next, smsUser: "", smsKey: "", smsFrom: "" }, () => {});
+              }} />
+            </label>;
+          })}
+        </div>
+      </Card>
       <Card className="grid gap-2 sm:grid-cols-2">
         <Field label="نام فروشگاه"><input className={inputCls} value={settings.shopName} onChange={(e) => patchSettings({ shopName: e.target.value })} onBlur={persistSettings} /></Field>
         <Field label="عنوان پیش‌فرض مشتری در صندوق"><input className={inputCls} value={settings.defaultCustomerLabel ?? "مشتری عزیز"} onChange={(e) => patchSettings({ defaultCustomerLabel: e.target.value })} onBlur={persistSettings} placeholder="مثلاً مشتری خالی" /><p className="text-xs text-muted">این عبارت به‌عنوان نام اولیه مشتری در صندوق نمایش داده می‌شود و هر زمان قابل تغییر است.</p></Field>
