@@ -1,22 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
 import { Btn, Card, Empty, Field, inputCls, PageHeading } from "./bits";
 import { phpApi } from "@/lib/api/php-client";
-import { tierOf, type SmsEvent } from "@/lib/pos/model";
+import { tierOf, type OrderStatus, type SmsEvent } from "@/lib/pos/model";
 import { usePos } from "@/lib/pos/store";
 import { normalizeIranPhone, tehranDate } from "@/lib/pos/formatters";
 
+const EVENT_STATUS: Partial<Record<SmsEvent, OrderStatus>> = {
+  order_created: "new",
+  order_preparing: "preparing",
+  order_ready: "ready",
+  order_dispatched: "dispatched",
+  order_delivered: "delivered",
+  order_cancelled: "cancelled",
+};
+
 const INITIAL_RENDER_TIME = Date.now();
 const EVENT_LABEL: Record<SmsEvent, string> = {
-  order_created: "ثبت سفارش", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_delivered: "تحویل", order_cancelled: "لغو سفارش", order_invoice: "ریز فاکتور",
+  order_created: "جدید", order_preparing: "در حال آماده‌سازی", order_ready: "آماده", order_dispatched: "ارسال شد", order_delivered: "تحویل شد", order_cancelled: "لغو شد", order_invoice: "ریز فاکتور",
   points_earned: "کسب امتیاز", discount_used: "استفاده از کد",
 };
 
 export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: string, text: string) => Promise<boolean>; saveCentralRecord: <T extends { id: string | number }>(resource: string, item: T, commit: () => void) => Promise<boolean> }) {
   const allTemplates = usePos((s) => s.templates);
   const templates = useMemo(() => {
-    const events: SmsEvent[] = ["order_created", "order_preparing", "order_ready", "order_delivered", "order_cancelled", "order_invoice"];
+    const events: SmsEvent[] = ["order_created", "order_preparing", "order_ready", "order_dispatched", "order_delivered", "order_cancelled", "order_invoice"];
     return events.map((event) => allTemplates.find((item) => item.event === event) ?? {
-      id: event, event, enabled: false, body: "", bodyId: "", variables: [],
+      id: event, event, enabled: false, body: "", bodyId: "", variables: [], managerEnabled: false,
     });
   }, [allTemplates]);
   const logs = usePos((s) => s.smsLogs);
@@ -26,6 +35,17 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
   const settings = usePos((s) => s.settings);
   const patchSettings = usePos((s) => s.patchSettings);
   const [manual, setManual] = useState({ to: "", text: "" });
+  // Keep the raw text while the user is typing. Parsing on every keystroke
+  // removed empty segments and caused the cursor/input to jump after ";".
+  const [variableDrafts, setVariableDrafts] = useState<Record<string, string>>({});
+  function persistTemplateVariables(event: SmsEvent) {
+    const current = usePos.getState().templates.find((x) => x.event === event);
+    const raw = variableDrafts[event] ?? (current?.variables ?? []).join(";");
+    const item = { ...(current ?? templates.find((x) => x.event === event)!), variables: raw.split(";").map((value) => value.trim()).filter(Boolean) };
+    saveTemplate(item);
+    void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item));
+    setVariableDrafts((drafts) => { const next = { ...drafts }; delete next[event]; return next; });
+  }
   const [birthdayPromptBusy, setBirthdayPromptBusy] = useState(false);
   const [birthdayPromptProgress, setBirthdayPromptProgress] = useState("");
   const products = usePos((s) => s.products);
@@ -61,20 +81,35 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
   }
   return (
     <div className="space-y-4">
-      <PageHeading title="الگوهای پیامک وضعیت سفارش" description="اعلان‌های وضعیت سفارش فقط از طریق الگوی خدماتی تأییدشده ارسال می‌شوند." />
+      <PageHeading title="الگوهای پیامک وضعیت سفارش" description="ارسال اعلان هر وضعیت به مشتری و مدیر به‌صورت مستقل قابل تنظیم است؛ همه اعلان‌ها از الگوی خدماتی تأییدشده ارسال می‌شوند." />
       <Card>
         <p className="mt-2 text-xs text-muted">اتصال و کلید API از بخش تنظیمات فروشگاه ثبت می‌شود و فقط به‌صورت رمزگذاری‌شده در سرور نگهداری خواهد شد. برای الگوی خدماتی، شناسه واقعی الگوی تأییدشده و ترتیب متغیرها را وارد کنید.</p>
       </Card>
+      <Card>
+        <h3 className="mb-2 font-semibold">شماره مدیر برای دریافت اعلان‌ها</h3>
+        <p className="mb-2 text-xs text-muted">شماره مدیر مستقل از شماره مشتری است. برای هر وضعیت می‌توانید ارسال به مشتری و مدیر را جداگانه روشن یا خاموش کنید.</p>
+        <Field label="شماره موبایل مدیر"><input className={inputCls} dir="ltr" inputMode="tel" placeholder="09xxxxxxxxx" value={settings.smsManagerPhone ?? ""} onChange={(e) => patchSettings({ smsManagerPhone: e.target.value })} onBlur={() => { const current = usePos.getState().settings; void saveCentralRecord("settings", { id: "main", ...current, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} /></Field>
+      </Card>
       {templates.map((t) => (
-        <Card key={t.event}>
-          <label className="flex items-center gap-2 font-semibold">
-            <input type="checkbox" checked={t.enabled} onChange={(e) => { const item = { ...t, enabled: e.target.checked }; void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
-            {EVENT_LABEL[t.event]}
-          </label>
+        <Card key={t.event} className={EVENT_STATUS[t.event] && settings.orderStatusEnabled?.[EVENT_STATUS[t.event]!] === false ? "blur-[1px] opacity-50 transition-[filter,opacity]" : "transition-[filter,opacity]"}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <strong>{EVENT_LABEL[t.event]}</strong>
+            <div className="flex flex-wrap items-center gap-4 text-sm">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={t.enabled} onChange={(e) => { const item = { ...t, enabled: e.target.checked }; void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
+                ارسال به مشتری
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={t.managerEnabled === true} onChange={(e) => { const item = { ...t, managerEnabled: e.target.checked }; void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
+                ارسال به مدیر
+              </label>
+            </div>
+          </div>
           <p className="mt-2 text-xs text-muted">برای این وضعیت هیچ متن آزاد یا روش ارسال جایگزینی استفاده نمی‌شود.</p>
+          {t.event === "order_invoice" ? <p className="mt-1 text-xs font-medium text-leaf">این پیام همراه با ثبت سفارش ارسال می‌شود.</p> : null}
           <Field label="شناسه الگوی خدماتی تأییدشده"><input className={inputCls} value={t.bodyId} onChange={(e) => saveTemplate({ ...t, bodyId: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} /></Field>
           <Field label="ترتیب متغیرهای الگوی خدماتی">
-            <input className={inputCls} placeholder="name;order;total;shop" value={(t.variables ?? []).join(";")} onChange={(e) => saveTemplate({ ...t, variables: e.target.value.split(";").map((v) => v.trim()).filter(Boolean) })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
+            <input className={inputCls} placeholder="name;order;total;shop" value={variableDrafts[t.event] ?? (t.variables ?? []).join(";")} onChange={(e) => setVariableDrafts((drafts) => ({ ...drafts, [t.event]: e.target.value }))} onBlur={() => persistTemplateVariables(t.event)} />
           </Field>
           <div className="mt-2"><Btn onClick={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }}>ذخیره الگو</Btn></div>
           <p className="text-xs text-muted">کلیدهای قابل استفاده: name، order، total، points، code، balance، shop. برای جدا کردن متغیرها حتماً از علامت ; استفاده کنید (مثال: name;order;total;shop). ترتیب را دقیقاً مطابق الگوی تأییدشده پنل ملی‌پیامک وارد کنید؛ فقط مقادیر متغیرها ارسال می‌شوند.</p>

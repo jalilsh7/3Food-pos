@@ -94,7 +94,7 @@ const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[
 ];
 
 const EVENT_LABEL: Record<SmsEvent, string> = {
-  order_created: "ثبت سفارش", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_delivered: "تحویل", order_cancelled: "لغو سفارش", order_invoice: "ریز فاکتور",
+  order_created: "ثبت سفارش", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_dispatched: "ارسال شد", order_delivered: "تحویل", order_cancelled: "لغو سفارش", order_invoice: "ریز فاکتور",
   points_earned: "کسب امتیاز", discount_used: "استفاده از کد",
 };
 
@@ -285,13 +285,21 @@ function orderVars(order: Order, balance = "") {
 async function pushSms(event: SmsEvent, phone: string, vars: Record<string, string>) {
   const s = usePos.getState();
   const tpl = s.templates.find((t) => t.event === event);
-  if (!tpl?.enabled || !phone) return;
-  // Status notifications send only the approved template ID and ordered values.
-  // The message body lives in National Payamak and is never composed here.
+  const customerEnabled = tpl?.enabled === true;
+  const managerEnabled = tpl?.managerEnabled === true;
+  const managerPhone = normalizeIranPhone(s.settings.smsManagerPhone ?? "");
+  const customerPhone = normalizeIranPhone(phone);
+  if (!tpl || (!customerEnabled && !managerEnabled)) return;
+  // Status notifications send only the approved service template to each enabled recipient.
   if (!tpl.bodyId || !Array.isArray(tpl.variables) || tpl.variables.length > 20) return;
   const values: Record<string, string> = { ...vars, shop: s.settings.shopName };
   const variables = tpl.variables.map((key) => values[key] ?? "");
-  await postSms(phone, "", event, tpl.bodyId, variables);
+  if (customerEnabled && /^09[0-9]{9}$/.test(customerPhone)) {
+    await postSms(customerPhone, "", event, tpl.bodyId, variables);
+  }
+  if (managerEnabled && /^09[0-9]{9}$/.test(managerPhone) && managerPhone !== customerPhone) {
+    await postSms(managerPhone, "", event, tpl.bodyId, variables);
+  }
 }
 
 async function sendRaw(phone: string, text: string) {
@@ -783,6 +791,7 @@ function OrdersScreen({ role }: { role: Role }) {
     const notify = (updatedOrder: Order) => {
       if (status === "preparing") void pushSms("order_preparing", updatedOrder.customerPhone, orderVars(updatedOrder));
       if (status === "ready") void pushSms("order_ready", updatedOrder.customerPhone, orderVars(updatedOrder));
+      if (status === "dispatched") void pushSms("order_dispatched", updatedOrder.customerPhone, orderVars(updatedOrder));
       if (status === "delivered") void pushSms("order_delivered", updatedOrder.customerPhone, orderVars(updatedOrder));
       if (status === "cancelled") void pushSms("order_cancelled", updatedOrder.customerPhone, orderVars(updatedOrder));
     };

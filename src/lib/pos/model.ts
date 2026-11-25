@@ -105,6 +105,7 @@ export type SmsEvent =
   | "order_created"
   | "order_preparing"
   | "order_ready"
+  | "order_dispatched"
   | "order_delivered"
   | "order_cancelled"
   | "order_invoice"
@@ -118,6 +119,8 @@ export type SmsTemplate = {
   bodyId: string;
   /** Ordered variable keys for an approved National Payamak service template. */
   variables?: string[];
+  /** Independently send this event to the configured manager number. */
+  managerEnabled?: boolean;
 };
 
 export type SmsLog = {
@@ -152,6 +155,7 @@ export type Settings = {
   autoPrint: boolean;
   invoiceSmsEnabledDefault?: boolean;
   birthdaySmsPrompt?: string;
+  smsManagerPhone?: string;
   loyaltySilverPoints?: number;
   loyaltyGoldPoints?: number;
   loyaltyPlatinumPoints?: number;

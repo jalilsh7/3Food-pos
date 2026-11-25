@@ -406,7 +406,7 @@ if ($method === 'POST' && $path === '/sms/send') {
     if ($testMode !== '' && !$standardTest) {
         json_response(['ok'=>false,'error'=>'invalid_sms_test_mode','message'=>'حالت تست فقط برای ارسال دستی از خط اختصاصی عادی مجاز است'],422);
     }
-    $statusEvents = ['order_created','order_preparing','order_ready','order_delivered','order_cancelled','order_invoice'];
+    $statusEvents = ['order_created','order_preparing','order_ready','order_dispatched','order_delivered','order_cancelled','order_invoice'];
     if (!preg_match('/^\\+?[0-9]{10,15}$/D', $to)) {
         json_response(['ok'=>false,'error'=>'invalid_sms_recipient','message'=>'شماره موبایل معتبر نیست'],422);
     }
