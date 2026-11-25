@@ -50,3 +50,10 @@
 - مانع اجرایی مشخص شد: `OrderService::create`، idempotency و audit به actor داخلی وابسته‌اند؛ `BusinessScope` نیز از session/branch داخلی می‌آید. وجود channel با مقدار `storefront` به معنی guest checkout نیست.
 - تصمیم ایمنی: ساخت کاربر جعلی، حذف middleware یا پذیرش business_id از کلاینت ممنوع است.
 - گام اجرایی بعدی: refactor سازگار actor/idempotency/audit و resolver هویت storefront؛ پس از آن استخراج use case مشترک ثبت سفارش و افزودن مسیر عمومی.
+
+## تثبیت استاندارد نهایی معماری — 2026-11-25
+- سند مرجع v3/docs/ARCHITECTURE_CONFORMANCE_STANDARD.md ایجاد شد و شش قانون کاربر را به معیارهای پذیرش اجرایی تبدیل کرد.
+- سند شامل ساختار مرجع Feature-Based، جداسازی لایه‌ها، قراردادهای ورودی/خروجی، قواعد dependency، event boundary، logging/correlation، مالکیت و ترتیب migration، مستندات و تست مستقل، feature entitlement، امنیت چندمشتری و معیار پایان تطبیق است.
+- این commit فقط استاندارد معماری را تثبیت می‌کند؛ به معنی تطبیق کد موجود نیست.
+- مرحله تطبیق هنوز باز است: inventory واقعی همه ماژول‌ها و importها، dependency graph/cycle audit، اتصال logger به تمام مرزها، ثبت مالکیت migrationها و الگوی مستقل docs/tests باید تکمیل شود.
+- طبق دستور کاربر، تست جامع و build فقط پس از اتمام تطبیق کلی معماری اجرا می‌شود. تا آن زمان توسعه feature جدید شروع نمی‌شود؛ فقط کارهای inventory و اصلاح معماری مجاز است.
