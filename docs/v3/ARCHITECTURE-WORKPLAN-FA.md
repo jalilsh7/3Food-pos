@@ -7,7 +7,8 @@
 
 - [x] دسته ۰: بررسی وضعیت شاخه و ثبت استاندارد معماری و نقشه ماژول‌ها.
 - [x] دسته ۱ (پایه): قرارداد خطا و logging مشترک در frontend، بدون وابستگی ماژول‌های تجاری.
-- [ ] دسته ۲: API client، پاسخ/خطا، درخواست‌ها و correlation context.
+- [x] دسته ۲-الف: API client correlation context و logging؛ PHP echo header.
+- [ ] دسته ۲-ب: استخراج transport/session/contracts به adapters مستقل.
 - [ ] دسته ۳: استخراج سفارش، فروش و کاتالوگ از featureهای یکپارچه.
 - [ ] دسته ۴: موجودی، رسپی/بهای تمام‌شده، تامین‌کنندگان و هزینه‌ها.
 - [ ] دسته ۵: مشتریان، وفاداری، کمپین‌ها و پیام‌رسانی.
@@ -20,7 +21,7 @@
 - [ ] دسته نهایی: اجرای تست‌ها، build، تست migration/upgrade، نصب و rollback.
 
 ## وضعیت پایه
-شاخه توسعه: `feature/3food-pos-next-release-v2`. معماری موجود هنوز ترکیبی از `src/features/pos`، `src/lib/pos` و ماژول pilot پیامک است. مهاجرت به‌صورت incremental خواهد بود و از شکستن APIهای فعلی جلوگیری می‌شود. دسته ۱ قرارداد پایه logger/error را اضافه کرده؛ هیچ build/test در این دسته اجرا نشده.
+شاخه توسعه: `feature/3food-pos-next-release-v2`. معماری موجود هنوز ترکیبی از `src/features/pos`، `src/lib/pos` و ماژول pilot پیامک است. مهاجرت به‌صورت incremental خواهد بود و از شکستن APIهای فعلی جلوگیری می‌شود. دسته ۱ قرارداد پایه logger/error و دسته ۲-الف correlation ID frontend/PHP ثبت شده؛ build/test اجرا نشده.
 
 ## فهرست تست نهایی (تعویق)
 - TypeScript/typecheck، lint و build کامل frontend.
