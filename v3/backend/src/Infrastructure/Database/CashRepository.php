@@ -3,9 +3,11 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Infrastructure\Database;
 
+use PersiaCoder\PosV3\Finance\CashStore;
+
 use PDO;
 
-final readonly class CashRepository
+final readonly class CashRepository implements CashStore
 {
     public function __construct(private PDO $connection) {}
 
