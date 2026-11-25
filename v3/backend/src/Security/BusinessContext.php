@@ -14,4 +14,8 @@ final readonly class BusinessContext implements BusinessScopeContext
             throw new \InvalidArgumentException('Business context IDs must be positive.');
         }
     }
+
+    public function businessId(): int { return $this->businessId; }
+
+    public function branchId(): ?int { return $this->branchId; }
 }

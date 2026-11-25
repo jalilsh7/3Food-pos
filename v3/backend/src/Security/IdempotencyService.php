@@ -83,13 +83,13 @@ final readonly class IdempotencyService
 
             if (!$record['created']) {
                 if (!hash_equals($record['request_hash'], $requestHash)) {
-                    throw new HttpException(409, 'idempotency_key_reused', 'This idempotency key was already used with a different request.');
+                    throw new ApplicationException(409, 'idempotency_key_reused', 'This idempotency key was already used with a different request.');
                 }
                 if ($record['response_status'] === null
                     || $record['response_ciphertext'] === null
                     || $record['response_nonce'] === null
                     || $record['response_tag'] === null) {
-                    throw new HttpException(409, 'idempotency_in_progress', 'A request with this idempotency key is still being processed.');
+                    throw new ApplicationException(409, 'idempotency_in_progress', 'A request with this idempotency key is still being processed.');
                 }
 
                 return [
