@@ -87,6 +87,7 @@ export type Order = {
   customerName: string;
   customerPhone: string;
   discountCode: string;
+  note?: string;
   pointsUsed: number;
   pointsEarned: number;
 };
