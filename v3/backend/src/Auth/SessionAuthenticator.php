@@ -7,13 +7,12 @@ use DateTimeImmutable;
 use DateTimeZone;
 use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Http\Request;
-use PersiaCoder\PosV3\Infrastructure\Database\SessionRepository;
 
 final readonly class SessionAuthenticator
 {
     public const COOKIE_NAME = 'pos_v3_session';
 
-    public function __construct(private SessionRepository $sessions) {}
+    public function __construct(private SessionStore $sessions) {}
 
     public function authenticate(Request $request): AuthenticatedPrincipal
     {

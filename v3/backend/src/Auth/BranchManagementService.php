@@ -12,7 +12,7 @@ final readonly class BranchManagementService
 {
 
     public function __construct(
-        private BusinessRepository $businesses,
+        private BusinessStore $businesses,
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
     ) {}

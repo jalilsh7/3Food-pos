@@ -3,11 +3,10 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Auth;
 
-use PersiaCoder\PosV3\Infrastructure\Database\PermissionRepository;
 
 final readonly class PermissionService
 {
-    public function __construct(private PermissionRepository $permissions) {}
+    public function __construct(private PermissionStore $permissions) {}
 
     public function allows(
         AuthenticatedPrincipal $principal,

@@ -5,11 +5,10 @@ namespace PersiaCoder\PosV3\Auth;
 
 use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Http\Request;
-use PersiaCoder\PosV3\Infrastructure\Database\PermissionRepository;
 
 final readonly class BusinessScopeResolver
 {
-    public function __construct(private PermissionRepository $repository) {}
+    public function __construct(private PermissionStore $repository) {}
 
     public function resolve(Request $request, bool $requireBranch, bool $allowBranchContext = false): BusinessScope
     {

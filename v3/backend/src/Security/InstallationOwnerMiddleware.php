@@ -7,11 +7,10 @@ use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Http\Request;
 use PersiaCoder\PosV3\Http\Response;
-use PersiaCoder\PosV3\Infrastructure\Database\BusinessRepository;
 
 final readonly class InstallationOwnerMiddleware
 {
-    public function __construct(private BusinessRepository $businesses) {}
+    public function __construct(private BusinessStore $businesses) {}
 
     /** @param callable(Request): Response $next */
     public function __invoke(Request $request, array $parameters, callable $next): Response

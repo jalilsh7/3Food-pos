@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Auth;
 
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Database\RoleRepository;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
@@ -12,7 +11,7 @@ final readonly class RoleManagementService
 {
 
     public function __construct(
-        private RoleRepository $roles,
+        private RoleStore $roles,
         private PermissionService $permissions,
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
