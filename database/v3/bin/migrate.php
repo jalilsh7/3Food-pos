@@ -68,6 +68,29 @@ try {
                 throw new RuntimeException("Migration {$filename} contains an invalid table name in its manifest.");
             }
         }
+
+        $sql = file_get_contents($path);
+        if (!is_string($sql)) {
+            throw new RuntimeException("Could not read migration SQL: {$filename}");
+        }
+        preg_match_all(
+            '/\\b(?:CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?|ALTER\\s+TABLE|DROP\\s+TABLE(?:\\s+IF\\s+EXISTS)?)\\s+`?([a-z][a-z0-9_]*)`?/i',
+            $sql,
+            $tableMatches
+        );
+        $sqlTables = array_values(array_unique($tableMatches[1] ?? []));
+        $manifestTables = array_values(array_unique($tables));
+        sort($sqlTables);
+        sort($manifestTables);
+        if ($sqlTables !== $manifestTables) {
+            $missing = array_values(array_diff($sqlTables, $manifestTables));
+            $stale = array_values(array_diff($manifestTables, $sqlTables));
+            throw new RuntimeException(
+                "Migration {$filename} table ownership mismatch. Missing: "
+                . ($missing === [] ? 'none' : implode(', ', $missing))
+                . '; stale: ' . ($stale === [] ? 'none' : implode(', ', $stale))
+            );
+        }
     }
 
     foreach ($manifest as $version => $entry) {
