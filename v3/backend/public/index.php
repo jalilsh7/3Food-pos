@@ -176,15 +176,15 @@ try {
     };
 
     $roleController = null;
-    $getRoleController = static function () use (&$roleController, $getConnection, $configuration): RoleManagementController {
+    $getRoleController = static function () use (&$roleController, $getConnection, $getIdempotencyService, $getAuditLogService): RoleManagementController {
         if (!$roleController instanceof RoleManagementController) {
             $repository = new PermissionRepository($getConnection());
             $roleController = new RoleManagementController(
                 new RoleManagementService(
-                    $getConnection(),
-                    $configuration->applicationKey,
                     new RoleRepository($getConnection()),
                     new PermissionService($repository),
+                    $getIdempotencyService(),
+                    $getAuditLogService(),
                 ),
             );
         }
@@ -192,24 +192,26 @@ try {
     };
 
     $branchController = null;
-    $getBranchController = static function () use (&$branchController, $getConnection, $configuration): BranchManagementController {
+    $getBranchController = static function () use (&$branchController, $getConnection, $getIdempotencyService, $getAuditLogService): BranchManagementController {
         if (!$branchController instanceof BranchManagementController) {
             $branchController = new BranchManagementController(
-                new BranchManagementService($getConnection(), $configuration->applicationKey),
+                new BranchManagementService(new BusinessRepository($getConnection()), $getIdempotencyService(), $getAuditLogService()),
             );
         }
         return $branchController;
     };
 
     $userController = null;
-    $getUserController = static function () use (&$userController, $getConnection, $configuration): UserManagementController {
+    $getUserController = static function () use (&$userController, $getConnection, $getIdempotencyService, $getAuditLogService): UserManagementController {
         if (!$userController instanceof UserManagementController) {
             $repository = new PermissionRepository($getConnection());
             $userController = new UserManagementController(
                 new UserManagementService(
-                    $getConnection(),
-                    $configuration->applicationKey,
+                    new UserRepository($getConnection()),
+                    new RoleRepository($getConnection()),
                     new PermissionService($repository),
+                    $getIdempotencyService(),
+                    $getAuditLogService(),
                 ),
             );
         }

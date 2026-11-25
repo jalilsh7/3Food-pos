@@ -3,27 +3,20 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Auth;
 
-use PDO;
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\RoleRepository;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class RoleManagementService
 {
-    private IdempotencyService $idempotency;
-    private AuditLogService $audit;
 
     public function __construct(
-        PDO $connection,
-        string $applicationKey,
         private RoleRepository $roles,
         private PermissionService $permissions,
-    ) {
-        $this->idempotency = new IdempotencyService($connection, $applicationKey);
-        $this->audit = new AuditLogService(new AuditLogRepository($connection));
-    }
+        private IdempotencyService $idempotency,
+        private AuditLogService $audit,
+    ) {}
 
     public function listRoles(): array
     {

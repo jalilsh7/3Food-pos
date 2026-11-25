@@ -4,25 +4,18 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Auth;
 
 use DateTimeZone;
-use PDO;
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
-use PersiaCoder\PosV3\Infrastructure\Database\BusinessRepository;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class BranchManagementService
 {
-    private BusinessRepository $businesses;
-    private IdempotencyService $idempotency;
-    private AuditLogService $audit;
 
-    public function __construct(PDO $connection, string $applicationKey)
-    {
-        $this->businesses = new BusinessRepository($connection);
-        $this->idempotency = new IdempotencyService($connection, $applicationKey);
-        $this->audit = new AuditLogService(new AuditLogRepository($connection));
-    }
+    public function __construct(
+        private BusinessRepository $businesses,
+        private IdempotencyService $idempotency,
+        private AuditLogService $audit,
+    ) {}
 
     public function list(BusinessScope $scope): array
     {
