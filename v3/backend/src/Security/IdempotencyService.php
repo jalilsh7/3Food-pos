@@ -5,7 +5,6 @@ namespace PersiaCoder\PosV3\Security;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use PDO;
 use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Infrastructure\Database\IdempotencyRepository;
@@ -34,7 +33,7 @@ final readonly class IdempotencyService
      * The callback must perform all domain writes using the supplied PDO connection.
      * Its result is committed atomically with the encrypted idempotency response.
      *
-     * @param callable(PDO): array{status:int,body:array<string,mixed>} $operation
+     * @param callable(): array{status:int,body:array<string,mixed>} $operation
      * @return array{status:int,body:array<string,mixed>,replayed:bool}
      */
     public function execute(
@@ -64,7 +63,7 @@ final readonly class IdempotencyService
             ->modify('+' . $this->retentionSeconds . ' seconds')
             ->format('Y-m-d H:i:s.u');
 
-        return $this->transactions->run(function (PDO $connection) use (
+        return $this->transactions->run(function () use (
             $actorUserId,
             $scope,
             $endpointCode,
@@ -107,7 +106,7 @@ final readonly class IdempotencyService
                 ];
             }
 
-            $result = $operation($connection);
+            $result = $operation();
             if (!is_array($result) || !is_int($result['status'] ?? null)
                 || $result['status'] < 200 || $result['status'] > 299
                 || !is_array($result['body'] ?? null)) {
