@@ -306,10 +306,10 @@ function formatInvoiceSms(order: Order): string {
     codeLine,
   ];
   const maxLength = 1000;
-  const result = summary.join("\\n");
+  const result = summary.join("\n");
   if (result.length <= maxLength) return result;
 
-  const footer = [totalLine, codeLine].join("\\n");
+  const footer = [totalLine, codeLine].join("\n");
   const available = Math.max(0, maxLength - footer.length - 2);
   const compactItems: string[] = [];
   let used = 0;
@@ -325,7 +325,7 @@ function formatInvoiceSms(order: Order): string {
     ...(omitted > 0 ? [`و ${omitted.toLocaleString("fa-IR")} قلم دیگر`] : []),
     totalLine,
     codeLine,
-  ].join("\\n").slice(0, maxLength);
+  ].join("\n").slice(0, maxLength);
 }
 
 async function pushSms(event: SmsEvent, phone: string, vars: Record<string, string>) {
