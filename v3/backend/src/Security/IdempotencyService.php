@@ -7,16 +7,14 @@ use DateTimeImmutable;
 use DateTimeZone;
 use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Database\IdempotencyRepository;
-use PersiaCoder\PosV3\Infrastructure\Database\TransactionManager;
 
 final readonly class IdempotencyService
 {
     private string $encryptionKey;
 
     public function __construct(
-        private IdempotencyRepository $records,
-        private TransactionManager $transactions,
+        private IdempotencyStore $records,
+        private TransactionBoundary $transactions,
         string $applicationKey,
         private int $retentionSeconds = 86400,
     ) {
@@ -30,7 +28,7 @@ final readonly class IdempotencyService
     }
 
     /**
-     * The callback must perform all domain writes using the supplied PDO connection.
+     * The callback performs application writes through injected persistence ports.
      * Its result is committed atomically with the encrypted idempotency response.
      *
      * @param callable(): array{status:int,body:array<string,mixed>} $operation
