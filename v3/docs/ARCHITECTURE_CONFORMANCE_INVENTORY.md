@@ -70,8 +70,9 @@ Featureهای مشاهده‌شده:
 ### مغایرت‌های باقی‌مانده
 - قراردادهای persistence فعلی هنوز در برخی متدها آرایه‌های خام برمی‌گردانند؛ DTOهای typed و error/result contract نسخه‌بندی‌شده برای کل ماژول‌ها کامل نیست.
 - سایر سرویس‌های Backend (مانند Catalog، Inventory، Dining و Finance) هنوز در چند مورد PDO را مستقیم دریافت می‌کنند؛ مرزبندی آن‌ها باید ماژول‌به‌ماژول انجام شود.
+- OrderService همچنان به PermissionService/AuthenticatedPrincipal و HttpException وابستگی دارد؛ این موارد در مرحله بعد به authorization port و application error contract مستقل منتقل می‌شوند.
 - Dependency graph و cycle audit کامل Frontend/Backend هنوز اجرا نشده است.
-- logger ساخت‌یافته سراسری Backend و فیلتر module هنوز تکمیل نشده است.
+- logger ساخت‌یافته Backend ایجاد و به HTTP Kernel متصل شده است؛ خروجی JSON به error_log می‌رود، فیلدهای level/event/module/request_id/context دارد و با `POS_V3_LOG_MODULES` قابل فیلتر است. اتصال logger به همه use-caseها، providerها و عملیات دیتابیس هنوز انجام نشده است.
 - migrationها در یک پوشه مرکزی و ترتیبی هستند؛ map مالکیت دامنه‌ای باید ثبت و runner از نظر metadata بررسی شود.
 
 این اصلاحات صرفاً از نظر ساختار و قرارداد کد ثبت شده‌اند؛ تست جامع و Build همچنان به دستور کاربر معوق هستند.
@@ -116,7 +117,7 @@ Migrationهای ترتیبی SQL از 001 تا 012 در GitHub مشاهده شد
 2. تحلیل import/dependency frontend و backend و ثبت cycleها و cross-module leaks.
 3. تعیین public entrypoint و قرارداد ورودی/خروجی واقعی برای هر ماژول.
 4. تثبیت shared kernel و composition root؛ تکمیل DI و persistence/transaction ports در تمام ماژول‌ها.
-5. اتصال و استانداردسازی logger و correlation context در frontend، PHP API، database و provider adapters.
+5. گسترش logger ساخت‌یافته و correlation context از HTTP Kernel به use-caseها، database و provider adapters.
 6. تهیه migration ownership map و تعیین metadata/runner contract.
 7. ایجاد الگوی docs/tests و ثبت پوشش مستقل تمام ماژول‌ها.
 8. بررسی مرزهای tenant/business/branch، guest actor، central licensing و storefront در برابر مدل فعلی.
@@ -129,7 +130,7 @@ Migrationهای ترتیبی SQL از 001 تا 012 در GitHub مشاهده شد
 - ساختار Feature-Based اولیه: وجود دارد؛ انطباق کامل تأیید نشده.
 - جداسازی لایه‌ها: در Orders/Security، PDO از callback کاربردی خارج و persistence/transaction ports اضافه شدند؛ سایر ماژول‌ها هنوز نیازمند refactor هستند.
 - قراردادهای ماژول: در اسناد تعریف شده؛ پوشش اجرایی ناقص/نامشخص.
-- logging: پایه قبلی وجود دارد؛ اتصال سراسری نیازمند inventory است.
+- logging: logger ساخت‌یافته Backend در Kernel فعال و module-filterable است؛ پوشش سراسری تمام ماژول‌ها هنوز ناقص است.
 - migration: نسخه‌بندی ترتیبی وجود دارد؛ ownership مستقل نیازمند تعیین است.
 - docs/tests: اسناد مرزبندی وجود دارد؛ مستندات و تست مستقل تمام ماژول‌ها تکمیل/تأیید نشده.
 - تست نهایی: عمداً معوق تا پایان تطبیق کلی.
