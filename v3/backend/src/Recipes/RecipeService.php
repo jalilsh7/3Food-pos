@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Recipes;
 
-use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
-use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\ActorContext;
+use PersiaCoder\PosV3\Security\BusinessContext;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class RecipeService
@@ -17,7 +17,7 @@ final readonly class RecipeService
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
     ) {}
-    public function getProductRecipe(BusinessScope $scope, string $productPublicId, ?string $variantPublicId): ?array
+    public function getProductRecipe(BusinessContext $scope, string $productPublicId, ?string $variantPublicId): ?array
     {
         if (!self::isUuid($productPublicId)) {
             throw new ApplicationException(422, 'product_id_invalid', 'The product identifier is invalid.');
@@ -40,7 +40,7 @@ final readonly class RecipeService
      * @return array{status:int,body:array<string,mixed>,replayed:bool}
      */
     public function createDraftVersion(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $productPublicId,
+        ActorContext $actor, BusinessContext $scope, string $productPublicId,
         array $payload, string $key, string $requestId, string $ip,
     ): array {
         if (!self::isUuid($productPublicId)) {
@@ -184,7 +184,7 @@ final readonly class RecipeService
 
     /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function activateVersion(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $versionPublicId,
+        ActorContext $actor, BusinessContext $scope, string $versionPublicId,
         string $key, string $requestId, string $ip,
     ): array {
         if (!self::isUuid($versionPublicId)) {

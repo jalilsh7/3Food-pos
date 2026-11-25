@@ -4,10 +4,10 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Finance;
 
 use PDOException;
-use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
-use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\ActorContext;
+use PersiaCoder\PosV3\Security\BusinessContext;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class CashRegisterService
@@ -20,14 +20,14 @@ final readonly class CashRegisterService
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
     ) {}
-    public function list(BusinessScope $scope): array
+    public function list(BusinessContext $scope): array
     {
         return ['registers' => $this->cash->listRegisters($scope->businessId, (int) $scope->branchId)];
     }
 
     public function createRegister(
-        AuthenticatedPrincipal $actor,
-        BusinessScope $scope,
+        ActorContext $actor,
+        BusinessContext $scope,
         array $payload,
         string $idempotencyKey,
         string $requestId,
@@ -83,8 +83,8 @@ final readonly class CashRegisterService
     }
 
     public function openSession(
-        AuthenticatedPrincipal $actor,
-        BusinessScope $scope,
+        ActorContext $actor,
+        BusinessContext $scope,
         string $registerPublicId,
         array $payload,
         string $idempotencyKey,
@@ -168,8 +168,8 @@ final readonly class CashRegisterService
     }
 
     public function closeSession(
-        AuthenticatedPrincipal $actor,
-        BusinessScope $scope,
+        ActorContext $actor,
+        BusinessContext $scope,
         string $sessionPublicId,
         array $payload,
         string $idempotencyKey,
@@ -236,8 +236,8 @@ final readonly class CashRegisterService
     }
 
     public function reviewSession(
-        AuthenticatedPrincipal $actor,
-        BusinessScope $scope,
+        ActorContext $actor,
+        BusinessContext $scope,
         string $sessionPublicId,
         array $payload,
         string $idempotencyKey,

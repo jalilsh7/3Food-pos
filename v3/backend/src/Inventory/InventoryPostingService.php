@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Inventory;
 
-use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
-use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\ActorContext;
+use PersiaCoder\PosV3\Security\BusinessContext;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class InventoryPostingService
@@ -20,7 +20,7 @@ final readonly class InventoryPostingService
     ) {}
     /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function post(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $documentPublicId,
+        ActorContext $actor, BusinessContext $scope, string $documentPublicId,
         string $key, string $requestId, string $ip,
     ): array {
         $branchId = self::branch($scope);
@@ -237,7 +237,7 @@ final readonly class InventoryPostingService
         return $amount;
     }
 
-    private static function branch(BusinessScope $scope): int
+    private static function branch(BusinessContext $scope): int
     {
         if ($scope->branchId === null || $scope->branchId < 1) {
             throw new ApplicationException(400, 'branch_context_required', 'A valid branch context is required.');

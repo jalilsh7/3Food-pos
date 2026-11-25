@@ -4,10 +4,10 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Dining;
 
 use PDOException;
-use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
-use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\ActorContext;
+use PersiaCoder\PosV3\Security\BusinessContext;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class DiningService
@@ -18,7 +18,7 @@ final readonly class DiningService
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
     ) {}
-    public function list(BusinessScope $scope): array
+    public function list(BusinessContext $scope): array
     {
         return [
             'areas' => $this->dining->listAreas($scope->businessId, (int) $scope->branchId),
@@ -27,8 +27,8 @@ final readonly class DiningService
     }
 
     public function createArea(
-        AuthenticatedPrincipal $actor,
-        BusinessScope $scope,
+        ActorContext $actor,
+        BusinessContext $scope,
         array $payload,
         string $idempotencyKey,
         string $requestId,
@@ -76,8 +76,8 @@ final readonly class DiningService
     }
 
     public function createTable(
-        AuthenticatedPrincipal $actor,
-        BusinessScope $scope,
+        ActorContext $actor,
+        BusinessContext $scope,
         string $areaPublicId,
         array $payload,
         string $idempotencyKey,
@@ -151,8 +151,8 @@ final readonly class DiningService
     }
 
     public function openSession(
-        AuthenticatedPrincipal $actor,
-        BusinessScope $scope,
+        ActorContext $actor,
+        BusinessContext $scope,
         string $tablePublicId,
         string $idempotencyKey,
         string $requestId,
@@ -213,8 +213,8 @@ final readonly class DiningService
     }
 
     public function closeSession(
-        AuthenticatedPrincipal $actor,
-        BusinessScope $scope,
+        ActorContext $actor,
+        BusinessContext $scope,
         string $sessionPublicId,
         string $idempotencyKey,
         string $requestId,

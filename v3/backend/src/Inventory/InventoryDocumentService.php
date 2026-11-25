@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Inventory;
 
-use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
-use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\ActorContext;
+use PersiaCoder\PosV3\Security\BusinessContext;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class InventoryDocumentService
@@ -17,7 +17,7 @@ final readonly class InventoryDocumentService
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
     ) {}
-    public function list(BusinessScope $scope, ?string $type, ?string $status, int $limit): array
+    public function list(BusinessContext $scope, ?string $type, ?string $status, int $limit): array
     {
         $branchId = self::branch($scope);
         $types = ['purchase_receipt', 'consumption', 'transfer', 'adjustment_in', 'adjustment_out', 'waste', 'return'];
@@ -31,7 +31,7 @@ final readonly class InventoryDocumentService
         return $this->documents->list($scope->businessId, $branchId, $type, $status, $limit);
     }
 
-    public function get(BusinessScope $scope, string $publicId): array
+    public function get(BusinessContext $scope, string $publicId): array
     {
         $branchId = self::branch($scope);
         if (!self::isUuid($publicId)) throw new ApplicationException(422, 'stock_document_id_invalid', 'The stock document identifier is invalid.');
@@ -40,7 +40,7 @@ final readonly class InventoryDocumentService
         return $document;
     }
 
-    public function getValuation(BusinessScope $scope, string $publicId): array
+    public function getValuation(BusinessContext $scope, string $publicId): array
     {
         $branchId = self::branch($scope);
         if (!self::isUuid($publicId)) {
@@ -64,7 +64,7 @@ final readonly class InventoryDocumentService
     }
 
     public function create(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, array $payload,
+        ActorContext $actor, BusinessContext $scope, array $payload,
         string $key, string $requestId, string $ip,
     ): array {
         $branchId = self::branch($scope);
@@ -149,7 +149,7 @@ final readonly class InventoryDocumentService
 
 
     public function addLine(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $documentPublicId,
+        ActorContext $actor, BusinessContext $scope, string $documentPublicId,
         array $payload, string $key, string $requestId, string $ip,
     ): array {
         $branchId = self::branch($scope);
@@ -240,7 +240,7 @@ final readonly class InventoryDocumentService
 
 
     public function updateLine(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $documentPublicId,
+        ActorContext $actor, BusinessContext $scope, string $documentPublicId,
         string $linePublicId, array $payload, string $key, string $requestId, string $ip,
     ): array {
         $branchId = self::branch($scope);
@@ -333,7 +333,7 @@ final readonly class InventoryDocumentService
     }
 
     public function deleteLine(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $documentPublicId,
+        ActorContext $actor, BusinessContext $scope, string $documentPublicId,
         string $linePublicId, string $key, string $requestId, string $ip,
     ): array {
         $branchId = self::branch($scope);
@@ -394,7 +394,7 @@ final readonly class InventoryDocumentService
         return $value;
     }
 
-    private static function branch(BusinessScope $scope): int
+    private static function branch(BusinessContext $scope): int
     {
         if ($scope->branchId === null || $scope->branchId < 1) {
             throw new ApplicationException(400, 'branch_context_required', 'A valid branch context is required.');

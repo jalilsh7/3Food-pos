@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Catalog;
 
-use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
-use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\ActorContext;
+use PersiaCoder\PosV3\Security\BusinessContext;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class CatalogService
@@ -17,13 +17,13 @@ final readonly class CatalogService
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
     ) {}
-    public function listCategories(BusinessScope $scope): array
+    public function listCategories(BusinessContext $scope): array
     {
         return $this->catalog->listCategories($scope->businessId);
     }
 
     public function listProducts(
-        BusinessScope $scope,
+        BusinessContext $scope,
         ?string $search,
         ?string $categoryPublicId,
         int $limit,
@@ -42,8 +42,8 @@ final readonly class CatalogService
 
     /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function createCategory(
-        AuthenticatedPrincipal $actor,
-        BusinessScope $scope,
+        ActorContext $actor,
+        BusinessContext $scope,
         array $payload,
         string $idempotencyKey,
         string $requestId,
@@ -109,8 +109,8 @@ final readonly class CatalogService
 
     /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function createProduct(
-        AuthenticatedPrincipal $actor,
-        BusinessScope $scope,
+        ActorContext $actor,
+        BusinessContext $scope,
         array $payload,
         string $idempotencyKey,
         string $requestId,
@@ -201,7 +201,7 @@ final readonly class CatalogService
 
     /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function updateCategory(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $publicId, array $payload,
+        ActorContext $actor, BusinessContext $scope, string $publicId, array $payload,
         string $key, string $requestId, string $ip,
     ): array {
         if (!self::isUuid($publicId)) throw new ApplicationException(422, 'category_id_invalid', 'The category identifier is invalid.');
@@ -237,7 +237,7 @@ final readonly class CatalogService
 
     /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function updateProduct(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $publicId, array $payload,
+        ActorContext $actor, BusinessContext $scope, string $publicId, array $payload,
         string $key, string $requestId, string $ip,
     ): array {
         if (!self::isUuid($publicId)) throw new ApplicationException(422, 'product_id_invalid', 'The product identifier is invalid.');
@@ -277,7 +277,7 @@ final readonly class CatalogService
 
     /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function archiveProduct(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $publicId,
+        ActorContext $actor, BusinessContext $scope, string $publicId,
         string $key, string $requestId, string $ip,
     ): array {
         if (!self::isUuid($publicId)) throw new ApplicationException(422, 'product_id_invalid', 'The product identifier is invalid.');
@@ -316,7 +316,7 @@ final readonly class CatalogService
             . substr($hex, 12, 4) . '-' . substr($hex, 16, 4) . '-' . substr($hex, 20);
     }
 
-    public function productDetails(BusinessScope $scope, string $publicId): array
+    public function productDetails(BusinessContext $scope, string $publicId): array
     {
         if (!self::isUuid($publicId)) throw new ApplicationException(422, 'product_id_invalid', 'The product identifier is invalid.');
         $id = $this->catalog->findProductIdByPublicId($scope->businessId, $publicId);
@@ -324,7 +324,7 @@ final readonly class CatalogService
         return $this->catalog->productDetails($scope->businessId, $id) ?? [];
     }
 
-    public function createVariant(AuthenticatedPrincipal $actor, BusinessScope $scope, string $productPublicId, array $payload, string $key, string $requestId, string $ip): array
+    public function createVariant(ActorContext $actor, BusinessContext $scope, string $productPublicId, array $payload, string $key, string $requestId, string $ip): array
     {
         $productId = $this->catalog->findProductIdByPublicId($scope->businessId, $productPublicId);
         $name = trim((string)($payload['name'] ?? '')); $sku = $payload['sku'] ?? null; $delta = $payload['price_delta_amount'] ?? null;
@@ -340,7 +340,7 @@ final readonly class CatalogService
         });
     }
 
-    public function createOptionGroup(AuthenticatedPrincipal $actor, BusinessScope $scope, array $payload, string $key, string $requestId, string $ip): array
+    public function createOptionGroup(ActorContext $actor, BusinessContext $scope, array $payload, string $key, string $requestId, string $ip): array
     {
         $name=trim((string)($payload['name']??'')); $type=$payload['selection_type']??'multiple'; $min=$payload['min_select']??0; $max=$payload['max_select']??1; $required=$payload['is_required_default']??false; $items=$payload['options']??null;
         if($name===''||self::unicodeLength($name)>140) throw new ApplicationException(422,'option_group_name_invalid','Option group name is invalid.');
@@ -361,7 +361,7 @@ final readonly class CatalogService
         });
     }
 
-    public function attachOptionGroup(AuthenticatedPrincipal $actor, BusinessScope $scope, string $productPublicId, array $payload, string $key, string $requestId, string $ip): array
+    public function attachOptionGroup(ActorContext $actor, BusinessContext $scope, string $productPublicId, array $payload, string $key, string $requestId, string $ip): array
     {
         $productId=$this->catalog->findProductIdByPublicId($scope->businessId,$productPublicId);$groupPublicId=$payload['option_group_id']??null;$sort=$payload['sort_order']??0;$required=$payload['is_required']??null;
         if($productId===null) throw new ApplicationException(404,'product_not_found','The product was not found.');
@@ -382,7 +382,7 @@ final readonly class CatalogService
 
     /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function updateVariant(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $publicId, array $payload,
+        ActorContext $actor, BusinessContext $scope, string $publicId, array $payload,
         string $key, string $requestId, string $ip,
     ): array {
         if (!self::isUuid($publicId)) {
@@ -438,7 +438,7 @@ final readonly class CatalogService
 
     /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function updateOptionGroup(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $publicId, array $payload,
+        ActorContext $actor, BusinessContext $scope, string $publicId, array $payload,
         string $key, string $requestId, string $ip,
     ): array {
         if (!self::isUuid($publicId)) {
@@ -501,7 +501,7 @@ final readonly class CatalogService
 
     /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function updateOption(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $publicId, array $payload,
+        ActorContext $actor, BusinessContext $scope, string $publicId, array $payload,
         string $key, string $requestId, string $ip,
     ): array {
         if (!self::isUuid($publicId)) {

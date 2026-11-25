@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Inventory;
 
-use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
-use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\ActorContext;
+use PersiaCoder\PosV3\Security\BusinessContext;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class InventoryService
@@ -22,7 +22,7 @@ final readonly class InventoryService
         return $this->inventory->listUnits();
     }
 
-    public function listStockItems(BusinessScope $scope, ?string $search, int $limit): array
+    public function listStockItems(BusinessContext $scope, ?string $search, int $limit): array
     {
         if ($search !== null && self::unicodeLength($search) > 100) {
             throw new ApplicationException(422, 'inventory_search_too_long', 'Search text must not exceed 100 characters.');
@@ -35,7 +35,7 @@ final readonly class InventoryService
 
     /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function createStockItem(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, array $payload,
+        ActorContext $actor, BusinessContext $scope, array $payload,
         string $key, string $requestId, string $ip,
     ): array {
         $code = trim((string) ($payload['code'] ?? ''));
@@ -86,7 +86,7 @@ final readonly class InventoryService
 
     /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function updateStockItem(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $publicId, array $payload,
+        ActorContext $actor, BusinessContext $scope, string $publicId, array $payload,
         string $key, string $requestId, string $ip,
     ): array {
         if (!self::isUuid($publicId)) {
@@ -134,7 +134,7 @@ final readonly class InventoryService
         );
     }
 
-    public function listLocations(BusinessScope $scope): array
+    public function listLocations(BusinessContext $scope): array
     {
         $branchId = self::requireBranch($scope);
         return $this->inventory->listLocations($scope->businessId, $branchId);
@@ -142,7 +142,7 @@ final readonly class InventoryService
 
     /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function createLocation(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, array $payload,
+        ActorContext $actor, BusinessContext $scope, array $payload,
         string $key, string $requestId, string $ip,
     ): array {
         $branchId = self::requireBranch($scope);
@@ -182,7 +182,7 @@ final readonly class InventoryService
 
     /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function updateLocation(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $publicId, array $payload,
+        ActorContext $actor, BusinessContext $scope, string $publicId, array $payload,
         string $key, string $requestId, string $ip,
     ): array {
         $branchId = self::requireBranch($scope);
@@ -233,7 +233,7 @@ final readonly class InventoryService
 
     /** @return list<array<string,mixed>> */
     public function listBalances(
-        BusinessScope $scope, ?string $stockItemPublicId, ?string $locationPublicId, int $limit,
+        BusinessContext $scope, ?string $stockItemPublicId, ?string $locationPublicId, int $limit,
     ): array {
         $branchId = self::requireBranch($scope);
         if ($limit < 1 || $limit > 200) {
@@ -268,7 +268,7 @@ final readonly class InventoryService
 
     /** @return array{items:list<array<string,mixed>>,next_cursor:?string} */
     public function listLedger(
-        BusinessScope $scope, ?string $stockItemPublicId, ?string $locationPublicId,
+        BusinessContext $scope, ?string $stockItemPublicId, ?string $locationPublicId,
         ?int $beforeId, int $limit,
     ): array {
         $branchId = self::requireBranch($scope);
@@ -319,7 +319,7 @@ final readonly class InventoryService
         return ['items' => $rows, 'next_cursor' => $nextCursor];
     }
 
-    private static function requireBranch(BusinessScope $scope): int
+    private static function requireBranch(BusinessContext $scope): int
     {
         if ($scope->branchId === null) {
             throw new ApplicationException(400, 'branch_context_required', 'A branch context is required for stock locations.');

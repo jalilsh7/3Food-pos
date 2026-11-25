@@ -8,6 +8,8 @@ use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Http\Request;
 use PersiaCoder\PosV3\Http\Response;
+use PersiaCoder\PosV3\Security\ActorContext;
+use PersiaCoder\PosV3\Security\BusinessContext;
 
 final readonly class MediaController
 {
@@ -79,22 +81,22 @@ final readonly class MediaController
             ->withHeader('Idempotency-Replayed', $result['replayed'] ? 'true' : 'false');
     }
 
-    private function principal(Request $request): AuthenticatedPrincipal
+    private function principal(Request $request): ActorContext
     {
         $principal = $request->attribute('principal');
         if (!$principal instanceof AuthenticatedPrincipal) {
             throw new HttpException(401, 'authentication_required', 'Authentication is required.');
         }
-        return $principal;
+        return new ActorContext($principal->userId, $principal->userPublicId);
     }
 
-    private function scope(Request $request): BusinessScope
+    private function scope(Request $request): BusinessContext
     {
         $scope = $request->attribute('business_scope');
         if (!$scope instanceof BusinessScope) {
             throw new HttpException(400, 'business_context_required', 'A valid business scope is required.');
         }
-        return $scope;
+        return new BusinessContext($scope->businessId, $scope->branchId);
     }
 
     public function detachProductImage(Request $request, array $parameters): Response

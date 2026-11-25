@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Inventory;
 
-use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
-use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\ActorContext;
+use PersiaCoder\PosV3\Security\BusinessContext;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class SupplierService
@@ -17,13 +17,13 @@ final readonly class SupplierService
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
     ) {}
-    public function list(BusinessScope $scope, bool $includeInactive = true): array
+    public function list(BusinessContext $scope, bool $includeInactive = true): array
     {
         return $this->suppliers->listForBusiness($scope->businessId, $includeInactive);
     }
 
     public function create(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, array $payload,
+        ActorContext $actor, BusinessContext $scope, array $payload,
         string $key, string $requestId, string $ip,
     ): array {
         [$name, $phone, $notes] = $this->normalize($payload);
@@ -44,7 +44,7 @@ final readonly class SupplierService
     }
 
     public function update(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $publicId, array $payload,
+        ActorContext $actor, BusinessContext $scope, string $publicId, array $payload,
         string $key, string $requestId, string $ip,
     ): array {
         if (!self::isUuid($publicId)) throw new ApplicationException(422, 'supplier_id_invalid', 'The supplier identifier is invalid.');

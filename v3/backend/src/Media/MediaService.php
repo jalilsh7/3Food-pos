@@ -4,10 +4,10 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Media;
 
 use Throwable;
-use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
-use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\ActorContext;
+use PersiaCoder\PosV3\Security\BusinessContext;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class MediaService
@@ -30,7 +30,7 @@ final readonly class MediaService
      * @return array{status:int,body:array<string,mixed>,replayed:bool}
      */
     public function upload(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, array $file,
+        ActorContext $actor, BusinessContext $scope, array $file,
         string $key, string $requestId, string $ip,
     ): array {
         if ($file['error'] !== UPLOAD_ERR_OK) {
@@ -112,7 +112,7 @@ final readonly class MediaService
     }
 
     /** @return array{metadata:array<string,mixed>,contents:string} */
-    public function read(BusinessScope $scope, string $publicId): array
+    public function read(BusinessContext $scope, string $publicId): array
     {
         if (!self::isUuid($publicId)) {
             throw new ApplicationException(422, 'media_id_invalid', 'The media identifier is invalid.');
@@ -126,7 +126,7 @@ final readonly class MediaService
 
     /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function attachProductImage(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $productPublicId,
+        ActorContext $actor, BusinessContext $scope, string $productPublicId,
         array $payload, string $key, string $requestId, string $ip,
     ): array {
         $mediaPublicId = $payload['media_id'] ?? null;
@@ -156,7 +156,7 @@ final readonly class MediaService
 
     /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function attachCategoryImage(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $categoryPublicId,
+        ActorContext $actor, BusinessContext $scope, string $categoryPublicId,
         array $payload, string $key, string $requestId, string $ip,
     ): array {
         $mediaPublicId = $payload['media_id'] ?? null;
@@ -201,7 +201,7 @@ final readonly class MediaService
 
     /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function detachProductImage(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $productPublicId,
+        ActorContext $actor, BusinessContext $scope, string $productPublicId,
         string $key, string $requestId, string $ip,
     ): array {
         if (!self::isUuid($productPublicId)) {
@@ -232,7 +232,7 @@ final readonly class MediaService
 
     /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function detachCategoryImage(
-        AuthenticatedPrincipal $actor, BusinessScope $scope, string $categoryPublicId,
+        ActorContext $actor, BusinessContext $scope, string $categoryPublicId,
         string $key, string $requestId, string $ip,
     ): array {
         if (!self::isUuid($categoryPublicId)) {
