@@ -4,10 +4,28 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Http;
 
 use Throwable;
+use PersiaCoder\PosV3\Support\Logger;
 
 final readonly class Kernel
 {
-    public function __construct(private Router $router) {}
+    public function __construct(private Router $router, private Logger $logger) {}
+
+    private static function moduleForPath(string $path): string
+    {
+        $segments = explode('/', trim($path, '/'));
+        $resource = $segments[2] ?? 'system';
+        return match ($resource) {
+            'cash' => 'finance',
+            'access', 'auth' => 'auth',
+            'dining' => 'dining',
+            'orders' => 'orders',
+            'catalog' => 'catalog',
+            'inventory' => 'inventory',
+            'recipes' => 'recipes',
+            'media' => 'media',
+            default => 'system',
+        };
+    }
 
     public function handle(Request $request): Response
     {
@@ -21,11 +39,13 @@ final readonly class Kernel
                 'request_id' => $request->requestId,
             ], $exception->status);
         } catch (Throwable $exception) {
-            error_log(sprintf(
-                'POS_V3 request_id=%s exception=%s',
+            $this->logger->log(
+                'error',
+                'http.unhandled_exception',
+                self::moduleForPath($request->path),
                 $request->requestId,
-                $exception::class,
-            ));
+                ['exception_class' => $exception::class],
+            );
             $response = Response::error([
                 'code' => 'internal_error',
                 'message' => 'An unexpected error occurred.',
