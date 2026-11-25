@@ -1,13 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { Btn, Card, Empty, Field, inputCls, PageHeading } from "./bits";
 import { phpApi } from "@/lib/api/php-client";
-import { tierOf, type SmsEvent } from "@/lib/pos/model";
+import { tierOf, type OrderStatus, type SmsEvent } from "@/lib/pos/model";
 import { usePos } from "@/lib/pos/store";
 import { normalizeIranPhone, tehranDate } from "@/lib/pos/formatters";
 
+const EVENT_STATUS: Partial<Record<SmsEvent, OrderStatus>> = {
+  order_created: "new",
+  order_invoice: "new",
+  order_preparing: "preparing",
+  order_ready: "ready",
+  order_dispatched: "dispatched",
+  order_delivered: "delivered",
+  order_cancelled: "cancelled",
+};
+
 const INITIAL_RENDER_TIME = Date.now();
 const EVENT_LABEL: Record<SmsEvent, string> = {
-  order_created: "ثبت سفارش", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_dispatched: "ارسال شد", order_delivered: "تحویل", order_cancelled: "لغو سفارش", order_invoice: "ریز فاکتور",
+  order_created: "جدید", order_preparing: "در حال آماده‌سازی", order_ready: "آماده", order_dispatched: "ارسال شد", order_delivered: "تحویل شد", order_cancelled: "لغو شد", order_invoice: "ریز فاکتور",
   points_earned: "کسب امتیاز", discount_used: "استفاده از کد",
 };
 
@@ -82,7 +92,7 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
         <Field label="شماره موبایل مدیر"><input className={inputCls} dir="ltr" inputMode="tel" placeholder="09xxxxxxxxx" value={settings.smsManagerPhone ?? ""} onChange={(e) => patchSettings({ smsManagerPhone: e.target.value })} onBlur={() => { const current = usePos.getState().settings; void saveCentralRecord("settings", { id: "main", ...current, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} /></Field>
       </Card>
       {templates.map((t) => (
-        <Card key={t.event}>
+        <Card key={t.event} className={EVENT_STATUS[t.event] && settings.orderStatusEnabled?.[EVENT_STATUS[t.event]!] === false ? "blur-[1px] opacity-50 transition-[filter,opacity]" : "transition-[filter,opacity]"}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <strong>{EVENT_LABEL[t.event]}</strong>
             <div className="flex flex-wrap items-center gap-4 text-sm">
