@@ -122,7 +122,17 @@ foreach ($testFiles as $testFile) {
     }
 }
 
-echo sprintf("%d architecture checks; %d module suites; %d failures.\n", $checks, count($testFiles), count($failures));
+try {
+    $dependencyGraphTest = require __DIR__ . '/Architecture/DependencyGraphTest.php';
+    $scannedFiles = $dependencyGraphTest($backendRoot);
+    $checks++;
+    echo "PASS backend dependency graph ({$scannedFiles} PHP files scanned)\\n";
+} catch (Throwable $exception) {
+    $failures[] = 'DependencyGraph: ' . $exception->getMessage();
+    echo "FAIL DependencyGraph\\n";
+}
+
+echo sprintf("%d architecture checks; %d module suites; %d failures.\\n", $checks, count($testFiles), count($failures));
 if ($failures !== []) {
     foreach ($failures as $failure) {
         fwrite(STDERR, $failure . "\n");
