@@ -16,7 +16,7 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
   const templates = useMemo(() => {
     const events: SmsEvent[] = ["order_created", "order_preparing", "order_ready", "order_delivered", "order_cancelled", "order_invoice"];
     return events.map((event) => allTemplates.find((item) => item.event === event) ?? {
-      id: event, event, enabled: false, body: "", bodyId: "", variables: [],
+      id: event, event, enabled: false, body: "", bodyId: "", variables: [], managerEnabled: false,
     });
   }, [allTemplates]);
   const logs = usePos((s) => s.smsLogs);
