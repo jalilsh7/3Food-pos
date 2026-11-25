@@ -616,7 +616,7 @@ function PosScreen({ role }: { role: Role }) {
       void pushSms("order_created", order.customerPhone, vars);
       // Invoice template variable "order" carries the complete formatted invoice,
       // while other status templates keep receiving the short order number.
-      // The SMS screen event toggle remains the single source of truth.
+      // The SMS screen event toggle is the single source of truth for invoice SMS.
       void pushSms("order_invoice", order.customerPhone, { ...vars, order: formatInvoiceSms(order) });
       if (settings.autoPrint) setTimeout(() => window.print(), 300);
     } catch (error) {
