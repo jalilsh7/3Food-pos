@@ -3,11 +3,13 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Infrastructure\Database;
 
+use PersiaCoder\PosV3\Auth\SessionStore;
+
 use DateTimeImmutable;
 use DateTimeZone;
 use PDO;
 
-final readonly class SessionRepository
+final readonly class SessionRepository implements SessionStore
 {
     public function __construct(private PDO $connection) {}
 

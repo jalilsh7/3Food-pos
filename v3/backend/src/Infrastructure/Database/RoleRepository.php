@@ -3,9 +3,11 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Infrastructure\Database;
 
+use PersiaCoder\PosV3\Auth\RoleStore;
+
 use PDO;
 
-final readonly class RoleRepository
+final readonly class RoleRepository implements RoleStore
 {
     public function __construct(private PDO $connection) {}
 

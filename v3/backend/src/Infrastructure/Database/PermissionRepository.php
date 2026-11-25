@@ -3,9 +3,11 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Infrastructure\Database;
 
+use PersiaCoder\PosV3\Auth\PermissionStore;
+
 use PDO;
 
-final readonly class PermissionRepository
+final readonly class PermissionRepository implements PermissionStore
 {
     public function __construct(private PDO $connection) {}
 

@@ -3,9 +3,11 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Infrastructure\Database;
 
+use PersiaCoder\PosV3\Auth\UserStore;
+
 use PDO;
 
-final readonly class UserRepository
+final readonly class UserRepository implements UserStore
 {
     public function __construct(private PDO $connection) {}
 
