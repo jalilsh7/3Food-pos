@@ -69,7 +69,7 @@ return [
     '011_scope-inventory-and-recipes' => [
         'owner' => 'Inventory',
         'depends_on' => ['003_create-business-scope-and-rbac', '006_scope-catalog-and-customers', '007_catalog-variants-and-options', '008_scope-orders-and-service-areas'],
-        'tables' => ['pos_stock_items', 'pos_stock_locations', 'pos_suppliers', 'pos_stock_documents', 'pos_stock_document_lines', 'pos_stock_ledger', 'pos_stock_balances', 'pos_stock_reservations', 'pos_stock_reservation_lines', 'pos_recipes', 'pos_recipe_versions', 'pos_recipe_lines'],
+        'tables' => ['pos_stock_items', 'pos_stock_locations', 'pos_suppliers', 'pos_stock_documents', 'pos_stock_document_lines', 'pos_stock_ledger', 'pos_stock_balances', 'pos_stock_reservations', 'pos_stock_reservation_lines', 'pos_product_variants', 'pos_recipes', 'pos_recipe_versions', 'pos_order_items', 'pos_recipe_lines', 'pos_order_item_recipe_lines'],
         'risk' => 'high',
     ],
     '012_stock-document-line-public-ids' => [
