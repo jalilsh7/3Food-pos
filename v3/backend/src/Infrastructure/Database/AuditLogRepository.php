@@ -3,9 +3,11 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Infrastructure\Database;
 
+use PersiaCoder\PosV3\Security\AuditLogWriter;
+
 use PDO;
 
-final readonly class AuditLogRepository
+final readonly class AuditLogRepository implements AuditLogWriter
 {
     public function __construct(private PDO $connection) {}
 
