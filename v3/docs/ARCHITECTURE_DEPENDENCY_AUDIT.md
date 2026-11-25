@@ -76,3 +76,10 @@
 - Controllerهای این ماژول‌ها به interface وابسته‌اند؛ Composition Root implementationهای concrete را تزریق می‌کند.
 - قراردادهای عمومی method signatures را تثبیت می‌کنند؛ typed DTOهای اختصاصی برای همه payloadها و Resultها هنوز کامل نیستند.
 - تست‌های معماری backend برای هر ماژول ایجاد و frontend test script اضافه شده؛ اجرا نشده‌اند.
+
+## Migration ownership parity guard — 2026-11-26
+- اختلاف واقعی migration 011 شناسایی شد: SQL علاوه بر جدول‌های ثبت‌شده در manifest، سه جدول موجود pos_product_variants، pos_order_items و pos_order_item_recipe_lines را نیز تغییر می‌داد.
+- هر سه جدول به فهرست مالکیت migration 011 اضافه شدند؛ فایل SQL دست‌نخورده و immutable باقی ماند.
+- database/v3/bin/migrate.php اکنون پیش از اجرای migration، target tableهای استخراج‌شده از CREATE/ALTER/DROP TABLE را با manifest مقایسه می‌کند و در صورت اختلاف متوقف می‌شود.
+- v3/backend/tests/run.php همین برابری را به‌صورت static architecture check پوشش می‌دهد تا خطا بدون اتصال دیتابیس نیز قابل شناسایی باشد.
+- این تغییر فقط کنترل metadata است؛ هیچ migration روی دیتابیس اجرا نشده و هیچ داده‌ای تغییر نکرده است.
