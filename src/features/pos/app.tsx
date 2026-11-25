@@ -16,7 +16,7 @@ import { useAppearance } from "@/lib/appearance";
 import { normalizeIranPhone, tehranDate, formatElapsed } from "@/lib/pos/formatters";
 import { ROLE_LABEL, UsersScreen } from "./users-screen";
 import { AuthFrame, PhpLoginScreen, ChangePasswordScreen } from "./auth-screens";
-import { SmsScreen } from "./sms-screen";
+import { SmsScreen } from "@/modules/sms";
 import { SuppliersScreen } from "./suppliers-screen";
 import { ExpensesScreen } from "./expenses-screen";
 import { CodesScreen } from "./codes-screen";
