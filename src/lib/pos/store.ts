@@ -90,6 +90,7 @@ type Actions = {
     payment: Order["payment"];
     guestName: string;
     guestPhone: string;
+    note?: string;
     serverOrder?: { id: string; number: number; createdAt?: string };
   }) => { ok: true; order: Order } | { ok: false; error: string };
   setStatus: (id: string, status: OrderStatus) => Order | null;
@@ -213,6 +214,7 @@ export const usePos = create<PosState & Actions>()(
           customerName: name,
           customerPhone: phone,
           discountCode: q.discount?.code ?? "",
+          note: (input.note ?? "").trim().slice(0, 2000),
           pointsUsed: spentPts,
           pointsEarned: earned,
         };
