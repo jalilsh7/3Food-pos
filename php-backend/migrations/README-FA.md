@@ -22,6 +22,7 @@
 | `007-order-payment-and-guest-details.sql` | روش پرداخت، مشخصات مشتری مهمان و امتیازهای سفارش |
 | `008-global-appearance-settings.sql` | تنظیمات ظاهری سراسری |
 | `009-payment-terminal-foundation.sql` | جداول agent محلی، کارتخوان و تراکنش‌ها |
+| `010-order-dispatched-status.sql` | افزودن وضعیت «ارسال شد» به enum وضعیت سفارش‌های موجود |
 
 ## نکته‌های سازگاری
 
@@ -30,6 +31,7 @@
 - migrationهای 004، 006، 008 و 009 از `CREATE TABLE IF NOT EXISTS` استفاده می‌کنند.
 - migration 004 به جدول‌های `pos_orders` و `app_users` نیاز دارد.
 - migration 009 به جدول‌های پایه کاربران و سفارش‌ها نیاز دارد.
+- migration 010 فقط ستون `pos_orders.status` را گسترش می‌دهد و باید روی دیتابیس‌های موجودی که schema قدیمی دارند یک‌بار اجرا شود؛ نصب تازه این مقدار را از `schema.sql` می‌گیرد.
 - ترتیب فایل‌ها را تغییر ندهید؛ migrationها را فقط برای همسان‌سازی دیتابیس‌های قدیمی به کار ببرید.
 
 نسخه نهایی schema برای نصب تازه در `php-backend/schema.sql` قرار دارد.
