@@ -501,3 +501,11 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 - Updated MIGRATION_OWNERSHIP_MAP.md and ARCHITECTURE_DEPENDENCY_AUDIT.md. Static inspection of all 12 migration SQL files against all 12 manifest entries reports exact parity.
 - No migration has been applied to a customer/production database. Run full architecture tests and disposable MySQL 8.4 + MariaDB 10.6 workflows at the final QA gate.
 - Next implementation focus: complete CatalogWorkspace CRUD (product edit, category update/archive, variants and option-group management), then expose session permission grants for role-aware UI affordances. Backend RBAC remains authoritative.
+ 
+## 2026-11-26 — Scoped permission delivery and navigation
+- Added `GET /api/v1/access/my-permissions`, authenticated by the existing session middleware. It resolves the requested active business/branch context and returns only the current user's effective permission codes for that scope.
+- Effective grants combine active business-level role grants with active branch-level role grants; the branch query is constrained to the selected business. The endpoint returns permission codes, not role/user data.
+- Added the PermissionStore port method, PermissionRepository query, PermissionService facade and CurrentPermissionsController. Route wiring is in `v3/backend/public/index.php`.
+- Frontend API client retrieves the current scoped permission set after business/branch selection. Workspace navigation is filtered by those codes; overview remains available. On permission-fetch failure the UI defaults to overview-only rather than granting navigation.
+- Backend permission middleware remains authoritative for every protected API; navigation filtering is a usability layer only.
+- No PHP lint, database integration test, TypeScript check, frontend build or browser test was run for this package. Add/execute coverage in final QA, especially branch/business permission union, inactive roles, wildcard `*`, and unauthorized context behavior.
