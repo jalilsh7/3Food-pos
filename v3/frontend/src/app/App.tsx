@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button, EmptyState, PageHeader, StatusBadge, Surface } from "../shared/ui/primitives";
-import { ApiError, clearBusinessContext, getCurrentSession, signOut, type AuthenticatedUser, type BranchSummary, type BusinessSummary } from "../shared/api/client";
+import { ApiError, clearBusinessContext, getCurrentPermissions, getCurrentSession, signOut, type AuthenticatedUser, type BranchSummary, type BusinessSummary } from "../shared/api/client";
 import { AuthScreen } from "../features/auth/AuthScreen";
 import { BusinessContextScreen } from "../features/auth/BusinessContextScreen";
 import { PosWorkspace } from "../features/pos/PosWorkspace";
@@ -72,6 +72,18 @@ const navigation: NavigationGroup[] = [
     ],
   },
 ];
+
+const requiredPermission: Partial<Record<ViewId, string>> = {
+  pos: "orders.create",
+  orders: "orders.read",
+  kitchen: "kitchen.update",
+  catalog: "catalog.read",
+  inventory: "inventory.read",
+  customers: "users.read",
+  finance: "finance.read",
+  settings: "settings.manage",
+  storefront: "settings.manage",
+};
 
 const allItems = navigation.flatMap((group) => group.items);
 
@@ -135,7 +147,7 @@ function Overview() {
   );
 }
 
-function AuthenticatedWorkspace({ user, business, branch, onLogout, actionError }: { user: AuthenticatedUser; business: BusinessSummary; branch: BranchSummary; onLogout: () => void; actionError: string | null }) {
+function AuthenticatedWorkspace({ user, business, branch, permissionCodes, onLogout, actionError }: { user: AuthenticatedUser; business: BusinessSummary; branch: BranchSummary; permissionCodes: string[]; onLogout: () => void; actionError: string | null }) {
   const [activeView, setActiveView] = useState<ViewId>("overview");
   const [search, setSearch] = useState("");
   const activeItem = allItems.find((item) => item.id === activeView) ?? allItems[0];
@@ -144,9 +156,11 @@ function AuthenticatedWorkspace({ user, business, branch, onLogout, actionError 
   const filteredNavigation = navigation
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) =>
-        `${item.label} ${item.description}`.toLocaleLowerCase("fa-IR").includes(normalizedSearch),
-      ),
+      items: group.items.filter((item) => {
+        const required = requiredPermission[item.id];
+        const permitted = item.id === "overview" || permissionCodes.includes("*") || (required !== undefined && permissionCodes.includes(required));
+        return permitted && `${item.label} ${item.description}`.toLocaleLowerCase("fa-IR").includes(normalizedSearch);
+      }),
     }))
     .filter((group) => group.items.length > 0);
 
@@ -242,6 +256,7 @@ function AuthenticatedWorkspace({ user, business, branch, onLogout, actionError 
 export function App() {
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [workspaceContext, setWorkspaceContext] = useState<{ business: BusinessSummary; branch: BranchSummary } | null>(null);
+  const [permissionCodes, setPermissionCodes] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -274,6 +289,7 @@ export function App() {
       await signOut();
       clearBusinessContext();
       setWorkspaceContext(null);
+      setPermissionCodes(null);
       setUser(null);
     } catch (cause) {
       setBootstrapError(cause instanceof Error ? cause.message : "خروج از حساب انجام نشد. دوباره تلاش کنید.");
@@ -299,16 +315,31 @@ export function App() {
   if (!workspaceContext) {
     return (
       <BusinessContextScreen
-        onSelected={(business, branch) => { setWorkspaceContext({ business, branch }); setBootstrapError(null); }}
+        onSelected={(business, branch) => {
+          setWorkspaceContext({ business, branch });
+          setPermissionCodes(null);
+          setBootstrapError(null);
+          getCurrentPermissions()
+            .then(setPermissionCodes)
+            .catch((cause: unknown) => {
+              setPermissionCodes([]);
+              setBootstrapError(cause instanceof Error ? cause.message : "مجوزهای کاربر دریافت نشد؛ دسترسی‌ها به‌صورت محدود نمایش داده می‌شوند.");
+            });
+        }}
         onLogout={() => { void handleLogout(); }}
       />
     );
+  }
+
+  if (permissionCodes === null) {
+    return <main className="auth-screen" dir="rtl"><section className="auth-card auth-loading" aria-live="polite"><strong>در حال دریافت مجوزهای فضای کاری...</strong></section></main>;
   }
 
   return <AuthenticatedWorkspace
     user={user}
     business={workspaceContext.business}
     branch={workspaceContext.branch}
+    permissionCodes={permissionCodes}
     onLogout={() => { void handleLogout(); }}
     actionError={bootstrapError}
   />;
