@@ -7,7 +7,6 @@ use Throwable;
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Storage\PrivateMediaStorage;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
@@ -18,7 +17,7 @@ final readonly class MediaService
         private MediaStore $media,
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
-        private PrivateMediaStorage $storage,
+        private MediaStorage $storage,
         private int $maxBytes,
     ) {
         if ($maxBytes < 1024 || $maxBytes > 20971520) {

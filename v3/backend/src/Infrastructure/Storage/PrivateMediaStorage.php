@@ -3,9 +3,11 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Infrastructure\Storage;
 
+use PersiaCoder\PosV3\Media\MediaStorage;
+
 use RuntimeException;
 
-final readonly class PrivateMediaStorage
+final readonly class PrivateMediaStorage implements MediaStorage
 {
     private string $root;
 
