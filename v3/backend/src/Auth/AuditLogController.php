@@ -6,11 +6,11 @@ namespace PersiaCoder\PosV3\Auth;
 use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Http\Request;
 use PersiaCoder\PosV3\Http\Response;
-use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
+use PersiaCoder\PosV3\Security\AuditLogReader;
 
 final readonly class AuditLogController
 {
-    public function __construct(private AuditLogRepository $audit) {}
+    public function __construct(private AuditLogReader $audit) {}
 
     public function list(Request $request): Response
     {
