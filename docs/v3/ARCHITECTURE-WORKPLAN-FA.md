@@ -13,8 +13,8 @@
 - [ ] دسته ۴: موجودی، رسپی/بهای تمام‌شده، تامین‌کنندگان و هزینه‌ها (مرزبندی و قواعد posting مستند شد؛ refactor اجرایی باقی است).
 - [ ] دسته ۵: مشتریان، وفاداری، کمپین‌ها و پیام‌رسانی (مرزبندی مستند؛ refactor اجرایی باقی است).
 - [ ] دسته ۶: تنظیمات، کاربران، نقش‌ها، مجوزها و گزارش‌ها (مرزبندی مستند؛ refactor اجرایی باقی است).
-- [ ] دسته ۷: PHP API domain boundaries و repository/use-case تفکیک.
-- [ ] دسته ۸: migration ownership، نسخه‌بندی schema، قابلیت‌های تجاری و audit.
+- [ ] دسته ۷: PHP API domain boundaries و repository/use-case تفکیک (قرارداد لایه‌ها مستند؛ refactor اجرایی باقی است).
+- [ ] دسته ۸: migration ownership، نسخه‌بندی schema، قابلیت‌های تجاری و audit (policy مستند؛ refactor اجرایی باقی است).
 - [ ] دسته ۹: فروشگاه آنلاین و integrationها (WooCommerce و adapterهای دیگر).
 - [ ] دسته ۱۰: licensing، entitlements، central-admin و update-management.
 - [ ] دسته ۱۱: کاهش coupling، حذف adapterهای موقت، مستندات/نقشه نهایی.
@@ -28,7 +28,7 @@
 - query string از actionهای diagnostics حذف می‌شود.
 - قرارداد envelope/request و سیاست transport جدا شده‌اند؛ استخراج resource-level serviceها و PHP domain separation هنوز انجام نشده است.
 
-## پیشرفت دسته اخیر — مرزبندی فروش/سفارش/کاتالوگ\n- سند `v3/docs/MODULE_BOUNDARIES_SALES_ORDERS_CATALOG.md` ایجاد شد و قواعد dependency، مسئولیت لایه‌ها، scope، snapshot قیمت و مسیر refactor تدریجی را تعریف می‌کند.\n- هنوز به معنی تغییر اجرایی کامل در service/controller/repositoryهای این ماژول‌ها نیست؛ مرحله بعد انتقال incremental با حفظ API است.\n\n## پیشرفت دسته ۴ — inventory/recipes/costing\n- سند `v3/docs/MODULE_BOUNDARIES_INVENTORY_RECIPES_COSTING.md` ایجاد شد: posting و reversal، idempotency، scope، نسخه رسپی، تامین‌کننده و تفکیک هزینه‌ها.\n- refactor اجرایی serviceها و workflowها هنوز انجام نشده و به‌صورت incremental در ادامه دنبال می‌شود.\n\n## پیشرفت دسته‌های ۵ و ۶ — قراردادها\n- `v3/docs/MODULE_BOUNDARIES_CUSTOMERS_LOYALTY_MESSAGING.md`: CRM، consent، loyalty ledger، campaign preview/dispatch، provider adapter و privacy.\n- `v3/docs/MODULE_BOUNDARIES_CONFIGURATION_ACCESS_REPORTING.md`: configuration، identity/access، authorization، audit، reporting و finance/cash boundaries.\n- این موارد هنوز refactor اجرایی کامل محسوب نمی‌شوند.\n\n## فهرست تست نهایی (تعویق)
+## پیشرفت دسته اخیر — مرزبندی فروش/سفارش/کاتالوگ\n- سند `v3/docs/MODULE_BOUNDARIES_SALES_ORDERS_CATALOG.md` ایجاد شد و قواعد dependency، مسئولیت لایه‌ها، scope، snapshot قیمت و مسیر refactor تدریجی را تعریف می‌کند.\n- هنوز به معنی تغییر اجرایی کامل در service/controller/repositoryهای این ماژول‌ها نیست؛ مرحله بعد انتقال incremental با حفظ API است.\n\n## پیشرفت دسته ۴ — inventory/recipes/costing\n- سند `v3/docs/MODULE_BOUNDARIES_INVENTORY_RECIPES_COSTING.md` ایجاد شد: posting و reversal، idempotency، scope، نسخه رسپی، تامین‌کننده و تفکیک هزینه‌ها.\n- refactor اجرایی serviceها و workflowها هنوز انجام نشده و به‌صورت incremental در ادامه دنبال می‌شود.\n\n## پیشرفت دسته‌های ۵ و ۶ — قراردادها\n- `v3/docs/MODULE_BOUNDARIES_CUSTOMERS_LOYALTY_MESSAGING.md`: CRM، consent، loyalty ledger، campaign preview/dispatch، provider adapter و privacy.\n- `v3/docs/MODULE_BOUNDARIES_CONFIGURATION_ACCESS_REPORTING.md`: configuration، identity/access، authorization، audit، reporting و finance/cash boundaries.\n- این موارد هنوز refactor اجرایی کامل محسوب نمی‌شوند.\n\n## پیشرفت دسته‌های ۷ و ۸ — قرارداد Backend و DB\n- `v3/docs/PHP_DOMAIN_BOUNDARIES.md`: مرزبندی HTTP، application، domain، infrastructure، composition و قواعد scope/transaction/error.\n- `v3/docs/MIGRATION_ENTITLEMENTS_AUDIT_POLICY.md`: policy نسخه‌بندی migrations، entitlements و audit.\n- هنوز refactor اجرایی کامل یا اعتبارسنجی migration runner/schema انجام نشده است.\n\n## فهرست تست نهایی (تعویق)
 - TypeScript/typecheck، lint و build کامل frontend.
 - تست مستقل و قراردادی ماژول‌ها و dependency-cycle audit.
 - PHP lint و API integration tests.
