@@ -93,7 +93,7 @@ const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[
 ];
 
 const EVENT_LABEL: Record<SmsEvent, string> = {
-  order_created: "ثبت سفارش", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_delivered: "تحویل", order_cancelled: "لغو سفارش", order_invoice: "ریز فاکتور",
+  order_created: "ثبت سفارش", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_dispatched: "ارسال شد", order_delivered: "تحویل", order_cancelled: "لغو سفارش", order_invoice: "ریز فاکتور",
   points_earned: "کسب امتیاز", discount_used: "استفاده از کد",
 };
 
@@ -750,7 +750,7 @@ function PosScreen({ role }: { role: Role }) {
 }
 
 function statusFa(s: Order["status"]) {
-  return { new: "جدید", preparing: "در حال آماده‌سازی", ready: "آماده", delivered: "تحویل شد", cancelled: "لغو" }[s];
+  return { new: "جدید", preparing: "در حال آماده‌سازی", ready: "آماده", dispatched: "ارسال شد", delivered: "تحویل شد", cancelled: "لغو شد" }[s];
 }
 
 function OrdersScreen({ role }: { role: Role }) {
@@ -774,7 +774,7 @@ function OrdersScreen({ role }: { role: Role }) {
   const [editBusy, setEditBusy] = useState(false);
   const steps: Order["status"][] = role === "kitchen"
     ? ["preparing", "ready"]
-    : role === "manager" ? ["preparing", "ready", "delivered", "cancelled"] : [];
+    : role === "manager" ? ["preparing", "ready", "dispatched", "delivered", "cancelled"] : [];
   const normalizedEditPhone = normalizeIranPhone(editPhone);
   const editCustomer = customers.find((c) => normalizeIranPhone(c.phone) === normalizedEditPhone) ?? null;
   const editCodeUses = editCustomer && editCode
@@ -821,20 +821,21 @@ function OrdersScreen({ role }: { role: Role }) {
     setAddProductId("");
   }
   function canMove(from: Order["status"], to: Order["status"]) {
-    const allowed: Record<Order["status"], Order["status"][]> = {
-      new: role === "manager" ? ["preparing", "cancelled"] : ["preparing"],
-      preparing: role === "manager" ? ["ready", "cancelled"] : ["ready"],
-      ready: role === "manager" ? ["delivered", "cancelled"] : [],
-      delivered: [],
-      cancelled: [],
-    };
-    return allowed[from].includes(to);
+    if (from === to || from === "delivered" || from === "cancelled") return false;
+    if (to === "cancelled") return role === "manager";
+    if (role !== "manager") {
+      return (from === "new" && to === "preparing") || (from === "preparing" && to === "ready");
+    }
+    const order: Order["status"][] = ["new", "preparing", "ready", "dispatched", "delivered"];
+    return order.indexOf(to) > order.indexOf(from);
   }
   async function jump(order: Order, status: Order["status"]) {
+    if (!canMove(order.status, status)) return;
     const isServerOrder = /^\d+$/.test(order.id);
     const notify = (updatedOrder: Order) => {
       if (status === "preparing") void pushSms("order_preparing", updatedOrder.customerPhone, orderVars(updatedOrder));
       if (status === "ready") void pushSms("order_ready", updatedOrder.customerPhone, orderVars(updatedOrder));
+      if (status === "dispatched") void pushSms("order_dispatched", updatedOrder.customerPhone, orderVars(updatedOrder));
       if (status === "delivered") void pushSms("order_delivered", updatedOrder.customerPhone, orderVars(updatedOrder));
       if (status === "cancelled") void pushSms("order_cancelled", updatedOrder.customerPhone, orderVars(updatedOrder));
     };
