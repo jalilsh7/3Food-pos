@@ -170,3 +170,11 @@ Repositoryهای PDO در `Infrastructure/Database` implementation این interf
 - وابستگی ماژول‌های کاربردی به `HttpException` و مدل‌های `AuthenticatedPrincipal`/`BusinessScope` از Auth/Http هنوز یک shared application contract مستقل ندارد.
 - `AuthController` و برخی controllerهای دیگر هنوز HTTP concerns را در کنار orchestration دارند؛ جداسازی application handler و HTTP adapter ادامه دارد.
 - تست و Build عمداً اجرا نشده‌اند؛ تمام تغییرات این دسته در تست نهایی بررسی خواهند شد.
+
+
+## Dependency Audit — 2026-11-25
+- Frontend import audit در فایل‌های feature بررسی‌شده نشان داد featureها فقط shared/api، shared/ui و CSS محلی را import می‌کنند؛ App composition root است.
+- Persistence ports برای Auth/Access و ماژول‌های اصلی ایجاد شده‌اند؛ فهرست دقیق و وابستگی‌های باقی‌مانده در `v3/docs/ARCHITECTURE_DEPENDENCY_AUDIT.md` ثبت شده است.
+- Migration runner اکنون manifest مالکیت/وابستگی را پیش از اجرای SQL اعتبارسنجی می‌کند.
+- README مستقل Backend و Frontend برای ماژول‌ها/features ایجاد شده است.
+- در tree فعلی هیچ تست مستقل V3 پیدا نشد؛ این مورد مانع اعلام تطبیق کامل است.

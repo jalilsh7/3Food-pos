@@ -121,3 +121,12 @@
 - callbackهای قبلی که PDO دریافت می‌کردند در سرویس‌های تغییرکرده به callback بدون آرگومان تبدیل شدند؛ transaction manager اتصال را در Infrastructure نگه می‌دارد.
 - commit دسته جاری: `7290a90f0fa2640d6bc06b56a4faf3b3332a0092`.
 - هیچ تست یا build اجرا نشده است؛ این کار طبق دستور کاربر به پایان تطبیق معماری موکول است.
+
+
+## Dependency Audit و مستندات مستقل — 2026-11-25
+- import audit فرانت‌اند انجام شد: featureها در فایل‌های بررسی‌شده فقط shared/api، shared/ui و CSS محلی را مصرف می‌کنند؛ App.tsx composition root است.
+- README مستقل برای 12 ماژول/لایه Backend و 12 feature/app/shared بخش Frontend ثبت شد.
+- سند `v3/docs/ARCHITECTURE_DEPENDENCY_AUDIT.md` مرزهای فعلی و مغایرت‌های باقی‌مانده را ثبت می‌کند.
+- migration manifest ماشینی برای owner/dependencies/risk/tables به runner متصل شد.
+- هنوز تست suite مستقل V3 وجود ندارد و هیچ build/test اجرا نشده است.
+- موارد باز اصلی: application error contract، shared actor/business context، Orders authorization port، controller query ports، logger application events، تست‌های مستقل و در پایان build/CI.
