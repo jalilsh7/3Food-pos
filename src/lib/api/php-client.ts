@@ -84,7 +84,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
   } catch (error) {
-    logger.log("warning", "API network failure", { module: "api-client", action: path, correlationId, code: "network_error" });
+    logger.log("warning", "API network failure", { module: "api-client", action: path.split("?")[0], correlationId, code: "network_error" });
     throw new PhpApiError(0, "network_error", "ارتباط با سرور برقرار نشد؛ اتصال اینترنت را بررسی کنید.");
   }
 
