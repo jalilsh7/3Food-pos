@@ -26,6 +26,7 @@ use PersiaCoder\PosV3\Auth\AuthController;
 use PersiaCoder\PosV3\Auth\AuditLogController;
 use PersiaCoder\PosV3\Auth\BusinessSetupController;
 use PersiaCoder\PosV3\Auth\BusinessContextController;
+use PersiaCoder\PosV3\Auth\CurrentPermissionsController;
 use PersiaCoder\PosV3\Auth\BranchManagementController;
 use PersiaCoder\PosV3\Auth\BranchManagementService;
 use PersiaCoder\PosV3\Auth\BusinessSetupService;
@@ -153,6 +154,18 @@ try {
             $businessContextController = new BusinessContextController(new BusinessRepository($getConnection()));
         }
         return $businessContextController;
+    };
+
+    $currentPermissionsController = null;
+    $getCurrentPermissionsController = static function () use (&$currentPermissionsController, $getConnection): CurrentPermissionsController {
+        if (!$currentPermissionsController instanceof CurrentPermissionsController) {
+            $repository = new PermissionRepository($getConnection());
+            $currentPermissionsController = new CurrentPermissionsController(
+                new PermissionService($repository),
+                new BusinessScopeResolver($repository),
+            );
+        }
+        return $currentPermissionsController;
     };
 
     $cashRegisterController = null;
@@ -633,6 +646,11 @@ try {
     $router->add('GET', '/api/v1/audit-logs',
         static fn (Request $request): Response => $getAuditController()->list($request),
         [$sessionMiddleware, $makePermissionMiddleware('audit.read', false, true)],
+    );
+
+    $router->add('GET', '/api/v1/access/my-permissions',
+        static fn (Request $request): Response => $getCurrentPermissionsController()->list($request),
+        [$sessionMiddleware],
     );
 
     $router->add('GET', '/api/v1/access/businesses',
