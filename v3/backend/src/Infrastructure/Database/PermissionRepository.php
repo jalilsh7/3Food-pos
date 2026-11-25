@@ -33,6 +33,36 @@ final readonly class PermissionRepository implements PermissionStore
         return $value === false ? null : (int) $value;
     }
 
+    /** @return list<string> */
+    public function listUserPermissions(int $userId, int $businessId, ?int $branchId): array
+    {
+        $sql = 'SELECT DISTINCT p.code
+                FROM app_user_business_roles ubr
+                INNER JOIN app_roles r ON r.id = ubr.role_id AND r.is_active = 1
+                INNER JOIN app_role_permissions rp ON rp.role_id = r.id
+                INNER JOIN app_permissions p ON p.id = rp.permission_id
+                WHERE ubr.user_id = :business_user_id
+                  AND ubr.business_id = :business_id';
+        $parameters = ['business_user_id' => $userId, 'business_id' => $businessId];
+        if ($branchId !== null) {
+            $sql .= ' UNION SELECT DISTINCT p.code
+                      FROM app_user_branch_roles ubr
+                      INNER JOIN pos_branches b ON b.id = ubr.branch_id AND b.business_id = :branch_business_id
+                      INNER JOIN app_roles r ON r.id = ubr.role_id AND r.is_active = 1
+                      INNER JOIN app_role_permissions rp ON rp.role_id = r.id
+                      INNER JOIN app_permissions p ON p.id = rp.permission_id
+                      WHERE ubr.user_id = :branch_user_id AND ubr.branch_id = :branch_id';
+            $parameters['branch_business_id'] = $businessId;
+            $parameters['branch_user_id'] = $userId;
+            $parameters['branch_id'] = $branchId;
+        }
+        $statement = $this->connection->prepare($sql);
+        $statement->execute($parameters);
+        $codes = array_map('strval', $statement->fetchAll(PDO::FETCH_COLUMN));
+        sort($codes, SORT_STRING);
+        return array_values(array_unique($codes));
+    }
+
     public function userHasPermission(
         int $userId,
         string $permissionCode,
