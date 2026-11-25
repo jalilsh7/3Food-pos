@@ -3,9 +3,11 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Infrastructure\Database;
 
+use PersiaCoder\PosV3\Recipes\RecipeStore;
+
 use PDO;
 
-final readonly class RecipeRepository
+final readonly class RecipeRepository implements RecipeStore
 {
     public function __construct(private PDO $connection) {}
 
