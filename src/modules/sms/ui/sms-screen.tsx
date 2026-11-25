@@ -5,8 +5,9 @@ import { tierOf, type SmsEvent } from "@/lib/pos/model";
 import { usePos } from "@/lib/pos/store";
 import { normalizeIranPhone, tehranDate } from "@/lib/pos/formatters";
 
-const INITIAL_RENDER_TIME = Date.now();
 import { SMS_EVENT_LABEL as EVENT_LABEL, SMS_EVENT_STATUS as EVENT_STATUS, SMS_TEMPLATE_EVENTS, parseTemplateVariables } from "../domain/events";
+
+const INITIAL_RENDER_TIME = Date.now();
 
 export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: string, text: string) => Promise<boolean>; saveCentralRecord: <T extends { id: string | number }>(resource: string, item: T, commit: () => void) => Promise<boolean> }) {
   const allTemplates = usePos((s) => s.templates);
