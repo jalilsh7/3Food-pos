@@ -49,13 +49,11 @@ export class PhpApiError extends Error {
 }
 
 import { logger } from "@/core/observability/logger";
+import { createRequestCorrelationId, safeApiAction } from "@/modules/platform-api/transport/request-context";
+import { csrfSession } from "@/modules/platform-api/session/csrf-session";
+import { phpTransportPolicy } from "@/modules/platform-api/transport/transport-policy";
 
-const API_ROOT = "/api/v1";
-function createCorrelationId(): string {
-  try { return globalThis.crypto?.randomUUID?.() ?? `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`; }
-  catch { return `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`; }
-}
-let csrfToken: string | null = null;
+const API_ROOT = phpTransportPolicy.root;
 
 type RequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
@@ -65,26 +63,27 @@ type RequestOptions = {
 };
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const correlationId = createCorrelationId();
+  const correlationId = createRequestCorrelationId();
   const headers = new Headers({ Accept: "application/json", "X-Correlation-ID": correlationId });
   if (options.body !== undefined) headers.set("Content-Type", "application/json");
   if (options.csrf) {
+    const csrfToken = csrfSession.get();
     if (!csrfToken) throw new PhpApiError(419, "csrf_missing", "نشست امنیتی آماده نیست؛ دوباره وارد شوید.");
-    headers.set("X-CSRF-Token", csrfToken);
+    headers.set(phpTransportPolicy.csrfHeader, csrfToken);
   }
-  if (options.setupToken) headers.set("X-Setup-Token", options.setupToken);
+  if (options.setupToken) headers.set(phpTransportPolicy.setupHeader, options.setupToken);
 
   let response: Response;
   try {
     response = await fetch(`${API_ROOT}${path}`, {
       method: options.method ?? "GET",
-      credentials: "same-origin",
-      cache: "no-store",
+      credentials: phpTransportPolicy.credentials,
+      cache: phpTransportPolicy.cache,
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
   } catch (error) {
-    logger.log("warning", "API network failure", { module: "api-client", action: path.split("?")[0], correlationId, code: "network_error" });
+    logger.log("warning", "API network failure", { module: "api-client", action: safeApiAction(path), correlationId, code: "network_error" });
     throw new PhpApiError(0, "network_error", "ارتباط با سرور برقرار نشد؛ اتصال اینترنت را بررسی کنید.");
   }
 
@@ -92,7 +91,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   try {
     payload = (await response.json()) as Record<string, unknown>;
   } catch {
-    logger.log("error", "API returned unreadable response", { module: "api-client", action: path, correlationId, code: "invalid_response", status: response.status });
+    logger.log("error", "API returned unreadable response", { module: "api-client", action: safeApiAction(path), correlationId, code: "invalid_response", status: response.status });
     throw new PhpApiError(response.status, "invalid_response", "پاسخ سرور قابل خواندن نیست.");
   }
 
@@ -100,7 +99,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     const code = typeof payload.error === "string" ? payload.error : "request_failed";
     // A bad current password is a field-level 401, not an expired session.
     // Keep CSRF state unless the server explicitly says the session is unauthorized.
-    if (response.status === 401 && code === "unauthorized") csrfToken = null;
+    if (response.status === 401 && code === "unauthorized") csrfSession.clear();
     const message = typeof payload.message === "string" ? payload.message : "درخواست انجام نشد.";
     logger.log(response.status >= 500 ? "error" : "warning", "API request rejected", { module: "api-client", action: path, correlationId, code, status: response.status });
     throw new PhpApiError(response.status, code, message);
@@ -148,7 +147,7 @@ export const phpApi = {
         display_name: input.display_name,
       },
     }).then((result) => {
-      csrfToken = result.csrf_token;
+      csrfSession.set(result.csrf_token);
       return result;
     }),
 
@@ -182,7 +181,7 @@ export const phpApi = {
       method: "POST",
       csrf: true,
     }).finally(() => {
-      csrfToken = null;
+      csrfSession.clear();
     }),
 
   changePassword: (current_password: string, new_password: string) =>
