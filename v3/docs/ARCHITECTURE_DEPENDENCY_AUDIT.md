@@ -83,3 +83,7 @@
 - database/v3/bin/migrate.php اکنون پیش از اجرای migration، target tableهای استخراج‌شده از CREATE/ALTER/DROP TABLE را با manifest مقایسه می‌کند و در صورت اختلاف متوقف می‌شود.
 - v3/backend/tests/run.php همین برابری را به‌صورت static architecture check پوشش می‌دهد تا خطا بدون اتصال دیتابیس نیز قابل شناسایی باشد.
 - این تغییر فقط کنترل metadata است؛ هیچ migration روی دیتابیس اجرا نشده و هیچ داده‌ای تغییر نکرده است.
+
+
+## Planned commercial modules — 2026-11-25
+Customers، Loyalty، Messaging، Reporting، Storefront، Integrations، Licensing، CentralAdmin، Updates و POS دارای README مستقل و suite مستقل بررسی وجود مستندات شدند. این‌ها boundary/scaffold هستند؛ implementation و application contracts آن‌ها هنوز ساخته نشده است.

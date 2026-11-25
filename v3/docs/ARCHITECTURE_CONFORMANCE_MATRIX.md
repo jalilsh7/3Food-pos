@@ -40,3 +40,7 @@
 
 ## Application API contracts
 برای سرویس‌های Auth، Catalog، Orders، Dining، Finance، Inventory، Recipes و Media interface مستقل تعریف شده و Controllerها به قرارداد وابسته‌اند. DTOهای typed و Resultهای ساخت‌یافته هنوز برای تمام use-caseها کامل نیستند؛ بنابراین قانون سوم همچنان جزئی است.
+
+
+## دامنه ماژول‌های آتی
+README و test presence مستقل برای Customers، Loyalty، Messaging، Reporting، Storefront، Integrations، Licensing، CentralAdmin، Updates و POS اضافه شده است. این مورد فقط تثبیت مرز و مستندات است، نه تکمیل implementation. تست‌های رفتاری و contract آن‌ها همچنان معوق‌اند.

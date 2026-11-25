@@ -155,3 +155,9 @@
 - Shared contexts، PermissionChecker و ApplicationException نیز در مرزهای application استفاده می‌شوند.
 - Typed DTOهای اختصاصی برای همه payload/resultها هنوز باقی است.
 - تست‌های معماری مستقل backend/frontend ایجاد شده‌اند ولی تا پایان تطبیق اجرا نمی‌شوند.
+
+
+## ثبت مرز ماژول‌های تجاری آتی — 2026-11-25
+- README مستقل و test spec برای Customers، Loyalty، Messaging، Reporting، Storefront، Integrations، Licensing، CentralAdmin، Updates و POS آماده شد.
+- این 10 ماژول فعلاً boundary/scaffold هستند و application implementation ندارند؛ هیچ feature جدیدی در این دسته پیاده‌سازی نشده است.
+- تست runner با suiteهای این ماژول‌ها نیز وجود مستندات را بررسی می‌کند؛ تست‌های رفتاری آن‌ها بعد از پیاده‌سازی و در مرحله نهایی اضافه می‌شوند.
