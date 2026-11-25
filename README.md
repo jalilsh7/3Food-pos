@@ -56,6 +56,8 @@ New business capabilities are organized under `src/modules/<module-id>/`. Each m
 
 ## Project guidance
 
+- V3 architecture execution backlog: [docs/v3/ARCHITECTURE-WORKPLAN-FA.md](docs/v3/ARCHITECTURE-WORKPLAN-FA.md)
+- Shared core foundation: [src/core/README.md](src/core/README.md)
 - V3 modular architecture standard: [docs/v3/MODULAR-ARCHITECTURE-FA.md](docs/v3/MODULAR-ARCHITECTURE-FA.md)
 - SMS module pilot: [src/modules/sms/README.md](src/modules/sms/README.md)
 
