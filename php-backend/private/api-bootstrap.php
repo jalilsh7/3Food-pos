@@ -4,9 +4,16 @@ function request_is_https(): bool {
         || (strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https');
 }
 
+function api_correlation_id(): string {
+    $incoming = (string)($_SERVER['HTTP_X_CORRELATION_ID'] ?? '');
+    if (preg_match('/^[a-zA-Z0-9._-]{8,80}$/', $incoming)) return $incoming;
+    return bin2hex(random_bytes(16));
+}
+
 function json_response(array $payload, int $status = 200): never {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
+    header('X-Correlation-ID: ' . api_correlation_id());
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
