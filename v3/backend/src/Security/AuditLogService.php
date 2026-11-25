@@ -4,13 +4,12 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Security;
 
 use JsonException;
-use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
 
 final readonly class AuditLogService
 {
     private const MAX_SNAPSHOT_BYTES = 16384;
 
-    public function __construct(private AuditLogRepository $repository) {}
+    public function __construct(private AuditLogWriter $repository) {}
 
     /** @param array<string, mixed>|null $before @param array<string, mixed>|null $after */
     public function record(
