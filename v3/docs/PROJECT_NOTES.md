@@ -1698,3 +1698,12 @@
 
 - نتیجه نهایی CI برای commit کد 34ffa458: Frontend Validation run 44726660794 موفق؛ Backend Validation run 44726660883 موفق؛ DB engine validation run 44726652129 موفق. (یک اجرای موازی قدیمی‌تر هم به‌علت assertion قدیمی تست backend شکست خورد؛ assertion اصلاح شد و اجرای نهایی موفق است.)
 - ORD-02B: **پیاده‌سازی و CI پذیرفته شد**؛ تست مرورگر واقعی هنوز در صف باقی است.
+
+## ARCH-DB-01 — کنترل تطبیق مالکیت Migrationها (2026-11-26)
+- [x] مغایرت metadata در migration 011 رفع شد: سه جدول pos_product_variants، pos_order_items و pos_order_item_recipe_lines به manifest افزوده شدند؛ SQL قدیمی تغییر نکرد.
+- [x] migrate.php پیش از اجرای هر migration، جدول‌های هدف استخراج‌شده از CREATE/ALTER/DROP TABLE را با manifest مقایسه می‌کند و در صورت مغایرت متوقف می‌شود.
+- [x] backend architecture runner همین کنترل را بدون اتصال DB انجام می‌دهد.
+- [x] نقشه مالکیت و گزارش audit به‌روز شد.
+- [x] بررسی ساختاری مستقل 12 فایل SQL و 12 ورودی manifest: تطبیق کامل.
+- [ ] اجرای نهایی PHP architecture tests و workflow دیتابیس روی HEAD جاری در مرحله QA نهایی؛ هیچ migration روی دیتابیس واقعی اجرا نشده است.
+- وضعیت: **تکمیل کدنویسی و مستندسازی؛ منتظر تست نهایی.**
