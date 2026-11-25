@@ -93,7 +93,7 @@ const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[
 ];
 
 const EVENT_LABEL: Record<SmsEvent, string> = {
-  order_created: "ثبت سفارش", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_dispatched: "ارسال شد", order_delivered: "تحویل", order_cancelled: "لغو سفارش", order_invoice: "ریز فاکتور",
+  order_created: "ثبت سفارش و ریز فاکتور", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_dispatched: "ارسال شد", order_delivered: "تحویل", order_cancelled: "لغو سفارش", order_invoice: "ریز فاکتور",
   points_earned: "کسب امتیاز", discount_used: "استفاده از کد",
 };
 
@@ -613,11 +613,17 @@ function PosScreen({ role }: { role: Role }) {
       setCart([]); setPhone(""); setGuestName(settings.defaultCustomerLabel || "مشتری عزیز"); setCode(""); setPoints(0); setPrinted(order);
       const fresh = usePos.getState().customers.find((c) => c.id === order.customerId);
       const vars = orderVars(order, String(fresh?.points ?? 0));
-      void pushSms("order_created", order.customerPhone, vars);
-      // Invoice template variable "order" carries the complete formatted invoice,
-      // while other status templates keep receiving the short order number.
-      // The SMS screen event toggle is the single source of truth for invoice SMS.
-      void pushSms("order_invoice", order.customerPhone, { ...vars, order: formatInvoiceSms(order) });
+      // Send exactly one invoice notification per new order. Prefer the main
+      // order-created template; use the legacy invoice template only as fallback.
+      // The "order" variable always contains readable invoice lines, never only
+      // the numeric order code.
+      const configuredInvoiceTemplate = usePos.getState().templates.find((template) =>
+        template.event === "order_created" &&
+        !!template.bodyId &&
+        (template.enabled === true || template.managerEnabled === true)
+      );
+      const invoiceEvent: SmsEvent = configuredInvoiceTemplate ? "order_created" : "order_invoice";
+      void pushSms(invoiceEvent, order.customerPhone, { ...vars, order: formatInvoiceSms(order) });
       if (settings.autoPrint) setTimeout(() => window.print(), 300);
     } catch (error) {
       // A definite 4xx rejection means no order was committed; allow a corrected
