@@ -43,3 +43,10 @@
 - `v3/docs/MODULE_BOUNDARIES_STOREFRONT_INTEGRATIONS.md` ثبت شد. وضعیت واقعی Storefront نیز صریح شد: صفحه فعلی صرفاً پیش‌نمایش با داده ثابت و سبد محلی است و ثبت سفارش/پرداخت/موجودی به Backend متصل نیست.
 - `v3/docs/MODULE_BOUNDARIES_LICENSING_UPDATES.md` ثبت شد. تصمیم محصول درباره لایسنس دائمی + یک سال به‌روزرسانی، آفلاین قابل تنظیم و نصب مستقل در قرارداد فنی منعکس شد.
 - بررسی tree فعلی نشان داد Backend V3 هنوز controller/service مستقل برای storefront integration، license، central admin یا update management ندارد. بنابراین دسته‌های ۹ و ۱۰ از نظر مستندات مرزبندی انجام شده‌اند، اما از نظر کدنویسی اجرایی باز هستند.
+
+
+## تحلیل تکمیلی Guest Checkout
+- سند `v3/docs/PUBLIC_STOREFRONT_GUEST_ORDER_DESIGN.md` اضافه شد.
+- مانع اجرایی مشخص شد: `OrderService::create`، idempotency و audit به actor داخلی وابسته‌اند؛ `BusinessScope` نیز از session/branch داخلی می‌آید. وجود channel با مقدار `storefront` به معنی guest checkout نیست.
+- تصمیم ایمنی: ساخت کاربر جعلی، حذف middleware یا پذیرش business_id از کلاینت ممنوع است.
+- گام اجرایی بعدی: refactor سازگار actor/idempotency/audit و resolver هویت storefront؛ پس از آن استخراج use case مشترک ثبت سفارش و افزودن مسیر عمومی.
