@@ -13,7 +13,7 @@ use PersiaCoder\PosV3\Security\BusinessContext;
 
 final readonly class RecipeController
 {
-    public function __construct(private RecipeService $recipes) {}
+    public function __construct(private RecipeApplication $recipes) {}
 
     public function showProductRecipe(Request $request, array $parameters): Response
     {

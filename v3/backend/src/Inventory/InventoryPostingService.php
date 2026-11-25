@@ -9,7 +9,7 @@ use PersiaCoder\PosV3\Security\ActorContext;
 use PersiaCoder\PosV3\Security\BusinessContext;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
-final readonly class InventoryPostingService
+final readonly class InventoryPostingService implements InventoryPostingApplication
 {
 
     public function __construct(

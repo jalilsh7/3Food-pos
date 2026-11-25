@@ -10,7 +10,7 @@ use PersiaCoder\PosV3\Security\BusinessContext;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 use PersiaCoder\PosV3\Security\PermissionChecker;
 
-final readonly class OrderService
+final readonly class OrderService implements OrderApplication
 {
     private const MAX_AMOUNT = 9000000000000000;
     private const MAX_QUANTITY_MILLI = 1000000;

@@ -10,7 +10,7 @@ use PersiaCoder\PosV3\Security\ActorContext;
 use PersiaCoder\PosV3\Security\BusinessContext;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
-final readonly class MediaService
+final readonly class MediaService implements MediaApplication
 {
 
     public function __construct(

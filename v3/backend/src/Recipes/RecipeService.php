@@ -9,7 +9,7 @@ use PersiaCoder\PosV3\Security\ActorContext;
 use PersiaCoder\PosV3\Security\BusinessContext;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
-final readonly class RecipeService
+final readonly class RecipeService implements RecipeApplication
 {
 
     public function __construct(

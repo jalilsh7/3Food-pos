@@ -13,7 +13,7 @@ use PersiaCoder\PosV3\Security\BusinessContext;
 
 final readonly class DiningController
 {
-    public function __construct(private DiningService $dining) {}
+    public function __construct(private DiningApplication $dining) {}
 
     public function list(Request $request): Response
     {

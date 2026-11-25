@@ -13,7 +13,7 @@ use PersiaCoder\PosV3\Security\BusinessContext;
 
 final readonly class CatalogController
 {
-    public function __construct(private CatalogService $catalog) {}
+    public function __construct(private CatalogApplication $catalog) {}
 
     public function categories(Request $request): Response
     {

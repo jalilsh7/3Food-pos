@@ -13,7 +13,7 @@ use PersiaCoder\PosV3\Security\BusinessContext;
 
 final readonly class OrderController
 {
-    public function __construct(private OrderService $orders) {}
+    public function __construct(private OrderApplication $orders) {}
 
     public function list(Request $request): Response
     {

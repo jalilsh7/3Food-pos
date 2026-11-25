@@ -13,7 +13,7 @@ use PersiaCoder\PosV3\Security\BusinessContext;
 
 final readonly class CashRegisterController
 {
-    public function __construct(private CashRegisterService $cash) {}
+    public function __construct(private CashRegisterApplication $cash) {}
 
     public function list(Request $request): Response
     {

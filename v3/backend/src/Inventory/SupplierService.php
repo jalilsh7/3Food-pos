@@ -9,7 +9,7 @@ use PersiaCoder\PosV3\Security\ActorContext;
 use PersiaCoder\PosV3\Security\BusinessContext;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
-final readonly class SupplierService
+final readonly class SupplierService implements SupplierApplication
 {
 
     public function __construct(

@@ -10,7 +10,7 @@ use PersiaCoder\PosV3\Security\ActorContext;
 use PersiaCoder\PosV3\Security\BusinessContext;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
-final readonly class CashRegisterService
+final readonly class CashRegisterService implements CashRegisterApplication
 {
     private const MAX_AMOUNT = 9000000000000000;
 

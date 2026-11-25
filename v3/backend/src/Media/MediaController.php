@@ -13,7 +13,7 @@ use PersiaCoder\PosV3\Security\BusinessContext;
 
 final readonly class MediaController
 {
-    public function __construct(private MediaService $media) {}
+    public function __construct(private MediaApplication $media) {}
 
     public function upload(Request $request): Response
     {

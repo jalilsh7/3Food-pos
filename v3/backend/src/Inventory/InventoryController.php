@@ -14,10 +14,10 @@ use PersiaCoder\PosV3\Security\BusinessContext;
 final readonly class InventoryController
 {
     public function __construct(
-        private InventoryService $inventory,
-        private InventoryDocumentService $documents,
-        private InventoryPostingService $posting,
-        private SupplierService $suppliers,
+        private InventoryApplication $inventory,
+        private InventoryDocumentApplication $documents,
+        private InventoryPostingApplication $posting,
+        private SupplierApplication $suppliers,
     ) {}
 
     public function suppliers(Request $request): Response
