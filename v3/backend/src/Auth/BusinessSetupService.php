@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Auth;
 
 use DateTimeZone;
-use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\TransactionBoundary;
 
@@ -30,7 +30,7 @@ final readonly class BusinessSetupService
         string $ipAddress,
     ): array {
         if (!$this->businesses->isInstallationOwner($ownerUserId)) {
-            throw new HttpException(403, 'owner_required', 'Only the installation owner can complete initial setup.');
+            throw new ApplicationException(403, 'owner_required', 'Only the installation owner can complete initial setup.');
         }
 
         $name = trim($name);
@@ -41,22 +41,22 @@ final readonly class BusinessSetupService
         $currency = strtoupper(trim($currency));
 
         if ($name === '' || self::unicodeLength($name) > 160) {
-            throw new HttpException(422, 'invalid_business_name', 'Business name is required and must not exceed 160 characters.');
+            throw new ApplicationException(422, 'invalid_business_name', 'Business name is required and must not exceed 160 characters.');
         }
         if (!preg_match('/^[a-z0-9][a-z0-9-]{1,62}$/', $code)) {
-            throw new HttpException(422, 'invalid_business_code', 'Business code must use 2-63 lowercase letters, digits or hyphens.');
+            throw new ApplicationException(422, 'invalid_business_code', 'Business code must use 2-63 lowercase letters, digits or hyphens.');
         }
         if ($branchName === '' || self::unicodeLength($branchName) > 160) {
-            throw new HttpException(422, 'invalid_branch_name', 'Branch name is required and must not exceed 160 characters.');
+            throw new ApplicationException(422, 'invalid_branch_name', 'Branch name is required and must not exceed 160 characters.');
         }
         if (!preg_match('/^[a-z0-9][a-z0-9-]{1,62}$/', $branchCode)) {
-            throw new HttpException(422, 'invalid_branch_code', 'Branch code must use 2-63 lowercase letters, digits or hyphens.');
+            throw new ApplicationException(422, 'invalid_branch_code', 'Branch code must use 2-63 lowercase letters, digits or hyphens.');
         }
         if (!in_array($timezone, DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC), true)) {
-            throw new HttpException(422, 'invalid_timezone', 'The timezone is not recognized.');
+            throw new ApplicationException(422, 'invalid_timezone', 'The timezone is not recognized.');
         }
         if ($currency !== 'IRT') {
-            throw new HttpException(422, 'unsupported_currency', 'The initial V3 release supports Iranian toman (IRT) only.');
+            throw new ApplicationException(422, 'unsupported_currency', 'The initial V3 release supports Iranian toman (IRT) only.');
         }
 
         $businessPublicId = self::uuidV4();
@@ -75,7 +75,7 @@ final readonly class BusinessSetupService
             $ipAddress,
         ): void {
             if ($this->businesses->lockInitialBusinessId() !== null) {
-                throw new HttpException(409, 'business_already_configured', 'The initial business has already been configured.');
+                throw new ApplicationException(409, 'business_already_configured', 'The initial business has already been configured.');
             }
 
             $businessId = $this->businesses->createBusiness(

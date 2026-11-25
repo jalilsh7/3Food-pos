@@ -3,9 +3,9 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Http;
 
-use RuntimeException;
+use PersiaCoder\PosV3\Support\ApplicationException;
 
-final class HttpException extends RuntimeException
+final class HttpException extends ApplicationException
 {
     /** @param array<string, mixed> $details */
     public function __construct(

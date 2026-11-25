@@ -6,7 +6,7 @@ namespace PersiaCoder\PosV3\Media;
 use Throwable;
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
-use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
@@ -35,17 +35,17 @@ final readonly class MediaService
     ): array {
         if ($file['error'] !== UPLOAD_ERR_OK) {
             $status = in_array($file['error'], [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true) ? 413 : 422;
-            throw new HttpException($status, 'media_upload_failed', 'The image upload did not complete successfully.');
+            throw new ApplicationException($status, 'media_upload_failed', 'The image upload did not complete successfully.');
         }
         if ($file['size'] < 1 || $file['size'] > $this->maxBytes || !is_uploaded_file($file['tmp_name'])) {
-            throw new HttpException(413, 'media_size_invalid', 'The uploaded image is empty, too large or invalid.');
+            throw new ApplicationException(413, 'media_size_invalid', 'The uploaded image is empty, too large or invalid.');
         }
         $actualSize = filesize($file['tmp_name']);
         if (!is_int($actualSize) || $actualSize !== $file['size'] || $actualSize > $this->maxBytes) {
-            throw new HttpException(422, 'media_size_mismatch', 'The uploaded image size could not be verified.');
+            throw new ApplicationException(422, 'media_size_mismatch', 'The uploaded image size could not be verified.');
         }
         if (!class_exists(\finfo::class) || !function_exists('getimagesize')) {
-            throw new HttpException(503, 'media_validation_unavailable', 'Image validation is unavailable on this server.');
+            throw new ApplicationException(503, 'media_validation_unavailable', 'Image validation is unavailable on this server.');
         }
         $finfo = new \finfo(FILEINFO_MIME_TYPE);
         $detectedMime = $finfo->file($file['tmp_name']);
@@ -57,17 +57,17 @@ final readonly class MediaService
         ];
         if (!is_string($detectedMime) || !isset($allowed[$detectedMime])
             || !is_array($imageInfo) || ($imageInfo['mime'] ?? null) !== $detectedMime) {
-            throw new HttpException(415, 'media_type_not_allowed', 'Only valid JPEG, PNG and WebP images are accepted.');
+            throw new ApplicationException(415, 'media_type_not_allowed', 'Only valid JPEG, PNG and WebP images are accepted.');
         }
         $width = $imageInfo[0] ?? 0;
         $height = $imageInfo[1] ?? 0;
         if (!is_int($width) || !is_int($height) || $width < 1 || $height < 1
             || $width > 6000 || $height > 6000 || ($width * $height) > 20000000) {
-            throw new HttpException(422, 'media_dimensions_invalid', 'Image dimensions exceed the allowed limits.');
+            throw new ApplicationException(422, 'media_dimensions_invalid', 'Image dimensions exceed the allowed limits.');
         }
         $sha256 = hash_file('sha256', $file['tmp_name']);
         if (!is_string($sha256)) {
-            throw new HttpException(422, 'media_hash_failed', 'The uploaded image could not be verified.');
+            throw new ApplicationException(422, 'media_hash_failed', 'The uploaded image could not be verified.');
         }
 
         $publicId = self::uuidV4();
@@ -115,11 +115,11 @@ final readonly class MediaService
     public function read(BusinessScope $scope, string $publicId): array
     {
         if (!self::isUuid($publicId)) {
-            throw new HttpException(422, 'media_id_invalid', 'The media identifier is invalid.');
+            throw new ApplicationException(422, 'media_id_invalid', 'The media identifier is invalid.');
         }
         $asset = $this->media->findAsset($scope->businessId, $publicId);
         if ($asset === null) {
-            throw new HttpException(404, 'media_not_found', 'The media asset was not found.');
+            throw new ApplicationException(404, 'media_not_found', 'The media asset was not found.');
         }
         return ['metadata' => $asset, 'contents' => $this->storage->read((string) $asset['storage_key'])];
     }
@@ -131,12 +131,12 @@ final readonly class MediaService
     ): array {
         $mediaPublicId = $payload['media_id'] ?? null;
         if (!self::isUuid($productPublicId) || !is_string($mediaPublicId) || !self::isUuid($mediaPublicId)) {
-            throw new HttpException(422, 'product_media_invalid', 'Product and media identifiers are required.');
+            throw new ApplicationException(422, 'product_media_invalid', 'Product and media identifiers are required.');
         }
         $productId = $this->media->findProductId($scope->businessId, $productPublicId);
         $asset = $this->media->findAsset($scope->businessId, $mediaPublicId);
-        if ($productId === null) throw new HttpException(404, 'product_not_found', 'The product was not found.');
-        if ($asset === null) throw new HttpException(404, 'media_not_found', 'The media asset was not found in this business.');
+        if ($productId === null) throw new ApplicationException(404, 'product_not_found', 'The product was not found.');
+        if ($asset === null) throw new ApplicationException(404, 'media_not_found', 'The media asset was not found in this business.');
         $before = $this->media->findProductImage($scope->businessId, $productId);
         $after = ['media_id' => $mediaPublicId];
         $fingerprint = hash('sha256', json_encode([$productPublicId, $mediaPublicId], JSON_THROW_ON_ERROR));
@@ -161,12 +161,12 @@ final readonly class MediaService
     ): array {
         $mediaPublicId = $payload['media_id'] ?? null;
         if (!self::isUuid($categoryPublicId) || !is_string($mediaPublicId) || !self::isUuid($mediaPublicId)) {
-            throw new HttpException(422, 'category_media_invalid', 'Category and media identifiers are required.');
+            throw new ApplicationException(422, 'category_media_invalid', 'Category and media identifiers are required.');
         }
         $categoryId = $this->media->findCategoryId($scope->businessId, $categoryPublicId);
         $asset = $this->media->findAsset($scope->businessId, $mediaPublicId);
-        if ($categoryId === null) throw new HttpException(404, 'category_not_found', 'The category was not found.');
-        if ($asset === null) throw new HttpException(404, 'media_not_found', 'The media asset was not found in this business.');
+        if ($categoryId === null) throw new ApplicationException(404, 'category_not_found', 'The category was not found.');
+        if ($asset === null) throw new ApplicationException(404, 'media_not_found', 'The media asset was not found in this business.');
         $before = $this->media->findCategoryImage($scope->businessId, $categoryId);
         $after = ['media_id' => $mediaPublicId];
         $fingerprint = hash('sha256', json_encode([$categoryPublicId, $mediaPublicId], JSON_THROW_ON_ERROR));
@@ -205,10 +205,10 @@ final readonly class MediaService
         string $key, string $requestId, string $ip,
     ): array {
         if (!self::isUuid($productPublicId)) {
-            throw new HttpException(422, 'product_id_invalid', 'The product identifier is invalid.');
+            throw new ApplicationException(422, 'product_id_invalid', 'The product identifier is invalid.');
         }
         $productId = $this->media->findProductId($scope->businessId, $productPublicId);
-        if ($productId === null) throw new HttpException(404, 'product_not_found', 'The product was not found.');
+        if ($productId === null) throw new ApplicationException(404, 'product_not_found', 'The product was not found.');
         $before = $this->media->findProductImage($scope->businessId, $productId);
         $fingerprint = hash('sha256', json_encode([$productPublicId, 'detach-image'], JSON_THROW_ON_ERROR));
         return $this->idempotency->execute(
@@ -236,10 +236,10 @@ final readonly class MediaService
         string $key, string $requestId, string $ip,
     ): array {
         if (!self::isUuid($categoryPublicId)) {
-            throw new HttpException(422, 'category_id_invalid', 'The category identifier is invalid.');
+            throw new ApplicationException(422, 'category_id_invalid', 'The category identifier is invalid.');
         }
         $categoryId = $this->media->findCategoryId($scope->businessId, $categoryPublicId);
-        if ($categoryId === null) throw new HttpException(404, 'category_not_found', 'The category was not found.');
+        if ($categoryId === null) throw new ApplicationException(404, 'category_not_found', 'The category was not found.');
         $before = $this->media->findCategoryImage($scope->businessId, $categoryId);
         $fingerprint = hash('sha256', json_encode([$categoryPublicId, 'detach-image'], JSON_THROW_ON_ERROR));
         return $this->idempotency->execute(

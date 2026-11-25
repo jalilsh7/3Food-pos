@@ -5,7 +5,7 @@ namespace PersiaCoder\PosV3\Recipes;
 
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
-use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
@@ -20,17 +20,17 @@ final readonly class RecipeService
     public function getProductRecipe(BusinessScope $scope, string $productPublicId, ?string $variantPublicId): ?array
     {
         if (!self::isUuid($productPublicId)) {
-            throw new HttpException(422, 'product_id_invalid', 'The product identifier is invalid.');
+            throw new ApplicationException(422, 'product_id_invalid', 'The product identifier is invalid.');
         }
         $productId = $this->recipes->findProductId($scope->businessId, $productPublicId);
-        if ($productId === null) throw new HttpException(404, 'product_not_found', 'The product was not found.');
+        if ($productId === null) throw new ApplicationException(404, 'product_not_found', 'The product was not found.');
         $variantId = null;
         if ($variantPublicId !== null) {
             if (!self::isUuid($variantPublicId)) {
-                throw new HttpException(422, 'variant_id_invalid', 'The variant identifier is invalid.');
+                throw new ApplicationException(422, 'variant_id_invalid', 'The variant identifier is invalid.');
             }
             $variantId = $this->recipes->findVariantIdForRead($scope->businessId, $productId, $variantPublicId);
-            if ($variantId === null) throw new HttpException(404, 'variant_not_found', 'The variant was not found for this product.');
+            if ($variantId === null) throw new ApplicationException(404, 'variant_not_found', 'The variant was not found for this product.');
         }
         return $this->recipes->recipeDetails($scope->businessId, $productId, $variantId);
     }
@@ -44,19 +44,19 @@ final readonly class RecipeService
         array $payload, string $key, string $requestId, string $ip,
     ): array {
         if (!self::isUuid($productPublicId)) {
-            throw new HttpException(422, 'product_id_invalid', 'The product identifier is invalid.');
+            throw new ApplicationException(422, 'product_id_invalid', 'The product identifier is invalid.');
         }
         $variantPublicId = $payload['variant_id'] ?? null;
         if ($variantPublicId !== null && (!is_string($variantPublicId) || !self::isUuid($variantPublicId))) {
-            throw new HttpException(422, 'variant_id_invalid', 'The variant identifier is invalid.');
+            throw new ApplicationException(422, 'variant_id_invalid', 'The variant identifier is invalid.');
         }
         $name = trim((string) ($payload['name'] ?? ''));
         if ($name === '' || self::unicodeLength($name) > 160) {
-            throw new HttpException(422, 'recipe_name_invalid', 'Recipe name is required and must not exceed 160 characters.');
+            throw new ApplicationException(422, 'recipe_name_invalid', 'Recipe name is required and must not exceed 160 characters.');
         }
         $inputLines = $payload['lines'] ?? null;
         if (!is_array($inputLines) || count($inputLines) < 1 || count($inputLines) > 100) {
-            throw new HttpException(422, 'recipe_lines_invalid', 'A recipe must contain between 1 and 100 ingredient lines.');
+            throw new ApplicationException(422, 'recipe_lines_invalid', 'A recipe must contain between 1 and 100 ingredient lines.');
         }
 
         $normalizedLines = [];
@@ -66,16 +66,16 @@ final readonly class RecipeService
                 || !self::isUuid($line['stock_item_id'])
                 || !is_string($line['unit_code'] ?? null)
                 || !preg_match('/^[a-z0-9._-]{1,32}$/', $line['unit_code'])) {
-                throw new HttpException(422, 'recipe_line_invalid', 'Each recipe line requires a stock item UUID and unit code.');
+                throw new ApplicationException(422, 'recipe_line_invalid', 'Each recipe line requires a stock item UUID and unit code.');
             }
             $quantity = self::decimalInput($line['quantity'] ?? null, 6, false, 'recipe_quantity_invalid');
             $waste = self::decimalInput($line['waste_percent'] ?? '0', 4, true, 'recipe_waste_invalid');
             if ((float) $waste > 100) {
-                throw new HttpException(422, 'recipe_waste_invalid', 'Waste percent must not exceed 100.');
+                throw new ApplicationException(422, 'recipe_waste_invalid', 'Waste percent must not exceed 100.');
             }
             $lineKey = $line['stock_item_id'] . ':' . $line['unit_code'];
             if (isset($seen[$lineKey])) {
-                throw new HttpException(422, 'recipe_line_duplicate', 'A stock item and unit combination can appear only once in a recipe version.');
+                throw new ApplicationException(422, 'recipe_line_duplicate', 'A stock item and unit combination can appear only once in a recipe version.');
             }
             $seen[$lineKey] = true;
             $normalizedLines[] = [
@@ -98,33 +98,33 @@ final readonly class RecipeService
             ): array {
                 $productId = $this->recipes->findProductId($scope->businessId, $productPublicId);
                 if ($productId === null) {
-                    throw new HttpException(404, 'product_not_found', 'The product was not found or is inactive.');
+                    throw new ApplicationException(404, 'product_not_found', 'The product was not found or is inactive.');
                 }
                 $variantId = $variantPublicId === null
                     ? null
                     : $this->recipes->findVariantId($scope->businessId, $productId, $variantPublicId);
                 if ($variantPublicId !== null && $variantId === null) {
-                    throw new HttpException(404, 'variant_not_found', 'The active variant was not found for this product.');
+                    throw new ApplicationException(404, 'variant_not_found', 'The active variant was not found for this product.');
                 }
 
                 $lines = [];
                 foreach ($normalizedLines as $line) {
                     $stockItem = $this->recipes->findStockItem($scope->businessId, $line['stock_item_public_id']);
                     if ($stockItem === null) {
-                        throw new HttpException(404, 'recipe_stock_item_not_found', 'A stock item was not found or is inactive in this business.');
+                        throw new ApplicationException(404, 'recipe_stock_item_not_found', 'A stock item was not found or is inactive in this business.');
                     }
                     $unit = $this->recipes->findUnit($line['unit_code']);
                     if ($unit === null) {
-                        throw new HttpException(422, 'recipe_unit_not_found', 'A recipe unit code does not exist.');
+                        throw new ApplicationException(422, 'recipe_unit_not_found', 'A recipe unit code does not exist.');
                     }
                     if ((string) $unit['dimension'] !== (string) $stockItem['base_unit_dimension']) {
-                        throw new HttpException(422, 'recipe_unit_dimension_mismatch', 'Recipe units must match the stock item base unit dimension.');
+                        throw new ApplicationException(422, 'recipe_unit_dimension_mismatch', 'Recipe units must match the stock item base unit dimension.');
                     }
                     $conversionFactor = (int) $unit['id'] === (int) $stockItem['base_unit_id']
                         ? '1.00000000'
                         : $this->recipes->findConversionFactor((int) $unit['id'], (int) $stockItem['base_unit_id']);
                     if ($conversionFactor === null || (float) $conversionFactor <= 0) {
-                        throw new HttpException(422, 'recipe_unit_conversion_missing', 'No valid conversion exists from the recipe unit to the stock item base unit.');
+                        throw new ApplicationException(422, 'recipe_unit_conversion_missing', 'No valid conversion exists from the recipe unit to the stock item base unit.');
                     }
                     $lines[] = [
                         'stock_item_id' => (int) $stockItem['id'],
@@ -188,23 +188,23 @@ final readonly class RecipeService
         string $key, string $requestId, string $ip,
     ): array {
         if (!self::isUuid($versionPublicId)) {
-            throw new HttpException(422, 'recipe_version_id_invalid', 'The recipe version identifier is invalid.');
+            throw new ApplicationException(422, 'recipe_version_id_invalid', 'The recipe version identifier is invalid.');
         }
         $current = $this->recipes->findVersion($scope->businessId, $versionPublicId);
-        if ($current === null) throw new HttpException(404, 'recipe_version_not_found', 'The recipe version was not found.');
+        if ($current === null) throw new ApplicationException(404, 'recipe_version_not_found', 'The recipe version was not found.');
         $fingerprint = hash('sha256', json_encode([$versionPublicId, 'activate'], JSON_THROW_ON_ERROR));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'catalog.recipe.version.activate', $key, $fingerprint,
             function () use ($scope, $actor, $versionPublicId, $requestId, $ip): array {
                 $locked = $this->recipes->findVersionForUpdate($scope->businessId, $versionPublicId);
-                if ($locked === null) throw new HttpException(404, 'recipe_version_not_found', 'The recipe version was not found.');
+                if ($locked === null) throw new ApplicationException(404, 'recipe_version_not_found', 'The recipe version was not found.');
                 if ((string) $locked['status'] !== 'draft') {
-                    throw new HttpException(409, 'recipe_version_not_draft', 'Only a draft recipe version can be activated.');
+                    throw new ApplicationException(409, 'recipe_version_not_draft', 'Only a draft recipe version can be activated.');
                 }
                 $recipeId = (int) $locked['recipe_id'];
                 $this->recipes->retireActiveVersions($scope->businessId, $recipeId);
                 if (!$this->recipes->activateVersion($scope->businessId, (int) $locked['id'])) {
-                    throw new HttpException(409, 'recipe_version_activation_conflict', 'The recipe version could not be activated.');
+                    throw new ApplicationException(409, 'recipe_version_activation_conflict', 'The recipe version could not be activated.');
                 }
                 $this->recipes->activateRecipe($scope->businessId, $recipeId);
                 $before = ['status' => 'draft'];
@@ -228,12 +228,12 @@ final readonly class RecipeService
     {
         if (is_int($value)) $value = (string) $value;
         if (!is_string($value) || !preg_match('/^\d{1,12}(?:\.\d{1,' . $scale . '})?$/', $value)) {
-            throw new HttpException(422, $errorCode, 'A decimal value has an invalid format or precision.');
+            throw new ApplicationException(422, $errorCode, 'A decimal value has an invalid format or precision.');
         }
         $digits = str_replace('.', '', $value);
         $positive = trim($digits, '0') !== '';
         if (!$allowZero && !$positive) {
-            throw new HttpException(422, $errorCode, 'The value must be greater than zero.');
+            throw new ApplicationException(422, $errorCode, 'The value must be greater than zero.');
         }
         return $value;
     }

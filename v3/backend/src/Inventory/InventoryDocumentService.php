@@ -5,7 +5,7 @@ namespace PersiaCoder\PosV3\Inventory;
 
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
-use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
@@ -22,21 +22,21 @@ final readonly class InventoryDocumentService
         $branchId = self::branch($scope);
         $types = ['purchase_receipt', 'consumption', 'transfer', 'adjustment_in', 'adjustment_out', 'waste', 'return'];
         if ($type !== null && !in_array($type, $types, true)) {
-            throw new HttpException(422, 'stock_document_type_invalid', 'The stock document type is invalid.');
+            throw new ApplicationException(422, 'stock_document_type_invalid', 'The stock document type is invalid.');
         }
         if ($status !== null && !in_array($status, ['draft', 'posted', 'voided'], true)) {
-            throw new HttpException(422, 'stock_document_status_invalid', 'The stock document status is invalid.');
+            throw new ApplicationException(422, 'stock_document_status_invalid', 'The stock document status is invalid.');
         }
-        if ($limit < 1 || $limit > 100) throw new HttpException(422, 'inventory_limit_invalid', 'The page size must be between 1 and 100.');
+        if ($limit < 1 || $limit > 100) throw new ApplicationException(422, 'inventory_limit_invalid', 'The page size must be between 1 and 100.');
         return $this->documents->list($scope->businessId, $branchId, $type, $status, $limit);
     }
 
     public function get(BusinessScope $scope, string $publicId): array
     {
         $branchId = self::branch($scope);
-        if (!self::isUuid($publicId)) throw new HttpException(422, 'stock_document_id_invalid', 'The stock document identifier is invalid.');
+        if (!self::isUuid($publicId)) throw new ApplicationException(422, 'stock_document_id_invalid', 'The stock document identifier is invalid.');
         $document = $this->documents->find($scope->businessId, $branchId, $publicId);
-        if ($document === null) throw new HttpException(404, 'stock_document_not_found', 'The stock document was not found.');
+        if ($document === null) throw new ApplicationException(404, 'stock_document_not_found', 'The stock document was not found.');
         return $document;
     }
 
@@ -44,15 +44,15 @@ final readonly class InventoryDocumentService
     {
         $branchId = self::branch($scope);
         if (!self::isUuid($publicId)) {
-            throw new HttpException(422, 'stock_document_id_invalid', 'The stock document identifier is invalid.');
+            throw new ApplicationException(422, 'stock_document_id_invalid', 'The stock document identifier is invalid.');
         }
         $document = $this->documents->find($scope->businessId, $branchId, $publicId);
         if ($document === null) {
-            throw new HttpException(404, 'stock_document_not_found', 'The stock document was not found.');
+            throw new ApplicationException(404, 'stock_document_not_found', 'The stock document was not found.');
         }
         $documentId = $this->documents->findId($scope->businessId, $branchId, $publicId);
         if ($documentId === null) {
-            throw new HttpException(404, 'stock_document_not_found', 'The stock document was not found.');
+            throw new ApplicationException(404, 'stock_document_not_found', 'The stock document was not found.');
         }
         return [
             'document_id' => $publicId,
@@ -71,35 +71,35 @@ final readonly class InventoryDocumentService
         $type = $payload['document_type'] ?? null;
         $types = ['purchase_receipt', 'consumption', 'transfer', 'adjustment_in', 'adjustment_out', 'waste', 'return'];
         if (!is_string($type) || !in_array($type, $types, true)) {
-            throw new HttpException(422, 'stock_document_type_invalid', 'The stock document type is invalid.');
+            throw new ApplicationException(422, 'stock_document_type_invalid', 'The stock document type is invalid.');
         }
         $locationPublicId = $payload['location_id'] ?? null;
         if (!is_string($locationPublicId) || !self::isUuid($locationPublicId)) {
-            throw new HttpException(422, 'stock_document_location_invalid', 'A valid location_id is required.');
+            throw new ApplicationException(422, 'stock_document_location_invalid', 'A valid location_id is required.');
         }
         $destinationPublicId = $payload['destination_location_id'] ?? null;
         if ($type === 'transfer') {
             if (!is_string($destinationPublicId) || !self::isUuid($destinationPublicId)
                 || hash_equals($locationPublicId, $destinationPublicId)) {
-                throw new HttpException(422, 'stock_document_destination_invalid', 'A transfer requires a different destination location.');
+                throw new ApplicationException(422, 'stock_document_destination_invalid', 'A transfer requires a different destination location.');
             }
         } elseif ($destinationPublicId !== null) {
-            throw new HttpException(422, 'stock_document_destination_not_allowed', 'Only transfer documents can have a destination location.');
+            throw new ApplicationException(422, 'stock_document_destination_not_allowed', 'Only transfer documents can have a destination location.');
         }
         $supplierPublicId = $payload['supplier_id'] ?? null;
         if ($type === 'purchase_receipt' && (!is_string($supplierPublicId) || !self::isUuid($supplierPublicId))) {
-            throw new HttpException(422, 'stock_document_supplier_required', 'A purchase receipt requires a supplier.');
+            throw new ApplicationException(422, 'stock_document_supplier_required', 'A purchase receipt requires a supplier.');
         }
         if ($supplierPublicId !== null && (!is_string($supplierPublicId) || !self::isUuid($supplierPublicId))) {
-            throw new HttpException(422, 'stock_document_supplier_invalid', 'The supplier identifier is invalid.');
+            throw new ApplicationException(422, 'stock_document_supplier_invalid', 'The supplier identifier is invalid.');
         }
         $reasonValue = $payload['reason'] ?? '';
-        if (!is_string($reasonValue)) throw new HttpException(422, 'stock_document_reason_invalid', 'The reason must be text.');
+        if (!is_string($reasonValue)) throw new ApplicationException(422, 'stock_document_reason_invalid', 'The reason must be text.');
         $reason = trim($reasonValue);
         if (in_array($type, ['adjustment_in', 'adjustment_out', 'waste'], true) && $reason === '') {
-            throw new HttpException(422, 'stock_document_reason_required', 'A reason is required for adjustments and waste.');
+            throw new ApplicationException(422, 'stock_document_reason_required', 'A reason is required for adjustments and waste.');
         }
-        if (self::unicodeLength($reason) > 500) throw new HttpException(422, 'stock_document_reason_invalid', 'The reason must not exceed 500 characters.');
+        if (self::unicodeLength($reason) > 500) throw new ApplicationException(422, 'stock_document_reason_invalid', 'The reason must not exceed 500 characters.');
         $reason = $reason === '' ? null : $reason;
 
         $fingerprint = hash('sha256', json_encode(
@@ -114,16 +114,16 @@ final readonly class InventoryDocumentService
                 $supplierPublicId, $reason, $publicId, $requestId, $ip,
             ): array {
                 $locationId = $this->documents->findLocationId($scope->businessId, $branchId, $locationPublicId);
-                if ($locationId === null) throw new HttpException(404, 'stock_document_location_not_found', 'The active location was not found in this branch.');
+                if ($locationId === null) throw new ApplicationException(404, 'stock_document_location_not_found', 'The active location was not found in this branch.');
                 $destinationId = null;
                 if ($destinationPublicId !== null) {
                     $destinationId = $this->documents->findLocationId($scope->businessId, $branchId, $destinationPublicId);
-                    if ($destinationId === null) throw new HttpException(404, 'stock_document_destination_not_found', 'The active destination was not found in this branch.');
+                    if ($destinationId === null) throw new ApplicationException(404, 'stock_document_destination_not_found', 'The active destination was not found in this branch.');
                 }
                 $supplierId = null;
                 if ($supplierPublicId !== null) {
                     $supplierId = $this->documents->findSupplierId($scope->businessId, $supplierPublicId);
-                    if ($supplierId === null) throw new HttpException(404, 'stock_document_supplier_not_found', 'The active supplier was not found in this business.');
+                    if ($supplierId === null) throw new ApplicationException(404, 'stock_document_supplier_not_found', 'The active supplier was not found in this business.');
                 }
                 $documentNo = $this->documents->nextDocumentNumber($scope->businessId, $branchId);
                 $this->documents->create(
@@ -154,25 +154,25 @@ final readonly class InventoryDocumentService
     ): array {
         $branchId = self::branch($scope);
         if (!self::isUuid($documentPublicId)) {
-            throw new HttpException(422, 'stock_document_id_invalid', 'The stock document identifier is invalid.');
+            throw new ApplicationException(422, 'stock_document_id_invalid', 'The stock document identifier is invalid.');
         }
         $stockItemPublicId = $payload['stock_item_id'] ?? null;
         $unitCode = $payload['unit_code'] ?? null;
         $quantity = $payload['quantity'] ?? null;
         if (!is_string($stockItemPublicId) || !self::isUuid($stockItemPublicId)
             || !is_string($unitCode) || !preg_match('/^[a-z0-9._-]{1,32}$/', $unitCode)) {
-            throw new HttpException(422, 'stock_document_line_reference_invalid', 'A valid stock_item_id and unit_code are required.');
+            throw new ApplicationException(422, 'stock_document_line_reference_invalid', 'A valid stock_item_id and unit_code are required.');
         }
         if (is_int($quantity)) $quantity = (string) $quantity;
         if (!is_string($quantity) || !preg_match('/^\\d{1,12}(?:\\.\\d{1,6})?$/', $quantity)
             || trim(str_replace('.', '', $quantity), '0') === '') {
-            throw new HttpException(422, 'stock_document_line_quantity_invalid', 'Quantity must be a positive decimal with up to 6 decimal places.');
+            throw new ApplicationException(422, 'stock_document_line_quantity_invalid', 'Quantity must be a positive decimal with up to 6 decimal places.');
         }
         $noteValue = $payload['note'] ?? '';
-        if (!is_string($noteValue)) throw new HttpException(422, 'stock_document_line_note_invalid', 'The line note must be text.');
+        if (!is_string($noteValue)) throw new ApplicationException(422, 'stock_document_line_note_invalid', 'The line note must be text.');
         $note = trim($noteValue);
         if (self::unicodeLength($note) > 500) {
-            throw new HttpException(422, 'stock_document_line_note_invalid', 'The line note must not exceed 500 characters.');
+            throw new ApplicationException(422, 'stock_document_line_note_invalid', 'The line note must not exceed 500 characters.');
         }
         $note = $note === '' ? null : $note;
         $hasCostAmount = array_key_exists('total_cost_amount', $payload);
@@ -190,28 +190,28 @@ final readonly class InventoryDocumentService
             ): array {
                 $document = $this->documents->findDraftForUpdate($scope->businessId, $branchId, $documentPublicId);
                 if ($document === null) {
-                    throw new HttpException(404, 'stock_document_not_found', 'The stock document was not found.');
+                    throw new ApplicationException(404, 'stock_document_not_found', 'The stock document was not found.');
                 }
                 if ((string) $document['status'] !== 'draft') {
-                    throw new HttpException(409, 'stock_document_not_draft', 'Lines can only be added to a draft stock document.');
+                    throw new ApplicationException(409, 'stock_document_not_draft', 'Lines can only be added to a draft stock document.');
                 }
                 $costRequired = in_array((string) $document['document_type'], ['purchase_receipt', 'adjustment_in'], true);
                 if ($costRequired && !$hasCostAmount) {
-                    throw new HttpException(422, 'stock_document_line_cost_required', 'This document type requires a total_cost_amount in TOMAN.');
+                    throw new ApplicationException(422, 'stock_document_line_cost_required', 'This document type requires a total_cost_amount in TOMAN.');
                 }
                 if (!$costRequired && $totalCostAmount !== '0') {
-                    throw new HttpException(422, 'stock_document_line_cost_not_allowed', 'Cost input is only accepted for purchase receipts and inbound adjustments.');
+                    throw new ApplicationException(422, 'stock_document_line_cost_not_allowed', 'Cost input is only accepted for purchase receipts and inbound adjustments.');
                 }
                 $item = $this->documents->findStockItemForLine($scope->businessId, $stockItemPublicId);
-                if ($item === null) throw new HttpException(404, 'stock_item_not_found', 'The active stock item was not found in this business.');
+                if ($item === null) throw new ApplicationException(404, 'stock_item_not_found', 'The active stock item was not found in this business.');
                 $unit = $this->documents->findUnitForLine($unitCode);
-                if ($unit === null) throw new HttpException(422, 'stock_document_line_unit_not_found', 'The selected unit does not exist.');
+                if ($unit === null) throw new ApplicationException(422, 'stock_document_line_unit_not_found', 'The selected unit does not exist.');
                 if ((string) $unit['dimension'] !== (string) $item['base_dimension']) {
-                    throw new HttpException(422, 'stock_document_line_unit_dimension_mismatch', 'The selected unit does not match the stock item base unit dimension.');
+                    throw new ApplicationException(422, 'stock_document_line_unit_dimension_mismatch', 'The selected unit does not match the stock item base unit dimension.');
                 }
                 $factor = $this->documents->findConversionFactor((int) $unit['id'], (int) $item['base_unit_id']);
                 if ($factor === null || trim(str_replace('.', '', $factor), '0') === '') {
-                    throw new HttpException(422, 'stock_document_line_conversion_missing', 'No valid conversion exists from the selected unit to the stock item base unit.');
+                    throw new ApplicationException(422, 'stock_document_line_conversion_missing', 'No valid conversion exists from the selected unit to the stock item base unit.');
                 }
                 $this->documents->addLine(
                     $scope->businessId, $branchId, (int) $document['id'], $linePublicId, (int) $item['id'],
@@ -245,25 +245,25 @@ final readonly class InventoryDocumentService
     ): array {
         $branchId = self::branch($scope);
         if (!self::isUuid($documentPublicId) || !self::isUuid($linePublicId)) {
-            throw new HttpException(422, 'stock_document_line_id_invalid', 'The document or line identifier is invalid.');
+            throw new ApplicationException(422, 'stock_document_line_id_invalid', 'The document or line identifier is invalid.');
         }
         $stockItemPublicId = $payload['stock_item_id'] ?? null;
         $unitCode = $payload['unit_code'] ?? null;
         $quantity = $payload['quantity'] ?? null;
         if (!is_string($stockItemPublicId) || !self::isUuid($stockItemPublicId)
             || !is_string($unitCode) || !preg_match('/^[a-z0-9._-]{1,32}$/', $unitCode)) {
-            throw new HttpException(422, 'stock_document_line_reference_invalid', 'A valid stock_item_id and unit_code are required.');
+            throw new ApplicationException(422, 'stock_document_line_reference_invalid', 'A valid stock_item_id and unit_code are required.');
         }
         if (is_int($quantity)) $quantity = (string) $quantity;
         if (!is_string($quantity) || !preg_match('/^\\d{1,12}(?:\\.\\d{1,6})?$/', $quantity)
             || trim(str_replace('.', '', $quantity), '0') === '') {
-            throw new HttpException(422, 'stock_document_line_quantity_invalid', 'Quantity must be a positive decimal with up to 6 decimal places.');
+            throw new ApplicationException(422, 'stock_document_line_quantity_invalid', 'Quantity must be a positive decimal with up to 6 decimal places.');
         }
         $noteValue = $payload['note'] ?? '';
-        if (!is_string($noteValue)) throw new HttpException(422, 'stock_document_line_note_invalid', 'The line note must be text.');
+        if (!is_string($noteValue)) throw new ApplicationException(422, 'stock_document_line_note_invalid', 'The line note must be text.');
         $note = trim($noteValue);
         if (self::unicodeLength($note) > 500) {
-            throw new HttpException(422, 'stock_document_line_note_invalid', 'The line note must not exceed 500 characters.');
+            throw new ApplicationException(422, 'stock_document_line_note_invalid', 'The line note must not exceed 500 characters.');
         }
         $note = $note === '' ? null : $note;
         $hasCostAmount = array_key_exists('total_cost_amount', $payload);
@@ -279,28 +279,28 @@ final readonly class InventoryDocumentService
                 $stockItemPublicId, $unitCode, $quantity, $note, $hasCostAmount, $requestedCostAmount, $requestId, $ip,
             ): array {
                 $document = $this->documents->findDraftForUpdate($scope->businessId, $branchId, $documentPublicId);
-                if ($document === null) throw new HttpException(404, 'stock_document_not_found', 'The stock document was not found.');
+                if ($document === null) throw new ApplicationException(404, 'stock_document_not_found', 'The stock document was not found.');
                 if ((string) $document['status'] !== 'draft') {
-                    throw new HttpException(409, 'stock_document_not_draft', 'Only draft document lines can be updated.');
+                    throw new ApplicationException(409, 'stock_document_not_draft', 'Only draft document lines can be updated.');
                 }
                 $line = $this->documents->findLineForUpdate(
                     $scope->businessId, $branchId, (int) $document['id'], $linePublicId,
                 );
-                if ($line === null) throw new HttpException(404, 'stock_document_line_not_found', 'The stock document line was not found.');
+                if ($line === null) throw new ApplicationException(404, 'stock_document_line_not_found', 'The stock document line was not found.');
                 $costRequired = in_array((string) $document['document_type'], ['purchase_receipt', 'adjustment_in'], true);
                 $totalCostAmount = $hasCostAmount ? (string) $requestedCostAmount : (string) $line['total_cost_amount'];
                 if (!$costRequired && $hasCostAmount && $totalCostAmount !== '0') {
-                    throw new HttpException(422, 'stock_document_line_cost_not_allowed', 'Cost input is only accepted for purchase receipts and inbound adjustments.');
+                    throw new ApplicationException(422, 'stock_document_line_cost_not_allowed', 'Cost input is only accepted for purchase receipts and inbound adjustments.');
                 }
                 $item = $this->documents->findStockItemForLine($scope->businessId, $stockItemPublicId);
-                if ($item === null) throw new HttpException(404, 'stock_item_not_found', 'The active stock item was not found in this business.');
+                if ($item === null) throw new ApplicationException(404, 'stock_item_not_found', 'The active stock item was not found in this business.');
                 $unit = $this->documents->findUnitForLine($unitCode);
                 if ($unit === null || (string) $unit['dimension'] !== (string) $item['base_dimension']) {
-                    throw new HttpException(422, 'stock_document_line_unit_invalid', 'The selected unit is missing or has a different dimension.');
+                    throw new ApplicationException(422, 'stock_document_line_unit_invalid', 'The selected unit is missing or has a different dimension.');
                 }
                 $factor = $this->documents->findConversionFactor((int) $unit['id'], (int) $item['base_unit_id']);
                 if ($factor === null || trim(str_replace('.', '', $factor), '0') === '') {
-                    throw new HttpException(422, 'stock_document_line_conversion_missing', 'No valid conversion exists from the selected unit to the stock item base unit.');
+                    throw new ApplicationException(422, 'stock_document_line_conversion_missing', 'No valid conversion exists from the selected unit to the stock item base unit.');
                 }
                 $before = [
                     'stock_item_id' => (string) $line['stock_item_public_id'],
@@ -338,7 +338,7 @@ final readonly class InventoryDocumentService
     ): array {
         $branchId = self::branch($scope);
         if (!self::isUuid($documentPublicId) || !self::isUuid($linePublicId)) {
-            throw new HttpException(422, 'stock_document_line_id_invalid', 'The document or line identifier is invalid.');
+            throw new ApplicationException(422, 'stock_document_line_id_invalid', 'The document or line identifier is invalid.');
         }
         $fingerprint = hash('sha256', json_encode(
             [$documentPublicId, $linePublicId], JSON_THROW_ON_ERROR,
@@ -349,14 +349,14 @@ final readonly class InventoryDocumentService
                 $actor, $scope, $branchId, $documentPublicId, $linePublicId, $requestId, $ip,
             ): array {
                 $document = $this->documents->findDraftForUpdate($scope->businessId, $branchId, $documentPublicId);
-                if ($document === null) throw new HttpException(404, 'stock_document_not_found', 'The stock document was not found.');
+                if ($document === null) throw new ApplicationException(404, 'stock_document_not_found', 'The stock document was not found.');
                 if ((string) $document['status'] !== 'draft') {
-                    throw new HttpException(409, 'stock_document_not_draft', 'Only draft document lines can be deleted.');
+                    throw new ApplicationException(409, 'stock_document_not_draft', 'Only draft document lines can be deleted.');
                 }
                 $line = $this->documents->findLineForUpdate(
                     $scope->businessId, $branchId, (int) $document['id'], $linePublicId,
                 );
-                if ($line === null) throw new HttpException(404, 'stock_document_line_not_found', 'The stock document line was not found.');
+                if ($line === null) throw new ApplicationException(404, 'stock_document_line_not_found', 'The stock document line was not found.');
                 $before = [
                     'id' => $linePublicId, 'stock_item_id' => (string) $line['stock_item_public_id'],
                     'quantity' => (string) $line['quantity'], 'unit_code' => (string) $line['unit_code'],
@@ -384,12 +384,12 @@ final readonly class InventoryDocumentService
     {
         if (is_int($value)) $value = (string) $value;
         if (!is_string($value) || !preg_match('/^(?:0|[1-9][0-9]{0,19})$/', $value)) {
-            throw new HttpException(422, 'stock_document_line_cost_invalid', 'total_cost_amount must be a non-negative integer TOMAN amount.');
+            throw new ApplicationException(422, 'stock_document_line_cost_invalid', 'total_cost_amount must be a non-negative integer TOMAN amount.');
         }
         $maximum = '9223372036854775807';
         if (strlen($value) > strlen($maximum)
             || (strlen($value) === strlen($maximum) && strcmp($value, $maximum) > 0)) {
-            throw new HttpException(422, 'stock_document_line_cost_invalid', 'total_cost_amount exceeds the supported range.');
+            throw new ApplicationException(422, 'stock_document_line_cost_invalid', 'total_cost_amount exceeds the supported range.');
         }
         return $value;
     }
@@ -397,7 +397,7 @@ final readonly class InventoryDocumentService
     private static function branch(BusinessScope $scope): int
     {
         if ($scope->branchId === null || $scope->branchId < 1) {
-            throw new HttpException(400, 'branch_context_required', 'A valid branch context is required.');
+            throw new ApplicationException(400, 'branch_context_required', 'A valid branch context is required.');
         }
         return $scope->branchId;
     }

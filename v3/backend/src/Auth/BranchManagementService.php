@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Auth;
 
 use DateTimeZone;
-use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
@@ -38,19 +38,19 @@ final readonly class BranchManagementService
         $timezone = trim((string) $timezone);
         $businessTimezone = $this->businesses->findBusinessTimezone($scope->businessId);
         if ($businessTimezone === null) {
-            throw new HttpException(404, 'business_not_found', 'The business was not found.');
+            throw new ApplicationException(404, 'business_not_found', 'The business was not found.');
         }
         if ($name === '' || self::unicodeLength($name) > 160) {
-            throw new HttpException(422, 'invalid_branch_name', 'Branch name is required and must not exceed 160 characters.');
+            throw new ApplicationException(422, 'invalid_branch_name', 'Branch name is required and must not exceed 160 characters.');
         }
         if (!preg_match('/^[a-z0-9][a-z0-9-]{1,62}$/', $code)) {
-            throw new HttpException(422, 'invalid_branch_code', 'Branch code must use 2-63 lowercase letters, digits or hyphens.');
+            throw new ApplicationException(422, 'invalid_branch_code', 'Branch code must use 2-63 lowercase letters, digits or hyphens.');
         }
         if ($timezone === '') {
             $timezone = $businessTimezone;
         }
         if (!in_array($timezone, DateTimeZone::listIdentifiers(DateTimeZone::ALL_WITH_BC), true)) {
-            throw new HttpException(422, 'invalid_timezone', 'The timezone is not recognized.');
+            throw new ApplicationException(422, 'invalid_timezone', 'The timezone is not recognized.');
         }
 
         $fingerprint = hash('sha256', json_encode([

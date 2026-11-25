@@ -5,7 +5,7 @@ namespace PersiaCoder\PosV3\Inventory;
 
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
-use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
@@ -25,10 +25,10 @@ final readonly class InventoryService
     public function listStockItems(BusinessScope $scope, ?string $search, int $limit): array
     {
         if ($search !== null && self::unicodeLength($search) > 100) {
-            throw new HttpException(422, 'inventory_search_too_long', 'Search text must not exceed 100 characters.');
+            throw new ApplicationException(422, 'inventory_search_too_long', 'Search text must not exceed 100 characters.');
         }
         if ($limit < 1 || $limit > 100) {
-            throw new HttpException(422, 'inventory_limit_invalid', 'The inventory page size must be between 1 and 100.');
+            throw new ApplicationException(422, 'inventory_limit_invalid', 'The inventory page size must be between 1 and 100.');
         }
         return $this->inventory->listStockItems($scope->businessId, $search, $limit);
     }
@@ -43,20 +43,20 @@ final readonly class InventoryService
         $unitCode = $payload['base_unit_code'] ?? null;
         $negativePolicy = $payload['negative_stock_policy'] ?? 'block';
         if (!preg_match('/^[A-Za-z0-9._-]{1,64}$/', $code)) {
-            throw new HttpException(422, 'stock_item_code_invalid', 'Stock item code is invalid.');
+            throw new ApplicationException(422, 'stock_item_code_invalid', 'Stock item code is invalid.');
         }
         if ($name === '' || self::unicodeLength($name) > 160) {
-            throw new HttpException(422, 'stock_item_name_invalid', 'Stock item name is invalid.');
+            throw new ApplicationException(422, 'stock_item_name_invalid', 'Stock item name is invalid.');
         }
         if (!is_string($unitCode) || !preg_match('/^[a-z0-9._-]{1,32}$/', $unitCode)) {
-            throw new HttpException(422, 'stock_item_unit_invalid', 'A valid base_unit_code is required.');
+            throw new ApplicationException(422, 'stock_item_unit_invalid', 'A valid base_unit_code is required.');
         }
         if ($negativePolicy !== 'block') {
-            throw new HttpException(422, 'negative_stock_policy_unsupported', 'Only the block negative-stock policy is supported.');
+            throw new ApplicationException(422, 'negative_stock_policy_unsupported', 'Only the block negative-stock policy is supported.');
         }
         $unit = $this->inventory->findUnit($unitCode);
         if ($unit === null) {
-            throw new HttpException(422, 'stock_item_unit_not_found', 'The selected base unit does not exist.');
+            throw new ApplicationException(422, 'stock_item_unit_not_found', 'The selected base unit does not exist.');
         }
         $publicId = self::uuidV4();
         $after = [
@@ -69,7 +69,7 @@ final readonly class InventoryService
             $actor->userId, $scope, 'inventory.stock-item.create', $key, $fingerprint,
             function () use ($scope, $actor, $publicId, $code, $name, $unit, $after, $requestId, $ip): array {
                 if ($this->inventory->stockItemCodeExists($scope->businessId, $code)) {
-                    throw new HttpException(409, 'stock_item_code_exists', 'A stock item with this code already exists in this business.');
+                    throw new ApplicationException(409, 'stock_item_code_exists', 'A stock item with this code already exists in this business.');
                 }
                 $this->inventory->createStockItem($scope->businessId, $publicId, $code, $name, (int) $unit['id']);
                 $this->audit->record(
@@ -90,19 +90,19 @@ final readonly class InventoryService
         string $key, string $requestId, string $ip,
     ): array {
         if (!self::isUuid($publicId)) {
-            throw new HttpException(422, 'stock_item_id_invalid', 'The stock item identifier is invalid.');
+            throw new ApplicationException(422, 'stock_item_id_invalid', 'The stock item identifier is invalid.');
         }
         $current = $this->inventory->findStockItem($scope->businessId, $publicId);
-        if ($current === null) throw new HttpException(404, 'stock_item_not_found', 'The stock item was not found.');
+        if ($current === null) throw new ApplicationException(404, 'stock_item_not_found', 'The stock item was not found.');
         if (array_key_exists('base_unit_code', $payload) && $payload['base_unit_code'] !== $current['base_unit_code']) {
-            throw new HttpException(409, 'stock_item_base_unit_immutable', 'The base unit cannot be changed after the stock item is created.');
+            throw new ApplicationException(409, 'stock_item_base_unit_immutable', 'The base unit cannot be changed after the stock item is created.');
         }
         $code = trim((string) ($payload['code'] ?? $current['code']));
         $name = trim((string) ($payload['name'] ?? $current['name']));
         $active = $payload['is_active'] ?? ((int) $current['is_active'] === 1);
         if (!preg_match('/^[A-Za-z0-9._-]{1,64}$/', $code)
             || $name === '' || self::unicodeLength($name) > 160 || !is_bool($active)) {
-            throw new HttpException(422, 'stock_item_fields_invalid', 'Stock item code, name or active flag is invalid.');
+            throw new ApplicationException(422, 'stock_item_fields_invalid', 'Stock item code, name or active flag is invalid.');
         }
         $itemId = (int) $current['id'];
         $before = [
@@ -115,11 +115,11 @@ final readonly class InventoryService
             $actor->userId, $scope, 'inventory.stock-item.update', $key, $fingerprint,
             function () use ($scope, $actor, $publicId, $itemId, $code, $name, $active, $before, $after, $requestId, $ip): array {
                 if ($this->inventory->stockItemCodeExists($scope->businessId, $code, $itemId)) {
-                    throw new HttpException(409, 'stock_item_code_exists', 'A stock item with this code already exists in this business.');
+                    throw new ApplicationException(409, 'stock_item_code_exists', 'A stock item with this code already exists in this business.');
                 }
                 if (!$active && ($this->inventory->stockItemHasBalance($scope->businessId, $itemId)
                     || $this->inventory->stockItemHasActiveRecipe($scope->businessId, $itemId))) {
-                    throw new HttpException(409, 'stock_item_in_use', 'A stock item with remaining stock or an active recipe cannot be disabled.');
+                    throw new ApplicationException(409, 'stock_item_in_use', 'A stock item with remaining stock or an active recipe cannot be disabled.');
                 }
                 $this->inventory->updateStockItem($scope->businessId, $itemId, $code, $name, $active);
                 $this->audit->record(
@@ -150,13 +150,13 @@ final readonly class InventoryService
         $name = trim((string) ($payload['name'] ?? ''));
         $type = $payload['location_type'] ?? 'storage';
         if (!preg_match('/^[A-Za-z0-9._-]{1,40}$/', $code)) {
-            throw new HttpException(422, 'stock_location_code_invalid', 'Stock location code is invalid.');
+            throw new ApplicationException(422, 'stock_location_code_invalid', 'Stock location code is invalid.');
         }
         if ($name === '' || self::unicodeLength($name) > 120) {
-            throw new HttpException(422, 'stock_location_name_invalid', 'Stock location name is invalid.');
+            throw new ApplicationException(422, 'stock_location_name_invalid', 'Stock location name is invalid.');
         }
         if (!is_string($type) || !in_array($type, ['storage', 'kitchen', 'bar', 'freezer', 'other'], true)) {
-            throw new HttpException(422, 'stock_location_type_invalid', 'Stock location type is invalid.');
+            throw new ApplicationException(422, 'stock_location_type_invalid', 'Stock location type is invalid.');
         }
         $publicId = self::uuidV4();
         $after = ['code' => $code, 'name' => $name, 'location_type' => $type, 'is_active' => true];
@@ -165,7 +165,7 @@ final readonly class InventoryService
             $actor->userId, $scope, 'inventory.stock-location.create', $key, $fingerprint,
             function () use ($scope, $branchId, $actor, $publicId, $code, $name, $type, $after, $requestId, $ip): array {
                 if ($this->inventory->locationCodeExists($scope->businessId, $branchId, $code)) {
-                    throw new HttpException(409, 'stock_location_code_exists', 'A stock location with this code already exists in this branch.');
+                    throw new ApplicationException(409, 'stock_location_code_exists', 'A stock location with this code already exists in this branch.');
                 }
                 $this->inventory->createLocation($scope->businessId, $branchId, $publicId, $code, $name, $type);
                 $this->audit->record(
@@ -187,10 +187,10 @@ final readonly class InventoryService
     ): array {
         $branchId = self::requireBranch($scope);
         if (!self::isUuid($publicId)) {
-            throw new HttpException(422, 'stock_location_id_invalid', 'The stock location identifier is invalid.');
+            throw new ApplicationException(422, 'stock_location_id_invalid', 'The stock location identifier is invalid.');
         }
         $current = $this->inventory->findLocation($scope->businessId, $branchId, $publicId);
-        if ($current === null) throw new HttpException(404, 'stock_location_not_found', 'The stock location was not found.');
+        if ($current === null) throw new ApplicationException(404, 'stock_location_not_found', 'The stock location was not found.');
         $code = trim((string) ($payload['code'] ?? $current['code']));
         $name = trim((string) ($payload['name'] ?? $current['name']));
         $type = $payload['location_type'] ?? $current['location_type'];
@@ -199,7 +199,7 @@ final readonly class InventoryService
             || $name === '' || self::unicodeLength($name) > 120
             || !is_string($type) || !in_array($type, ['storage', 'kitchen', 'bar', 'freezer', 'other'], true)
             || !is_bool($active)) {
-            throw new HttpException(422, 'stock_location_fields_invalid', 'Stock location fields are invalid.');
+            throw new ApplicationException(422, 'stock_location_fields_invalid', 'Stock location fields are invalid.');
         }
         $locationId = (int) $current['id'];
         $before = [
@@ -212,10 +212,10 @@ final readonly class InventoryService
             $actor->userId, $scope, 'inventory.stock-location.update', $key, $fingerprint,
             function () use ($scope, $branchId, $actor, $publicId, $locationId, $code, $name, $type, $active, $before, $after, $requestId, $ip): array {
                 if ($this->inventory->locationCodeExists($scope->businessId, $branchId, $code, $locationId)) {
-                    throw new HttpException(409, 'stock_location_code_exists', 'A stock location with this code already exists in this branch.');
+                    throw new ApplicationException(409, 'stock_location_code_exists', 'A stock location with this code already exists in this branch.');
                 }
                 if (!$active && $this->inventory->locationHasStock($scope->businessId, $branchId, $locationId)) {
-                    throw new HttpException(409, 'stock_location_has_stock', 'A location with on-hand or reserved stock cannot be disabled.');
+                    throw new ApplicationException(409, 'stock_location_has_stock', 'A location with on-hand or reserved stock cannot be disabled.');
                 }
                 $this->inventory->updateLocation($scope->businessId, $branchId, $locationId, $code, $name, $type, $active);
                 $this->audit->record(
@@ -237,27 +237,27 @@ final readonly class InventoryService
     ): array {
         $branchId = self::requireBranch($scope);
         if ($limit < 1 || $limit > 200) {
-            throw new HttpException(422, 'inventory_limit_invalid', 'The inventory page size must be between 1 and 200.');
+            throw new ApplicationException(422, 'inventory_limit_invalid', 'The inventory page size must be between 1 and 200.');
         }
         $stockItemId = null;
         if ($stockItemPublicId !== null) {
             if (!self::isUuid($stockItemPublicId)) {
-                throw new HttpException(422, 'stock_item_id_invalid', 'The stock item identifier is invalid.');
+                throw new ApplicationException(422, 'stock_item_id_invalid', 'The stock item identifier is invalid.');
             }
             $item = $this->inventory->findStockItem($scope->businessId, $stockItemPublicId);
             if ($item === null) {
-                throw new HttpException(404, 'stock_item_not_found', 'The stock item was not found.');
+                throw new ApplicationException(404, 'stock_item_not_found', 'The stock item was not found.');
             }
             $stockItemId = (int) $item['id'];
         }
         $locationId = null;
         if ($locationPublicId !== null) {
             if (!self::isUuid($locationPublicId)) {
-                throw new HttpException(422, 'stock_location_id_invalid', 'The stock location identifier is invalid.');
+                throw new ApplicationException(422, 'stock_location_id_invalid', 'The stock location identifier is invalid.');
             }
             $location = $this->inventory->findLocation($scope->businessId, $branchId, $locationPublicId);
             if ($location === null) {
-                throw new HttpException(404, 'stock_location_not_found', 'The stock location was not found in this branch.');
+                throw new ApplicationException(404, 'stock_location_not_found', 'The stock location was not found in this branch.');
             }
             $locationId = (int) $location['id'];
         }
@@ -273,30 +273,30 @@ final readonly class InventoryService
     ): array {
         $branchId = self::requireBranch($scope);
         if ($limit < 1 || $limit > 100) {
-            throw new HttpException(422, 'inventory_limit_invalid', 'The ledger page size must be between 1 and 100.');
+            throw new ApplicationException(422, 'inventory_limit_invalid', 'The ledger page size must be between 1 and 100.');
         }
         if ($beforeId !== null && $beforeId < 1) {
-            throw new HttpException(422, 'inventory_cursor_invalid', 'The ledger cursor is invalid.');
+            throw new ApplicationException(422, 'inventory_cursor_invalid', 'The ledger cursor is invalid.');
         }
         $stockItemId = null;
         if ($stockItemPublicId !== null) {
             if (!self::isUuid($stockItemPublicId)) {
-                throw new HttpException(422, 'stock_item_id_invalid', 'The stock item identifier is invalid.');
+                throw new ApplicationException(422, 'stock_item_id_invalid', 'The stock item identifier is invalid.');
             }
             $item = $this->inventory->findStockItem($scope->businessId, $stockItemPublicId);
             if ($item === null) {
-                throw new HttpException(404, 'stock_item_not_found', 'The stock item was not found.');
+                throw new ApplicationException(404, 'stock_item_not_found', 'The stock item was not found.');
             }
             $stockItemId = (int) $item['id'];
         }
         $locationId = null;
         if ($locationPublicId !== null) {
             if (!self::isUuid($locationPublicId)) {
-                throw new HttpException(422, 'stock_location_id_invalid', 'The stock location identifier is invalid.');
+                throw new ApplicationException(422, 'stock_location_id_invalid', 'The stock location identifier is invalid.');
             }
             $location = $this->inventory->findLocation($scope->businessId, $branchId, $locationPublicId);
             if ($location === null) {
-                throw new HttpException(404, 'stock_location_not_found', 'The stock location was not found in this branch.');
+                throw new ApplicationException(404, 'stock_location_not_found', 'The stock location was not found in this branch.');
             }
             $locationId = (int) $location['id'];
         }
@@ -322,7 +322,7 @@ final readonly class InventoryService
     private static function requireBranch(BusinessScope $scope): int
     {
         if ($scope->branchId === null) {
-            throw new HttpException(400, 'branch_context_required', 'A branch context is required for stock locations.');
+            throw new ApplicationException(400, 'branch_context_required', 'A branch context is required for stock locations.');
         }
         return $scope->branchId;
     }

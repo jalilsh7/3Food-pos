@@ -5,6 +5,7 @@ namespace PersiaCoder\PosV3\Http;
 
 use Throwable;
 use PersiaCoder\PosV3\Support\Logger;
+use PersiaCoder\PosV3\Support\ApplicationException;
 
 final readonly class Kernel
 {
@@ -31,7 +32,7 @@ final readonly class Kernel
     {
         try {
             $response = $this->router->dispatch($request);
-        } catch (HttpException $exception) {
+        } catch (ApplicationException $exception) {
             $response = Response::error([
                 'code' => $exception->errorCode,
                 'message' => $exception->getMessage(),

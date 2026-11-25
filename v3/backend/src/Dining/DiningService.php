@@ -6,7 +6,7 @@ namespace PersiaCoder\PosV3\Dining;
 use PDOException;
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
-use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
@@ -38,10 +38,10 @@ final readonly class DiningService
         $name = is_string($rawName) ? trim($rawName) : '';
         $sortOrder = $payload['sort_order'] ?? 0;
         if ($name === '' || self::unicodeLength($name) > 80) {
-            throw new HttpException(422, 'dining_area_name_invalid', 'Area name is required and must not exceed 80 characters.');
+            throw new ApplicationException(422, 'dining_area_name_invalid', 'Area name is required and must not exceed 80 characters.');
         }
         if (!is_int($sortOrder) || $sortOrder < 0 || $sortOrder > 10000) {
-            throw new HttpException(422, 'dining_area_sort_order_invalid', 'Area sort order must be an integer between 0 and 10000.');
+            throw new ApplicationException(422, 'dining_area_sort_order_invalid', 'Area sort order must be an integer between 0 and 10000.');
         }
 
         $fingerprint = self::fingerprint(['name' => $name, 'sort_order' => $sortOrder]);
@@ -85,16 +85,16 @@ final readonly class DiningService
         string $ipAddress,
     ): array {
         if (!self::isUuid($areaPublicId)) {
-            throw new HttpException(400, 'invalid_dining_area_id', 'The dining area identifier is invalid.');
+            throw new ApplicationException(400, 'invalid_dining_area_id', 'The dining area identifier is invalid.');
         }
         $rawCode = $payload['code'] ?? null;
         $code = is_string($rawCode) ? strtoupper(trim($rawCode)) : '';
         $capacity = $payload['capacity'] ?? 2;
         if (!preg_match('/^[A-Z0-9][A-Z0-9_-]{0,19}$/', $code)) {
-            throw new HttpException(422, 'dining_table_code_invalid', 'Table code must contain 1-20 letters, digits, hyphens or underscores.');
+            throw new ApplicationException(422, 'dining_table_code_invalid', 'Table code must contain 1-20 letters, digits, hyphens or underscores.');
         }
         if (!is_int($capacity) || $capacity < 1 || $capacity > 50) {
-            throw new HttpException(422, 'dining_table_capacity_invalid', 'Table capacity must be an integer between 1 and 50.');
+            throw new ApplicationException(422, 'dining_table_capacity_invalid', 'Table capacity must be an integer between 1 and 50.');
         }
 
         $fingerprint = self::fingerprint([
@@ -111,7 +111,7 @@ final readonly class DiningService
             function () use ($actor, $scope, $areaPublicId, $code, $capacity, $requestId, $ipAddress): array {
                 $areaId = $this->dining->findAreaId($scope->businessId, (int) $scope->branchId, $areaPublicId);
                 if ($areaId === null) {
-                    throw new HttpException(404, 'dining_area_not_found', 'The active dining area was not found in this branch.');
+                    throw new ApplicationException(404, 'dining_area_not_found', 'The active dining area was not found in this branch.');
                 }
                 $publicId = self::uuidV4();
                 try {
@@ -125,7 +125,7 @@ final readonly class DiningService
                     );
                 } catch (PDOException $exception) {
                     if ((string) $exception->getCode() === '23000') {
-                        throw new HttpException(409, 'dining_table_code_exists', 'A table with this code already exists in the selected area.');
+                        throw new ApplicationException(409, 'dining_table_code_exists', 'A table with this code already exists in the selected area.');
                     }
                     throw $exception;
                 }
@@ -159,7 +159,7 @@ final readonly class DiningService
         string $ipAddress,
     ): array {
         if (!self::isUuid($tablePublicId)) {
-            throw new HttpException(400, 'invalid_dining_table_id', 'The dining table identifier is invalid.');
+            throw new ApplicationException(400, 'invalid_dining_table_id', 'The dining table identifier is invalid.');
         }
         $fingerprint = self::fingerprint(['table_id' => $tablePublicId]);
         return $this->idempotency->execute(
@@ -171,10 +171,10 @@ final readonly class DiningService
             function () use ($actor, $scope, $tablePublicId, $requestId, $ipAddress): array {
                 $table = $this->dining->findTableForUpdate($scope->businessId, (int) $scope->branchId, $tablePublicId);
                 if ($table === null || (int) $table['is_active'] !== 1) {
-                    throw new HttpException(404, 'active_dining_table_not_found', 'The active dining table was not found in this branch.');
+                    throw new ApplicationException(404, 'active_dining_table_not_found', 'The active dining table was not found in this branch.');
                 }
                 if ($this->dining->hasOpenSession($scope->businessId, (int) $scope->branchId, (int) $table['id'])) {
-                    throw new HttpException(409, 'dining_table_already_occupied', 'This table already has an open session.');
+                    throw new ApplicationException(409, 'dining_table_already_occupied', 'This table already has an open session.');
                 }
                 $sessionPublicId = self::uuidV4();
                 try {
@@ -187,7 +187,7 @@ final readonly class DiningService
                     );
                 } catch (PDOException $exception) {
                     if ((string) $exception->getCode() === '23000') {
-                        throw new HttpException(409, 'dining_table_already_occupied', 'This table already has an open session.');
+                        throw new ApplicationException(409, 'dining_table_already_occupied', 'This table already has an open session.');
                     }
                     throw $exception;
                 }
@@ -221,7 +221,7 @@ final readonly class DiningService
         string $ipAddress,
     ): array {
         if (!self::isUuid($sessionPublicId)) {
-            throw new HttpException(400, 'invalid_table_session_id', 'The table session identifier is invalid.');
+            throw new ApplicationException(400, 'invalid_table_session_id', 'The table session identifier is invalid.');
         }
         $fingerprint = self::fingerprint(['session_id' => $sessionPublicId, 'action' => 'close']);
         return $this->idempotency->execute(
@@ -233,13 +233,13 @@ final readonly class DiningService
             function () use ($actor, $scope, $sessionPublicId, $requestId, $ipAddress): array {
                 $session = $this->dining->findSessionForUpdate($scope->businessId, (int) $scope->branchId, $sessionPublicId);
                 if ($session === null) {
-                    throw new HttpException(404, 'table_session_not_found', 'The table session was not found in this branch.');
+                    throw new ApplicationException(404, 'table_session_not_found', 'The table session was not found in this branch.');
                 }
                 if ((string) $session['status'] !== 'open') {
-                    throw new HttpException(409, 'table_session_already_closed', 'The table session is already closed.');
+                    throw new ApplicationException(409, 'table_session_already_closed', 'The table session is already closed.');
                 }
                 if ($this->dining->hasUnfinishedOrdersForSession($scope->businessId, (int) $scope->branchId, (int) $session['id'])) {
-                    throw new HttpException(409, 'table_session_has_open_orders', 'Complete or cancel all active orders before closing this table session.');
+                    throw new ApplicationException(409, 'table_session_has_open_orders', 'Complete or cancel all active orders before closing this table session.');
                 }
                 $this->dining->closeTableSession(
                     $scope->businessId,

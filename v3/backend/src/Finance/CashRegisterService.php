@@ -6,7 +6,7 @@ namespace PersiaCoder\PosV3\Finance;
 use PDOException;
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
-use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
@@ -38,10 +38,10 @@ final readonly class CashRegisterService
         $rawName = $payload['name'] ?? null;
         $name = is_string($rawName) ? trim($rawName) : '';
         if (!preg_match('/^[A-Z0-9][A-Z0-9_-]{1,39}$/', $code)) {
-            throw new HttpException(422, 'register_code_invalid', 'Register code must contain 2-40 uppercase letters, digits, hyphens or underscores.');
+            throw new ApplicationException(422, 'register_code_invalid', 'Register code must contain 2-40 uppercase letters, digits, hyphens or underscores.');
         }
         if ($name === '' || self::unicodeLength($name) > 120) {
-            throw new HttpException(422, 'register_name_invalid', 'Register name is required and must not exceed 120 characters.');
+            throw new ApplicationException(422, 'register_name_invalid', 'Register name is required and must not exceed 120 characters.');
         }
 
         $fingerprint = self::fingerprint(['code' => $code, 'name' => $name]);
@@ -57,7 +57,7 @@ final readonly class CashRegisterService
                     $this->cash->createRegister($scope->businessId, (int) $scope->branchId, $publicId, $code, $name);
                 } catch (PDOException $exception) {
                     if ((string) $exception->getCode() === '23000') {
-                        throw new HttpException(409, 'register_code_exists', 'A cash register with this code already exists in this branch.');
+                        throw new ApplicationException(409, 'register_code_exists', 'A cash register with this code already exists in this branch.');
                     }
                     throw $exception;
                 }
@@ -92,7 +92,7 @@ final readonly class CashRegisterService
         string $ipAddress,
     ): array {
         if (!self::isUuid($registerPublicId)) {
-            throw new HttpException(400, 'register_id_invalid', 'The cash register identifier is invalid.');
+            throw new ApplicationException(400, 'register_id_invalid', 'The cash register identifier is invalid.');
         }
         $openingAmount = self::parseAmount($payload['opening_amount'] ?? 0, 'opening_amount');
         $fingerprint = self::fingerprint([
@@ -109,10 +109,10 @@ final readonly class CashRegisterService
             function () use ($actor, $scope, $registerPublicId, $openingAmount, $idempotencyKey, $requestId, $ipAddress): array {
                 $register = $this->cash->findRegisterForUpdate($scope->businessId, (int) $scope->branchId, $registerPublicId);
                 if ($register === null || (int) $register['is_active'] !== 1) {
-                    throw new HttpException(404, 'active_register_not_found', 'The active cash register was not found in this branch.');
+                    throw new ApplicationException(404, 'active_register_not_found', 'The active cash register was not found in this branch.');
                 }
                 if ($this->cash->hasActiveSession($scope->businessId, (int) $scope->branchId, (int) $register['id'])) {
-                    throw new HttpException(409, 'register_session_already_active', 'This register already has an open or review-required session.');
+                    throw new ApplicationException(409, 'register_session_already_active', 'This register already has an open or review-required session.');
                 }
 
                 $sessionPublicId = self::uuidV4();
@@ -177,7 +177,7 @@ final readonly class CashRegisterService
         string $ipAddress,
     ): array {
         if (!self::isUuid($sessionPublicId)) {
-            throw new HttpException(400, 'cash_session_id_invalid', 'The cash session identifier is invalid.');
+            throw new ApplicationException(400, 'cash_session_id_invalid', 'The cash session identifier is invalid.');
         }
         $countedAmount = self::parseAmount($payload['counted_cash_amount'] ?? null, 'counted_cash_amount');
         $fingerprint = self::fingerprint([
@@ -194,10 +194,10 @@ final readonly class CashRegisterService
             function () use ($actor, $scope, $sessionPublicId, $countedAmount, $requestId, $ipAddress): array {
                 $session = $this->cash->findSessionForUpdate($scope->businessId, (int) $scope->branchId, $sessionPublicId);
                 if ($session === null) {
-                    throw new HttpException(404, 'cash_session_not_found', 'The cash session was not found in this branch.');
+                    throw new ApplicationException(404, 'cash_session_not_found', 'The cash session was not found in this branch.');
                 }
                 if ((string) $session['status'] !== 'open') {
-                    throw new HttpException(409, 'cash_session_not_open', 'Only an open cash session can be closed.');
+                    throw new ApplicationException(409, 'cash_session_not_open', 'Only an open cash session can be closed.');
                 }
                 $expected = (int) $session['expected_cash_amount'];
                 $difference = $countedAmount - $expected;
@@ -245,11 +245,11 @@ final readonly class CashRegisterService
         string $ipAddress,
     ): array {
         if (!self::isUuid($sessionPublicId)) {
-            throw new HttpException(400, 'cash_session_id_invalid', 'The cash session identifier is invalid.');
+            throw new ApplicationException(400, 'cash_session_id_invalid', 'The cash session identifier is invalid.');
         }
         $note = $payload['review_note'] ?? null;
         if (!is_string($note) || trim($note) === '' || self::unicodeLength($note) > 500) {
-            throw new HttpException(422, 'cash_review_note_required', 'A review note of up to 500 characters is required.');
+            throw new ApplicationException(422, 'cash_review_note_required', 'A review note of up to 500 characters is required.');
         }
         $note = trim($note);
         $fingerprint = self::fingerprint(['session_id' => $sessionPublicId, 'review_note' => $note]);
@@ -263,10 +263,10 @@ final readonly class CashRegisterService
             function () use ($actor, $scope, $sessionPublicId, $note, $requestId, $ipAddress): array {
                 $session = $this->cash->findSessionForUpdate($scope->businessId, (int) $scope->branchId, $sessionPublicId);
                 if ($session === null) {
-                    throw new HttpException(404, 'cash_session_not_found', 'The cash session was not found in this branch.');
+                    throw new ApplicationException(404, 'cash_session_not_found', 'The cash session was not found in this branch.');
                 }
                 if ((string) $session['status'] !== 'requires_review') {
-                    throw new HttpException(409, 'cash_session_review_not_required', 'This cash session does not require review.');
+                    throw new ApplicationException(409, 'cash_session_review_not_required', 'This cash session does not require review.');
                 }
                 $this->cash->reviewSession($scope->businessId, (int) $scope->branchId, (int) $session['id'], $actor->userId);
                 $this->audit->record(
@@ -293,11 +293,11 @@ final readonly class CashRegisterService
     private static function parseAmount(mixed $value, string $field): int
     {
         if (!is_int($value) && !(is_string($value) && preg_match('/^(?:0|[1-9][0-9]{0,15})$/', $value))) {
-            throw new HttpException(422, 'invalid_' . $field, 'The amount must be a non-negative integer in IRT.');
+            throw new ApplicationException(422, 'invalid_' . $field, 'The amount must be a non-negative integer in IRT.');
         }
         $amount = (int) $value;
         if ($amount < 0 || $amount > self::MAX_AMOUNT) {
-            throw new HttpException(422, 'invalid_' . $field, 'The amount is outside the allowed range.');
+            throw new ApplicationException(422, 'invalid_' . $field, 'The amount is outside the allowed range.');
         }
         return $amount;
     }

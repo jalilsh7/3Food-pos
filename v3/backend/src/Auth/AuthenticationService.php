@@ -5,7 +5,7 @@ namespace PersiaCoder\PosV3\Auth;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\LoginAttemptLimiter;
 use PersiaCoder\PosV3\Security\TransactionBoundary;
@@ -37,7 +37,7 @@ final readonly class AuthenticationService
     {
         $username = trim($username);
         if ($username === '' || strlen($username) > 64 || $password === '' || strlen($password) > 4096) {
-            throw new HttpException(422, 'invalid_credentials_format', 'Username or password format is invalid.');
+            throw new ApplicationException(422, 'invalid_credentials_format', 'Username or password format is invalid.');
         }
 
         $this->loginLimiter->assertAllowed($username, $ipAddress);
@@ -47,7 +47,7 @@ final readonly class AuthenticationService
 
         if (!is_array($user) || (int) $user['is_active'] !== 1 || !$passwordValid) {
             $this->loginLimiter->recordFailure($username, $ipAddress);
-            throw new HttpException(401, 'invalid_credentials', 'Username or password is incorrect.');
+            throw new ApplicationException(401, 'invalid_credentials', 'Username or password is incorrect.');
         }
 
         $sessionToken = self::randomToken();
@@ -116,15 +116,15 @@ final readonly class AuthenticationService
     {
         if ($currentPassword === '' || strlen($currentPassword) > 4096
             || strlen($newPassword) < 12 || strlen($newPassword) > 128) {
-            throw new HttpException(422, 'invalid_password_format', 'The new password must contain between 12 and 128 bytes.');
+            throw new ApplicationException(422, 'invalid_password_format', 'The new password must contain between 12 and 128 bytes.');
         }
 
         $user = $this->users->findActiveById($userId);
         if ($user === null || !password_verify($currentPassword, (string) $user['password_hash'])) {
-            throw new HttpException(422, 'current_password_invalid', 'The current password is incorrect.');
+            throw new ApplicationException(422, 'current_password_invalid', 'The current password is incorrect.');
         }
         if (password_verify($newPassword, (string) $user['password_hash'])) {
-            throw new HttpException(422, 'password_unchanged', 'The new password must be different from the current password.');
+            throw new ApplicationException(422, 'password_unchanged', 'The new password must be different from the current password.');
         }
 
         $newHash = password_hash($newPassword, PASSWORD_DEFAULT);

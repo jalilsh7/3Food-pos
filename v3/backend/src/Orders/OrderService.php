@@ -5,10 +5,10 @@ namespace PersiaCoder\PosV3\Orders;
 
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
-use PersiaCoder\PosV3\Auth\PermissionService;
-use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
+use PersiaCoder\PosV3\Security\PermissionChecker;
 
 final readonly class OrderService
 {
@@ -19,7 +19,7 @@ final readonly class OrderService
         private OrderStore $orders,
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
-        private PermissionService $permissions,
+        private PermissionChecker $permissions,
     ) {}
 
     public function list(
@@ -34,27 +34,27 @@ final readonly class OrderService
         ?string $toDate = null,
     ): array {
         if ($scope->branchId === null || $scope->branchId < 1) {
-            throw new HttpException(400, 'branch_context_required', 'A branch context is required to list orders.');
+            throw new ApplicationException(400, 'branch_context_required', 'A branch context is required to list orders.');
         }
         if ($status !== null && !in_array($status, self::statuses(), true)) {
-            throw new HttpException(422, 'invalid_order_status_filter', 'The order status filter is invalid.');
+            throw new ApplicationException(422, 'invalid_order_status_filter', 'The order status filter is invalid.');
         }
         if ($channel !== null && !in_array($channel, self::channels(), true)) {
-            throw new HttpException(422, 'invalid_order_channel_filter', 'The order channel filter is invalid.');
+            throw new ApplicationException(422, 'invalid_order_channel_filter', 'The order channel filter is invalid.');
         }
         if ($paymentStatus !== null && !in_array($paymentStatus, self::paymentStatuses(), true)) {
-            throw new HttpException(422, 'invalid_order_payment_filter', 'The order payment filter is invalid.');
+            throw new ApplicationException(422, 'invalid_order_payment_filter', 'The order payment filter is invalid.');
         }
         if ($fulfillmentMethod !== null && !in_array($fulfillmentMethod, self::fulfillmentMethods(), true)) {
-            throw new HttpException(422, 'invalid_order_fulfillment_filter', 'The order fulfillment filter is invalid.');
+            throw new ApplicationException(422, 'invalid_order_fulfillment_filter', 'The order fulfillment filter is invalid.');
         }
         if ($limit < 1 || $limit > 100) {
-            throw new HttpException(422, 'invalid_order_limit', 'Limit must be between 1 and 100.');
+            throw new ApplicationException(422, 'invalid_order_limit', 'Limit must be between 1 and 100.');
         }
         $beforeOrderNumber = null;
         if ($beforeCursor !== null) {
             if (!preg_match('/^[1-9][0-9]{0,18}$/', $beforeCursor)) {
-                throw new HttpException(422, 'invalid_order_cursor', 'The order pagination cursor is invalid.');
+                throw new ApplicationException(422, 'invalid_order_cursor', 'The order pagination cursor is invalid.');
             }
             $validatedCursor = filter_var(
                 $beforeCursor,
@@ -62,7 +62,7 @@ final readonly class OrderService
                 ['options' => ['min_range' => 1]],
             );
             if ($validatedCursor === false) {
-                throw new HttpException(422, 'invalid_order_cursor', 'The order pagination cursor is outside the supported range.');
+                throw new ApplicationException(422, 'invalid_order_cursor', 'The order pagination cursor is outside the supported range.');
             }
             $beforeOrderNumber = $validatedCursor;
         }
@@ -94,23 +94,23 @@ final readonly class OrderService
             $scope->businessId, (int) $scope->branchId,
         );
         if ($timezoneName === null) {
-            throw new HttpException(409, 'order_timezone_unavailable', 'The business or branch timezone is unavailable.');
+            throw new ApplicationException(409, 'order_timezone_unavailable', 'The business or branch timezone is unavailable.');
         }
         try {
             $timezone = new \DateTimeZone($timezoneName);
         } catch (\Throwable) {
-            throw new HttpException(409, 'order_timezone_invalid', 'The configured business or branch timezone is invalid.');
+            throw new ApplicationException(409, 'order_timezone_invalid', 'The configured business or branch timezone is invalid.');
         }
 
         $from = $fromDate === null ? null : self::parseLocalDate($fromDate, $timezone);
         $to = $toDate === null ? null : self::parseLocalDate($toDate, $timezone);
         if ($from !== null && $to !== null) {
             if ($from > $to) {
-                throw new HttpException(422, 'invalid_order_date_range', 'The start date must not be after the end date.');
+                throw new ApplicationException(422, 'invalid_order_date_range', 'The start date must not be after the end date.');
             }
             $inclusiveDays = $from->diff($to)->days + 1;
             if ($inclusiveDays > 366) {
-                throw new HttpException(422, 'order_date_range_too_large', 'The order date range must not exceed 366 local calendar days.');
+                throw new ApplicationException(422, 'order_date_range_too_large', 'The order date range must not exceed 366 local calendar days.');
             }
         }
 
@@ -124,14 +124,14 @@ final readonly class OrderService
     private static function parseLocalDate(string $value, \DateTimeZone $timezone): \DateTimeImmutable
     {
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
-            throw new HttpException(422, 'invalid_order_date_filter', 'Order dates must use YYYY-MM-DD format.');
+            throw new ApplicationException(422, 'invalid_order_date_filter', 'Order dates must use YYYY-MM-DD format.');
         }
         $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value, $timezone);
         $errors = \DateTimeImmutable::getLastErrors();
         if ($date === false
             || ($errors !== false && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))
             || $date->format('Y-m-d') !== $value) {
-            throw new HttpException(422, 'invalid_order_date_filter', 'The order date is not a valid calendar date.');
+            throw new ApplicationException(422, 'invalid_order_date_filter', 'The order date is not a valid calendar date.');
         }
         return $date;
     }
@@ -139,11 +139,11 @@ final readonly class OrderService
     public function get(BusinessScope $scope, string $orderPublicId): array
     {
         if (!self::isUuid($orderPublicId)) {
-            throw new HttpException(400, 'invalid_order_id', 'The order identifier is invalid.');
+            throw new ApplicationException(400, 'invalid_order_id', 'The order identifier is invalid.');
         }
         $order = $this->orders->findOrder($scope->businessId, (int) $scope->branchId, $orderPublicId);
         if ($order === null) {
-            throw new HttpException(404, 'order_not_found', 'The order was not found in this branch.');
+            throw new ApplicationException(404, 'order_not_found', 'The order was not found in this branch.');
         }
 
         $address = null;
@@ -203,25 +203,25 @@ final readonly class OrderService
     ): array {
         $sourceChannel = $payload['source_channel'] ?? 'pos';
         if (!is_string($sourceChannel) || !in_array($sourceChannel, self::channels(), true)) {
-            throw new HttpException(422, 'invalid_order_channel', 'The order source channel is invalid.');
+            throw new ApplicationException(422, 'invalid_order_channel', 'The order source channel is invalid.');
         }
-        if ($sourceChannel === 'pos' && !$this->permissions->allows($actor, 'pos.sell', $scope)) {
-            throw new HttpException(403, 'permission_denied', 'POS sale permission is required for this channel.');
+        if ($sourceChannel === 'pos' && !$this->permissions->allowsActor($actor->userId, 'pos.sell', $scope->businessId, $scope->branchId)) {
+            throw new ApplicationException(403, 'permission_denied', 'POS sale permission is required for this channel.');
         }
 
         $customerPublicId = $payload['customer_id'] ?? null;
         $tableSessionPublicId = $payload['table_session_id'] ?? null;
         if ($customerPublicId !== null && (!is_string($customerPublicId) || !self::isUuid($customerPublicId))) {
-            throw new HttpException(422, 'invalid_customer_id', 'Customer identifier is invalid.');
+            throw new ApplicationException(422, 'invalid_customer_id', 'Customer identifier is invalid.');
         }
         if ($tableSessionPublicId !== null && (!is_string($tableSessionPublicId) || !self::isUuid($tableSessionPublicId))) {
-            throw new HttpException(422, 'invalid_table_session_id', 'Table session identifier is invalid.');
+            throw new ApplicationException(422, 'invalid_table_session_id', 'Table session identifier is invalid.');
         }
         if ($sourceChannel === 'table' && $tableSessionPublicId === null) {
-            throw new HttpException(422, 'table_session_required', 'A table session is required for table orders.');
+            throw new ApplicationException(422, 'table_session_required', 'A table session is required for table orders.');
         }
         if ($sourceChannel !== 'table' && $tableSessionPublicId !== null) {
-            throw new HttpException(422, 'table_session_channel_mismatch', 'A table session can only be used for table orders.');
+            throw new ApplicationException(422, 'table_session_channel_mismatch', 'A table session can only be used for table orders.');
         }
 
         [$fulfillmentMethod, $recipientName, $recipientPhone, $addressJson] = $this->normalizeFulfillment($payload, $sourceChannel);
@@ -261,14 +261,14 @@ final readonly class OrderService
                     ? null
                     : $this->orders->findCustomerId($scope->businessId, $customerPublicId);
                 if ($customerPublicId !== null && $customerId === null) {
-                    throw new HttpException(404, 'customer_not_found', 'The customer was not found in this business.');
+                    throw new ApplicationException(404, 'customer_not_found', 'The customer was not found in this business.');
                 }
 
                 $tableSessionId = $tableSessionPublicId === null
                     ? null
                     : $this->orders->findOpenTableSessionId($scope->businessId, (int) $scope->branchId, $tableSessionPublicId);
                 if ($tableSessionPublicId !== null && $tableSessionId === null) {
-                    throw new HttpException(404, 'open_table_session_not_found', 'The open table session was not found in this branch.');
+                    throw new ApplicationException(404, 'open_table_session_not_found', 'The open table session was not found in this branch.');
                 }
 
                 $orderLines = [];
@@ -278,14 +278,14 @@ final readonly class OrderService
                 foreach ($items as $item) {
                     $product = $this->orders->findProductForUpdate($scope->businessId, $item['product_id']);
                     if ($product === null) {
-                        throw new HttpException(422, 'product_unavailable', 'One of the selected products is unavailable.');
+                        throw new ApplicationException(422, 'product_unavailable', 'One of the selected products is unavailable.');
                     }
 
                     $variants = $this->orders->listActiveVariantsForUpdate($scope->businessId, (int) $product['id']);
                     $variant = null;
                     if ($variants !== []) {
                         if ($item['variant_id'] === null) {
-                            throw new HttpException(422, 'product_variant_required', 'Select a variant for this product.');
+                            throw new ApplicationException(422, 'product_variant_required', 'Select a variant for this product.');
                         }
                         foreach ($variants as $candidate) {
                             if (hash_equals((string) $candidate['public_id'], $item['variant_id'])) {
@@ -294,10 +294,10 @@ final readonly class OrderService
                             }
                         }
                         if ($variant === null) {
-                            throw new HttpException(422, 'invalid_product_variant', 'The selected variant is not available for this product.');
+                            throw new ApplicationException(422, 'invalid_product_variant', 'The selected variant is not available for this product.');
                         }
                     } elseif ($item['variant_id'] !== null) {
-                        throw new HttpException(422, 'unexpected_product_variant', 'This product does not have selectable variants.');
+                        throw new ApplicationException(422, 'unexpected_product_variant', 'This product does not have selectable variants.');
                     }
 
                     $groups = $this->orders->listProductOptionGroupsForUpdate($scope->businessId, (int) $product['id']);
@@ -308,20 +308,20 @@ final readonly class OrderService
                         $baseUnitPrice = self::safeAdd($baseUnitPrice, (int) $variant['price_delta_amount']);
                     }
                     if ($baseUnitPrice < 0 || $baseUnitPrice > self::MAX_AMOUNT) {
-                        throw new HttpException(422, 'invalid_calculated_price', 'The product and variant price is outside the allowed range.');
+                        throw new ApplicationException(422, 'invalid_calculated_price', 'The product and variant price is outside the allowed range.');
                     }
                     $effectiveUnitPrice = $baseUnitPrice;
                     foreach ($selectedOptions as $selectedOption) {
                         $effectiveUnitPrice = self::safeAdd($effectiveUnitPrice, (int) $selectedOption['price_delta_amount']);
                     }
                     if ($effectiveUnitPrice < 0 || $effectiveUnitPrice > self::MAX_AMOUNT) {
-                        throw new HttpException(422, 'invalid_calculated_price', 'The calculated item price is outside the allowed range.');
+                        throw new ApplicationException(422, 'invalid_calculated_price', 'The calculated item price is outside the allowed range.');
                     }
 
                     $lineSubtotal = self::amountForQuantity($effectiveUnitPrice, $item['quantity_milli']);
                     $taxRate = (int) $product['tax_rate_bps'];
                     if ($taxRate < 0 || $taxRate > 10000) {
-                        throw new HttpException(422, 'invalid_product_tax', 'The product tax rate is invalid.');
+                        throw new ApplicationException(422, 'invalid_product_tax', 'The product tax rate is invalid.');
                     }
                     $lineTax = self::calculateTax($lineSubtotal, $taxRate);
                     $lineTotal = self::safeAdd($lineSubtotal, $lineTax);
@@ -476,22 +476,22 @@ final readonly class OrderService
         bool $kitchenOnly = false,
     ): array {
         if (!self::isUuid($orderPublicId)) {
-            throw new HttpException(400, 'invalid_order_id', 'The order identifier is invalid.');
+            throw new ApplicationException(400, 'invalid_order_id', 'The order identifier is invalid.');
         }
         $targetStatus = $payload['to_status'] ?? null;
         if (!is_string($targetStatus) || !in_array($targetStatus, self::statuses(), true)) {
-            throw new HttpException(422, 'invalid_order_status', 'The target order status is invalid.');
+            throw new ApplicationException(422, 'invalid_order_status', 'The target order status is invalid.');
         }
         $reasonCode = $payload['reason_code'] ?? null;
         $reasonText = $payload['reason_text'] ?? null;
         if ($reasonCode !== null && (!is_string($reasonCode) || !preg_match('/^[a-z][a-z0-9_.-]{1,63}$/', $reasonCode))) {
-            throw new HttpException(422, 'invalid_status_reason_code', 'The status reason code is invalid.');
+            throw new ApplicationException(422, 'invalid_status_reason_code', 'The status reason code is invalid.');
         }
         if ($reasonText !== null && (!is_string($reasonText) || self::unicodeLength($reasonText) > 500)) {
-            throw new HttpException(422, 'invalid_status_reason_text', 'The status reason text must not exceed 500 characters.');
+            throw new ApplicationException(422, 'invalid_status_reason_text', 'The status reason text must not exceed 500 characters.');
         }
         if (in_array($targetStatus, ['cancelled', 'rejected'], true) && $reasonCode === null && trim((string) $reasonText) === '') {
-            throw new HttpException(422, 'status_reason_required', 'A reason code or reason text is required when cancelling or rejecting an order.');
+            throw new ApplicationException(422, 'status_reason_required', 'A reason code or reason text is required when cancelling or rejecting an order.');
         }
 
         $fingerprint = self::fingerprint([
@@ -521,28 +521,28 @@ final readonly class OrderService
                 $kitchenOnly,
             ): array {
                 if ($kitchenOnly && !in_array($targetStatus, ['preparing', 'ready'], true)) {
-                    throw new HttpException(403, 'kitchen_transition_forbidden', 'Kitchen users may only move orders into preparing or ready.');
+                    throw new ApplicationException(403, 'kitchen_transition_forbidden', 'Kitchen users may only move orders into preparing or ready.');
                 }
                 $order = $this->orders->findOrderForUpdate($scope->businessId, (int) $scope->branchId, $orderPublicId);
                 if ($order === null) {
-                    throw new HttpException(404, 'order_not_found', 'The order was not found in this branch.');
+                    throw new ApplicationException(404, 'order_not_found', 'The order was not found in this branch.');
                 }
                 $currentStatus = (string) $order['order_status'];
                 if (in_array($targetStatus, ['cancelled', 'rejected'], true)
                     && in_array((string) $order['payment_status'], ['paid', 'partially_paid'], true)) {
-                    throw new HttpException(409, 'refund_required_before_cancellation', 'A paid order must go through the refund workflow before it can be cancelled or rejected.');
+                    throw new ApplicationException(409, 'refund_required_before_cancellation', 'A paid order must go through the refund workflow before it can be cancelled or rejected.');
                 }
                 $allowed = self::transitions()[$currentStatus] ?? [];
                 if (!in_array($targetStatus, $allowed, true)) {
-                    throw new HttpException(409, 'order_status_transition_invalid', 'The requested order status transition is not allowed.');
+                    throw new ApplicationException(409, 'order_status_transition_invalid', 'The requested order status transition is not allowed.');
                 }
                 if (in_array($targetStatus, ['cancelled', 'rejected'], true)
-                    && !$this->permissions->allows($actor, 'orders.cancel', $scope)) {
-                    throw new HttpException(403, 'permission_denied', 'Order cancellation permission is required.');
+                    && !$this->permissions->allowsActor($actor->userId, 'orders.cancel', $scope->businessId, $scope->branchId)) {
+                    throw new ApplicationException(403, 'permission_denied', 'Order cancellation permission is required.');
                 }
                 if (in_array($targetStatus, ['preparing', 'ready'], true)
-                    && !$this->permissions->allows($actor, 'kitchen.update', $scope)) {
-                    throw new HttpException(403, 'permission_denied', 'Kitchen update permission is required for this transition.');
+                    && !$this->permissions->allowsActor($actor->userId, 'kitchen.update', $scope->businessId, $scope->branchId)) {
+                    throw new ApplicationException(403, 'permission_denied', 'Kitchen update permission is required for this transition.');
                 }
 
                 $this->orders->updateOrderStatus(
@@ -626,12 +626,12 @@ final readonly class OrderService
         };
         if ($expectedMethod !== null) {
             if ($method !== null && $method !== $expectedMethod) {
-                throw new HttpException(422, 'fulfillment_channel_mismatch', 'Fulfillment method does not match the order channel.');
+                throw new ApplicationException(422, 'fulfillment_channel_mismatch', 'Fulfillment method does not match the order channel.');
             }
             $method = $expectedMethod;
         }
         if ($method !== null && (!is_string($method) || !in_array($method, ['dine_in', 'takeaway', 'delivery'], true))) {
-            throw new HttpException(422, 'invalid_fulfillment_method', 'The fulfillment method is invalid.');
+            throw new ApplicationException(422, 'invalid_fulfillment_method', 'The fulfillment method is invalid.');
         }
 
         $recipientName = $payload['recipient_name'] ?? null;
@@ -639,30 +639,30 @@ final readonly class OrderService
         $address = $payload['delivery_address'] ?? null;
         if ($method === 'delivery') {
             if (!is_string($recipientName) || trim($recipientName) === '' || self::unicodeLength($recipientName) > 160) {
-                throw new HttpException(422, 'delivery_recipient_required', 'A delivery recipient name is required.');
+                throw new ApplicationException(422, 'delivery_recipient_required', 'A delivery recipient name is required.');
             }
             if (!is_string($recipientPhone) || !preg_match('/^[0-9+(). -]{7,32}$/', $recipientPhone)) {
-                throw new HttpException(422, 'delivery_phone_invalid', 'A valid delivery phone number is required.');
+                throw new ApplicationException(422, 'delivery_phone_invalid', 'A valid delivery phone number is required.');
             }
             if (!is_array($address) || array_is_list($address) || $address === []) {
-                throw new HttpException(422, 'delivery_address_required', 'A delivery address object is required.');
+                throw new ApplicationException(422, 'delivery_address_required', 'A delivery address object is required.');
             }
             foreach ($address as $key => $value) {
                 if (!is_string($key) || !preg_match('/^[a-z][a-z0-9_]{1,39}$/', $key)
                     || (!is_string($value) && !is_int($value))
                     || (is_string($value) && self::unicodeLength($value) > 300)) {
-                    throw new HttpException(422, 'delivery_address_invalid', 'The delivery address contains an invalid field.');
+                    throw new ApplicationException(422, 'delivery_address_invalid', 'The delivery address contains an invalid field.');
                 }
             }
             $addressJson = json_encode($address, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             if (strlen($addressJson) > 4000) {
-                throw new HttpException(422, 'delivery_address_too_large', 'The delivery address is too large.');
+                throw new ApplicationException(422, 'delivery_address_too_large', 'The delivery address is too large.');
             }
             return [$method, trim($recipientName), trim($recipientPhone), $addressJson];
         }
 
         if ($recipientName !== null || $recipientPhone !== null || $address !== null) {
-            throw new HttpException(422, 'unexpected_delivery_details', 'Recipient and address details are only valid for delivery fulfillment.');
+            throw new ApplicationException(422, 'unexpected_delivery_details', 'Recipient and address details are only valid for delivery fulfillment.');
         }
         return [$method, null, null, null];
     }
@@ -671,33 +671,33 @@ final readonly class OrderService
     private function normalizeItems(mixed $rawItems): array
     {
         if (!is_array($rawItems) || !array_is_list($rawItems) || $rawItems === [] || count($rawItems) > 100) {
-            throw new HttpException(422, 'invalid_order_items', 'An order must contain between 1 and 100 items.');
+            throw new ApplicationException(422, 'invalid_order_items', 'An order must contain between 1 and 100 items.');
         }
 
         $items = [];
         foreach ($rawItems as $rawItem) {
             if (!is_array($rawItem) || !is_string($rawItem['product_id'] ?? null)
                 || !self::isUuid($rawItem['product_id'])) {
-                throw new HttpException(422, 'invalid_order_item', 'Each order item must include a valid product identifier.');
+                throw new ApplicationException(422, 'invalid_order_item', 'Each order item must include a valid product identifier.');
             }
             $variantId = $rawItem['variant_id'] ?? null;
             if ($variantId !== null && (!is_string($variantId) || !self::isUuid($variantId))) {
-                throw new HttpException(422, 'invalid_order_variant', 'The variant identifier is invalid.');
+                throw new ApplicationException(422, 'invalid_order_variant', 'The variant identifier is invalid.');
             }
             [$quantity, $quantityMilli] = self::parseQuantity($rawItem['quantity'] ?? 1);
             $options = $rawItem['options'] ?? [];
             if (!is_array($options) || !array_is_list($options) || count($options) > 30) {
-                throw new HttpException(422, 'invalid_order_options', 'Options must be a list of up to 30 option identifiers.');
+                throw new ApplicationException(422, 'invalid_order_options', 'Options must be a list of up to 30 option identifiers.');
             }
             $normalizedOptions = [];
             foreach ($options as $optionId) {
                 if (!is_string($optionId) || !self::isUuid($optionId)) {
-                    throw new HttpException(422, 'invalid_order_option', 'An option identifier is invalid.');
+                    throw new ApplicationException(422, 'invalid_order_option', 'An option identifier is invalid.');
                 }
                 $normalizedOptions[] = $optionId;
             }
             if (count($normalizedOptions) !== count(array_unique($normalizedOptions))) {
-                throw new HttpException(422, 'duplicate_order_option', 'An option may only be selected once per item.');
+                throw new ApplicationException(422, 'duplicate_order_option', 'An option may only be selected once per item.');
             }
             $items[] = [
                 'product_id' => $rawItem['product_id'],
@@ -739,7 +739,7 @@ final readonly class OrderService
                 $maximum = min(1, $maximum);
             }
             if ($count < $minimum || $count > $maximum) {
-                throw new HttpException(422, 'option_selection_out_of_range', 'The selected options do not satisfy the product option group rules.');
+                throw new ApplicationException(422, 'option_selection_out_of_range', 'The selected options do not satisfy the product option group rules.');
             }
             foreach ($groupSelected as $option) {
                 $resolved[] = $option;
@@ -747,7 +747,7 @@ final readonly class OrderService
         }
 
         if ($unmatched !== []) {
-            throw new HttpException(422, 'option_not_available_for_product', 'One or more selected options are not available for this product.');
+            throw new ApplicationException(422, 'option_not_available_for_product', 'One or more selected options are not available for this product.');
         }
         return $resolved;
     }
@@ -756,16 +756,16 @@ final readonly class OrderService
     private static function parseQuantity(mixed $raw): array
     {
         if (!is_string($raw) && !is_int($raw)) {
-            throw new HttpException(422, 'invalid_quantity', 'Quantity must be a decimal string or integer.');
+            throw new ApplicationException(422, 'invalid_quantity', 'Quantity must be a decimal string or integer.');
         }
         $value = trim((string) $raw);
         if (!preg_match('/^(?:0|[1-9][0-9]{0,3})(?:\.([0-9]{1,3}))?$/', $value)) {
-            throw new HttpException(422, 'invalid_quantity', 'Quantity must have at most three decimal places and be no greater than 1000.');
+            throw new ApplicationException(422, 'invalid_quantity', 'Quantity must have at most three decimal places and be no greater than 1000.');
         }
         [$whole, $fraction] = array_pad(explode('.', $value, 2), 2, '');
         $milli = ((int) $whole * 1000) + (int) str_pad($fraction, 3, '0');
         if ($milli < 1 || $milli > self::MAX_QUANTITY_MILLI) {
-            throw new HttpException(422, 'invalid_quantity', 'Quantity must be greater than zero and no greater than 1000.');
+            throw new ApplicationException(422, 'invalid_quantity', 'Quantity must be greater than zero and no greater than 1000.');
         }
         return [sprintf('%d.%03d', intdiv($milli, 1000), $milli % 1000), $milli];
     }
@@ -775,7 +775,7 @@ final readonly class OrderService
         $wholeQuantity = intdiv($quantityMilli, 1000);
         $fraction = $quantityMilli % 1000;
         if ($unitPrice > 0 && $wholeQuantity > intdiv(self::MAX_AMOUNT, $unitPrice)) {
-            throw new HttpException(422, 'order_amount_too_large', 'The calculated order line exceeds the allowed amount.');
+            throw new ApplicationException(422, 'order_amount_too_large', 'The calculated order line exceeds the allowed amount.');
         }
         $wholeAmount = $unitPrice * $wholeQuantity;
         $fractionProduct = $unitPrice * $fraction;
@@ -793,10 +793,10 @@ final readonly class OrderService
     private static function safeAdd(int $left, int $right): int
     {
         if ($right > 0 && $left > self::MAX_AMOUNT - $right) {
-            throw new HttpException(422, 'order_amount_too_large', 'The calculated order amount exceeds the allowed limit.');
+            throw new ApplicationException(422, 'order_amount_too_large', 'The calculated order amount exceeds the allowed limit.');
         }
         if ($right < 0 && $left < -self::MAX_AMOUNT - $right) {
-            throw new HttpException(422, 'invalid_calculated_price', 'The calculated item price is outside the allowed range.');
+            throw new ApplicationException(422, 'invalid_calculated_price', 'The calculated item price is outside the allowed range.');
         }
         return $left + $right;
     }

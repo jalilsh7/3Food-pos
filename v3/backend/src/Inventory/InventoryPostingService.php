@@ -5,7 +5,7 @@ namespace PersiaCoder\PosV3\Inventory;
 
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
-use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
@@ -25,7 +25,7 @@ final readonly class InventoryPostingService
     ): array {
         $branchId = self::branch($scope);
         if (!self::isUuid($documentPublicId)) {
-            throw new HttpException(422, 'stock_document_id_invalid', 'The stock document identifier is invalid.');
+            throw new ApplicationException(422, 'stock_document_id_invalid', 'The stock document identifier is invalid.');
         }
         $fingerprint = hash('sha256', json_encode([$documentPublicId], JSON_THROW_ON_ERROR));
         return $this->idempotency->execute(
@@ -35,35 +35,35 @@ final readonly class InventoryPostingService
                     $scope->businessId, $branchId, $documentPublicId,
                 );
                 if ($document === null) {
-                    throw new HttpException(404, 'stock_document_not_found', 'The stock document was not found.');
+                    throw new ApplicationException(404, 'stock_document_not_found', 'The stock document was not found.');
                 }
                 if ((string) $document['status'] !== 'draft') {
-                    throw new HttpException(409, 'stock_document_not_draft', 'Only draft stock documents can be posted.');
+                    throw new ApplicationException(409, 'stock_document_not_draft', 'Only draft stock documents can be posted.');
                 }
 
                 $type = (string) $document['document_type'];
                 if ($type === 'purchase_receipt') {
                     $supplierId = (int) ($document['supplier_id'] ?? 0);
                     if ($supplierId < 1 || !$this->documents->supplierIsActive($scope->businessId, $supplierId)) {
-                        throw new HttpException(409, 'stock_document_supplier_inactive', 'The purchase receipt supplier is no longer active in this business.');
+                        throw new ApplicationException(409, 'stock_document_supplier_inactive', 'The purchase receipt supplier is no longer active in this business.');
                     }
                 }
                 if ($type === 'return') {
-                    throw new HttpException(409, 'stock_document_type_not_postable', 'Return posting requires a source-linked return valuation policy and is not enabled yet.');
+                    throw new ApplicationException(409, 'stock_document_type_not_postable', 'Return posting requires a source-linked return valuation policy and is not enabled yet.');
                 }
                 $supportedTypes = [
                     'purchase_receipt', 'transfer', 'adjustment_in',
                     'adjustment_out', 'consumption', 'waste',
                 ];
                 if (!in_array($type, $supportedTypes, true)) {
-                    throw new HttpException(409, 'stock_document_type_not_postable', 'This stock document type is not enabled for posting.');
+                    throw new ApplicationException(409, 'stock_document_type_not_postable', 'This stock document type is not enabled for posting.');
                 }
 
                 $lines = $this->documents->listLinesForPostingForUpdate(
                     $scope->businessId, $branchId, (int) $document['id'],
                 );
                 if ($lines === []) {
-                    throw new HttpException(409, 'stock_document_empty', 'A stock document must contain at least one line before posting.');
+                    throw new ApplicationException(409, 'stock_document_empty', 'A stock document must contain at least one line before posting.');
                 }
 
                 $sourceLocationId = (int) $document['location_id'];
@@ -71,11 +71,11 @@ final readonly class InventoryPostingService
                     ? (int) ($document['destination_location_id'] ?? 0)
                     : 0;
                 if ($sourceLocationId < 1 || ($type === 'transfer' && $destinationLocationId < 1)) {
-                    throw new HttpException(409, 'stock_document_location_invalid', 'The source or destination location is invalid.');
+                    throw new ApplicationException(409, 'stock_document_location_invalid', 'The source or destination location is invalid.');
                 }
                 if (!$this->posting->locationIsActive($scope->businessId, $branchId, $sourceLocationId)
                     || ($type === 'transfer' && !$this->posting->locationIsActive($scope->businessId, $branchId, $destinationLocationId))) {
-                    throw new HttpException(409, 'stock_location_inactive', 'A source or destination stock location is inactive or outside the current branch.');
+                    throw new ApplicationException(409, 'stock_location_inactive', 'A source or destination stock location is inactive or outside the current branch.');
                 }
                 $baseUnitIds = [];
                 foreach ($lines as $line) {
@@ -83,7 +83,7 @@ final readonly class InventoryPostingService
                     if (isset($baseUnitIds[$itemId])) continue;
                     $stockItem = $this->posting->stockItemForPosting($scope->businessId, $itemId);
                     if ($stockItem === null || (int) $stockItem['is_active'] !== 1) {
-                        throw new HttpException(409, 'stock_item_inactive', 'A stock item in this document is inactive or outside the current business.');
+                        throw new ApplicationException(409, 'stock_item_inactive', 'A stock item in this document is inactive or outside the current business.');
                     }
                     $baseUnitIds[$itemId] = (int) $stockItem['base_unit_id'];
                 }
@@ -150,7 +150,7 @@ final readonly class InventoryPostingService
                         if (!$this->posting->issueBalance(
                             $scope->businessId, $branchId, $itemId, $sourceLocationId, $quantity,
                         )) {
-                            throw new HttpException(409, 'stock_insufficient', 'Available stock is insufficient; reserved quantities cannot be transferred.');
+                            throw new ApplicationException(409, 'stock_insufficient', 'Available stock is insufficient; reserved quantities cannot be transferred.');
                         }
                         $destinationBalance = $this->posting->lockBalance(
                             $scope->businessId, $branchId, $itemId, $destinationLocationId,
@@ -189,7 +189,7 @@ final readonly class InventoryPostingService
                     if (!$this->posting->issueBalance(
                         $scope->businessId, $branchId, $itemId, $sourceLocationId, $quantity,
                     )) {
-                        throw new HttpException(409, 'stock_insufficient', 'Available stock is insufficient; reserved quantities cannot be consumed or written off.');
+                        throw new ApplicationException(409, 'stock_insufficient', 'Available stock is insufficient; reserved quantities cannot be consumed or written off.');
                     }
                     $movementType = $outgoingTypes[$type];
                     $this->posting->appendLedger(
@@ -232,7 +232,7 @@ final readonly class InventoryPostingService
         if (!preg_match('/^(?:0|[1-9][0-9]{0,19})$/', $amount)
             || strlen($amount) > strlen($maximum)
             || (strlen($amount) === strlen($maximum) && strcmp($amount, $maximum) > 0)) {
-            throw new HttpException(409, 'stock_cost_amount_overflow', 'The calculated stock movement cost exceeds the supported TOMAN range.');
+            throw new ApplicationException(409, 'stock_cost_amount_overflow', 'The calculated stock movement cost exceeds the supported TOMAN range.');
         }
         return $amount;
     }
@@ -240,7 +240,7 @@ final readonly class InventoryPostingService
     private static function branch(BusinessScope $scope): int
     {
         if ($scope->branchId === null || $scope->branchId < 1) {
-            throw new HttpException(400, 'branch_context_required', 'A valid branch context is required.');
+            throw new ApplicationException(400, 'branch_context_required', 'A valid branch context is required.');
         }
         return $scope->branchId;
     }

@@ -5,7 +5,7 @@ namespace PersiaCoder\PosV3\Inventory;
 
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
-use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
@@ -47,12 +47,12 @@ final readonly class SupplierService
         AuthenticatedPrincipal $actor, BusinessScope $scope, string $publicId, array $payload,
         string $key, string $requestId, string $ip,
     ): array {
-        if (!self::isUuid($publicId)) throw new HttpException(422, 'supplier_id_invalid', 'The supplier identifier is invalid.');
+        if (!self::isUuid($publicId)) throw new ApplicationException(422, 'supplier_id_invalid', 'The supplier identifier is invalid.');
         $current = $this->suppliers->find($scope->businessId, $publicId);
-        if ($current === null) throw new HttpException(404, 'supplier_not_found', 'The supplier was not found.');
+        if ($current === null) throw new ApplicationException(404, 'supplier_not_found', 'The supplier was not found.');
         [$name, $phone, $notes] = $this->normalize($payload, $current);
         $active = $payload['is_active'] ?? (bool) $current['is_active'];
-        if (!is_bool($active)) throw new HttpException(422, 'supplier_active_invalid', 'The supplier active flag is invalid.');
+        if (!is_bool($active)) throw new ApplicationException(422, 'supplier_active_invalid', 'The supplier active flag is invalid.');
         $before = ['name' => (string) $current['name'], 'phone' => $current['phone'],
             'notes' => $current['notes'], 'is_active' => (bool) $current['is_active']];
         $after = ['name' => $name, 'phone' => $phone, 'notes' => $notes, 'is_active' => $active];
@@ -76,16 +76,16 @@ final readonly class SupplierService
         $phoneValue = array_key_exists('phone', $payload) ? $payload['phone'] : ($current['phone'] ?? null);
         $notesValue = array_key_exists('notes', $payload) ? $payload['notes'] : ($current['notes'] ?? null);
         if ($name === '' || self::unicodeLength($name) > 180) {
-            throw new HttpException(422, 'supplier_name_invalid', 'Supplier name is required and must not exceed 180 characters.');
+            throw new ApplicationException(422, 'supplier_name_invalid', 'Supplier name is required and must not exceed 180 characters.');
         }
-        if ($phoneValue !== null && !is_string($phoneValue)) throw new HttpException(422, 'supplier_phone_invalid', 'Supplier phone must be text.');
+        if ($phoneValue !== null && !is_string($phoneValue)) throw new ApplicationException(422, 'supplier_phone_invalid', 'Supplier phone must be text.');
         $phone = $phoneValue === null ? null : trim($phoneValue);
         if ($phone === '') $phone = null;
-        if ($phone !== null && self::unicodeLength($phone) > 32) throw new HttpException(422, 'supplier_phone_invalid', 'Supplier phone must not exceed 32 characters.');
-        if ($notesValue !== null && !is_string($notesValue)) throw new HttpException(422, 'supplier_notes_invalid', 'Supplier notes must be text.');
+        if ($phone !== null && self::unicodeLength($phone) > 32) throw new ApplicationException(422, 'supplier_phone_invalid', 'Supplier phone must not exceed 32 characters.');
+        if ($notesValue !== null && !is_string($notesValue)) throw new ApplicationException(422, 'supplier_notes_invalid', 'Supplier notes must be text.');
         $notes = $notesValue === null ? null : trim($notesValue);
         if ($notes === '') $notes = null;
-        if ($notes !== null && self::unicodeLength($notes) > 1000) throw new HttpException(422, 'supplier_notes_invalid', 'Supplier notes must not exceed 1000 characters.');
+        if ($notes !== null && self::unicodeLength($notes) > 1000) throw new ApplicationException(422, 'supplier_notes_invalid', 'Supplier notes must not exceed 1000 characters.');
         return [$name, $phone, $notes];
     }
 

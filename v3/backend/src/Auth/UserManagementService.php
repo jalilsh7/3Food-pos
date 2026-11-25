@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Auth;
 
-use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
@@ -26,7 +26,7 @@ final readonly class UserManagementService
     public function listBranchUsers(BusinessScope $scope): array
     {
         if ($scope->branchId === null) {
-            throw new HttpException(400, 'branch_context_required', 'A branch scope is required.');
+            throw new ApplicationException(400, 'branch_context_required', 'A branch scope is required.');
         }
         return $this->users->listBranchUsers($scope->businessId, $scope->branchId);
     }
@@ -57,7 +57,7 @@ final readonly class UserManagementService
         string $ipAddress,
     ): array {
         if ($scope->branchId === null) {
-            throw new HttpException(400, 'branch_context_required', 'A branch scope is required.');
+            throw new ApplicationException(400, 'branch_context_required', 'A branch scope is required.');
         }
         return $this->create($actor, $scope, $username, $displayName, $roleCode, true, $idempotencyKey, $requestId, $ipAddress);
     }
@@ -78,25 +78,25 @@ final readonly class UserManagementService
         $roleCode = trim($roleCode);
 
         if (!preg_match('/^[a-z0-9][a-z0-9._-]{2,63}$/', $username)) {
-            throw new HttpException(422, 'invalid_username', 'Username must contain 3-64 lowercase letters, digits, dots, underscores or hyphens.');
+            throw new ApplicationException(422, 'invalid_username', 'Username must contain 3-64 lowercase letters, digits, dots, underscores or hyphens.');
         }
         if ($displayName === '' || self::unicodeLength($displayName) > 120) {
-            throw new HttpException(422, 'invalid_display_name', 'Display name is required and must not exceed 120 characters.');
+            throw new ApplicationException(422, 'invalid_display_name', 'Display name is required and must not exceed 120 characters.');
         }
         if (!preg_match('/^[a-z][a-z0-9_-]{1,63}$/', $roleCode)) {
-            throw new HttpException(400, 'role_code_invalid', 'The role code is invalid.');
+            throw new ApplicationException(400, 'role_code_invalid', 'The role code is invalid.');
         }
 
         $role = $this->roles->findActiveRole($roleCode);
         if ($role === null) {
-            throw new HttpException(404, 'role_not_found', 'The role was not found.');
+            throw new ApplicationException(404, 'role_not_found', 'The role was not found.');
         }
         if ($role['code'] === 'owner' || in_array('*', $role['permissions'], true)) {
-            throw new HttpException(403, 'protected_role_assignment', 'The installation owner role cannot be assigned to a new user.');
+            throw new ApplicationException(403, 'protected_role_assignment', 'The installation owner role cannot be assigned to a new user.');
         }
         foreach ($role['permissions'] as $permissionCode) {
             if (!$this->permissions->allows($actor, $permissionCode, $scope)) {
-                throw new HttpException(403, 'role_escalation_denied', 'You cannot create a user with permissions you do not hold.');
+                throw new ApplicationException(403, 'role_escalation_denied', 'You cannot create a user with permissions you do not hold.');
             }
         }
 
@@ -125,7 +125,7 @@ final readonly class UserManagementService
                 $ipAddress,
             ): array {
                 if ($this->users->usernameExists($username)) {
-                    throw new HttpException(409, 'username_already_exists', 'The username is already in use.');
+                    throw new ApplicationException(409, 'username_already_exists', 'The username is already in use.');
                 }
 
                 $publicId = self::uuidV4();

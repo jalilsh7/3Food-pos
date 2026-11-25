@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Auth;
 
-use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
@@ -41,10 +41,10 @@ final readonly class RoleManagementService
         $name = trim($name);
         $permissionCodes = $this->validatePermissionCodes($permissionCodes);
         if (!preg_match('/^[a-z][a-z0-9_-]{1,63}$/', $code) || $code === 'owner') {
-            throw new HttpException(422, 'role_code_invalid', 'The custom role code is invalid.');
+            throw new ApplicationException(422, 'role_code_invalid', 'The custom role code is invalid.');
         }
         if ($name === '' || self::unicodeLength($name) > 100) {
-            throw new HttpException(422, 'role_name_invalid', 'Role name is required and must not exceed 100 characters.');
+            throw new ApplicationException(422, 'role_name_invalid', 'Role name is required and must not exceed 100 characters.');
         }
 
         $permissionIds = $this->authorizePermissionSet($actor, $scope, $permissionCodes);
@@ -67,7 +67,7 @@ final readonly class RoleManagementService
                 $ipAddress,
             ): array {
                 if ($this->roles->roleCodeExists($code)) {
-                    throw new HttpException(409, 'role_code_exists', 'A role with this code already exists.');
+                    throw new ApplicationException(409, 'role_code_exists', 'A role with this code already exists.');
                 }
                 $roleId = $this->roles->createCustomRole($code, $name);
                 $this->roles->replaceRolePermissions($roleId, $permissionIds);
@@ -107,13 +107,13 @@ final readonly class RoleManagementService
         $permissionCodes = $this->validatePermissionCodes($permissionCodes);
         $role = $this->roles->findActiveRole($code);
         if ($role === null) {
-            throw new HttpException(404, 'role_not_found', 'The role was not found.');
+            throw new ApplicationException(404, 'role_not_found', 'The role was not found.');
         }
         if ($role['code'] === 'owner' || $this->roles->isSystemRole($code)) {
-            throw new HttpException(403, 'system_role_immutable', 'System roles cannot be modified.');
+            throw new ApplicationException(403, 'system_role_immutable', 'System roles cannot be modified.');
         }
         if ($name === '' || self::unicodeLength($name) > 100) {
-            throw new HttpException(422, 'role_name_invalid', 'Role name is required and must not exceed 100 characters.');
+            throw new ApplicationException(422, 'role_name_invalid', 'Role name is required and must not exceed 100 characters.');
         }
 
         $permissionIds = $this->authorizePermissionSet($actor, $scope, $permissionCodes);
@@ -180,7 +180,7 @@ final readonly class RoleManagementService
         string $ipAddress,
     ): array {
         if ($scope->branchId === null) {
-            throw new HttpException(400, 'branch_context_required', 'A branch scope is required.');
+            throw new ApplicationException(400, 'branch_context_required', 'A branch scope is required.');
         }
         return $this->assign($actor, $targetUserPublicId, $roleCode, $scope, true, $idempotencyKey, $requestId, $ipAddress);
     }
@@ -207,7 +207,7 @@ final readonly class RoleManagementService
         string $ipAddress,
     ): array {
         if ($scope->branchId === null) {
-            throw new HttpException(400, 'branch_context_required', 'A branch scope is required.');
+            throw new ApplicationException(400, 'branch_context_required', 'A branch scope is required.');
         }
         return $this->remove($actor, $targetUserPublicId, $roleCode, $scope, true, $idempotencyKey, $requestId, $ipAddress);
     }
@@ -225,7 +225,7 @@ final readonly class RoleManagementService
         $targetId = $this->resolveTarget($targetUserPublicId);
         $role = $this->resolveRole($roleCode);
         if ($role['code'] === 'owner' || in_array('*', $role['permissions'], true)) {
-            throw new HttpException(403, 'protected_role_assignment', 'The installation owner role cannot be assigned through scoped role management.');
+            throw new ApplicationException(403, 'protected_role_assignment', 'The installation owner role cannot be assigned through scoped role management.');
         }
         $this->authorizePermissionSet($actor, $scope, $role['permissions']);
         $fingerprint = self::fingerprint([
@@ -352,15 +352,15 @@ final readonly class RoleManagementService
         array $permissionCodes,
     ): array {
         if ($permissionCodes === [] || count($permissionCodes) > 64) {
-            throw new HttpException(422, 'permission_set_invalid', 'A role must contain between 1 and 64 permissions.');
+            throw new ApplicationException(422, 'permission_set_invalid', 'A role must contain between 1 and 64 permissions.');
         }
         $idsByCode = $this->roles->findPermissionIdsByCodes($permissionCodes);
         if (count($idsByCode) !== count($permissionCodes)) {
-            throw new HttpException(422, 'permission_unknown', 'The permission set contains an unknown permission.');
+            throw new ApplicationException(422, 'permission_unknown', 'The permission set contains an unknown permission.');
         }
         foreach ($permissionCodes as $permissionCode) {
             if ($permissionCode === '*' || !$this->permissions->allows($actor, $permissionCode, $scope)) {
-                throw new HttpException(403, 'permission_delegation_denied', 'You cannot grant a permission you do not hold.');
+                throw new ApplicationException(403, 'permission_delegation_denied', 'You cannot grant a permission you do not hold.');
             }
         }
         return array_values($idsByCode);
@@ -370,17 +370,17 @@ final readonly class RoleManagementService
     private function validatePermissionCodes(array $permissionCodes): array
     {
         if (!array_is_list($permissionCodes)) {
-            throw new HttpException(422, 'permission_set_invalid', 'Permissions must be a list of permission codes.');
+            throw new ApplicationException(422, 'permission_set_invalid', 'Permissions must be a list of permission codes.');
         }
         $normalized = [];
         foreach ($permissionCodes as $permissionCode) {
             if (!is_string($permissionCode) || !preg_match('/^[a-z][a-z0-9_.-]{1,99}$/', $permissionCode)) {
-                throw new HttpException(422, 'permission_code_invalid', 'A permission code is invalid.');
+                throw new ApplicationException(422, 'permission_code_invalid', 'A permission code is invalid.');
             }
             $normalized[] = $permissionCode;
         }
         if (count($normalized) !== count(array_unique($normalized))) {
-            throw new HttpException(422, 'permission_set_duplicate', 'A permission code may only appear once.');
+            throw new ApplicationException(422, 'permission_set_duplicate', 'A permission code may only appear once.');
         }
         return $normalized;
     }
@@ -388,11 +388,11 @@ final readonly class RoleManagementService
     private function resolveTarget(string $publicId): int
     {
         if (!self::isUuid($publicId)) {
-            throw new HttpException(400, 'user_id_invalid', 'The target user identifier is invalid.');
+            throw new ApplicationException(400, 'user_id_invalid', 'The target user identifier is invalid.');
         }
         $userId = $this->roles->findActiveUserId($publicId);
         if ($userId === null) {
-            throw new HttpException(404, 'user_not_found', 'The target user was not found.');
+            throw new ApplicationException(404, 'user_not_found', 'The target user was not found.');
         }
         return $userId;
     }
@@ -401,11 +401,11 @@ final readonly class RoleManagementService
     private function resolveRole(string $code): array
     {
         if (!preg_match('/^[a-z][a-z0-9_-]{1,63}$/', $code)) {
-            throw new HttpException(400, 'role_code_invalid', 'The role code is invalid.');
+            throw new ApplicationException(400, 'role_code_invalid', 'The role code is invalid.');
         }
         $role = $this->roles->findActiveRole($code);
         if ($role === null) {
-            throw new HttpException(404, 'role_not_found', 'The role was not found.');
+            throw new ApplicationException(404, 'role_not_found', 'The role was not found.');
         }
         return $role;
     }

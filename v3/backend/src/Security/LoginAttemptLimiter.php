@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Security;
 
-use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Support\ApplicationException;
 
 final readonly class LoginAttemptLimiter
 {
@@ -23,7 +23,7 @@ final readonly class LoginAttemptLimiter
     {
         [$accountHash, $ipHash] = $this->identifierHashes($username, $ipAddress);
         if ($this->records->isBlocked($accountHash, $ipHash)) {
-            throw new HttpException(429, 'login_rate_limited', 'Too many login attempts. Try again later.');
+            throw new ApplicationException(429, 'login_rate_limited', 'Too many login attempts. Try again later.');
         }
     }
 
