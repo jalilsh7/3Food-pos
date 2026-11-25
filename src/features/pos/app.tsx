@@ -16,7 +16,7 @@ import { useAppearance } from "@/lib/appearance";
 import { normalizeIranPhone, tehranDate, formatElapsed } from "@/lib/pos/formatters";
 import { ROLE_LABEL, UsersScreen } from "./users-screen";
 import { AuthFrame, PhpLoginScreen, ChangePasswordScreen } from "./auth-screens";
-import { SmsScreen } from "@/modules/sms";
+import { SmsScreen, SMS_EVENT_LABEL as EVENT_LABEL } from "@/modules/sms";
 import { SuppliersScreen } from "./suppliers-screen";
 import { ExpensesScreen } from "./expenses-screen";
 import { CodesScreen } from "./codes-screen";
@@ -93,10 +93,7 @@ const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[
   { id: "settings", label: "تنظیمات", icon: SettingsIcon, roles: ["manager"] },
 ];
 
-const EVENT_LABEL: Record<SmsEvent, string> = {
-  order_created: "ثبت سفارش", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_dispatched: "ارسال شد", order_delivered: "تحویل", order_cancelled: "لغو سفارش", order_invoice: "ریز فاکتور",
-  points_earned: "کسب امتیاز", discount_used: "استفاده از کد",
-};
+
 
 export function GrillApp() {
   const shop = usePos((s) => s.settings.shopName);
