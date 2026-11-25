@@ -394,6 +394,7 @@ function PosScreen({ role }: { role: Role }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [phone, setPhone] = useState("");
   const [guestName, setGuestName] = useState(usePos.getState().settings.defaultCustomerLabel || "مشتری عزیز");
+  const [orderNote, setOrderNote] = useState("");
   const [code, setCode] = useState("");
   const [points, setPoints] = useState(0);
   const [pay, setPay] = useState<Order["payment"]>("cash");
@@ -575,7 +576,7 @@ function PosScreen({ role }: { role: Role }) {
         },
         customer: checkoutCustomer ? { id: checkoutCustomer.id } : undefined,
         discountCode: q.discount?.code ?? '',
-        note: cart.map((line) => line.note).filter(Boolean).join(" | ").slice(0, 2000),
+        note: orderNote.trim().slice(0, 2000),
         guestName,
         guestPhone: normalizeIranPhone(phone),
         payment: pay,
@@ -590,6 +591,7 @@ function PosScreen({ role }: { role: Role }) {
         payment: pay,
         guestName,
         guestPhone: phone.trim(),
+        note: orderNote,
         serverOrder: { id: server.order.id, number: server.order.orderNumber, createdAt: server.order.createdAt },
       });
       let order: Order | null = localResult.ok ? localResult.order : null;
@@ -610,7 +612,7 @@ function PosScreen({ role }: { role: Role }) {
       pendingTerminalPayment.current = null;
       pendingTerminalRequest.current = null;
       setMsg(`سفارش ${order.number.toLocaleString("fa-IR")} ثبت شد`);
-      setCart([]); setPhone(""); setGuestName(settings.defaultCustomerLabel || "مشتری عزیز"); setCode(""); setPoints(0); setPrinted(order);
+      setCart([]); setPhone(""); setGuestName(settings.defaultCustomerLabel || "مشتری عزیز"); setOrderNote(""); setCode(""); setPoints(0); setPrinted(order);
       const fresh = usePos.getState().customers.find((c) => c.id === order.customerId);
       const vars = orderVars(order, String(fresh?.points ?? 0));
       void pushSms("order_created", order.customerPhone, vars);
@@ -689,6 +691,7 @@ function PosScreen({ role }: { role: Role }) {
         <div className="mt-3 space-y-2">
           <Field label="نام مشتری"><input className={inputCls} value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder={settings.defaultCustomerLabel || "مشتری عزیز"} /></Field>
           <Field label="موبایل مشتری"><input className={inputCls} value={phone} onChange={(e) => updateCustomerPhone(e.target.value)} placeholder="0912..." /></Field>
+          <Field label="یادداشت سفارش (اختیاری)"><textarea className={inputCls} rows={2} maxLength={2000} value={orderNote} onChange={(e) => setOrderNote(e.target.value)} placeholder="توضیحات مربوط به کل سفارش؛ مثلاً ارسال با پیک یا هماهنگی خاص..." /></Field>
           {customer ? (
             <p className="rounded-xl bg-leaf-ink px-3 py-2 text-sm text-leaf">{TIER_LABEL[tierOf(customer.points,settings)]} ({customer.points.toLocaleString("fa-IR")} امتیاز، تخفیف {(tierOf(customer.points,settings)==="silver"?settings.loyaltySilverDiscount??3:tierOf(customer.points,settings)==="gold"?settings.loyaltyGoldDiscount??5:tierOf(customer.points,settings)==="platinum"?settings.loyaltyPlatinumDiscount??8:0).toLocaleString("fa-IR")}٪)</p>
           ) : null}
