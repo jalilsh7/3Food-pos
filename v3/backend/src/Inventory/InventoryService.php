@@ -7,7 +7,6 @@ use PDO;
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\InventoryRepository;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
@@ -15,14 +14,13 @@ use PersiaCoder\PosV3\Security\IdempotencyService;
 final readonly class InventoryService
 {
     private InventoryRepository $inventory;
-    private IdempotencyService $idempotency;
-    private AuditLogService $audit;
 
-    public function __construct(PDO $connection, string $applicationKey)
-    {
+    public function __construct(
+        PDO $connection,
+        private IdempotencyService $idempotency,
+        private AuditLogService $audit,
+    ) {
         $this->inventory = new InventoryRepository($connection);
-        $this->idempotency = new IdempotencyService($connection, $applicationKey);
-        $this->audit = new AuditLogService(new AuditLogRepository($connection));
     }
 
     public function listUnits(): array
