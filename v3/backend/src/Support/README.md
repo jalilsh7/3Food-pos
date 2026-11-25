@@ -14,7 +14,7 @@ Support باید از ماژول‌های دامنه‌ای مستقل بمان�
 ندارد.
 
 ## تست مستقل
-مسیر هدف: `v3/backend/tests/Support`. تست JSON output، module filter، request correlation و redaction لازم است. فعلاً تست ماژولی در tree وجود ندارد.
+مسیر هدف: `v3/backend/tests/Modules/Support`. تست JSON output، module filter، request correlation و redaction لازم است. فعلاً تست ماژولی در tree وجود ندارد.
 
 ## عملیات و لاگ
 فیلتر ماژول با `POS_V3_LOG_MODULES` تنظیم می‌شود؛ خالی بودن آن همه ماژول‌ها را فعال می‌کند.

@@ -15,7 +15,7 @@
 006 مالک اصلی Catalog/Customers؛ 007 مالک Catalog برای variants/options.
 
 ## تست مستقل
-مسیر هدف: `v3/backend/tests/Catalog`. پوشش uniqueness، business scope، inactive products، variants/options، idempotency و عدم نشت فیلدهای داخلی لازم است. فعلاً تست ماژولی در tree وجود ندارد.
+مسیر هدف: `v3/backend/tests/Modules/Catalog`. پوشش uniqueness، business scope، inactive products، variants/options، idempotency و عدم نشت فیلدهای داخلی لازم است. فعلاً تست ماژولی در tree وجود ندارد.
 
 ## عملیات و لاگ
 تغییرات create/update/archive باید audit شوند؛ logها نباید token یا اطلاعات حساس مشتری را ثبت کنند.

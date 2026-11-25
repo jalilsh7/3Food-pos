@@ -15,7 +15,7 @@
 003 business/RBAC، 001 session، 002 login-attempts، 005 audit scope.
 
 ## تست مستقل
-مسیر هدف: `v3/backend/tests/Auth`. تست session lifecycle، permission scope، business isolation، setup idempotency و login throttling باید مستقل اجرا شوند. فعلاً تست ماژولی در tree وجود ندارد.
+مسیر هدف: `v3/backend/tests/Modules/Auth`. تست session lifecycle، permission scope، business isolation، setup idempotency و login throttling باید مستقل اجرا شوند. فعلاً تست ماژولی در tree وجود ندارد.
 
 ## عملیات و لاگ
 خطاهای HTTP از Kernel عبور می‌کنند؛ رویدادهای امنیتی در AuditLog ثبت می‌شوند. داده‌های رمز، session token و cookie نباید در log ثبت شوند.

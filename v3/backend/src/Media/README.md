@@ -16,7 +16,7 @@
 010 مالک Media است.
 
 ## تست مستقل
-مسیر هدف: `v3/backend/tests/Media`. تست MIME/size validation، path traversal، symlink، permission، private read، delete و business scope لازم است. فعلاً تست ماژولی در tree وجود ندارد.
+مسیر هدف: `v3/backend/tests/Modules/Media`. تست MIME/size validation، path traversal، symlink، permission، private read، delete و business scope لازم است. فعلاً تست ماژولی در tree وجود ندارد.
 
 ## عملیات و لاگ
 محتوای فایل و مسیر فیزیکی نباید در log ثبت شود؛ eventهای upload/delete با module=media ثبت شوند.

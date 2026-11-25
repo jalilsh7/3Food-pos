@@ -46,6 +46,38 @@ foreach ($testFiles as $testFile) {
             }
         }
 
+        if (isset($spec['migration_manifest'])) {
+            $manifestPath = $backendRoot . '/' . ltrim($spec['migration_manifest'], '/');
+            if (!is_file($manifestPath)) {
+                throw new RuntimeException('Migration ownership manifest is missing.');
+            }
+            $manifest = require $manifestPath;
+            if (!is_array($manifest)) {
+                throw new RuntimeException('Migration ownership manifest must return an array.');
+            }
+            $migrationDirectory = dirname($manifestPath);
+            $sqlFiles = glob($migrationDirectory . '/*.sql') ?: [];
+            $fileVersions = array_map(static fn (string $file): string => substr(basename($file), 0, -4), $sqlFiles);
+            $manifestVersions = array_keys($manifest);
+            sort($fileVersions);
+            sort($manifestVersions);
+            if ($fileVersions !== $manifestVersions) {
+                throw new RuntimeException('Migration SQL files and ownership manifest entries do not match.');
+            }
+            foreach ($manifest as $version => $entry) {
+                if (!is_array($entry) || !is_string($entry['owner'] ?? null)
+                    || !is_string($entry['risk'] ?? null) || !is_array($entry['depends_on'] ?? null)) {
+                    throw new RuntimeException("Migration {$version} has incomplete owner/risk/dependency metadata.");
+                }
+                foreach ($entry['depends_on'] as $dependency) {
+                    if (!is_string($dependency) || !isset($manifest[$dependency])) {
+                        throw new RuntimeException("Migration {$version} has an unknown dependency.");
+                    }
+                }
+                $checks++;
+            }
+        }
+
         foreach (($spec['checks'] ?? []) as [$path, $mustContain, $mustNotContain]) {
             $content = $read($path);
             foreach ($mustContain as $needle) {

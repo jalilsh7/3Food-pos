@@ -11,6 +11,7 @@ return [
         '../../database/v3/migrations/manifest.php',
     ],
     'services' => [],
+    'migration_manifest' => '../../database/v3/migrations/manifest.php',
     'forbidden' => [],
     'contains' => [],
     'checks' => [

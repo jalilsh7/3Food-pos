@@ -15,7 +15,7 @@
 011 مالک Inventory/Recipes و 012 مالک Inventory برای شناسه عمومی ردیف سند.
 
 ## تست مستقل
-مسیر هدف: `v3/backend/tests/Inventory`. تست posting، reversal، reservation، transfer، stock balance، race condition و tenant/branch isolation لازم است. فعلاً تست ماژولی در tree وجود ندارد.
+مسیر هدف: `v3/backend/tests/Modules/Inventory`. تست posting، reversal، reservation، transfer، stock balance، race condition و tenant/branch isolation لازم است. فعلاً تست ماژولی در tree وجود ندارد.
 
 ## عملیات و لاگ
 هر posting باید traceable و audit شود؛ خطاها با module=inventory و request_id ثبت شوند.

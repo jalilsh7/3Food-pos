@@ -15,7 +15,7 @@
 008 مالک مشترک Orders/Dining است؛ جدول‌های dining در manifest با owner اصلی Orders ثبت شده‌اند و تغییرات اختصاصی بعدی می‌توانند owner=Dining داشته باشند.
 
 ## تست مستقل
-مسیر هدف: `v3/backend/tests/Dining`. تست table capacity، open/close session، branch scope، concurrent session و idempotency لازم است. فعلاً تست ماژولی در tree وجود ندارد.
+مسیر هدف: `v3/backend/tests/Modules/Dining`. تست table capacity، open/close session، branch scope، concurrent session و idempotency لازم است. فعلاً تست ماژولی در tree وجود ندارد.
 
 ## عملیات و لاگ
 تغییر نشست میز و ارتباط آن با سفارش باید audit شود؛ خطاها با module=dining ثبت شوند.

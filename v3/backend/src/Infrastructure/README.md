@@ -15,7 +15,7 @@ Infrastructure می‌تواند interfaceهای Auth/Catalog/Orders/Inventory/F
 DDL و runner در `database/v3` نگهداری می‌شوند؛ Repositoryها مالک schema نیستند.
 
 ## تست مستقل
-مسیر هدف: `v3/backend/tests/Infrastructure`. تست PDO adapter، transaction rollback/commit، migration runner، checksum، lock، storage permissions و log sink لازم است. فعلاً تست ماژولی در tree وجود ندارد.
+مسیر هدف: `v3/backend/tests/Modules/Infrastructure`. تست PDO adapter، transaction rollback/commit، migration runner، checksum، lock، storage permissions و log sink لازم است. فعلاً تست ماژولی در tree وجود ندارد.
 
 ## عملیات
 اتصال PDO باید singleton در Composition Root باشد تا تمام Repositoryها و TransactionManagerهای یک درخواست روی connection مشترک باشند. فایل‌های private خارج از public document root بمانند.

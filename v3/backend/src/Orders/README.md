@@ -16,7 +16,7 @@
 008 مالک اصلی Orders/Dining. تغییرات schema بعدی باید migration افزایشی با owner=Orders داشته باشند.
 
 ## تست مستقل
-مسیر هدف: `v3/backend/tests/Orders`. تست totals، scope isolation، idempotency replay، concurrent order number، state transitions و audit الزامی است. فعلاً تست ماژولی در tree وجود ندارد.
+مسیر هدف: `v3/backend/tests/Modules/Orders`. تست totals، scope isolation، idempotency replay، concurrent order number، state transitions و audit الزامی است. فعلاً تست ماژولی در tree وجود ندارد.
 
 ## عملیات و لاگ
 برای خطاها request_id و module=orders ثبت شود؛ payload کامل سفارش و اطلاعات شخصی در log نوشته نشود.

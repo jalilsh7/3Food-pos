@@ -15,7 +15,7 @@
 009 مالک Finance است؛ جداول payment/cash/expense در manifest ثبت شده‌اند.
 
 ## تست مستقل
-مسیر هدف: `v3/backend/tests/Finance`. تست opening/closing balance، cash movement، duplicate payment، refund، expense scope و audit لازم است. فعلاً تست ماژولی در tree وجود ندارد.
+مسیر هدف: `v3/backend/tests/Modules/Finance`. تست opening/closing balance، cash movement، duplicate payment، refund، expense scope و audit لازم است. فعلاً تست ماژولی در tree وجود ندارد.
 
 ## عملیات و لاگ
 تغییر مانده صندوق و عملیات مالی باید audit append-only داشته باشد؛ log شامل PAN، credentials یا داده پرداخت خام نباشد.

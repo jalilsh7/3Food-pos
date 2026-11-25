@@ -14,7 +14,7 @@ HTTP می‌تواند به Support Logger و application serviceها وابست
 ندارد.
 
 ## تست مستقل
-مسیر هدف: `v3/backend/tests/Http`. تست routing, middleware order, CSRF/origin, request ID, error mapping و response headers لازم است. فعلاً تست ماژولی در tree وجود ندارد.
+مسیر هدف: `v3/backend/tests/Modules/Http`. تست routing, middleware order, CSRF/origin, request ID, error mapping و response headers لازم است. فعلاً تست ماژولی در tree وجود ندارد.
 
 ## عملیات و لاگ
 Kernel خطاهای کنترل‌نشده را با level/event/module/request_id ثبت می‌کند؛ message و payload حساس exception وارد log نمی‌شود.
