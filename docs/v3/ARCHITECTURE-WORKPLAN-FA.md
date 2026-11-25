@@ -10,7 +10,7 @@
 - [x] دسته ۲-الف: API client correlation context و logging؛ PHP echo header.
 - [x] دسته ۲-ب: استخراج اولیه transport/session/contracts به adapters مستقل (client به helperهای پایه متصل شد؛ استخراج resource services بعداً).
 - [ ] دسته ۳: استخراج سفارش، فروش و کاتالوگ از featureهای یکپارچه (قرارداد مرزی و ترتیب refactor مستند شد؛ refactor اجرایی هنوز باقی است).
-- [ ] دسته ۴: موجودی، رسپی/بهای تمام‌شده، تامین‌کنندگان و هزینه‌ها.
+- [ ] دسته ۴: موجودی، رسپی/بهای تمام‌شده، تامین‌کنندگان و هزینه‌ها (مرزبندی و قواعد posting مستند شد؛ refactor اجرایی باقی است).
 - [ ] دسته ۵: مشتریان، وفاداری، کمپین‌ها و پیام‌رسانی.
 - [ ] دسته ۶: تنظیمات، کاربران، نقش‌ها، مجوزها و گزارش‌ها.
 - [ ] دسته ۷: PHP API domain boundaries و repository/use-case تفکیک.
@@ -28,7 +28,7 @@
 - query string از actionهای diagnostics حذف می‌شود.
 - قرارداد envelope/request و سیاست transport جدا شده‌اند؛ استخراج resource-level serviceها و PHP domain separation هنوز انجام نشده است.
 
-## پیشرفت دسته اخیر — مرزبندی فروش/سفارش/کاتالوگ\n- سند `v3/docs/MODULE_BOUNDARIES_SALES_ORDERS_CATALOG.md` ایجاد شد و قواعد dependency، مسئولیت لایه‌ها، scope، snapshot قیمت و مسیر refactor تدریجی را تعریف می‌کند.\n- هنوز به معنی تغییر اجرایی کامل در service/controller/repositoryهای این ماژول‌ها نیست؛ مرحله بعد انتقال incremental با حفظ API است.\n\n## فهرست تست نهایی (تعویق)
+## پیشرفت دسته اخیر — مرزبندی فروش/سفارش/کاتالوگ\n- سند `v3/docs/MODULE_BOUNDARIES_SALES_ORDERS_CATALOG.md` ایجاد شد و قواعد dependency، مسئولیت لایه‌ها، scope، snapshot قیمت و مسیر refactor تدریجی را تعریف می‌کند.\n- هنوز به معنی تغییر اجرایی کامل در service/controller/repositoryهای این ماژول‌ها نیست؛ مرحله بعد انتقال incremental با حفظ API است.\n\n## پیشرفت دسته ۴ — inventory/recipes/costing\n- سند `v3/docs/MODULE_BOUNDARIES_INVENTORY_RECIPES_COSTING.md` ایجاد شد: posting و reversal، idempotency، scope، نسخه رسپی، تامین‌کننده و تفکیک هزینه‌ها.\n- refactor اجرایی serviceها و workflowها هنوز انجام نشده و به‌صورت incremental در ادامه دنبال می‌شود.\n\n## فهرست تست نهایی (تعویق)
 - TypeScript/typecheck، lint و build کامل frontend.
 - تست مستقل و قراردادی ماژول‌ها و dependency-cycle audit.
 - PHP lint و API integration tests.
