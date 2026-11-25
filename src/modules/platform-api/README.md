@@ -1,12 +1,21 @@
 # Platform API boundary
 
-The existing PHP client remains the compatibility façade for all current screens while the architecture is migrated. It is responsible for same-origin requests, HttpOnly cookie session usage, CSRF token handling, JSON envelope validation and stable user-facing API errors.
+The existing PHP client remains the compatibility façade while its implementation is migrated incrementally.
 
-## Current migration step
-- Request correlation ID is sent as `X-Correlation-ID`.
-- API failure diagnostics use the shared logger and avoid query strings.
-- PHP response helper echoes a validated request correlation ID (or generates one).
-- No request body, credential, CSRF token, or raw provider response is logged.
+## Layer ownership
+- contracts: response envelopes, request options, diagnostic context.
+- transport: same-origin request policy and request correlation helpers.
+- session: in-memory CSRF lifecycle only; no browser storage.
+- resource adapters: feature-specific API methods remain on the legacy façade until migrated.
+- backend: PHP route/auth/domain handling remains authoritative.
 
-## Migration policy
-Keep existing `phpApi` method signatures until feature modules move behind service adapters. Future extraction separates contracts, transport, auth/session, and resource service functions; avoid changing endpoints in this step.
+## Migration guardrails
+- Preserve public `phpApi` method signatures during staged extraction.
+- Never log bodies, credentials, CSRF, or provider responses.
+- Remove query strings before recording request actions.
+- Keep requests same-origin, cookie-authenticated, cache-disabled and CSRF-protected where mutating.
+- Avoid importing feature/UI code into platform API.
+- Tests and build are intentionally deferred to final project verification.
+
+## Progress
+The contract, transport policy, correlation helper, and CSRF state are separated as foundational adapters. The compatibility client has not yet been rewired to these helpers; that integration is a subsequent grouped step.
