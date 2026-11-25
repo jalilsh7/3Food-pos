@@ -92,3 +92,12 @@
 - در `database/v3/migrations` فایل‌های شماره‌دار 001 تا 012 شناسایی شدند.
 - جداول و دامنه‌های اولیه از SQL استخراج شده‌اند؛ سند مالکیت migration به‌صورت مستقل ثبت می‌شود.
 - migrationهای قبلی دست‌نخورده باقی مانده‌اند؛ تغییرات ساختاری جدید باید با migration افزایشی جدید انجام شوند.
+
+
+## Logging ساخت‌یافته Backend — 2026-11-25
+- قرارداد `Support/Logger` و implementation زیرساختی `Infrastructure/Logging/ErrorLogLogger` ایجاد شد.
+- خروجی log به‌صورت JSON ساخت‌یافته با timestamp UTC، level، event، module، request_id و context ثبت می‌شود.
+- فیلتر ماژول با متغیر محیطی `POS_V3_LOG_MODULES` (فهرست comma-separated) قابل تنظیم است؛ خالی بودن آن همه ماژول‌ها را مجاز می‌کند.
+- کلیدهای حساس مانند password/token/secret/authorization/cookie/apiKey/credential در context بازگشتی redact می‌شوند.
+- `Http/Kernel` برای exceptionهای کنترل‌نشده از logger مرکزی استفاده می‌کند و module را از مسیر API تشخیص می‌دهد.
+- Composition Root، logger را به Kernel تزریق می‌کند. اتصال به use-caseها، provider adapters و عملیات دیتابیس در مراحل بعدی انجام می‌شود؛ این دسته هنوز کامل نیست.
