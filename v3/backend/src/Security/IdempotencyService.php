@@ -54,7 +54,7 @@ final readonly class IdempotencyService
             throw new \InvalidArgumentException('The request fingerprint must be a SHA-256 hex digest.');
         }
 
-        $scopeHash = hash('sha256', $actorUserId . ':' . $scope->businessId . ':' . ($scope->branchId() ?? 0));
+        $scopeHash = hash('sha256', $actorUserId . ':' . $scope->businessId() . ':' . ($scope->branchId() ?? 0));
         $keyHash = hash('sha256', $idempotencyKey);
         $expiresAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
             ->modify('+' . $this->retentionSeconds . ' seconds')
@@ -72,8 +72,8 @@ final readonly class IdempotencyService
         ): array {
             $record = $this->records->createOrLock(
                 $actorUserId,
-                $scope->businessId,
-                $scope->branchId,
+                $scope->businessId(),
+                $scope->branchId(),
                 $scopeHash,
                 $endpointCode,
                 $keyHash,
