@@ -34,6 +34,15 @@ return static function (string $backendRoot): int {
             || str_ends_with($basename, 'Application.php');
         $isController = str_ends_with($basename, 'Controller.php');
 
+        if (str_ends_with($basename, 'Application.php')) {
+            if (!str_contains($content, 'interface ')) {
+                $violations[] = "{$relative}: Application contract file must declare an interface";
+            }
+            if (preg_match('/public\\s+function\\s+[A-Za-z0-9_]+\\s*\\([^)]*\\)\\s*(?::[^;{]+)?\\s*\\{/', $content) === 1) {
+                $violations[] = "{$relative}: Application interface contains a method body";
+            }
+        }
+
         if ($isController && (str_contains($content, 'use PDO;') || str_contains($content, 'Infrastructure\\'))) {
             $violations[] = "{$relative}: HTTP controller imports PDO/Infrastructure";
         }
