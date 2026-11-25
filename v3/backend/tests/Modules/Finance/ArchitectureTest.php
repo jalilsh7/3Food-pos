@@ -10,5 +10,6 @@ return [
     'checks' => [
         ['src/Finance/CashRegisterService.php', ['implements CashRegisterApplication'], []],
         ['src/Finance/CashRegisterController.php', ['CashRegisterApplication $cash'], []],
+        ['src/Finance/CashRegisterApplication.php', ['interface CashRegisterApplication'], ['$this->']],
     ],
 ];

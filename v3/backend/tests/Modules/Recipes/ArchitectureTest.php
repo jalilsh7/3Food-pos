@@ -10,5 +10,6 @@ return [
     'checks' => [
         ['src/Recipes/RecipeService.php', ['implements RecipeApplication'], []],
         ['src/Recipes/RecipeController.php', ['RecipeApplication $recipes'], []],
+        ['src/Recipes/RecipeApplication.php', ['interface RecipeApplication'], ['$this->']],
     ],
 ];

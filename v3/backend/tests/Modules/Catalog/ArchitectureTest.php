@@ -10,5 +10,6 @@ return [
     'checks' => [
         ['src/Catalog/CatalogService.php', ['implements CatalogApplication'], []],
         ['src/Catalog/CatalogController.php', ['CatalogApplication $catalog'], []],
+        ['src/Catalog/CatalogApplication.php', ['interface CatalogApplication'], ['$this->']],
     ],
 ];

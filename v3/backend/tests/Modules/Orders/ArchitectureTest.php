@@ -10,5 +10,6 @@ return [
     'checks' => [
         ['src/Orders/OrderService.php', ['implements OrderApplication'], []],
         ['src/Orders/OrderController.php', ['OrderApplication $orders'], []],
+        ['src/Orders/OrderApplication.php', ['interface OrderApplication'], ['$this->']],
     ],
 ];

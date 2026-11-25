@@ -14,5 +14,10 @@ return [
         ['src/Auth/RoleManagementService.php', ['implements RoleManagementApplication'], []],
         ['src/Auth/UserManagementService.php', ['implements UserManagementApplication'], []],
         ['src/Auth/AuthController.php', ['AuthenticationApplication $authentication'], []],
+        ['src/Auth/AuthenticationApplication.php', ['interface AuthenticationApplication'], ['$this->']],
+        ['src/Auth/BusinessSetupApplication.php', ['interface BusinessSetupApplication'], ['$this->']],
+        ['src/Auth/BranchManagementApplication.php', ['interface BranchManagementApplication'], ['$this->']],
+        ['src/Auth/RoleManagementApplication.php', ['interface RoleManagementApplication'], ['$this->']],
+        ['src/Auth/UserManagementApplication.php', ['interface UserManagementApplication'], ['$this->']],
     ],
 ];

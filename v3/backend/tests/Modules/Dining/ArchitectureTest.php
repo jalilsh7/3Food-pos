@@ -10,5 +10,6 @@ return [
     'checks' => [
         ['src/Dining/DiningService.php', ['implements DiningApplication'], []],
         ['src/Dining/DiningController.php', ['DiningApplication $dining'], []],
+        ['src/Dining/DiningApplication.php', ['interface DiningApplication'], ['$this->']],
     ],
 ];

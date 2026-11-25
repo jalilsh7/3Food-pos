@@ -13,5 +13,9 @@ return [
         ['src/Inventory/InventoryPostingService.php', ['implements InventoryPostingApplication'], []],
         ['src/Inventory/SupplierService.php', ['implements SupplierApplication'], []],
         ['src/Inventory/InventoryController.php', ['InventoryApplication $inventory', 'InventoryDocumentApplication $documents', 'InventoryPostingApplication $posting', 'SupplierApplication $suppliers'], []],
+        ['src/Inventory/InventoryApplication.php', ['interface InventoryApplication'], ['$this->']],
+        ['src/Inventory/InventoryDocumentApplication.php', ['interface InventoryDocumentApplication'], ['$this->']],
+        ['src/Inventory/InventoryPostingApplication.php', ['interface InventoryPostingApplication'], ['$this->']],
+        ['src/Inventory/SupplierApplication.php', ['interface SupplierApplication'], ['$this->']],
     ],
 ];

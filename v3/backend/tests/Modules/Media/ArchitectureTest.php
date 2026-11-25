@@ -10,5 +10,6 @@ return [
     'checks' => [
         ['src/Media/MediaService.php', ['implements MediaApplication'], []],
         ['src/Media/MediaController.php', ['MediaApplication $media'], []],
+        ['src/Media/MediaApplication.php', ['interface MediaApplication'], ['$this->']],
     ],
 ];
