@@ -15,8 +15,8 @@
 - [ ] دسته ۶: تنظیمات، کاربران، نقش‌ها، مجوزها و گزارش‌ها (مرزبندی مستند؛ refactor اجرایی باقی است).
 - [ ] دسته ۷: PHP API domain boundaries و repository/use-case تفکیک (قرارداد لایه‌ها مستند؛ refactor اجرایی باقی است).
 - [ ] دسته ۸: migration ownership، نسخه‌بندی schema، قابلیت‌های تجاری و audit (policy مستند؛ refactor اجرایی باقی است).
-- [ ] دسته ۹: فروشگاه آنلاین و integrationها (WooCommerce و adapterهای دیگر).
-- [ ] دسته ۱۰: licensing، entitlements، central-admin و update-management.
+- [ ] دسته ۹: فروشگاه آنلاین و integrationها (WooCommerce و adapterهای دیگر) — سند مرزبندی ایجاد شد؛ پیاده‌سازی Backend و اتصال واقعی storefront هنوز باقی است.
+- [ ] دسته ۱۰: licensing، entitlements، central-admin و update-management — سند مرزبندی ایجاد شد؛ سرویس اجرایی، پنل مرکزی و updater هنوز باقی است.
 - [ ] دسته ۱۱: کاهش coupling، حذف adapterهای موقت، مستندات/نقشه نهایی.
 - [ ] دسته نهایی: اجرای تست‌ها، build، تست migration/upgrade، نصب و rollback.
 
@@ -37,3 +37,9 @@
 - فروش و سفارش end-to-end، تغییر وضعیت، موجودی، رسپی، گزارش، SMS.
 - online storefront، integrationها، licensing/plan/activation.
 - بسته‌بندی cPanel و سناریوی استقرار/backup/restore.
+
+
+## پیشرفت دسته‌های ۹ و ۱۰ — قرارداد فروشگاه، یکپارچگی و لایسنس
+- `v3/docs/MODULE_BOUNDARIES_STOREFRONT_INTEGRATIONS.md` ثبت شد. وضعیت واقعی Storefront نیز صریح شد: صفحه فعلی صرفاً پیش‌نمایش با داده ثابت و سبد محلی است و ثبت سفارش/پرداخت/موجودی به Backend متصل نیست.
+- `v3/docs/MODULE_BOUNDARIES_LICENSING_UPDATES.md` ثبت شد. تصمیم محصول درباره لایسنس دائمی + یک سال به‌روزرسانی، آفلاین قابل تنظیم و نصب مستقل در قرارداد فنی منعکس شد.
+- بررسی tree فعلی نشان داد Backend V3 هنوز controller/service مستقل برای storefront integration، license، central admin یا update management ندارد. بنابراین دسته‌های ۹ و ۱۰ از نظر مستندات مرزبندی انجام شده‌اند، اما از نظر کدنویسی اجرایی باز هستند.
