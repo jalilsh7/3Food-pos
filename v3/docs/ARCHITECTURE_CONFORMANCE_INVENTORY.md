@@ -59,9 +59,11 @@ Featureهای مشاهده‌شده:
 در Infrastructure حداقل Database و Storage وجود دارند.
 
 ### مغایرت قطعی مشاهده‌شده
-OrderService در سازنده PDO دریافت می‌کند و درون خود OrderRepository، IdempotencyService و AuditLogService را می‌سازد. این کار composition و orchestration را به service گره می‌زند و با قاعده جداسازی Application از Infrastructure و تزریق وابستگی‌ها در Composition Root منطبق نیست.
-IdempotencyService نیز PDO دریافت کرده و Repository و TransactionManager را خودش می‌سازد؛ این مورد هم باید در refactor لایه‌ای اصلاح شود.
-این مشاهده به‌تنهایی به معنی ایراد در رفتار فعلی سفارش نیست؛ موضوع، مرزبندی معماری و قابلیت تست مستقل است.
+**وضعیت پس از اصلاح ثبت‌شده در 2026-11-25:** ساخت `OrderRepository`، `IdempotencyService` و `AuditLogService` از داخل `OrderService` خارج شده و به `public/index.php` منتقل شده است. `IdempotencyService` نیز اکنون `IdempotencyRepository` و `TransactionManager` را از بیرون دریافت می‌کند؛ دیگر این دو implementation را داخل خود نمی‌سازد.
+
+**مغایرت باقی‌مانده:** `OrderService` و `IdempotencyService` هنوز در قرارداد callback تراکنش از `PDO` استفاده می‌کنند و OrderService به concrete `OrderRepository` وابسته است. بنابراین Composition اصلاح شده، اما جداسازی کامل Application از Persistence و تعریف Port/DTO مستقل هنوز انجام نشده است. این تغییرات در این مرحله فقط با بازطراحی transaction boundary و حفظ اتمیک‌بودن idempotency و ثبت سفارش ادامه می‌یابد.
+
+این اصلاح معماری به معنی تأیید رفتار عملیاتی سفارش نیست؛ تست جامع همچنان معوق است.
 
 ## 3) Database و Migration
 
@@ -82,8 +84,9 @@ Migrationهای ترتیبی SQL مشاهده شدند؛ در فهرست اول�
 
 ## 4) Logging و Contracts
 
-- وجود پایه logger/error و correlation ID در سوابق پیاده‌سازی پروژه ثبت شده است.
-- فایل‌های دقیق logger در مسیرهای قبلاً فرض‌شده پیدا نشدند؛ ساختار واقعی باید با جست‌وجوی کامل tree و مسیرهای صحیح تثبیت شود.
+- logger واقعی frontend در `src/core/observability/logger.ts` قرار دارد؛ logger فعلی console-backed است و کلیدهای حساس مانند password/token/authorization را در object context redacted می‌کند.
+- در Backend مسیر `v3/backend` logger مرکزی مستقل در tree پیدا نشد؛ وجود correlation ID در HTTP به‌تنهایی معادل logging ساخت‌یافته مرکزی نیست.
+- اتصال module/component/operation و correlation context به logger مشترک Backend و sink قابل فیلتر هنوز انجام‌نشده است.
 - تا وقتی تمام نقاط ورود API، use-caseها و provider adapters از logger مشترک استفاده نکنند، قانون لاگ متمرکز کامل نیست.
 - قراردادهای معماری در چند سند مرزبندی تعریف شده‌اند؛ پوشش قراردادهای executable و versioned برای همه ماژول‌ها اثبات نشده است.
 
@@ -113,7 +116,7 @@ Migrationهای ترتیبی SQL مشاهده شدند؛ در فهرست اول�
 
 - استاندارد مرجع معماری: تثبیت شد.
 - ساختار Feature-Based اولیه: وجود دارد؛ انطباق کامل تأیید نشده.
-- جداسازی لایه‌ها: بخشی از ساختار وجود دارد؛ مغایرت اجرایی در composition سرویس سفارش مشاهده شد.
+- جداسازی لایه‌ها: Composition سفارش اصلاح اولیه شد؛ PDO در transaction callback و concrete repository dependency هنوز نیازمند refactor است.
 - قراردادهای ماژول: در اسناد تعریف شده؛ پوشش اجرایی ناقص/نامشخص.
 - logging: پایه قبلی وجود دارد؛ اتصال سراسری نیازمند inventory است.
 - migration: نسخه‌بندی ترتیبی وجود دارد؛ ownership مستقل نیازمند تعیین است.
