@@ -130,3 +130,12 @@
 - migration manifest ماشینی برای owner/dependencies/risk/tables به runner متصل شد.
 - هنوز تست suite مستقل V3 وجود ندارد و هیچ build/test اجرا نشده است.
 - موارد باز اصلی: application error contract، shared actor/business context، Orders authorization port، controller query ports، logger application events، تست‌های مستقل و در پایان build/CI.
+
+
+## Shared Application Contracts و کاهش coupling — 2026-11-25
+- ApplicationException از HttpException جدا شد؛ Kernel خطای application را به HTTP response map می‌کند.
+- PermissionChecker به‌عنوان port مجوز ایجاد شد؛ OrderService فقط interface را می‌شناسد.
+- ActorContext و BusinessContext در Security اضافه شدند؛ Orders، Catalog، Inventory، Dining، Finance، Recipes و Media دیگر AuthenticatedPrincipal/BusinessScope را مستقیماً در service API مصرف نمی‌کنند.
+- Controllerهای متناظر context را از request attributes معتبر می‌سازند.
+- ماتریس شش قانون و معیار پایان در `v3/docs/ARCHITECTURE_CONFORMANCE_MATRIX.md` ثبت شد.
+- تست/build اجرا نشده؛ وضعیت تطبیق همچنان ناقص است.

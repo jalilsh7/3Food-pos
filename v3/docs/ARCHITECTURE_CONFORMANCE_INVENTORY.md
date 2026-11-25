@@ -178,3 +178,12 @@ Repositoryهای PDO در `Infrastructure/Database` implementation این interf
 - Migration runner اکنون manifest مالکیت/وابستگی را پیش از اجرای SQL اعتبارسنجی می‌کند.
 - README مستقل Backend و Frontend برای ماژول‌ها/features ایجاد شده است.
 - در tree فعلی هیچ تست مستقل V3 پیدا نشد؛ این مورد مانع اعلام تطبیق کامل است.
+
+
+## Shared Application Contracts — 2026-11-25
+- `Support/ApplicationException` ایجاد شد؛ `HttpException` برای سازگاری HTTP adapterها subclass آن است و Kernel اکنون ApplicationException را map می‌کند.
+- سرویس‌های کاربردی اصلی دیگر HttpException را import نمی‌کنند و از ApplicationException استفاده می‌کنند.
+- `Security/PermissionChecker` ایجاد شد؛ OrderService دیگر به PermissionService/Auth implementation وابسته نیست.
+- `Security/ActorContext` و `BusinessContext` ایجاد شدند؛ سرویس‌های Orders، Catalog، Inventory، Dining، Finance، Recipes و Media از این contextهای مشترک استفاده می‌کنند و controllerها context را از principal/scope معتبر می‌سازند.
+- در فایل‌های سرویس این ماژول‌ها، importهای Auth/Http/Infrastructure/PDO حذف شده‌اند. نتیجه static inspection است و هنوز runtime test نشده است.
+- ماتریس وضعیت شش قانون در `v3/docs/ARCHITECTURE_CONFORMANCE_MATRIX.md` ثبت شده است.
