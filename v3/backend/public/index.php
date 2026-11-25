@@ -14,6 +14,7 @@ use PersiaCoder\PosV3\Recipes\RecipeController;
 use PersiaCoder\PosV3\Recipes\RecipeService;
 use PersiaCoder\PosV3\Media\MediaService;
 use PersiaCoder\PosV3\Infrastructure\Storage\PrivateMediaStorage;
+use PersiaCoder\PosV3\Infrastructure\Logging\ErrorLogLogger;
 use PersiaCoder\PosV3\Orders\OrderController;
 use PersiaCoder\PosV3\Orders\OrderService;
 use PersiaCoder\PosV3\Dining\DiningController;
@@ -678,7 +679,7 @@ try {
         [$sessionMiddleware, $csrfMiddleware, $originMiddleware],
     );
 
-    (new Kernel($router))->handle(Request::fromGlobals())->send();
+    (new Kernel($router, ErrorLogLogger::fromEnvironment()))->handle(Request::fromGlobals())->send();
 } catch (Throwable $exception) {
     error_log('POS_V3 bootstrap_failure=' . $exception::class);
     http_response_code(503);
