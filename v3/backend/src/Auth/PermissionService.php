@@ -8,6 +8,12 @@ final readonly class PermissionService implements \PersiaCoder\PosV3\Security\Pe
 {
     public function __construct(private PermissionStore $permissions) {}
 
+    /** @return list<string> */
+    public function listGrantedPermissions(int $userId, BusinessScope $scope): array
+    {
+        return $this->permissions->listUserPermissions($userId, $scope->businessId, $scope->branchId);
+    }
+
     public function allows(
         AuthenticatedPrincipal $principal,
         string $permissionCode,
