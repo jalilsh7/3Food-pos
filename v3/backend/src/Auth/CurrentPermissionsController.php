@@ -1,11 +1,11 @@
 <?php
 declare(strict_types=1);
 
-namespace PersiaCoder\\PosV3\\Auth;
+namespace PersiaCoder\PosV3\Auth;
 
-use PersiaCoder\\PosV3\\Http\\HttpException;
-use PersiaCoder\\PosV3\\Http\\Request;
-use PersiaCoder\\PosV3\\Http\\Response;
+use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Http\Request;
+use PersiaCoder\PosV3\Http\Response;
 
 final readonly class CurrentPermissionsController
 {
