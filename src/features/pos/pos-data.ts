@@ -18,6 +18,7 @@ type ServerOrder = {
   pointsUsed?: number;
   pointsEarned?: number;
   discountCode?: string | null;
+  note?: string | null;
 };
 
 export type ServerBootstrap = Partial<Omit<PosState, "orders" | "settings">> & {
@@ -128,6 +129,7 @@ export function hydratePosFromServer(data: ServerBootstrap, nextOrder: number, r
     customerName: order.customerName ?? "",
     customerPhone: order.customerPhone ?? "",
     discountCode: order.discountCode ?? "",
+    note: order.note ?? "",
     pointsUsed: Number(order.pointsUsed ?? 0),
     pointsEarned: Number(order.pointsEarned ?? 0),
   }));
