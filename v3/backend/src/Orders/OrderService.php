@@ -7,7 +7,7 @@ use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Auth\PermissionService;
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Database\OrderRepository;
+use PersiaCoder\PosV3\Orders\OrderStore;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
@@ -17,7 +17,7 @@ final readonly class OrderService
     private const MAX_QUANTITY_MILLI = 1000000;
 
     public function __construct(
-        private OrderRepository $orders,
+        private OrderStore $orders,
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
         private PermissionService $permissions,
@@ -509,7 +509,7 @@ final readonly class OrderService
             'orders.status.update',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use (
+            function () use (
                 $actor,
                 $scope,
                 $orderPublicId,
