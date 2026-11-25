@@ -9,7 +9,10 @@ use PersiaCoder\PosV3\Security\BusinessContext;
 /** Public application contract for CashRegisterService. */
 interface CashRegisterApplication
 {
+    /** @return array<string,mixed> */
     public function list(BusinessContext $scope): array;
+
+    /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
 
     public function createRegister(
             ActorContext $actor,
@@ -19,6 +22,8 @@ interface CashRegisterApplication
             string $requestId,
             string $ipAddress,
         ): array;
+
+    /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
 
     public function openSession(
             ActorContext $actor,
@@ -30,6 +35,8 @@ interface CashRegisterApplication
             string $ipAddress,
         ): array;
 
+    /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
+
     public function closeSession(
             ActorContext $actor,
             BusinessContext $scope,
@@ -39,6 +46,8 @@ interface CashRegisterApplication
             string $requestId,
             string $ipAddress,
         ): array;
+
+    /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
 
     public function reviewSession(
             ActorContext $actor,
