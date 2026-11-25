@@ -11,3 +11,7 @@ Public Storefront API در مرحله بعد؛ business/branch از resolver س�
 
 ## تست مستقل
 مسیر هدف: `v3/frontend/tests/features/storefront`. تست guest order, menu filtering, business hours, delivery/pickup و payment state لازم است؛ فعلاً وجود ندارد.
+
+
+## وضعیت تست فعلی
+تست معماری این بخش در `v3/frontend/tests/architecture.test.mjs` تعریف شده است؛ زیرآزمون مربوط به storefront مرزبندی importها را بررسی می‌کند. تست‌های رفتاری/تعامل کاربر هنوز ایجاد یا اجرا نشده‌اند.

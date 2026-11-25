@@ -11,3 +11,7 @@ Settings/Access API؛ secrets باید masked باشند و هیچ secret در l
 
 ## تست مستقل
 مسیر هدف: `v3/frontend/tests/features/settings`. تست save/load، permission، validation و secret masking لازم است؛ فعلاً وجود ندارد.
+
+
+## وضعیت تست فعلی
+تست معماری این بخش در `v3/frontend/tests/architecture.test.mjs` تعریف شده است؛ زیرآزمون مربوط به settings مرزبندی importها را بررسی می‌کند. تست‌های رفتاری/تعامل کاربر هنوز ایجاد یا اجرا نشده‌اند.

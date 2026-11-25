@@ -11,3 +11,7 @@ Auth/Access API؛ session cookie، CSRF و business context از API دریاف�
 
 ## تست مستقل
 مسیر هدف: `v3/frontend/tests/features/auth`. تست login/logout، expired session، branch switching و validation لازم است؛ فعلاً وجود ندارد.
+
+
+## وضعیت تست فعلی
+تست معماری این بخش در `v3/frontend/tests/architecture.test.mjs` تعریف شده است؛ زیرآزمون مربوط به auth مرزبندی importها را بررسی می‌کند. تست‌های رفتاری/تعامل کاربر هنوز ایجاد یا اجرا نشده‌اند.

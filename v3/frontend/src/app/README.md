@@ -8,3 +8,7 @@ App می‌تواند feature entrypointها را import کند؛ featureها ن
 
 ## تست مستقل
 مسیر هدف: `v3/frontend/tests/app`. تست navigation، permission-based visibility و shell composition لازم است؛ فعلاً تست مستقل در tree وجود ندارد.
+
+
+## وضعیت تست فعلی
+تست معماری این بخش در `v3/frontend/tests/architecture.test.mjs` تعریف شده است؛ زیرآزمون مربوط به app مرزبندی importها را بررسی می‌کند. تست‌های رفتاری/تعامل کاربر هنوز ایجاد یا اجرا نشده‌اند.

@@ -11,3 +11,7 @@ Catalog و Orders API؛ قیمت، مالیات، موجودی و تخفیف ن�
 
 ## تست مستقل
 مسیر هدف: `v3/frontend/tests/features/pos`. تست cart state، submit idempotency، unavailable stock warnings و recovery لازم است؛ فعلاً وجود ندارد.
+
+
+## وضعیت تست فعلی
+تست معماری این بخش در `v3/frontend/tests/architecture.test.mjs` تعریف شده است؛ زیرآزمون مربوط به pos مرزبندی importها را بررسی می‌کند. تست‌های رفتاری/تعامل کاربر هنوز ایجاد یا اجرا نشده‌اند.
