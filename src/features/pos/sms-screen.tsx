@@ -7,7 +7,7 @@ import { normalizeIranPhone, tehranDate } from "@/lib/pos/formatters";
 
 const INITIAL_RENDER_TIME = Date.now();
 const EVENT_LABEL: Record<SmsEvent, string> = {
-  order_created: "ثبت سفارش", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_dispatched: "ارسال شد", order_delivered: "تحویل", order_cancelled: "لغو سفارش", order_invoice: "ریز فاکتور",
+  order_created: "ثبت سفارش و ریز فاکتور", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_dispatched: "ارسال شد", order_delivered: "تحویل", order_cancelled: "لغو سفارش", order_invoice: "الگوی جایگزین ریز فاکتور",
   points_earned: "کسب امتیاز", discount_used: "استفاده از کد",
 };
 
@@ -85,25 +85,36 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
         <Card key={t.event}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <strong>{EVENT_LABEL[t.event]}</strong>
-            <div className="flex flex-wrap items-center gap-4 text-sm">
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={t.enabled} onChange={(e) => { const item = { ...t, enabled: e.target.checked }; void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
-                ارسال به مشتری
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={t.managerEnabled === true} onChange={(e) => { const item = { ...t, managerEnabled: e.target.checked }; void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
-                ارسال به مدیر
-              </label>
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-muted">مشتری:</span>
+                <button type="button" aria-pressed={t.enabled} onClick={() => {
+                  const item = { ...t, enabled: !t.enabled };
+                  void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item));
+                }} className={`rounded-xl border px-3 py-2 text-xs font-bold transition ${t.enabled ? "border-leaf/40 bg-leaf/10 text-leaf" : "border-line bg-muted/10 text-muted"}`}>
+                  {t.enabled ? "فعال" : "غیرفعال"}
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted">مدیر:</span>
+                <button type="button" aria-pressed={t.managerEnabled === true} onClick={() => {
+                  const item = { ...t, managerEnabled: t.managerEnabled !== true };
+                  void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item));
+                }} className={`rounded-xl border px-3 py-2 text-xs font-bold transition ${t.managerEnabled === true ? "border-leaf/40 bg-leaf/10 text-leaf" : "border-line bg-muted/10 text-muted"}`}>
+                  {t.managerEnabled === true ? "فعال" : "غیرفعال"}
+                </button>
+              </div>
             </div>
           </div>
           <p className="mt-2 text-xs text-muted">برای این وضعیت هیچ متن آزاد یا روش ارسال جایگزینی استفاده نمی‌شود.</p>
-          {t.event === "order_invoice" ? <p className="mt-1 text-xs font-medium text-leaf">این پیام همراه با ثبت سفارش ارسال می‌شود.</p> : null}
+          {t.event === "order_created" ? <p className="mt-1 text-xs font-medium text-leaf">متغیر «order» در این رویداد به‌صورت ریز فاکتور متنی ارسال می‌شود؛ کد سفارش به‌تنهایی ارسال نخواهد شد.</p> : null}
+          {t.event === "order_invoice" ? <p className="mt-1 text-xs text-muted">فقط وقتی استفاده می‌شود که الگوی «ثبت سفارش و ریز فاکتور» فعال و تنظیم نشده باشد.</p> : null}
           <Field label="شناسه الگوی خدماتی تأییدشده"><input className={inputCls} value={t.bodyId} onChange={(e) => saveTemplate({ ...t, bodyId: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} /></Field>
           <Field label="ترتیب متغیرهای الگوی خدماتی">
             <input className={inputCls} placeholder="name;order;total;shop" value={variableDrafts[t.event] ?? (t.variables ?? []).join(";")} onChange={(e) => setVariableDrafts((drafts) => ({ ...drafts, [t.event]: e.target.value }))} onBlur={() => persistTemplateVariables(t.event)} />
           </Field>
           <div className="mt-2"><Btn onClick={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }}>ذخیره الگو</Btn></div>
-          <p className="text-xs text-muted">کلیدهای قابل استفاده: name، order، total، points، code، balance، shop. برای جدا کردن متغیرها حتماً از علامت ; استفاده کنید (مثال: name;order;total;shop). ترتیب را دقیقاً مطابق الگوی تأییدشده پنل ملی‌پیامک وارد کنید؛ فقط مقادیر متغیرها ارسال می‌شوند.</p>
+          <p className="text-xs text-muted">کلیدهای قابل استفاده: name، order، total، points، code، balance، shop. در رویداد ثبت سفارش، مقدار order شامل ریز اقلام فاکتور است. برای جدا کردن متغیرها حتماً از علامت ; استفاده کنید (مثال: name;order;total;shop). ترتیب را دقیقاً مطابق الگوی تأییدشده پنل ملی‌پیامک وارد کنید؛ فقط مقادیر متغیرها ارسال می‌شوند.</p>
         </Card>
       ))}
       <Card>
