@@ -170,3 +170,18 @@ backend/src/<Module>/
 ## 13) تصمیم اجرایی
 
 تا زمانی که کاربر اعلام نکرده مرحله تطبیق معماری تمام شده، توسعه featureهای جدید متوقف می‌ماند. کار مجاز در این مرحله: inventory، تکمیل قراردادها، اصلاح ساختار پایه و رفع مغایرت‌های معماری است. تست جامع و build به انتهای تطبیق کلی موکول است؛ فقط بررسی بحرانی محدود برای جلوگیری از تغییر خطرناک مجاز است.
+
+
+## 13) قرارداد اجرایی فعلی در مخزن
+
+برای جلوگیری از اختلاف بین استاندارد و ساختار موجود، قراردادهای زیر در refactor فعلی مرجع هستند:
+
+- هر Application Service عمومی یک interface با پسوند `Application` در namespace همان ماژول دارد؛ Controller به interface وابسته است و Composition Root implementation را تزریق می‌کند.
+- Persistence هر ماژول با portهایی مانند `CatalogStore`, `OrderStore`, `InventoryStore` تعریف می‌شود؛ Repositoryهای PDO در `Infrastructure/Database` آن‌ها را پیاده‌سازی می‌کنند.
+- Context مشترک در `Security` قرار دارد: `ActorContext`, `BusinessContext`, `BusinessScopeContext`, `PermissionChecker`.
+- use-caseها خطای `Support/ApplicationException` پرتاب می‌کنند؛ Kernel آن را به HTTP response map می‌کند. `HttpException` فقط adapter سازگار با لایه HTTP است.
+- فایل `database/v3/migrations/manifest.php` مالکیت، ریسک، جدول‌ها و پیش‌نیاز migrationها را ثبت می‌کند و runner آن را پیش از اجرا validate می‌کند.
+- Backend architecture suites در `v3/backend/tests/Modules/<Module>` و frontend import-boundary suite در `v3/frontend/tests/architecture.test.mjs` قرار دارند.
+- ساختار فعلی نام‌گذاری ماژول‌ها و controllerها را در مهاجرت تدریجی حفظ می‌کند؛ ایجاد folder خالی یا جابه‌جایی صرفاً ظاهری، معیار تطبیق نیست.
+
+**وضعیت اجرا:** قراردادها و test scaffolding ثبت شده‌اند؛ تا اجرای تست‌های نهایی، build، migration و بررسی tenant/branch isolation، این استاندارد به معنی تأیید کامل معماری نیست.
