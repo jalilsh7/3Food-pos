@@ -27,7 +27,7 @@ test("Iranian mobile normalization supports Persian digits and international pre
 test("invoice SMS follows the SMS screen event toggle without a per-order checkbox", () => {
   assert.match(app, /The SMS screen event toggle is the single source of truth for invoice SMS/);
   assert.match(app, /pushSms\("order_invoice", order\.customerPhone, \{ \.\.\.vars, order: formatInvoiceSms\(order\) \}\)/);
-  assert.match(app, /if \(!tpl\?\.enabled \|\| !phone\) return/);
+  assert.match(app, /if \(!tpl \|\| \(!customerEnabled && !managerEnabled\)\) return/);
   assert.doesNotMatch(app, /sendInvoiceSms|shouldSendInvoiceSms/);
   assert.doesNotMatch(app, /ارسال پیامک ریز فاکتور برای مشتری/);
   assert.doesNotMatch(settings, /invoiceSmsEnabledDefault/);
