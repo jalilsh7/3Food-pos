@@ -23,20 +23,6 @@ interface UserManagementApplication
         ): array;
 
     /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
-        public function createBusinessUser(
-            AuthenticatedPrincipal $actor,
-            BusinessScope $scope,
-            string $username,
-            string $displayName,
-            string $roleCode,
-            string $idempotencyKey,
-            string $requestId,
-            string $ipAddress,
-        ): array {
-            return $this->create($actor, $scope, $username, $displayName, $roleCode, false, $idempotencyKey, $requestId, $ipAddress);
-        }
-    
-        /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function createBranchUser(
             AuthenticatedPrincipal $actor,
             BusinessScope $scope,

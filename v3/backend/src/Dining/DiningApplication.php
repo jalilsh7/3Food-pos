@@ -9,10 +9,7 @@ use PersiaCoder\PosV3\Security\BusinessContext;
 /** Public application contract for DiningService. */
 interface DiningApplication
 {
-    /** @return array<string,mixed> */
     public function list(BusinessContext $scope): array;
-
-    /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
 
     public function createArea(
             ActorContext $actor,
@@ -22,8 +19,6 @@ interface DiningApplication
             string $requestId,
             string $ipAddress,
         ): array;
-
-    /** @param array<string,mixed> $payload @return array{status:int,body:array<string,mixed>,replayed:bool} */
 
     public function createTable(
             ActorContext $actor,
@@ -35,8 +30,6 @@ interface DiningApplication
             string $ipAddress,
         ): array;
 
-    /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
-
     public function openSession(
             ActorContext $actor,
             BusinessContext $scope,
@@ -45,8 +38,6 @@ interface DiningApplication
             string $requestId,
             string $ipAddress,
         ): array;
-
-    /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
 
     public function closeSession(
             ActorContext $actor,
