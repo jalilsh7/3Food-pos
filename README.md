@@ -52,6 +52,8 @@ Historical CI run: [44280981233](https://github.com/jalilsh7/3Food-pos/actions/r
 
 ## Project guidance
 
+- V3 SMS module port and remaining acceptance work: [docs/v3/SMS-MODULE-PORT-FA.md](docs/v3/SMS-MODULE-PORT-FA.md)
+
 - Persian handoff: [docs/v2/AI_HANDOFF_FA.md](docs/v2/AI_HANDOFF_FA.md)
 - Agent rules: [AGENTS.md](AGENTS.md)
 - Implementation status: [docs/v2/IMPLEMENTATION-STATUS-FA.md](docs/v2/IMPLEMENTATION-STATUS-FA.md)
