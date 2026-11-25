@@ -117,6 +117,11 @@ export async function getCurrentSession(): Promise<AuthenticatedUser> {
   return data.user;
 }
 
+export async function getCurrentPermissions(): Promise<string[]> {
+  const data = await request<{ permission_codes: string[] }>("/access/my-permissions");
+  return Array.isArray(data.permission_codes) ? data.permission_codes.filter((code) => typeof code === "string") : [];
+}
+
 export async function signIn(username: string, password: string): Promise<AuthenticatedUser> {
   const data = await request<{ user: AuthenticatedUser; csrf_token: string }>("/auth/login", {
     method: "POST",
