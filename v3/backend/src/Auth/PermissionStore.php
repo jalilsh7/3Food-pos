@@ -10,6 +10,9 @@ interface PermissionStore
 
     public function findActiveBranchId(string $publicId, int $businessId): ?int;
 
+    /** @return list<string> */
+    public function listUserPermissions(int $userId, int $businessId, ?int $branchId): array;
+
     public function userHasPermission(
             int $userId,
             string $permissionCode,
