@@ -41,12 +41,17 @@ use PersiaCoder\PosV3\Http\Request;
 use PersiaCoder\PosV3\Http\Response;
 use PersiaCoder\PosV3\Http\Router;
 use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
+use PersiaCoder\PosV3\Infrastructure\Database\OrderRepository;
+use PersiaCoder\PosV3\Infrastructure\Database\IdempotencyRepository;
+use PersiaCoder\PosV3\Infrastructure\Database\TransactionManager;
 use PersiaCoder\PosV3\Infrastructure\Database\BusinessRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\PdoConnectionFactory;
 use PersiaCoder\PosV3\Infrastructure\Database\PermissionRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\RoleRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\SessionRepository;
 use PersiaCoder\PosV3\Security\CsrfGuard;
+use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\IdempotencyService;
 use PersiaCoder\PosV3\Security\CsrfMiddleware;
 use PersiaCoder\PosV3\Security\SameOriginGuard;
 use PersiaCoder\PosV3\Security\InstallationOwnerMiddleware;
@@ -138,8 +143,13 @@ try {
             $permissionRepository = new PermissionRepository($getConnection());
             $orderController = new OrderController(
                 new OrderService(
-                    $getConnection(),
-                    $configuration->applicationKey,
+                    new OrderRepository($getConnection()),
+                    new IdempotencyService(
+                        new IdempotencyRepository($getConnection()),
+                        new TransactionManager($getConnection()),
+                        $configuration->applicationKey,
+                    ),
+                    new AuditLogService(new AuditLogRepository($getConnection())),
                     new PermissionService($permissionRepository),
                 ),
             );
