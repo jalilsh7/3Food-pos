@@ -7,6 +7,15 @@ import { usePos } from "@/lib/pos/store";
 import type { PosState, Settings } from "@/lib/pos/model";
 import { readLegacyBrowserPosState } from "./pos-data";
 
+const STATUS_OPTIONS: Array<[Settings["orderStatusEnabled"] extends Partial<Record<infer K, boolean>> | undefined ? K : never, string]> = [
+  ["new", "جدید"],
+  ["preparing", "در حال آماده‌سازی"],
+  ["ready", "آماده"],
+  ["dispatched", "ارسال شد"],
+  ["delivered", "تحویل شد"],
+  ["cancelled", "لغو شد"],
+];
+
 export function SettingsScreen({ saveRecord }: { saveRecord: <T extends { id: string | number }>(resource: string, item: T, commit: () => void) => Promise<boolean> }) {
   const settings = usePos((s) => s.settings);
   const patchSettings = usePos((s) => s.patchSettings);
