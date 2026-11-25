@@ -284,6 +284,51 @@ function orderVars(order: Order, balance = "") {
   return { name: order.customerName || "مشتری", order: String(order.number), total: money(order.total), points: String(order.pointsEarned), code: order.discountCode, balance, shop: usePos.getState().settings.shopName };
 }
 
+/**
+ * The approved invoice template maps its second variable to "order".
+ * Keep this value as one multiline string: National Payamak separates
+ * template variables with semicolons, so invoice rows must not contain ';'.
+ */
+function formatInvoiceSms(order: Order): string {
+  const itemLines = order.lines.map((line) => {
+    const options = line.optionLabels.length ? ` (${line.optionLabels.join("، ")})` : "";
+    return `${line.qty.toLocaleString("fa-IR")} × ${line.name}${options} — ${money(line.unitPrice * line.qty)}`;
+  });
+  const summary = [
+    `شماره سفارش: ${order.number.toLocaleString("fa-IR")}`,
+    ...itemLines,
+    ...(order.tierDiscount + order.codeDiscount + order.pointsDiscount > 0
+      ? [`تخفیف: ${money(order.tierDiscount + order.codeDiscount + order.pointsDiscount)}`]
+      : []),
+    ...(order.tax > 0 ? [`مالیات: ${money(order.tax)}`] : []),
+    `جمع کل: ${money(order.total)}`,
+  ];
+  const maxLength = 1000;
+  let result = summary.join("\\n");
+  if (result.length <= maxLength) return result;
+
+  const footer = [
+    `شماره سفارش: ${order.number.toLocaleString("fa-IR")}`,
+    `جمع کل: ${money(order.total)}`,
+  ].join("\\n");
+  const available = Math.max(0, maxLength - footer.length - 2);
+  const compactItems: string[] = [];
+  let used = 0;
+  for (const line of itemLines) {
+    const nextLength = line.length + (compactItems.length ? 1 : 0);
+    if (used + nextLength > available) break;
+    compactItems.push(line);
+    used += nextLength;
+  }
+  const omitted = itemLines.length - compactItems.length;
+  return [
+    `شماره سفارش: ${order.number.toLocaleString("fa-IR")}`,
+    ...compactItems,
+    ...(omitted > 0 ? [`و ${omitted.toLocaleString("fa-IR")} قلم دیگر`] : []),
+    `جمع کل: ${money(order.total)}`,
+  ].join("\\n").slice(0, maxLength);
+}
+
 async function pushSms(event: SmsEvent, phone: string, vars: Record<string, string>) {
   const s = usePos.getState();
   const tpl = s.templates.find((t) => t.event === event);
@@ -562,9 +607,10 @@ function PosScreen({ role }: { role: Role }) {
       const fresh = usePos.getState().customers.find((c) => c.id === order.customerId);
       const vars = orderVars(order, String(fresh?.points ?? 0));
       void pushSms("order_created", order.customerPhone, vars);
-      // The SMS screen event toggle is the single source of truth for invoice SMS.
-      // pushSms checks order_invoice.enabled and does nothing when the event is disabled.
-      void pushSms("order_invoice", order.customerPhone, vars);
+      // Invoice template variable "order" carries the complete formatted invoice,
+      // while other status templates keep receiving the short order number.
+      // The SMS screen event toggle remains the single source of truth.
+      void pushSms("order_invoice", order.customerPhone, { ...vars, order: formatInvoiceSms(order) });
       if (settings.autoPrint) setTimeout(() => window.print(), 300);
     } catch (error) {
       // A definite 4xx rejection means no order was committed; allow a corrected
