@@ -7,4 +7,10 @@ return [
     'services' => ['src/Security/IdempotencyService.php', 'src/Security/AuditLogService.php', 'src/Security/LoginAttemptLimiter.php'],
     'forbidden' => ['use PDO;', 'Infrastructure', 'Http', 'Auth'],
     'contains' => [],
+    'checks' => [
+        ['src/Security/AuditLogService.php', ['Logger $logger', 'audit.recorded'], []],
+        ['src/Security/IdempotencyService.php', ['BusinessScopeContext $scope'], ['Http', 'Auth', 'PDO']],
+        ['src/Auth/BusinessScope.php', ['implements BusinessScopeContext'], []],
+        ['src/Security/BusinessContext.php', ['implements BusinessScopeContext'], []],
+    ],
 ];

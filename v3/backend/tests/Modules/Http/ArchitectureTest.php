@@ -7,4 +7,8 @@ return [
     'services' => ['src/Http/Kernel.php'],
     'forbidden' => ['use PDO;', 'Infrastructure'],
     'contains' => ['Logger', 'ApplicationException'],
+    'checks' => [
+        ['src/Http/Kernel.php', ['catch (ApplicationException $exception)'], []],
+        ['src/Http/HttpException.php', ['extends ApplicationException'], []],
+    ],
 ];

@@ -13,5 +13,6 @@ return [
         ['src/Infrastructure/Logging/ErrorLogLogger.php', ['implements Logger', 'POS_V3_LOG_MODULES'], []],
         ['src/Infrastructure/Storage/PrivateMediaStorage.php', ['implements MediaStorage'], []],
         ['src/Infrastructure/Database/OrderRepository.php', ['implements OrderStore'], []],
+        ['public/index.php', ['new Kernel($router, $logger)', 'new AuditLogService(new AuditLogRepository($getConnection()), $logger)'], []],
     ],
 ];
