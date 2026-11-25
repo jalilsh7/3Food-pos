@@ -6,7 +6,7 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
     $id = (int)$m[1];
     $body = request_json();
     $status = (string)($body['status'] ?? '');
-    if (!in_array($status, ['new','preparing','ready','delivered','cancelled'], true)) json_response(['ok' => false, 'error' => 'invalid_status'], 422);
+    if (!in_array($status, ['new','preparing','ready','dispatched','delivered','cancelled'], true)) json_response(['ok' => false, 'error' => 'invalid_status'], 422);
     // Serialize status changes and enforce a one-way kitchen workflow.
     // A row lock prevents two devices from advancing the same order concurrently.
     try {
@@ -35,6 +35,18 @@ if (preg_match('#^/orders/(\d+)/status$#', $path, $m) && $method === 'PATCH') {
             'new' => ['preparing', 'cancelled'],
             'preparing' => ['ready', 'cancelled'],
             'ready' => ['delivered', 'cancelled'],
+            'delivered' => [],
+            'cancelled' => [],
+        ];
+        if ($status === $currentStatus) {
+            $pdo->rollBack();
+            json_response(['ok' => true, 'status' => $currentStatus, 'unchanged' => true]);
+        }
+        $transitions = [
+            'new' => ['preparing', 'ready', 'dispatched', 'delivered', 'cancelled'],
+            'preparing' => ['ready', 'dispatched', 'delivered', 'cancelled'],
+            'ready' => ['dispatched', 'delivered', 'cancelled'],
+            'dispatched' => ['delivered', 'cancelled'],
             'delivered' => [],
             'cancelled' => [],
         ];
