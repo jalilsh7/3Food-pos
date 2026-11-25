@@ -292,25 +292,24 @@ function orderVars(order: Order, balance = "") {
 function formatInvoiceSms(order: Order): string {
   const itemLines = order.lines.map((line) => {
     const options = line.optionLabels.length ? ` (${line.optionLabels.join("، ")})` : "";
-    return `${line.qty.toLocaleString("fa-IR")} × ${line.name}${options} — ${money(line.unitPrice * line.qty)}`;
+    return `${line.qty.toLocaleString("fa-IR")} × ${line.name}${options}`;
   });
+  const codeLine = `کد: ${order.number.toLocaleString("fa-IR")}`;
+  const totalLine = `مبلغ کل: ${money(order.total)}`;
   const summary = [
-    `شماره سفارش: ${order.number.toLocaleString("fa-IR")}`,
     ...itemLines,
     ...(order.tierDiscount + order.codeDiscount + order.pointsDiscount > 0
       ? [`تخفیف: ${money(order.tierDiscount + order.codeDiscount + order.pointsDiscount)}`]
       : []),
     ...(order.tax > 0 ? [`مالیات: ${money(order.tax)}`] : []),
-    `جمع کل: ${money(order.total)}`,
+    totalLine,
+    codeLine,
   ];
   const maxLength = 1000;
-  let result = summary.join("\n");
+  const result = summary.join("\\n");
   if (result.length <= maxLength) return result;
 
-  const footer = [
-    `شماره سفارش: ${order.number.toLocaleString("fa-IR")}`,
-    `جمع کل: ${money(order.total)}`,
-  ].join("\n");
+  const footer = [totalLine, codeLine].join("\\n");
   const available = Math.max(0, maxLength - footer.length - 2);
   const compactItems: string[] = [];
   let used = 0;
@@ -322,11 +321,11 @@ function formatInvoiceSms(order: Order): string {
   }
   const omitted = itemLines.length - compactItems.length;
   return [
-    `شماره سفارش: ${order.number.toLocaleString("fa-IR")}`,
     ...compactItems,
     ...(omitted > 0 ? [`و ${omitted.toLocaleString("fa-IR")} قلم دیگر`] : []),
-    `جمع کل: ${money(order.total)}`,
-  ].join("\n").slice(0, maxLength);
+    totalLine,
+    codeLine,
+  ].join("\\n").slice(0, maxLength);
 }
 
 async function pushSms(event: SmsEvent, phone: string, vars: Record<string, string>) {
