@@ -155,3 +155,18 @@ Repositoryهای PDO در `Infrastructure/Database` implementation این interf
 - بعضی سرویس‌ها هنوز `HttpException` و مدل‌های actor/scope متعلق به Auth را مصرف می‌کنند؛ error contract و actor/authorization ports باید مستقل شوند.
 - logger مرکزی فعلاً در Kernel برای exceptionهای کنترل‌نشده متصل است؛ log eventهای application و providerها هنوز به آن متصل نشده‌اند.
 - این تغییرات از نظر کد ثبت شده‌اند، اما به دلیل دستور کاربر build/lint/test اجرا نشده است؛ سازگاری signatureها و runtime در تست نهایی بررسی خواهد شد.
+
+
+## گسترش Persistence Ports به Auth/Access — 2026-11-25
+- قراردادهای `BusinessStore`, `UserStore`, `RoleStore`, `SessionStore` و `PermissionStore` ایجاد و Repositoryهای PDO متناظر به آن‌ها متصل شدند.
+- سرویس‌های BranchManagement، RoleManagement، UserManagement، PermissionService و BusinessScopeResolver و همچنین BusinessContextController، SessionAuthenticator و InstallationOwnerMiddleware به قراردادهای ماژول وابسته شدند.
+- `AuthenticationService`، `BusinessSetupService` و `AuthController` نیز از ساخت مستقیم Repository و TransactionManager خارج شدند و قراردادهای Store/TransactionBoundary/AuditLogService دریافت می‌کنند.
+- منطق محدودسازی تلاش ورود از `LoginAttemptLimiter` به port به نام `LoginAttemptStore` منتقل شد؛ پیاده‌سازی SQL در `Infrastructure/Database/LoginAttemptRepository` قرار دارد.
+- callbackهای تراکنش و idempotency در ماژول‌های اصلاح‌شده دیگر PDO را دریافت نمی‌کنند؛ دسترسی مستقیم PDO به Repositoryها و TransactionManager در Infrastructure محدود شده است.
+
+### مغایرت‌های باقی‌مانده پس از این دسته
+- `AuditLogController` هنوز به Repository خواندن ممیزی وابستگی دارد و باید AuditLogReader port بگیرد.
+- برخی controllerها و middlewareها هنوز مستقیماً Repository concrete دریافت می‌کنند؛ انتقال آن‌ها به Store interface باید کامل شود.
+- وابستگی ماژول‌های کاربردی به `HttpException` و مدل‌های `AuthenticatedPrincipal`/`BusinessScope` از Auth/Http هنوز یک shared application contract مستقل ندارد.
+- `AuthController` و برخی controllerهای دیگر هنوز HTTP concerns را در کنار orchestration دارند؛ جداسازی application handler و HTTP adapter ادامه دارد.
+- تست و Build عمداً اجرا نشده‌اند؛ تمام تغییرات این دسته در تست نهایی بررسی خواهند شد.

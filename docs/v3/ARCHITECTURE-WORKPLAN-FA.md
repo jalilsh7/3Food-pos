@@ -110,3 +110,14 @@
 - Composition Root مسئول ساخت adapterهای PDO و تزریق آن‌هاست؛ همه adapterهای تراکنشی از همان PDO singleton استفاده می‌کنند تا atomicity حفظ شود.
 - commit این دسته روی شاخه توسعه V3 ثبت شد: `0377ac1a67b3cd9b7123a76c1a1d996e449fa8c8`.
 - تست/Build اجرا نشده و تا پایان تطبیق کلی معوق است.
+
+
+## Auth/Access Persistence و تراکنش بدون PDO — 2026-11-25
+- Store ports برای Business، User، Role، Session و Permission تعریف و توسط repositoryهای زیرساختی پیاده‌سازی شدند.
+- BranchManagementService، RoleManagementService، UserManagementService، PermissionService، BusinessScopeResolver، BusinessContextController، SessionAuthenticator و InstallationOwnerMiddleware به interfaceهای Auth وابسته شدند.
+- AuthenticationService و BusinessSetupService اکنون Storeها، TransactionBoundary و AuditLogService را تزریق می‌گیرند.
+- AuthController نیز SessionStore، TransactionBoundary و AuditLogService را از Composition Root دریافت می‌کند.
+- LoginAttemptLimiter از PDO جدا شد؛ LoginAttemptStore و LoginAttemptRepository مسئول state و SQL محدودیت ورود هستند.
+- callbackهای قبلی که PDO دریافت می‌کردند در سرویس‌های تغییرکرده به callback بدون آرگومان تبدیل شدند؛ transaction manager اتصال را در Infrastructure نگه می‌دارد.
+- commit دسته جاری: `7290a90f0fa2640d6bc06b56a4faf3b3332a0092`.
+- هیچ تست یا build اجرا نشده است؛ این کار طبق دستور کاربر به پایان تطبیق معماری موکول است.
