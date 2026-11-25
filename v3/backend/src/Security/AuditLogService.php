@@ -4,12 +4,13 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Security;
 
 use JsonException;
+use PersiaCoder\PosV3\Support\Logger;
 
 final readonly class AuditLogService
 {
     private const MAX_SNAPSHOT_BYTES = 16384;
 
-    public function __construct(private AuditLogWriter $repository) {}
+    public function __construct(private AuditLogWriter $repository, private Logger $logger) {}
 
     /** @param array<string, mixed>|null $before @param array<string, mixed>|null $after */
     public function record(
@@ -63,6 +64,32 @@ final readonly class AuditLogService
             $safeIp,
             $businessId,
             $branchId,
+        );
+
+        $prefix = explode('.', $action, 2)[0];
+        $module = match ($prefix) {
+            'order', 'orders', 'pos' => 'orders',
+            'cash', 'payment', 'finance' => 'finance',
+            'business', 'branch', 'role', 'user', 'auth' => 'auth',
+            'catalog', 'product' => 'catalog',
+            'inventory', 'stock' => 'inventory',
+            'dining', 'table' => 'dining',
+            'recipe' => 'recipes',
+            'media' => 'media',
+            default => 'security',
+        };
+        $this->logger->log(
+            'info',
+            'audit.recorded',
+            $module,
+            $safeRequestId ?? 'unknown-request',
+            [
+                'action' => $action,
+                'entity_type' => $entityType,
+                'entity_id' => $entityId,
+                'business_id' => $businessId,
+                'branch_id' => $branchId,
+            ],
         );
     }
 

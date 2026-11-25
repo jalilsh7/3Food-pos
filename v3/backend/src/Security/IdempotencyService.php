@@ -5,8 +5,7 @@ namespace PersiaCoder\PosV3\Security;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use PersiaCoder\PosV3\Auth\BusinessScope;
-use PersiaCoder\PosV3\Http\HttpException;
+use PersiaCoder\PosV3\Support\ApplicationException;
 
 final readonly class IdempotencyService
 {
@@ -36,26 +35,26 @@ final readonly class IdempotencyService
      */
     public function execute(
         int $actorUserId,
-        BusinessScope $scope,
+        BusinessScopeContext $scope,
         string $endpointCode,
         string $idempotencyKey,
         string $requestHash,
         callable $operation,
     ): array {
-        if ($actorUserId < 1 || $scope->businessId < 1) {
+        if ($actorUserId < 1 || $scope->businessId() < 1) {
             throw new \InvalidArgumentException('Idempotency requires a valid actor and business scope.');
         }
         if (!preg_match('/^[a-z][a-z0-9_.-]{1,99}$/', $endpointCode)) {
             throw new \InvalidArgumentException('Idempotency endpoint code is invalid.');
         }
         if (!preg_match('/^[A-Za-z0-9._~-]{16,128}$/', $idempotencyKey)) {
-            throw new HttpException(400, 'idempotency_key_invalid', 'A valid Idempotency-Key header is required.');
+            throw new ApplicationException(400, 'idempotency_key_invalid', 'A valid Idempotency-Key header is required.');
         }
         if (!preg_match('/^[a-f0-9]{64}$/', $requestHash)) {
             throw new \InvalidArgumentException('The request fingerprint must be a SHA-256 hex digest.');
         }
 
-        $scopeHash = hash('sha256', $actorUserId . ':' . $scope->businessId . ':' . ($scope->branchId ?? 0));
+        $scopeHash = hash('sha256', $actorUserId . ':' . $scope->businessId . ':' . ($scope->branchId() ?? 0));
         $keyHash = hash('sha256', $idempotencyKey);
         $expiresAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
             ->modify('+' . $this->retentionSeconds . ' seconds')

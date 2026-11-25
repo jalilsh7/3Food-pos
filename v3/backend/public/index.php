@@ -15,6 +15,7 @@ use PersiaCoder\PosV3\Recipes\RecipeService;
 use PersiaCoder\PosV3\Media\MediaService;
 use PersiaCoder\PosV3\Infrastructure\Storage\PrivateMediaStorage;
 use PersiaCoder\PosV3\Infrastructure\Logging\ErrorLogLogger;
+use PersiaCoder\PosV3\Support\Logger;
 use PersiaCoder\PosV3\Orders\OrderController;
 use PersiaCoder\PosV3\Orders\OrderService;
 use PersiaCoder\PosV3\Dining\DiningController;
@@ -72,6 +73,7 @@ use PersiaCoder\PosV3\Security\PermissionMiddleware;
 try {
     $configuration = require dirname(__DIR__) . '/bootstrap.php';
 
+    $logger = ErrorLogLogger::fromEnvironment();
     $connection = null;
     $getConnection = static function () use (&$connection, $configuration): PDO {
         if (!$connection instanceof PDO) {
@@ -88,8 +90,8 @@ try {
         );
     };
 
-    $getAuditLogService = static function () use ($getConnection): AuditLogService {
-        return new AuditLogService(new AuditLogRepository($getConnection()));
+    $getAuditLogService = static function () use ($getConnection, $logger): AuditLogService {
+        return new AuditLogService(new AuditLogRepository($getConnection()), $logger);
     };
 
     $controller = null;
@@ -713,7 +715,7 @@ try {
         [$sessionMiddleware, $csrfMiddleware, $originMiddleware],
     );
 
-    (new Kernel($router, ErrorLogLogger::fromEnvironment()))->handle(Request::fromGlobals())->send();
+    (new Kernel($router, $logger))->handle(Request::fromGlobals())->send();
 } catch (Throwable $exception) {
     error_log('POS_V3 bootstrap_failure=' . $exception::class);
     http_response_code(503);

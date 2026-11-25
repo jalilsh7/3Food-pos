@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Auth;
 
-final readonly class BusinessScope
+use PersiaCoder\PosV3\Security\BusinessScopeContext;
+
+final readonly class BusinessScope implements BusinessScopeContext
 {
     public function __construct(
         public int $businessId,
@@ -11,4 +13,8 @@ final readonly class BusinessScope
         public ?int $branchId,
         public ?string $branchPublicId,
     ) {}
+
+    public function businessId(): int { return $this->businessId; }
+
+    public function branchId(): ?int { return $this->branchId; }
 }
