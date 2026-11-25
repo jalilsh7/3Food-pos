@@ -8,6 +8,7 @@ interface BranchManagementApplication
 {
     public function list(BusinessScope $scope): array;
 
+    /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function create(
             AuthenticatedPrincipal $actor,
             BusinessScope $scope,

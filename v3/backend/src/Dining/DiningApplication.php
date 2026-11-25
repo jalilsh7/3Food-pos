@@ -6,7 +6,7 @@ namespace PersiaCoder\PosV3\Dining;
 use PersiaCoder\PosV3\Security\ActorContext;
 use PersiaCoder\PosV3\Security\BusinessContext;
 
-/** Public application contract for the Dining module. */
+/** Public application contract for DiningService. */
 interface DiningApplication
 {
     public function list(BusinessContext $scope): array;

@@ -6,7 +6,7 @@ namespace PersiaCoder\PosV3\Finance;
 use PersiaCoder\PosV3\Security\ActorContext;
 use PersiaCoder\PosV3\Security\BusinessContext;
 
-/** Public application contract for the Finance module. */
+/** Public application contract for CashRegisterService. */
 interface CashRegisterApplication
 {
     public function list(BusinessContext $scope): array;

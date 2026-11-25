@@ -6,7 +6,7 @@ namespace PersiaCoder\PosV3\Orders;
 use PersiaCoder\PosV3\Security\ActorContext;
 use PersiaCoder\PosV3\Security\BusinessContext;
 
-/** Public application contract for the Orders module. */
+/** Public application contract for OrderService. */
 interface OrderApplication
 {
     public function list(

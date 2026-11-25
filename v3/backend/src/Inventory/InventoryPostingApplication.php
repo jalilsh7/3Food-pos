@@ -9,6 +9,7 @@ use PersiaCoder\PosV3\Security\BusinessContext;
 /** Public application contract for InventoryPostingService. */
 interface InventoryPostingApplication
 {
+    /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function post(
             ActorContext $actor, BusinessContext $scope, string $documentPublicId,
             string $key, string $requestId, string $ip,
