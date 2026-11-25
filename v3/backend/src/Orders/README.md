@@ -25,3 +25,6 @@
 ## Context و error contracts
 Service API از `ActorContext` و `BusinessContext` استفاده می‌کند؛ مجوز فروش/لغو/آشپزخانه از `PermissionChecker` بررسی می‌شود. خطاها با `ApplicationException` اعلام و توسط Kernel به HTTP map می‌شوند.
 تست مستقل معماری: `v3/backend/tests/Modules/Orders/ArchitectureTest.php`.
+
+## Application API contract
+`OrderApplication` defines list/get/create/transition operations; `OrderController` depends on the interface. Shared ActorContext/BusinessContext and PermissionChecker are used at the application boundary.

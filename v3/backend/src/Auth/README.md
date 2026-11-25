@@ -19,3 +19,7 @@
 
 ## عملیات و لاگ
 خطاهای HTTP از Kernel عبور می‌کنند؛ رویدادهای امنیتی در AuditLog ثبت می‌شوند. داده‌های رمز، session token و cookie نباید در log ثبت شوند.
+
+## Application API contracts
+- `AuthenticationApplication`, `BusinessSetupApplication`, `BranchManagementApplication`, `RoleManagementApplication`, `UserManagementApplication`.
+- HTTP controllers depend on these interfaces; concrete services are assembled in `public/index.php`.

@@ -19,3 +19,6 @@
 
 ## عملیات و لاگ
 تغییرات create/update/archive باید audit شوند؛ logها نباید token یا اطلاعات حساس مشتری را ثبت کنند.
+
+## Application API contract
+`CatalogApplication` defines the public service method signatures; `CatalogController` depends on the interface, not CatalogService.

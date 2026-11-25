@@ -36,3 +36,7 @@
 - Backend architecture suites: ایجاد شده‌اند؛ اجرا نشده‌اند.
 - Frontend architecture suite: ایجاد شده؛ اجرا نشده است.
 - Integration/functional tests، tenant isolation، migration upgrade/rollback و build/lint: همگی برای انتهای تطبیق نگه داشته شده‌اند.
+
+
+## Application API contracts
+برای سرویس‌های Auth، Catalog، Orders، Dining، Finance، Inventory، Recipes و Media interface مستقل تعریف شده و Controllerها به قرارداد وابسته‌اند. DTOهای typed و Resultهای ساخت‌یافته هنوز برای تمام use-caseها کامل نیستند؛ بنابراین قانون سوم همچنان جزئی است.

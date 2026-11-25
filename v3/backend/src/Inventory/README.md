@@ -19,3 +19,6 @@
 
 ## عملیات و لاگ
 هر posting باید traceable و audit شود؛ خطاها با module=inventory و request_id ثبت شوند.
+
+## Application API contracts
+`InventoryApplication`, `InventoryDocumentApplication`, `InventoryPostingApplication` و `SupplierApplication` قراردادهای ورودی/خروجی سرویس‌های این ماژول هستند؛ InventoryController فقط این interfaceها را دریافت می‌کند.

@@ -19,3 +19,6 @@
 
 ## عملیات و لاگ
 تغییر مانده صندوق و عملیات مالی باید audit append-only داشته باشد؛ log شامل PAN، credentials یا داده پرداخت خام نباشد.
+
+## Application API contract
+`CashRegisterApplication` defines cash register use cases; the HTTP controller depends on this interface.

@@ -26,3 +26,6 @@ log مرکزی JSON دارای module و request_id است؛ کلیدهای pass
 - `ActorContext`, `BusinessContext`, `PermissionChecker` و `ApplicationException` قراردادهای کاربردی مشترک‌اند.
 - `AuditLogService` رویداد audit را به Logger مرکزی با module و request_id متصل می‌کند.
 - تست مستقل معماری: `v3/backend/tests/Modules/Security/ArchitectureTest.php`.
+
+## Context و authorization contracts
+`ActorContext`, `BusinessContext`, `BusinessScopeContext` و `PermissionChecker` قراردادهای مشترک مصرف‌شده توسط application modules هستند.

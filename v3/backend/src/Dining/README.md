@@ -19,3 +19,6 @@
 
 ## عملیات و لاگ
 تغییر نشست میز و ارتباط آن با سفارش باید audit شود؛ خطاها با module=dining ثبت شوند.
+
+## Application API contract
+`DiningApplication` defines the public dining use-case signatures; the HTTP controller depends on this interface.

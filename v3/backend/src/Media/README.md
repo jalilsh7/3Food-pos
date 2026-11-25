@@ -20,3 +20,6 @@
 
 ## عملیات و لاگ
 محتوای فایل و مسیر فیزیکی نباید در log ثبت شود؛ eventهای upload/delete با module=media ثبت شوند.
+
+## Application API contract
+`MediaApplication` قرارداد use-caseهای media است و MediaController به آن وابسته است.

@@ -147,3 +147,11 @@
 - این تست‌ها هنوز اجرا نشده‌اند؛ طبق دستور کاربر، اجرای تست و build تا پایان تطبیق معماری معوق است.
 - AuditLogService اکنون رویداد audit را از طریق Logger مرکزی با module و request_id ثبت می‌کند.
 - BusinessScopeContext مشترک، IdempotencyService را از Auth جدا کرد؛ ActorContext/BusinessContext و PermissionChecker نیز coupling سرویس‌های ماژولی را کاهش دادند.
+
+
+## Application Service Contracts — 2026-11-25
+- Application interfaces برای پنج سرویس Auth، سرویس Catalog، Order، Dining، CashRegister، چهار سرویس Inventory، Recipe و Media اضافه شد.
+- Controllerهای متناظر از interface استفاده می‌کنند و Composition Root concrete service را inject می‌کند.
+- Shared contexts، PermissionChecker و ApplicationException نیز در مرزهای application استفاده می‌شوند.
+- Typed DTOهای اختصاصی برای همه payload/resultها هنوز باقی است.
+- تست‌های معماری مستقل backend/frontend ایجاد شده‌اند ولی تا پایان تطبیق اجرا نمی‌شوند.

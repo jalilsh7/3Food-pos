@@ -69,3 +69,10 @@
 - runner بدون وابستگی خارجی در `v3/backend/tests/run.php` قرار گرفت؛ اجرا: `php tests/run.php` از پوشه backend.
 - برای Frontend، Node built-in test runner با script `npm test` اضافه شد؛ تست‌ها عدم import مستقیم feature به feature، استقلال shared و composition در App را بررسی می‌کنند.
 - تست‌ها ایجاد شده‌اند اما هنوز اجرا نشده‌اند؛ این مطابق دستور تست نهایی در پایان تطبیق است.
+
+
+## Application API contracts — 2026-11-25
+- Interfaceهای Application برای Auth (پنج سرویس)، Catalog، Orders، Dining، Finance، Inventory (چهار سرویس)، Recipes و Media ایجاد شدند.
+- Controllerهای این ماژول‌ها به interface وابسته‌اند؛ Composition Root implementationهای concrete را تزریق می‌کند.
+- قراردادهای عمومی method signatures را تثبیت می‌کنند؛ typed DTOهای اختصاصی برای همه payloadها و Resultها هنوز کامل نیستند.
+- تست‌های معماری backend برای هر ماژول ایجاد و frontend test script اضافه شده؛ اجرا نشده‌اند.

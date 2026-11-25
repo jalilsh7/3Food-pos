@@ -19,3 +19,6 @@ RecipeStore و قراردادهای مشترک audit/idempotency مجازند. �
 
 ## عملیات و لاگ
 تغییر recipe باید audit شود؛ نسخه‌های مصرف‌شده نباید با update خام بازنویسی شوند.
+
+## Application API contract
+`RecipeApplication` قرارداد use-caseهای recipe است و RecipeController به آن وابسته است.

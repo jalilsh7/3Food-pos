@@ -23,3 +23,6 @@ Support باید از ماژول‌های دامنه‌ای مستقل بمان�
 ## Application error contract
 `ApplicationException` خطای transport-neutral برای use-caseهاست؛ `HttpException` subclass آن برای سازگاری adapterهای HTTP باقی مانده و Kernel خطای پایه را map می‌کند.
 تست مستقل معماری: `v3/backend/tests/Modules/Support/ArchitectureTest.php`.
+
+## Application errors
+`ApplicationException` قرارداد خطای use-caseهاست؛ Kernel آن را به پاسخ HTTP تبدیل می‌کند.
