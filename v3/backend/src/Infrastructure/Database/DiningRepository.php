@@ -3,9 +3,11 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Infrastructure\Database;
 
+use PersiaCoder\PosV3\Dining\DiningStore;
+
 use PDO;
 
-final readonly class DiningRepository
+final readonly class DiningRepository implements DiningStore
 {
     public function __construct(private PDO $connection) {}
 
