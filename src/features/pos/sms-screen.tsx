@@ -72,16 +72,30 @@ export function SmsScreen({ sendRaw, saveCentralRecord }: { sendRaw: (phone: str
   }
   return (
     <div className="space-y-4">
-      <PageHeading title="الگوهای پیامک وضعیت سفارش" description="اعلان‌های وضعیت سفارش فقط از طریق الگوی خدماتی تأییدشده ارسال می‌شوند." />
+      <PageHeading title="الگوهای پیامک وضعیت سفارش" description="ارسال اعلان هر وضعیت به مشتری و مدیر به‌صورت مستقل قابل تنظیم است؛ همه اعلان‌ها از الگوی خدماتی تأییدشده ارسال می‌شوند." />
       <Card>
         <p className="mt-2 text-xs text-muted">اتصال و کلید API از بخش تنظیمات فروشگاه ثبت می‌شود و فقط به‌صورت رمزگذاری‌شده در سرور نگهداری خواهد شد. برای الگوی خدماتی، شناسه واقعی الگوی تأییدشده و ترتیب متغیرها را وارد کنید.</p>
       </Card>
+      <Card>
+        <h3 className="mb-2 font-semibold">شماره مدیر برای دریافت اعلان‌ها</h3>
+        <p className="mb-2 text-xs text-muted">شماره مدیر مستقل از شماره مشتری است. برای هر وضعیت می‌توانید ارسال به مشتری و مدیر را جداگانه روشن یا خاموش کنید.</p>
+        <Field label="شماره موبایل مدیر"><input className={inputCls} dir="ltr" inputMode="tel" placeholder="09xxxxxxxxx" value={settings.smsManagerPhone ?? ""} onChange={(e) => patchSettings({ smsManagerPhone: e.target.value })} onBlur={() => { const current = usePos.getState().settings; void saveCentralRecord("settings", { id: "main", ...current, smsUser: "", smsKey: "", smsFrom: "" }, () => {}); }} /></Field>
+      </Card>
       {templates.map((t) => (
         <Card key={t.event}>
-          <label className="flex items-center gap-2 font-semibold">
-            <input type="checkbox" checked={t.enabled} onChange={(e) => { const item = { ...t, enabled: e.target.checked }; void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
-            {EVENT_LABEL[t.event]}
-          </label>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <strong>{EVENT_LABEL[t.event]}</strong>
+            <div className="flex flex-wrap items-center gap-4 text-sm">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={t.enabled} onChange={(e) => { const item = { ...t, enabled: e.target.checked }; void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
+                ارسال به مشتری
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={t.managerEnabled === true} onChange={(e) => { const item = { ...t, managerEnabled: e.target.checked }; void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} />
+                ارسال به مدیر
+              </label>
+            </div>
+          </div>
           <p className="mt-2 text-xs text-muted">برای این وضعیت هیچ متن آزاد یا روش ارسال جایگزینی استفاده نمی‌شود.</p>
           <Field label="شناسه الگوی خدماتی تأییدشده"><input className={inputCls} value={t.bodyId} onChange={(e) => saveTemplate({ ...t, bodyId: e.target.value })} onBlur={() => { const item = usePos.getState().templates.find((x) => x.event === t.event); if (item) void saveCentralRecord("templates", { ...item, id: item.event }, () => saveTemplate(item)); }} /></Field>
           <Field label="ترتیب متغیرهای الگوی خدماتی">
