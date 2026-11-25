@@ -48,7 +48,13 @@ export class PhpApiError extends Error {
   }
 }
 
+import { logger } from "@/core/observability/logger";
+
 const API_ROOT = "/api/v1";
+function createCorrelationId(): string {
+  try { return globalThis.crypto?.randomUUID?.() ?? `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`; }
+  catch { return `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`; }
+}
 let csrfToken: string | null = null;
 
 type RequestOptions = {
@@ -59,7 +65,8 @@ type RequestOptions = {
 };
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const headers = new Headers({ Accept: "application/json" });
+  const correlationId = createCorrelationId();
+  const headers = new Headers({ Accept: "application/json", "X-Correlation-ID": correlationId });
   if (options.body !== undefined) headers.set("Content-Type", "application/json");
   if (options.csrf) {
     if (!csrfToken) throw new PhpApiError(419, "csrf_missing", "نشست امنیتی آماده نیست؛ دوباره وارد شوید.");
@@ -76,7 +83,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
-  } catch {
+  } catch (error) {
+    logger.log("warning", "API network failure", { module: "api-client", action: path, correlationId, code: "network_error" });
     throw new PhpApiError(0, "network_error", "ارتباط با سرور برقرار نشد؛ اتصال اینترنت را بررسی کنید.");
   }
 
@@ -84,6 +92,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   try {
     payload = (await response.json()) as Record<string, unknown>;
   } catch {
+    logger.log("error", "API returned unreadable response", { module: "api-client", action: path, correlationId, code: "invalid_response", status: response.status });
     throw new PhpApiError(response.status, "invalid_response", "پاسخ سرور قابل خواندن نیست.");
   }
 
@@ -93,6 +102,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     // Keep CSRF state unless the server explicitly says the session is unauthorized.
     if (response.status === 401 && code === "unauthorized") csrfToken = null;
     const message = typeof payload.message === "string" ? payload.message : "درخواست انجام نشد.";
+    logger.log(response.status >= 500 ? "error" : "warning", "API request rejected", { module: "api-client", action: path, correlationId, code, status: response.status });
     throw new PhpApiError(response.status, code, message);
   }
 
