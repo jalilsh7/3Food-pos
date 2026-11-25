@@ -87,3 +87,10 @@
 
 ## Planned commercial modules — 2026-11-25
 Customers، Loyalty، Messaging، Reporting، Storefront، Integrations، Licensing، CentralAdmin، Updates و POS دارای README مستقل و suite مستقل بررسی وجود مستندات شدند. این‌ها boundary/scaffold هستند؛ implementation و application contracts آن‌ها هنوز ساخته نشده است.
+
+
+## Dependency Graph Guard — 2026-11-25
+- `v3/backend/tests/Architecture/DependencyGraphTest.php` به runner متصل شد.
+- این guard تمام PHP sourceهای Backend را اسکن می‌کند؛ Application Service/Contractها نباید PDO، HTTP، Infrastructure یا ماژول دامنه دیگر را import کنند و Controllerها نباید PDO/Infrastructure را مستقیم مصرف کنند.
+- تست‌های ماژولی اکنون وجود interface، پیاده‌سازی interface توسط Service و نبود body در Application interface را نیز کنترل می‌کنند.
+- guard و suiteها ایجاد شده‌اند اما هنوز اجرا نشده‌اند.

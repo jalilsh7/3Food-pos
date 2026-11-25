@@ -44,3 +44,7 @@
 
 ## دامنه ماژول‌های آتی
 README و test presence مستقل برای Customers، Loyalty، Messaging، Reporting، Storefront، Integrations، Licensing، CentralAdmin، Updates و POS اضافه شده است. این مورد فقط تثبیت مرز و مستندات است، نه تکمیل implementation. تست‌های رفتاری و contract آن‌ها همچنان معوق‌اند.
+
+
+## Dependency graph automation
+Backend dependency graph guard به `php tests/run.php` متصل شد. این guard مرز importهای Application Service/Contract و عدم دسترسی مستقیم Controller به PDO/Infrastructure را بررسی می‌کند؛ هنوز اجرا نشده است.

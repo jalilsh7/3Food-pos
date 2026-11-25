@@ -161,3 +161,9 @@
 - README مستقل و test spec برای Customers، Loyalty، Messaging، Reporting، Storefront، Integrations، Licensing، CentralAdmin، Updates و POS آماده شد.
 - این 10 ماژول فعلاً boundary/scaffold هستند و application implementation ندارند؛ هیچ feature جدیدی در این دسته پیاده‌سازی نشده است.
 - تست runner با suiteهای این ماژول‌ها نیز وجود مستندات را بررسی می‌کند؛ تست‌های رفتاری آن‌ها بعد از پیاده‌سازی و در مرحله نهایی اضافه می‌شوند.
+
+
+## Dependency graph guard — 2026-11-25
+- تست سراسری `v3/backend/tests/Architecture/DependencyGraphTest.php` ایجاد و به runner متصل شد.
+- suiteهای ماژولی اکنون Application interfaceها را از نظر وجود، implementation و عدم نشت body کنترل می‌کنند.
+- اجرای `php tests/run.php` و `npm test` تا پایان تطبیق و همراه با build/lint نگه داشته شده است.
