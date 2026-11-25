@@ -68,7 +68,7 @@ export type CartLine = {
   note: string;
 };
 
-export type OrderStatus = "new" | "preparing" | "ready" | "delivered" | "cancelled";
+export type OrderStatus = "new" | "preparing" | "ready" | "dispatched" | "delivered" | "cancelled";
 
 export type Order = {
   id: string;
@@ -105,6 +105,7 @@ export type SmsEvent =
   | "order_created"
   | "order_preparing"
   | "order_ready"
+  | "order_dispatched"
   | "order_delivered"
   | "order_cancelled"
   | "order_invoice"
