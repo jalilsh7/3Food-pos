@@ -28,6 +28,7 @@ export function ReceiptView({
     `مالیات: ${money(order.tax)}`,
     `قابل پرداخت: ${money(order.total)}`,
     `پرداخت: ${pay[order.payment]}`,
+    ...(order.note ? [`یادداشت سفارش: ${order.note}`] : []),
   ].join("\n");
   return (
     <article className={`mx-auto bg-surface p-3 text-ink ${width}`} dir="rtl">
@@ -68,6 +69,7 @@ export function ReceiptView({
           </li>
         ))}
       </ul>
+      {order.note ? <p className="my-2 rounded border border-dashed border-line p-2 text-xs">یادداشت سفارش: {order.note}</p> : null}
       {kind === "customer" ? (
         <dl className="space-y-1 text-sm">
           <Row k="جمع" v={money(order.subtotal)} />
