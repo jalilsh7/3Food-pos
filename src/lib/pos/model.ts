@@ -118,6 +118,8 @@ export type SmsTemplate = {
   bodyId: string;
   /** Ordered variable keys for an approved National Payamak service template. */
   variables?: string[];
+  /** Independently send this event to the configured manager number. */
+  managerEnabled?: boolean;
 };
 
 export type SmsLog = {
@@ -151,6 +153,7 @@ export type Settings = {
   paperWidth: 58 | 80;
   autoPrint: boolean;
   birthdaySmsPrompt?: string;
+  smsManagerPhone?: string;
   loyaltySilverPoints?: number;
   loyaltyGoldPoints?: number;
   loyaltyPlatinumPoints?: number;
