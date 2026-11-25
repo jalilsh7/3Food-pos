@@ -8,7 +8,6 @@ use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Auth\PermissionService;
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\OrderRepository;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
@@ -18,19 +17,12 @@ final readonly class OrderService
     private const MAX_AMOUNT = 9000000000000000;
     private const MAX_QUANTITY_MILLI = 1000000;
 
-    private OrderRepository $orders;
-    private IdempotencyService $idempotency;
-    private AuditLogService $audit;
-
     public function __construct(
-        PDO $connection,
-        string $applicationKey,
+        private OrderRepository $orders,
+        private IdempotencyService $idempotency,
+        private AuditLogService $audit,
         private PermissionService $permissions,
-    ) {
-        $this->orders = new OrderRepository($connection);
-        $this->idempotency = new IdempotencyService($connection, $applicationKey);
-        $this->audit = new AuditLogService(new AuditLogRepository($connection));
-    }
+    ) {}
 
     public function list(
         BusinessScope $scope,
