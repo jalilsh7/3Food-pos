@@ -9,7 +9,7 @@
 - [x] دسته ۱ (پایه): قرارداد خطا و logging مشترک در frontend، بدون وابستگی ماژول‌های تجاری.
 - [x] دسته ۲-الف: API client correlation context و logging؛ PHP echo header.
 - [x] دسته ۲-ب: استخراج اولیه transport/session/contracts به adapters مستقل (client به helperهای پایه متصل شد؛ استخراج resource services بعداً).
-- [ ] دسته ۳: استخراج سفارش، فروش و کاتالوگ از featureهای یکپارچه.
+- [ ] دسته ۳: استخراج سفارش، فروش و کاتالوگ از featureهای یکپارچه (قرارداد مرزی و ترتیب refactor مستند شد؛ refactor اجرایی هنوز باقی است).
 - [ ] دسته ۴: موجودی، رسپی/بهای تمام‌شده، تامین‌کنندگان و هزینه‌ها.
 - [ ] دسته ۵: مشتریان، وفاداری، کمپین‌ها و پیام‌رسانی.
 - [ ] دسته ۶: تنظیمات، کاربران، نقش‌ها، مجوزها و گزارش‌ها.
@@ -28,7 +28,7 @@
 - query string از actionهای diagnostics حذف می‌شود.
 - قرارداد envelope/request و سیاست transport جدا شده‌اند؛ استخراج resource-level serviceها و PHP domain separation هنوز انجام نشده است.
 
-## فهرست تست نهایی (تعویق)
+## پیشرفت دسته اخیر — مرزبندی فروش/سفارش/کاتالوگ\n- سند `v3/docs/MODULE_BOUNDARIES_SALES_ORDERS_CATALOG.md` ایجاد شد و قواعد dependency، مسئولیت لایه‌ها، scope، snapshot قیمت و مسیر refactor تدریجی را تعریف می‌کند.\n- هنوز به معنی تغییر اجرایی کامل در service/controller/repositoryهای این ماژول‌ها نیست؛ مرحله بعد انتقال incremental با حفظ API است.\n\n## فهرست تست نهایی (تعویق)
 - TypeScript/typecheck، lint و build کامل frontend.
 - تست مستقل و قراردادی ماژول‌ها و dependency-cycle audit.
 - PHP lint و API integration tests.
