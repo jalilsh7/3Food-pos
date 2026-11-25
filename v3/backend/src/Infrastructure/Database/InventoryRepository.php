@@ -3,9 +3,11 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Infrastructure\Database;
 
+use PersiaCoder\PosV3\Inventory\InventoryStore;
+
 use PDO;
 
-final readonly class InventoryRepository
+final readonly class InventoryRepository implements InventoryStore
 {
     public function __construct(private PDO $connection) {}
 
