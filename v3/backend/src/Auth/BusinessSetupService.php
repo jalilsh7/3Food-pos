@@ -4,25 +4,18 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Auth;
 
 use DateTimeZone;
-use PDO;
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Database\BusinessRepository;
-use PersiaCoder\PosV3\Infrastructure\Database\TransactionManager;
-use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
 use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\TransactionBoundary;
 
 final readonly class BusinessSetupService
 {
-    private BusinessRepository $businesses;
-    private TransactionManager $transactions;
-    private AuditLogService $audit;
 
-    public function __construct(private PDO $connection)
-    {
-        $this->businesses = new BusinessRepository($connection);
-        $this->transactions = new TransactionManager($connection);
-        $this->audit = new AuditLogService(new AuditLogRepository($connection));
-    }
+    public function __construct(
+        private BusinessStore $businesses,
+        private TransactionBoundary $transactions,
+        private AuditLogService $audit,
+    ) {}
 
     /** @return array{business_id:string,business_name:string,branch_id:string,branch_name:string} */
     public function createInitialBusiness(

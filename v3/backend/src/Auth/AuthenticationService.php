@@ -5,26 +5,21 @@ namespace PersiaCoder\PosV3\Auth;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use PDO;
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Database\SessionRepository;
-use PersiaCoder\PosV3\Infrastructure\Database\TransactionManager;
-use PersiaCoder\PosV3\Infrastructure\Database\UserRepository;
-use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\LoginAttemptLimiter;
+use PersiaCoder\PosV3\Security\TransactionBoundary;
 
 final readonly class AuthenticationService
 {
-    private UserRepository $users;
-    private SessionRepository $sessions;
-    private TransactionManager $transactions;
-    private LoginAttemptLimiter $loginLimiter;
     private string $dummyPasswordHash;
-    private AuditLogService $audit;
 
     public function __construct(
-        PDO $connection,
+        private UserStore $users,
+        private SessionStore $sessions,
+        private TransactionBoundary $transactions,
+        private LoginAttemptLimiter $loginLimiter,
+        private AuditLogService $audit,
         string $applicationKey,
         private int $sessionLifetimeSeconds = 28800,
     ) {
@@ -35,11 +30,6 @@ final readonly class AuthenticationService
             throw new \InvalidArgumentException('Session lifetime must be between 300 and 86400 seconds.');
         }
 
-        $this->users = new UserRepository($connection);
-        $this->sessions = new SessionRepository($connection);
-        $this->transactions = new TransactionManager($connection);
-        $this->loginLimiter = new LoginAttemptLimiter($connection, $this->transactions, $applicationKey);
-        $this->audit = new AuditLogService(new AuditLogRepository($connection));
         $this->dummyPasswordHash = password_hash('POS_V3_INVALID_LOGIN_DUMMY', PASSWORD_DEFAULT);
     }
 

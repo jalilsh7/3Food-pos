@@ -17,8 +17,7 @@ final readonly class LoginAttemptRepository implements LoginAttemptStore
     {
         $statement = $this->connection->prepare(
             'SELECT 1 FROM app_auth_login_attempts
-             WHERE identifier_hash = :account_hash
-                OR (:ip_hash IS NOT NULL AND identifier_hash = :ip_hash)
+             WHERE identifier_hash IN (:account_hash, :ip_hash)
                AND blocked_until IS NOT NULL
                AND blocked_until > UTC_TIMESTAMP(3)
              LIMIT 1'

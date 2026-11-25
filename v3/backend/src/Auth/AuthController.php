@@ -3,30 +3,22 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Auth;
 
-use PDO;
 use PersiaCoder\PosV3\Http\HttpException;
 use PersiaCoder\PosV3\Http\Request;
 use PersiaCoder\PosV3\Http\Response;
-use PersiaCoder\PosV3\Infrastructure\Database\SessionRepository;
-use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
-use PersiaCoder\PosV3\Infrastructure\Database\TransactionManager;
 use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\TransactionBoundary;
 
 final readonly class AuthController
 {
-    private SessionRepository $sessions;
-    private AuditLogService $audit;
-    private TransactionManager $transactions;
 
     public function __construct(
-        PDO $connection,
+        private SessionStore $sessions,
+        private AuditLogService $audit,
+        private TransactionBoundary $transactions,
         private AuthenticationService $authentication,
         private bool $secureCookies = true,
-    ) {
-        $this->sessions = new SessionRepository($connection);
-        $this->audit = new AuditLogService(new AuditLogRepository($connection));
-        $this->transactions = new TransactionManager($connection);
-    }
+    ) {}
 
     public function login(Request $request): Response
     {
@@ -97,7 +89,7 @@ final readonly class AuthController
         }
 
         $sessionToken = self::cookieValue($request->header('cookie') ?? '', SessionAuthenticator::COOKIE_NAME);
-        $this->transactions->run(function (PDO $connection) use ($sessionToken, $principal, $request): void {
+        $this->transactions->run(function () use ($sessionToken, $principal, $request): void {
             if ($sessionToken !== null && preg_match('/^[A-Za-z0-9_-]{43}$/', $sessionToken)) {
                 $this->sessions->revokeByTokenHash(hash('sha256', $sessionToken));
             }

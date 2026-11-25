@@ -53,6 +53,7 @@ use PersiaCoder\PosV3\Infrastructure\Database\MediaRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\AuditLogRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\OrderRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\IdempotencyRepository;
+use PersiaCoder\PosV3\Infrastructure\Database\LoginAttemptRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\TransactionManager;
 use PersiaCoder\PosV3\Infrastructure\Database\BusinessRepository;
 use PersiaCoder\PosV3\Infrastructure\Database\PdoConnectionFactory;
@@ -62,6 +63,7 @@ use PersiaCoder\PosV3\Infrastructure\Database\SessionRepository;
 use PersiaCoder\PosV3\Security\CsrfGuard;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
+use PersiaCoder\PosV3\Security\LoginAttemptLimiter;
 use PersiaCoder\PosV3\Security\CsrfMiddleware;
 use PersiaCoder\PosV3\Security\SameOriginGuard;
 use PersiaCoder\PosV3\Security\InstallationOwnerMiddleware;
@@ -91,12 +93,24 @@ try {
     };
 
     $controller = null;
-    $getController = static function () use (&$controller, $getConnection, $configuration): AuthController {
+    $getController = static function () use (&$controller, $getConnection, $configuration, $getAuditLogService): AuthController {
         if (!$controller instanceof AuthController) {
             $secureCookies = !in_array($configuration->environment, ['development', 'test'], true);
             $controller = new AuthController(
-                $getConnection(),
-                new AuthenticationService($getConnection(), $configuration->applicationKey),
+                new SessionRepository($getConnection()),
+                $getAuditLogService(),
+                new TransactionManager($getConnection()),
+                new AuthenticationService(
+                    new UserRepository($getConnection()),
+                    new SessionRepository($getConnection()),
+                    new TransactionManager($getConnection()),
+                    new LoginAttemptLimiter(
+                        new LoginAttemptRepository($getConnection(), new TransactionManager($getConnection())),
+                        $configuration->applicationKey,
+                    ),
+                    $getAuditLogService(),
+                    $configuration->applicationKey,
+                ),
                 $secureCookies,
             );
         }
@@ -124,9 +138,9 @@ try {
     };
 
     $setupController = null;
-    $getSetupController = static function () use (&$setupController, $getConnection): BusinessSetupController {
+    $getSetupController = static function () use (&$setupController, $getConnection, $getAuditLogService): BusinessSetupController {
         if (!$setupController instanceof BusinessSetupController) {
-            $setupController = new BusinessSetupController(new BusinessSetupService($getConnection()));
+            $setupController = new BusinessSetupController(new BusinessSetupService(new BusinessRepository($getConnection()), new TransactionManager($getConnection()), $getAuditLogService()));
         }
         return $setupController;
     };
