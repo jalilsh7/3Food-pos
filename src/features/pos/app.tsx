@@ -613,6 +613,7 @@ function PosScreen({ role }: { role: Role }) {
       setCart([]); setPhone(""); setGuestName(settings.defaultCustomerLabel || "مشتری عزیز"); setCode(""); setPoints(0); setPrinted(order);
       const fresh = usePos.getState().customers.find((c) => c.id === order.customerId);
       const vars = orderVars(order, String(fresh?.points ?? 0));
+      // The SMS screen event toggle is the single source of truth for invoice SMS.
       // Send exactly one invoice notification per new order. Prefer the main
       // order-created template; use the legacy invoice template only as fallback.
       // The "order" variable always contains readable invoice lines, never only
