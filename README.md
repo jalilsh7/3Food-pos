@@ -50,6 +50,10 @@ Historical CI run: [44280981233](https://github.com/jalilsh7/3Food-pos/actions/r
 - Do not modify live cPanel files or the production database during ordinary development work.
 - All production changes require explicit owner approval, a backup and a rollback plan.
 
+## Modular architecture (V3 direction)
+
+New business capabilities are organized under `src/modules/<module-id>/`. Each module exposes a stable `index.ts` public API and a `manifest.ts`; domain logic is separated from UI and infrastructure. Cross-module imports must use the module public API, not internal files. The SMS module is the first pilot: see [`src/modules/sms/README.md`](src/modules/sms/README.md). Existing legacy POS screens remain in `src/features/pos` during incremental migration; compatibility adapters are allowed temporarily and must be removed after all imports are migrated. Avoid a risky all-at-once rewrite.
+
 ## Project guidance
 
 - V3 SMS module port and remaining acceptance work: [docs/v3/SMS-MODULE-PORT-FA.md](docs/v3/SMS-MODULE-PORT-FA.md)
