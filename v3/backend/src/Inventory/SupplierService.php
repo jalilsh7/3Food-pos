@@ -3,26 +3,20 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Inventory;
 
-use PDO;
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Database\SupplierRepository;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class SupplierService
 {
-    private SupplierRepository $suppliers;
 
     public function __construct(
-        PDO $connection,
+        private SupplierStore $suppliers,
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
-    ) {
-        $this->suppliers = new SupplierRepository($connection);
-    }
-
+    ) {}
     public function list(BusinessScope $scope, bool $includeInactive = true): array
     {
         return $this->suppliers->listForBusiness($scope->businessId, $includeInactive);

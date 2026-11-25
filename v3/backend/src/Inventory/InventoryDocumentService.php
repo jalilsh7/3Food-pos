@@ -3,26 +3,20 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Inventory;
 
-use PDO;
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Database\InventoryDocumentRepository;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class InventoryDocumentService
 {
-    private InventoryDocumentRepository $documents;
 
     public function __construct(
-        PDO $connection,
+        private InventoryDocumentStore $documents,
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
-    ) {
-        $this->documents = new InventoryDocumentRepository($connection);
-    }
-
+    ) {}
     public function list(BusinessScope $scope, ?string $type, ?string $status, int $limit): array
     {
         $branchId = self::branch($scope);

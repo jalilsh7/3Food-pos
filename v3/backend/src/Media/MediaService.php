@@ -3,28 +3,24 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Media;
 
-use PDO;
 use Throwable;
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Database\MediaRepository;
 use PersiaCoder\PosV3\Infrastructure\Storage\PrivateMediaStorage;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class MediaService
 {
-    private MediaRepository $media;
 
     public function __construct(
-        PDO $connection,
+        private MediaStore $media,
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
         private PrivateMediaStorage $storage,
         private int $maxBytes,
     ) {
-        $this->media = new MediaRepository($connection);
         if ($maxBytes < 1024 || $maxBytes > 20971520) {
             throw new \InvalidArgumentException('Media size limit is outside the supported range.');
         }

@@ -3,27 +3,21 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Dining;
 
-use PDO;
 use PDOException;
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Database\DiningRepository;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class DiningService
 {
-    private DiningRepository $dining;
 
     public function __construct(
-        PDO $connection,
+        private DiningStore $dining,
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
-    ) {
-        $this->dining = new DiningRepository($connection);
-    }
-
+    ) {}
     public function list(BusinessScope $scope): array
     {
         return [

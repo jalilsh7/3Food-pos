@@ -3,26 +3,20 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Recipes;
 
-use PDO;
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Database\RecipeRepository;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class RecipeService
 {
-    private RecipeRepository $recipes;
 
     public function __construct(
-        PDO $connection,
+        private RecipeStore $recipes,
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
-    ) {
-        $this->recipes = new RecipeRepository($connection);
-    }
-
+    ) {}
     public function getProductRecipe(BusinessScope $scope, string $productPublicId, ?string $variantPublicId): ?array
     {
         if (!self::isUuid($productPublicId)) {

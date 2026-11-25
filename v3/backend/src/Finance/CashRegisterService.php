@@ -3,12 +3,10 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Finance;
 
-use PDO;
 use PDOException;
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Database\CashRepository;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
@@ -16,16 +14,12 @@ final readonly class CashRegisterService
 {
     private const MAX_AMOUNT = 9000000000000000;
 
-    private CashRepository $cash;
 
     public function __construct(
-        PDO $connection,
+        private CashStore $cash,
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
-    ) {
-        $this->cash = new CashRepository($connection);
-    }
-
+    ) {}
     public function list(BusinessScope $scope): array
     {
         return ['registers' => $this->cash->listRegisters($scope->businessId, (int) $scope->branchId)];

@@ -3,26 +3,20 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Catalog;
 
-use PDO;
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Http\HttpException;
-use PersiaCoder\PosV3\Infrastructure\Database\CatalogRepository;
 use PersiaCoder\PosV3\Security\AuditLogService;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 
 final readonly class CatalogService
 {
-    private CatalogRepository $catalog;
 
     public function __construct(
-        PDO $connection,
+        private CatalogStore $catalog,
         private IdempotencyService $idempotency,
         private AuditLogService $audit,
-    ) {
-        $this->catalog = new CatalogRepository($connection);
-    }
-
+    ) {}
     public function listCategories(BusinessScope $scope): array
     {
         return $this->catalog->listCategories($scope->businessId);
