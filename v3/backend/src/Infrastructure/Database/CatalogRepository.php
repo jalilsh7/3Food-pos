@@ -3,9 +3,11 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Infrastructure\Database;
 
+use PersiaCoder\PosV3\Catalog\CatalogStore;
+
 use PDO;
 
-final readonly class CatalogRepository
+final readonly class CatalogRepository implements CatalogStore
 {
     public function __construct(private PDO $connection) {}
 
