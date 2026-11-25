@@ -69,6 +69,18 @@ try {
         return $connection;
     };
 
+    $getIdempotencyService = static function () use ($getConnection, $configuration): IdempotencyService {
+        return new IdempotencyService(
+            new IdempotencyRepository($getConnection()),
+            new TransactionManager($getConnection()),
+            $configuration->applicationKey,
+        );
+    };
+
+    $getAuditLogService = static function () use ($getConnection): AuditLogService {
+        return new AuditLogService(new AuditLogRepository($getConnection()));
+    };
+
     $controller = null;
     $getController = static function () use (&$controller, $getConnection, $configuration): AuthController {
         if (!$controller instanceof AuthController) {
@@ -122,7 +134,7 @@ try {
     $getCashRegisterController = static function () use (&$cashRegisterController, $getConnection, $configuration): CashRegisterController {
         if (!$cashRegisterController instanceof CashRegisterController) {
             $cashRegisterController = new CashRegisterController(
-                new CashRegisterService($getConnection(), $configuration->applicationKey),
+                new CashRegisterService($getConnection(), $getIdempotencyService(), $getAuditLogService()),
             );
         }
         return $cashRegisterController;
@@ -132,7 +144,7 @@ try {
     $getDiningController = static function () use (&$diningController, $getConnection, $configuration): DiningController {
         if (!$diningController instanceof DiningController) {
             $diningController = new DiningController(
-                new DiningService($getConnection(), $configuration->applicationKey),
+                new DiningService($getConnection(), $getIdempotencyService(), $getAuditLogService()),
             );
         }
         return $diningController;
@@ -145,12 +157,8 @@ try {
             $orderController = new OrderController(
                 new OrderService(
                     new OrderRepository($getConnection()),
-                    new IdempotencyService(
-                        new IdempotencyRepository($getConnection()),
-                        new TransactionManager($getConnection()),
-                        $configuration->applicationKey,
-                    ),
-                    new AuditLogService(new AuditLogRepository($getConnection())),
+                    $getIdempotencyService(),
+                    $getAuditLogService(),
                     new PermissionService($permissionRepository),
                 ),
             );
@@ -230,7 +238,7 @@ try {
     $getCatalogController = static function () use (&$catalogController, $getConnection, $configuration): CatalogController {
         if (!$catalogController instanceof CatalogController) {
             $catalogController = new CatalogController(
-                new CatalogService($getConnection(), $configuration->applicationKey),
+                new CatalogService($getConnection(), $getIdempotencyService(), $getAuditLogService()),
             );
         }
         return $catalogController;
@@ -242,7 +250,8 @@ try {
         if (!$mediaController instanceof MediaController) {
             $mediaController = new MediaController(new MediaService(
                 $getConnection(),
-                $configuration->applicationKey,
+                $getIdempotencyService(),
+                $getAuditLogService(),
                 new PrivateMediaStorage($configuration->privateStoragePath),
                 $configuration->mediaMaxBytes,
             ));
@@ -255,10 +264,10 @@ try {
     $getInventoryController = static function () use (&$inventoryController, $getConnection, $configuration): InventoryController {
         if (!$inventoryController instanceof InventoryController) {
             $inventoryController = new InventoryController(
-                new InventoryService($getConnection(), $configuration->applicationKey),
-                new InventoryDocumentService($getConnection(), $configuration->applicationKey),
-                new InventoryPostingService($getConnection(), $configuration->applicationKey),
-                new SupplierService($getConnection(), $configuration->applicationKey),
+                new InventoryService($getConnection(), $getIdempotencyService(), $getAuditLogService()),
+                new InventoryDocumentService($getConnection(), $getIdempotencyService(), $getAuditLogService()),
+                new InventoryPostingService($getConnection(), $getIdempotencyService(), $getAuditLogService()),
+                new SupplierService($getConnection(), $getIdempotencyService(), $getAuditLogService()),
             );
         }
         return $inventoryController;
@@ -268,7 +277,7 @@ try {
     $getRecipeController = static function () use (&$recipeController, $getConnection, $configuration): RecipeController {
         if (!$recipeController instanceof RecipeController) {
             $recipeController = new RecipeController(
-                new RecipeService($getConnection(), $configuration->applicationKey),
+                new RecipeService($getConnection(), $getIdempotencyService(), $getAuditLogService()),
             );
         }
         return $recipeController;
