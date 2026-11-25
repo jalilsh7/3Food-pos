@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Media;
 
+use PersiaCoder\PosV3\Security\ActorContext;
+use PersiaCoder\PosV3\Security\BusinessContext;
+
 /** Public application contract for MediaService. */
 interface MediaApplication
 {
