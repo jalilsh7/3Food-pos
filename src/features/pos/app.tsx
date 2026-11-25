@@ -663,7 +663,7 @@ function PosScreen({ role }: { role: Role }) {
           ))}
         </div>
       </div>
-      <Card>
+      <Card className="mb-8 pb-8 [padding-bottom:calc(2rem+env(safe-area-inset-bottom))] lg:mb-0 lg:pb-6">
         <h2 className="mb-3 font-bold">سفارش جاری</h2>
         {showStockWarning ? (
           <div role="status" className="mb-3 rounded-xl border border-warn bg-warn-bg p-3 text-sm text-warn">
@@ -1247,5 +1247,4 @@ function StockScreen() {
     </div>
   );
 }
-
 
