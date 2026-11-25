@@ -35,5 +35,6 @@
 
 - `database/v3/bin/migrate.php` فایل‌ها را از پوشه مرکزی می‌خواند، شماره‌ها را مرتب و تکراری‌ها را رد می‌کند، checksum نسخه اعمال‌شده را مقایسه می‌کند و برای اجرای هم‌زمان advisory lock می‌گیرد.
 - metadata فعلی شامل version، checksum، applied_at و execution_ms است.
-- runner فعلی مالک دامنه‌ای را به‌صورت ساختاری validate نمی‌کند؛ این سند فعلاً مرجع inventory است. افزودن registry ماشینی و اعتبارسنجی owner باید در گام بعدی انجام شود.
+- `manifest.php` برای هر migration مالک، وابستگی، جدول‌های تحت پوشش و ریسک را ثبت می‌کند؛ runner وجود metadata، ترتیب dependency و برابری جدول‌های هدف SQL با manifest را پیش از اجرا validate می‌کند.
+- تست معماری Backend نیز برابری SQL/manifest و کامل بودن registry را بدون اتصال دیتابیس بررسی می‌کند.
 - MySQL/MariaDB برای بخشی از DDLها implicit commit دارند؛ rollback تراکنشی عمومی برای migrationها فرض نشود.
