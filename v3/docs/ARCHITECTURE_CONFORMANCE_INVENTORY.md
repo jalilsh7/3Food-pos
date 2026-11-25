@@ -58,12 +58,23 @@ Featureهای مشاهده‌شده:
 در Security سرویس‌های AuditLogService.php و IdempotencyService.php و middlewareهای امنیتی مشاهده شدند.
 در Infrastructure حداقل Database و Storage وجود دارند.
 
-### مغایرت قطعی مشاهده‌شده
-**وضعیت پس از اصلاح ثبت‌شده در 2026-11-25:** ساخت `OrderRepository`، `IdempotencyService` و `AuditLogService` از داخل `OrderService` خارج شده و به `public/index.php` منتقل شده است. `IdempotencyService` نیز اکنون `IdempotencyRepository` و `TransactionManager` را از بیرون دریافت می‌کند؛ دیگر این دو implementation را داخل خود نمی‌سازد.
+### اصلاحات اجرایی ثبت‌شده در 2026-11-25
 
-**مغایرت باقی‌مانده:** `OrderService` و `IdempotencyService` هنوز در قرارداد callback تراکنش از `PDO` استفاده می‌کنند و OrderService به concrete `OrderRepository` وابسته است. بنابراین Composition اصلاح شده، اما جداسازی کامل Application از Persistence و تعریف Port/DTO مستقل هنوز انجام نشده است. این تغییرات در این مرحله فقط با بازطراحی transaction boundary و حفظ اتمیک‌بودن idempotency و ثبت سفارش ادامه می‌یابد.
+- Composition سفارش در `v3/backend/public/index.php` مسئول ساخت Repositoryها، سرویس‌های امنیتی و TransactionManager است؛ همه آن‌ها از factory اتصال مشترک استفاده می‌کنند.
+- قرارداد callback در `OrderService`، `IdempotencyService` و `TransactionManager` دیگر `PDO` را به لایه کاربردی منتقل نمی‌کند؛ تراکنش همچنان در زیرساخت اجرا می‌شود.
+- `Orders/OrderStore.php` به‌عنوان persistence port ایجاد شد؛ `Infrastructure/Database/OrderRepository.php` آن را پیاده‌سازی می‌کند و `OrderService` اکنون به interface وابسته است.
+- `Security/AuditLogWriter.php` به‌عنوان port ایجاد شد؛ `AuditLogRepository` آن را پیاده‌سازی می‌کند و `AuditLogService` دیگر به concrete repository وابسته نیست.
+- `Security/IdempotencyStore.php` و `Security/TransactionBoundary.php` ایجاد شدند؛ repository و transaction manager زیرساختی این قراردادها را پیاده‌سازی می‌کنند و `IdempotencyService` فقط به قراردادها وابسته است.
+- اتصال اتمیک سفارش و idempotency به این فرض composition متکی است که Repository سفارش، IdempotencyRepository و TransactionManager همان PDO singleton را از `getConnection()` دریافت می‌کنند؛ این اتصال در Composition Root فعلی برقرار است.
 
-این اصلاح معماری به معنی تأیید رفتار عملیاتی سفارش نیست؛ تست جامع همچنان معوق است.
+### مغایرت‌های باقی‌مانده
+- قراردادهای persistence فعلی هنوز در برخی متدها آرایه‌های خام برمی‌گردانند؛ DTOهای typed و error/result contract نسخه‌بندی‌شده برای کل ماژول‌ها کامل نیست.
+- سایر سرویس‌های Backend (مانند Catalog، Inventory، Dining و Finance) هنوز در چند مورد PDO را مستقیم دریافت می‌کنند؛ مرزبندی آن‌ها باید ماژول‌به‌ماژول انجام شود.
+- Dependency graph و cycle audit کامل Frontend/Backend هنوز اجرا نشده است.
+- logger ساخت‌یافته سراسری Backend و فیلتر module هنوز تکمیل نشده است.
+- migrationها در یک پوشه مرکزی و ترتیبی هستند؛ map مالکیت دامنه‌ای باید ثبت و runner از نظر metadata بررسی شود.
+
+این اصلاحات صرفاً از نظر ساختار و قرارداد کد ثبت شده‌اند؛ تست جامع و Build همچنان به دستور کاربر معوق هستند.
 
 ## 3) Database و Migration
 
@@ -74,12 +85,12 @@ Featureهای مشاهده‌شده:
 - migrations/
 - schema.sql
 
-Migrationهای ترتیبی SQL مشاهده شدند؛ در فهرست اولیه حداقل migrationهای 001 تا 008 قابل مشاهده بود و در مستندات قبلی پروژه تا 011 نیز ثبت شده‌اند.
+Migrationهای ترتیبی SQL از 001 تا 012 در GitHub مشاهده شدند؛ مالکیت دامنه‌ای اولیه از روی جداول ایجاد/تغییریافته قابل استخراج است و در سند MIGRATION_OWNERSHIP_MAP.md ثبت می‌شود.
 
 ### ارزیابی
 - نسخه‌بندی ترتیبی و وجود مسیر migration مثبت است.
 - ساختار مشاهده‌شده یک پوشه مرکزی migrations است؛ استقلال مالکیت هر ماژول در ساختار مسیر/metadata هنوز اثبات نشده است.
-- باید migration inventory تهیه شود: شماره، نام، مالک ماژول، جداول تحت مالکیت، پیش‌نیاز، destructive risk و مسیر upgrade.
+- فهرست شماره، نام و جداول هر migration استخراج شد؛ مالکیت در سطح دامنه فعلاً طبقه‌بندی اولیه است و نیاز به بازبینی migration-by-migration دارد.
 - runner، checksum، ثبت migration اجراشده، اجرای مجدد و رفتار rollback/restore در مرحله تست نهایی بررسی می‌شوند؛ فعلاً تأییدشده تلقی نشوند.
 
 ## 4) Logging و Contracts
@@ -104,7 +115,7 @@ Migrationهای ترتیبی SQL مشاهده شدند؛ در فهرست اول�
 1. استخراج tree کامل و ثبت فهرست همه ماژول‌ها و فایل‌های public/private.
 2. تحلیل import/dependency frontend و backend و ثبت cycleها و cross-module leaks.
 3. تعیین public entrypoint و قرارداد ورودی/خروجی واقعی برای هر ماژول.
-4. تثبیت shared kernel و composition root؛ حذف ساخت مستقیم Repository/Infrastructure از use-case/serviceها.
+4. تثبیت shared kernel و composition root؛ تکمیل DI و persistence/transaction ports در تمام ماژول‌ها.
 5. اتصال و استانداردسازی logger و correlation context در frontend، PHP API، database و provider adapters.
 6. تهیه migration ownership map و تعیین metadata/runner contract.
 7. ایجاد الگوی docs/tests و ثبت پوشش مستقل تمام ماژول‌ها.
@@ -116,7 +127,7 @@ Migrationهای ترتیبی SQL مشاهده شدند؛ در فهرست اول�
 
 - استاندارد مرجع معماری: تثبیت شد.
 - ساختار Feature-Based اولیه: وجود دارد؛ انطباق کامل تأیید نشده.
-- جداسازی لایه‌ها: Composition سفارش اصلاح اولیه شد؛ PDO در transaction callback و concrete repository dependency هنوز نیازمند refactor است.
+- جداسازی لایه‌ها: در Orders/Security، PDO از callback کاربردی خارج و persistence/transaction ports اضافه شدند؛ سایر ماژول‌ها هنوز نیازمند refactor هستند.
 - قراردادهای ماژول: در اسناد تعریف شده؛ پوشش اجرایی ناقص/نامشخص.
 - logging: پایه قبلی وجود دارد؛ اتصال سراسری نیازمند inventory است.
 - migration: نسخه‌بندی ترتیبی وجود دارد؛ ownership مستقل نیازمند تعیین است.
