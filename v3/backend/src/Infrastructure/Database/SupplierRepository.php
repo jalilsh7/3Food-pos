@@ -3,9 +3,11 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Infrastructure\Database;
 
+use PersiaCoder\PosV3\Inventory\SupplierStore;
+
 use PDO;
 
-final readonly class SupplierRepository
+final readonly class SupplierRepository implements SupplierStore
 {
     public function __construct(private PDO $connection) {}
 
