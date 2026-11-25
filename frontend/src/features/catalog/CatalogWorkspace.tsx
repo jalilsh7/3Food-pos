@@ -28,6 +28,11 @@ const normalizeDigits = (value: string) => value
   .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
   .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
   .replace(/[،,٬\\s]/g, "");
+const parseSignedAmount = (value: string) => {
+  const normalized = normalizeDigits(value).trim().replace(/[^0-9-]/g, "");
+  const amount = Number(normalized || "0");
+  return Number.isSafeInteger(amount) ? amount : 0;
+};
 const parsePrice = (value: string) => {
   const normalized = normalizeDigits(value).replace(/[^0-9]/g, "");
   return normalized ? Number(normalized) : 0;
@@ -259,7 +264,7 @@ export function CatalogWorkspace() {
     const delta = parsePrice(deltaText);
     setSaving(true); setActionError(null);
     try {
-      await createCatalogVariant(selected.id, { name: name.trim(), price_delta_amount: delta });
+      await createCatalogVariant(selected.id, { name: name.trim(), price_delta_amount: parseSignedAmount(deltaText) });
       await refreshCatalog(selected.id);
       setSuccessMessage("تنوع محصول اضافه شد.");
     } catch (cause) {
@@ -275,7 +280,7 @@ export function CatalogWorkspace() {
     const active = globalThis.confirm("تنوع فعال باشد؟ برای غیرفعال‌سازی گزینه لغو را بزنید.");
     setSaving(true); setActionError(null);
     try {
-      await updateCatalogVariant(variant.id, { name: name.trim(), price_delta_amount: parsePrice(deltaText), is_active: active });
+      await updateCatalogVariant(variant.id, { name: name.trim(), price_delta_amount: parseSignedAmount(deltaText), is_active: active });
       await refreshCatalog(selectedId ?? undefined);
       setSuccessMessage("تنوع محصول به‌روزرسانی شد.");
     } catch (cause) {
@@ -296,7 +301,7 @@ export function CatalogWorkspace() {
       const groupId = await createCatalogOptionGroup({
         name: name.trim(), selection_type: "single", min_select: 0, max_select: 1,
         is_required_default: false,
-        options: [{ name: optionName.trim(), price_delta_amount: parsePrice(deltaText) }],
+        options: [{ name: optionName.trim(), price_delta_amount: parseSignedAmount(deltaText) }],
       });
       await attachCatalogOptionGroup(selected.id, groupId, false);
       await refreshCatalog(selected.id);
