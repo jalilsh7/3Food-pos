@@ -80,7 +80,7 @@ final readonly class MediaService
         try {
             return $this->idempotency->execute(
                 $actor->userId, $scope, 'media.upload', $key, $fingerprint,
-                function (PDO $db) use (
+                function () use (
                     $scope, $actor, $file, $publicId, $extension, $detectedMime,
                     $actualSize, $width, $height, $sha256, $requestId, $ip, &$storedKey,
                 ): array {
@@ -142,7 +142,7 @@ final readonly class MediaService
         $fingerprint = hash('sha256', json_encode([$productPublicId, $mediaPublicId], JSON_THROW_ON_ERROR));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'catalog.product.image.attach', $key, $fingerprint,
-            function (PDO $db) use ($scope, $productId, $productPublicId, $asset, $mediaPublicId, $actor, $requestId, $ip, $before, $after): array {
+            function () use ($scope, $productId, $productPublicId, $asset, $mediaPublicId, $actor, $requestId, $ip, $before, $after): array {
                 $this->media->attachProductImage($scope->businessId, $productId, (int) $asset['id']);
                 $this->audit->record(
                     $actor->userId, 'catalog.product.image_attached', 'product', $productPublicId,
@@ -172,7 +172,7 @@ final readonly class MediaService
         $fingerprint = hash('sha256', json_encode([$categoryPublicId, $mediaPublicId], JSON_THROW_ON_ERROR));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'catalog.category.image.attach', $key, $fingerprint,
-            function (PDO $db) use ($scope, $categoryId, $categoryPublicId, $asset, $mediaPublicId, $actor, $requestId, $ip, $before, $after): array {
+            function () use ($scope, $categoryId, $categoryPublicId, $asset, $mediaPublicId, $actor, $requestId, $ip, $before, $after): array {
                 $this->media->attachCategoryImage($scope->businessId, $categoryId, (int) $asset['id']);
                 $this->audit->record(
                     $actor->userId, 'catalog.category.image_attached', 'category', $categoryPublicId,
@@ -213,7 +213,7 @@ final readonly class MediaService
         $fingerprint = hash('sha256', json_encode([$productPublicId, 'detach-image'], JSON_THROW_ON_ERROR));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'catalog.product.image.detach', $key, $fingerprint,
-            function (PDO $db) use ($scope, $productId, $productPublicId, $actor, $requestId, $ip, $before): array {
+            function () use ($scope, $productId, $productPublicId, $actor, $requestId, $ip, $before): array {
                 $this->media->detachProductImage($scope->businessId, $productId);
                 if ($before !== null) {
                     $this->audit->record(
@@ -244,7 +244,7 @@ final readonly class MediaService
         $fingerprint = hash('sha256', json_encode([$categoryPublicId, 'detach-image'], JSON_THROW_ON_ERROR));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'catalog.category.image.detach', $key, $fingerprint,
-            function (PDO $db) use ($scope, $categoryId, $categoryPublicId, $actor, $requestId, $ip, $before): array {
+            function () use ($scope, $categoryId, $categoryPublicId, $actor, $requestId, $ip, $before): array {
                 $this->media->detachCategoryImage($scope->businessId, $categoryId);
                 if ($before !== null) {
                     $this->audit->record(

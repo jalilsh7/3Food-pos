@@ -57,7 +57,7 @@ final readonly class RoleManagementService
             'roles.create',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use (
+            function () use (
                 $code,
                 $name,
                 $permissionIds,
@@ -126,7 +126,7 @@ final readonly class RoleManagementService
             'roles.update',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use (
+            function () use (
                 $role,
                 $name,
                 $permissionIds,
@@ -241,7 +241,7 @@ final readonly class RoleManagementService
             $branchScoped ? 'roles.assign.branch' : 'roles.assign.business',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use (
+            function () use (
                 $targetId,
                 $targetUserPublicId,
                 $role,
@@ -306,7 +306,7 @@ final readonly class RoleManagementService
             $branchScoped ? 'roles.remove.branch' : 'roles.remove.business',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use (
+            function () use (
                 $actor,
                 $targetId,
                 $targetUserPublicId,

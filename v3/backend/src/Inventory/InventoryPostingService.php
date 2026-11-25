@@ -30,7 +30,7 @@ final readonly class InventoryPostingService
         $fingerprint = hash('sha256', json_encode([$documentPublicId], JSON_THROW_ON_ERROR));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'inventory.stock-document.post', $key, $fingerprint,
-            function (PDO $db) use ($actor, $scope, $branchId, $documentPublicId, $requestId, $ip): array {
+            function () use ($actor, $scope, $branchId, $documentPublicId, $requestId, $ip): array {
                 $document = $this->documents->findDraftForUpdate(
                     $scope->businessId, $branchId, $documentPublicId,
                 );

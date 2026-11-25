@@ -51,7 +51,7 @@ final readonly class DiningService
             'dining.areas.create',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use ($actor, $scope, $name, $sortOrder, $requestId, $ipAddress): array {
+            function () use ($actor, $scope, $name, $sortOrder, $requestId, $ipAddress): array {
                 $publicId = self::uuidV4();
                 $this->dining->createArea($scope->businessId, (int) $scope->branchId, $publicId, $name, $sortOrder);
                 $this->audit->record(
@@ -108,7 +108,7 @@ final readonly class DiningService
             'dining.tables.create',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use ($actor, $scope, $areaPublicId, $code, $capacity, $requestId, $ipAddress): array {
+            function () use ($actor, $scope, $areaPublicId, $code, $capacity, $requestId, $ipAddress): array {
                 $areaId = $this->dining->findAreaId($scope->businessId, (int) $scope->branchId, $areaPublicId);
                 if ($areaId === null) {
                     throw new HttpException(404, 'dining_area_not_found', 'The active dining area was not found in this branch.');
@@ -168,7 +168,7 @@ final readonly class DiningService
             'dining.sessions.open',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use ($actor, $scope, $tablePublicId, $requestId, $ipAddress): array {
+            function () use ($actor, $scope, $tablePublicId, $requestId, $ipAddress): array {
                 $table = $this->dining->findTableForUpdate($scope->businessId, (int) $scope->branchId, $tablePublicId);
                 if ($table === null || (int) $table['is_active'] !== 1) {
                     throw new HttpException(404, 'active_dining_table_not_found', 'The active dining table was not found in this branch.');
@@ -230,7 +230,7 @@ final readonly class DiningService
             'dining.sessions.close',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use ($actor, $scope, $sessionPublicId, $requestId, $ipAddress): array {
+            function () use ($actor, $scope, $sessionPublicId, $requestId, $ipAddress): array {
                 $session = $this->dining->findSessionForUpdate($scope->businessId, (int) $scope->branchId, $sessionPublicId);
                 if ($session === null) {
                     throw new HttpException(404, 'table_session_not_found', 'The table session was not found in this branch.');

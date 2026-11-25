@@ -109,7 +109,7 @@ final readonly class InventoryDocumentService
         $publicId = self::uuidV4();
         return $this->idempotency->execute(
             $actor->userId, $scope, 'inventory.stock-document.create', $key, $fingerprint,
-            function (PDO $db) use (
+            function () use (
                 $actor, $scope, $branchId, $type, $locationPublicId, $destinationPublicId,
                 $supplierPublicId, $reason, $publicId, $requestId, $ip,
             ): array {
@@ -184,7 +184,7 @@ final readonly class InventoryDocumentService
         ));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'inventory.stock-document.line.create', $key, $fingerprint,
-            function (PDO $db) use (
+            function () use (
                 $actor, $scope, $branchId, $documentPublicId, $stockItemPublicId,
                 $unitCode, $quantity, $note, $linePublicId, $hasCostAmount, $totalCostAmount, $requestId, $ip,
             ): array {
@@ -274,7 +274,7 @@ final readonly class InventoryDocumentService
         ));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'inventory.stock-document.line.update', $key, $fingerprint,
-            function (PDO $db) use (
+            function () use (
                 $actor, $scope, $branchId, $documentPublicId, $linePublicId,
                 $stockItemPublicId, $unitCode, $quantity, $note, $hasCostAmount, $requestedCostAmount, $requestId, $ip,
             ): array {
@@ -345,7 +345,7 @@ final readonly class InventoryDocumentService
         ));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'inventory.stock-document.line.delete', $key, $fingerprint,
-            function (PDO $db) use (
+            function () use (
                 $actor, $scope, $branchId, $documentPublicId, $linePublicId, $requestId, $ip,
             ): array {
                 $document = $this->documents->findDraftForUpdate($scope->businessId, $branchId, $documentPublicId);

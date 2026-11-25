@@ -92,7 +92,7 @@ final readonly class RecipeService
         ));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'catalog.recipe.version.create', $key, $fingerprint,
-            function (PDO $db) use (
+            function () use (
                 $scope, $actor, $productPublicId, $variantPublicId, $name,
                 $normalizedLines, $requestId, $ip,
             ): array {
@@ -195,7 +195,7 @@ final readonly class RecipeService
         $fingerprint = hash('sha256', json_encode([$versionPublicId, 'activate'], JSON_THROW_ON_ERROR));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'catalog.recipe.version.activate', $key, $fingerprint,
-            function (PDO $db) use ($scope, $actor, $versionPublicId, $requestId, $ip): array {
+            function () use ($scope, $actor, $versionPublicId, $requestId, $ip): array {
                 $locked = $this->recipes->findVersionForUpdate($scope->businessId, $versionPublicId);
                 if ($locked === null) throw new HttpException(404, 'recipe_version_not_found', 'The recipe version was not found.');
                 if ((string) $locked['status'] !== 'draft') {

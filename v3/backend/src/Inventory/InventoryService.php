@@ -67,7 +67,7 @@ final readonly class InventoryService
         $fingerprint = hash('sha256', json_encode($after, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'inventory.stock-item.create', $key, $fingerprint,
-            function (PDO $db) use ($scope, $actor, $publicId, $code, $name, $unit, $after, $requestId, $ip): array {
+            function () use ($scope, $actor, $publicId, $code, $name, $unit, $after, $requestId, $ip): array {
                 if ($this->inventory->stockItemCodeExists($scope->businessId, $code)) {
                     throw new HttpException(409, 'stock_item_code_exists', 'A stock item with this code already exists in this business.');
                 }
@@ -113,7 +113,7 @@ final readonly class InventoryService
         $fingerprint = hash('sha256', json_encode($after, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'inventory.stock-item.update', $key, $fingerprint,
-            function (PDO $db) use ($scope, $actor, $publicId, $itemId, $code, $name, $active, $before, $after, $requestId, $ip): array {
+            function () use ($scope, $actor, $publicId, $itemId, $code, $name, $active, $before, $after, $requestId, $ip): array {
                 if ($this->inventory->stockItemCodeExists($scope->businessId, $code, $itemId)) {
                     throw new HttpException(409, 'stock_item_code_exists', 'A stock item with this code already exists in this business.');
                 }
@@ -163,7 +163,7 @@ final readonly class InventoryService
         $fingerprint = hash('sha256', json_encode($after, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'inventory.stock-location.create', $key, $fingerprint,
-            function (PDO $db) use ($scope, $branchId, $actor, $publicId, $code, $name, $type, $after, $requestId, $ip): array {
+            function () use ($scope, $branchId, $actor, $publicId, $code, $name, $type, $after, $requestId, $ip): array {
                 if ($this->inventory->locationCodeExists($scope->businessId, $branchId, $code)) {
                     throw new HttpException(409, 'stock_location_code_exists', 'A stock location with this code already exists in this branch.');
                 }
@@ -210,7 +210,7 @@ final readonly class InventoryService
         $fingerprint = hash('sha256', json_encode($after, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'inventory.stock-location.update', $key, $fingerprint,
-            function (PDO $db) use ($scope, $branchId, $actor, $publicId, $locationId, $code, $name, $type, $active, $before, $after, $requestId, $ip): array {
+            function () use ($scope, $branchId, $actor, $publicId, $locationId, $code, $name, $type, $active, $before, $after, $requestId, $ip): array {
                 if ($this->inventory->locationCodeExists($scope->businessId, $branchId, $code, $locationId)) {
                     throw new HttpException(409, 'stock_location_code_exists', 'A stock location with this code already exists in this branch.');
                 }

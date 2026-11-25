@@ -32,7 +32,7 @@ final readonly class SupplierService
         $fingerprint = hash('sha256', json_encode($after, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'inventory.supplier.create', $key, $fingerprint,
-            function (PDO $db) use ($scope, $actor, $publicId, $name, $phone, $notes, $after, $requestId, $ip): array {
+            function () use ($scope, $actor, $publicId, $name, $phone, $notes, $after, $requestId, $ip): array {
                 $this->suppliers->create($scope->businessId, $publicId, $name, $phone, $notes);
                 $this->audit->record($actor->userId, 'inventory.supplier.created', 'supplier', $publicId,
                     null, $after, null, $requestId, $ip, $scope->businessId);
@@ -59,7 +59,7 @@ final readonly class SupplierService
         $fingerprint = hash('sha256', json_encode($after, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'inventory.supplier.update', $key, $fingerprint,
-            function (PDO $db) use ($scope, $actor, $publicId, $current, $name, $phone, $notes, $active, $before, $after, $requestId, $ip): array {
+            function () use ($scope, $actor, $publicId, $current, $name, $phone, $notes, $active, $before, $after, $requestId, $ip): array {
                 $this->suppliers->update($scope->businessId, (int) $current['id'], $name, $phone, $notes, $active);
                 $this->audit->record($actor->userId, 'inventory.supplier.updated', 'supplier', $publicId,
                     $before, $after, null, $requestId, $ip, $scope->businessId);

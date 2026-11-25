@@ -68,7 +68,7 @@ final readonly class BusinessSetupService
 
         $businessPublicId = self::uuidV4();
         $branchPublicId = self::uuidV4();
-        $this->transactions->run(function (PDO $connection) use (
+        $this->transactions->run(function () use (
             $businessPublicId,
             $branchPublicId,
             $code,

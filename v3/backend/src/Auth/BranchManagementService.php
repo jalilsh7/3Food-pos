@@ -65,7 +65,7 @@ final readonly class BranchManagementService
             'branches.create',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use (
+            function () use (
                 $scope,
                 $code,
                 $name,

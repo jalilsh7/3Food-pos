@@ -79,7 +79,7 @@ final readonly class CatalogService
             'catalog.category.create',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use (
+            function () use (
                 $scope, $publicId, $name, $parentId, $sortOrder, $actor, $requestId, $ipAddress,
             ): array {
                 $this->catalog->createCategory($scope->businessId, $publicId, $name, $parentId, $sortOrder);
@@ -160,7 +160,7 @@ final readonly class CatalogService
             'catalog.product.create',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use (
+            function () use (
                 $scope, $publicId, $categoryId, $name, $sku, $productType, $price, $taxRate, $categoryPublicId,
                 $actor, $requestId, $ipAddress,
             ): array {
@@ -228,7 +228,7 @@ final readonly class CatalogService
         $after = ['name' => $name, 'parent_id' => $parentPublicId, 'sort_order' => $sort, 'is_active' => $active];
         $fp = hash('sha256', json_encode($after, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
         return $this->idempotency->execute($actor->userId, $scope, 'catalog.category.update', $key, $fp,
-            function (PDO $db) use ($scope, $categoryId, $publicId, $name, $parentId, $sort, $active, $actor, $requestId, $ip, $before, $after): array {
+            function () use ($scope, $categoryId, $publicId, $name, $parentId, $sort, $active, $actor, $requestId, $ip, $before, $after): array {
                 $this->catalog->updateCategory($scope->businessId, $categoryId, $name, $parentId, $sort, $active);
                 $this->audit->record($actor->userId, 'catalog.category.updated', 'category', $publicId, $before, $after, null, $requestId, $ip, $scope->businessId);
                 return ['status' => 200, 'body' => ['data' => ['category' => ['id' => $publicId] + $after], 'meta' => (object) []]];
@@ -267,7 +267,7 @@ final readonly class CatalogService
         $after = ['name' => $name, 'sku' => $sku, 'product_type' => $type, 'base_price_amount' => $price, 'tax_rate_bps' => $tax, 'category_id' => $categoryPublicId, 'is_active' => $active];
         $fp = hash('sha256', json_encode($after, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
         return $this->idempotency->execute($actor->userId, $scope, 'catalog.product.update', $key, $fp,
-            function (PDO $db) use ($scope, $productId, $publicId, $sku, $name, $type, $price, $tax, $active, $categoryId, $actor, $requestId, $ip, $before, $after): array {
+            function () use ($scope, $productId, $publicId, $sku, $name, $type, $price, $tax, $active, $categoryId, $actor, $requestId, $ip, $before, $after): array {
                 if ($sku !== null && $this->catalog->findProductSkuConflict($sku, $productId)) throw new HttpException(409, 'product_sku_exists', 'Another product already uses this SKU.');
                 $this->catalog->updateProduct($scope->businessId, $productId, $categoryId, $name, $sku, $type, $price, $tax, $active);
                 $this->audit->record($actor->userId, 'catalog.product.updated', 'product', $publicId, $before, $after, null, $requestId, $ip, $scope->businessId);
@@ -288,7 +288,7 @@ final readonly class CatalogService
         $after = ['is_active' => false, 'archived' => true];
         $fp = hash('sha256', json_encode([$publicId, 'archive'], JSON_THROW_ON_ERROR));
         return $this->idempotency->execute($actor->userId, $scope, 'catalog.product.archive', $key, $fp,
-            function (PDO $db) use ($scope, $productId, $publicId, $actor, $requestId, $ip, $before, $after): array {
+            function () use ($scope, $productId, $publicId, $actor, $requestId, $ip, $before, $after): array {
                 $this->catalog->archiveProduct($scope->businessId, $productId);
                 $this->audit->record($actor->userId, 'catalog.product.archived', 'product', $publicId, $before, $after, null, $requestId, $ip, $scope->businessId);
                 return ['status' => 200, 'body' => ['data' => ['product' => ['id' => $publicId, 'archived' => true]], 'meta' => (object) []]];
@@ -333,7 +333,7 @@ final readonly class CatalogService
         if ($sku !== null && (!is_string($sku) || !preg_match('/^[A-Za-z0-9._-]{1,80}$/',$sku))) throw new HttpException(422, 'variant_sku_invalid', 'Variant SKU is invalid.');
         if (!is_int($delta) || $delta < -9000000000000000 || $delta > 9000000000000000) throw new HttpException(422, 'variant_price_invalid', 'Variant price delta is invalid.');
         $id = self::uuidV4(); $fp = hash('sha256', json_encode([$productPublicId,$name,$sku,$delta], JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
-        return $this->idempotency->execute($actor->userId,$scope,'catalog.variant.create',$key,$fp,function(PDO $db) use($scope,$productId,$id,$name,$sku,$delta,$actor,$requestId,$ip): array {
+        return $this->idempotency->execute($actor->userId,$scope,'catalog.variant.create',$key,$fp,function () use($scope,$productId,$id,$name,$sku,$delta,$actor,$requestId,$ip): array {
             $this->catalog->createVariant($scope->businessId,$productId,$id,$name,$sku,$delta);
             $this->audit->record($actor->userId,'catalog.variant.created','product_variant',$id,null,['name'=>$name,'sku'=>$sku,'price_delta_amount'=>$delta],null,$requestId,$ip,$scope->businessId);
             return ['status'=>201,'body'=>['data'=>['variant'=>['id'=>$id,'name'=>$name,'sku'=>$sku,'price_delta_amount'=>$delta,'is_active'=>true]],'meta'=>(object)[]]];
@@ -354,7 +354,7 @@ final readonly class CatalogService
         }
         if($max>count($options)) throw new HttpException(422,'option_group_max_invalid','max_select cannot exceed the number of options.');
         $id=self::uuidV4();$fp=hash('sha256',json_encode([$name,$type,$min,$max,$required,array_map(static fn($o)=>[$o['name'],$o['price_delta_amount']],$options)],JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE));
-        return $this->idempotency->execute($actor->userId,$scope,'catalog.option-group.create',$key,$fp,function(PDO $db) use($scope,$id,$name,$type,$min,$max,$required,$options,$actor,$requestId,$ip): array {
+        return $this->idempotency->execute($actor->userId,$scope,'catalog.option-group.create',$key,$fp,function () use($scope,$id,$name,$type,$min,$max,$required,$options,$actor,$requestId,$ip): array {
             $this->catalog->createOptionGroup($scope->businessId,$id,$name,$type,$min,$max,$required,$options);
             $this->audit->record($actor->userId,'catalog.option_group.created','option_group',$id,null,['name'=>$name,'selection_type'=>$type,'min_select'=>$min,'max_select'=>$max,'is_required_default'=>$required,'options'=>array_map(static fn($o)=>['name'=>$o['name'],'price_delta_amount'=>$o['price_delta_amount']],$options)],null,$requestId,$ip,$scope->businessId);
             return ['status'=>201,'body'=>['data'=>['option_group'=>['id'=>$id,'name'=>$name,'selection_type'=>$type,'min_select'=>$min,'max_select'=>$max,'is_required_default'=>$required,'options'=>$options]],'meta'=>(object)[]]];
@@ -369,7 +369,7 @@ final readonly class CatalogService
         $groupId=$this->catalog->findOptionGroupId($scope->businessId,$groupPublicId);
         if($groupId===null) throw new HttpException(404,'option_group_not_found','The option group was not found in this business.');
         $fp=hash('sha256',json_encode([$productPublicId,$groupPublicId,$sort,$required],JSON_THROW_ON_ERROR));
-        return $this->idempotency->execute($actor->userId,$scope,'catalog.product.option-group.attach',$key,$fp,function(PDO $db) use($scope,$productId,$groupId,$groupPublicId,$sort,$required,$actor,$requestId,$ip,$productPublicId): array {
+        return $this->idempotency->execute($actor->userId,$scope,'catalog.product.option-group.attach',$key,$fp,function () use($scope,$productId,$groupId,$groupPublicId,$sort,$required,$actor,$requestId,$ip,$productPublicId): array {
             if($this->catalog->productHasOptionGroup($scope->businessId,$productId,$groupId)) throw new HttpException(409,'option_group_already_attached','This option group is already attached.');
             $this->catalog->attachOptionGroup($scope->businessId,$productId,$groupId,$sort,$required);
             $this->audit->record($actor->userId,'catalog.product.option_group_attached','product',$productPublicId,null,['option_group_id'=>$groupPublicId,'sort_order'=>$sort,'is_required'=>$required],null,$requestId,$ip,$scope->businessId);
@@ -416,7 +416,7 @@ final readonly class CatalogService
         $fingerprint = hash('sha256', json_encode($after, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'catalog.variant.update', $key, $fingerprint,
-            function (PDO $db) use (
+            function () use (
                 $scope, $variantId, $productId, $publicId, $name, $sku, $delta, $active,
                 $actor, $requestId, $ip, $before, $after,
             ): array {
@@ -482,7 +482,7 @@ final readonly class CatalogService
         $fingerprint = hash('sha256', json_encode($after, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'catalog.option-group.update', $key, $fingerprint,
-            function (PDO $db) use (
+            function () use (
                 $scope, $groupId, $publicId, $name, $type, $min, $max, $required, $active,
                 $actor, $requestId, $ip, $before, $after,
             ): array {
@@ -532,7 +532,7 @@ final readonly class CatalogService
         $fingerprint = hash('sha256', json_encode($after, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
         return $this->idempotency->execute(
             $actor->userId, $scope, 'catalog.option.update', $key, $fingerprint,
-            function (PDO $db) use (
+            function () use (
                 $scope, $optionId, $groupId, $publicId, $name, $delta, $active,
                 $actor, $requestId, $ip, $before, $after, $current,
             ): array {

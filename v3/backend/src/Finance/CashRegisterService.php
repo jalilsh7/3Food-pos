@@ -51,7 +51,7 @@ final readonly class CashRegisterService
             'cash.registers.create',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use ($actor, $scope, $code, $name, $requestId, $ipAddress): array {
+            function () use ($actor, $scope, $code, $name, $requestId, $ipAddress): array {
                 $publicId = self::uuidV4();
                 try {
                     $this->cash->createRegister($scope->businessId, (int) $scope->branchId, $publicId, $code, $name);
@@ -106,7 +106,7 @@ final readonly class CashRegisterService
             'cash.sessions.open',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use ($actor, $scope, $registerPublicId, $openingAmount, $idempotencyKey, $requestId, $ipAddress): array {
+            function () use ($actor, $scope, $registerPublicId, $openingAmount, $idempotencyKey, $requestId, $ipAddress): array {
                 $register = $this->cash->findRegisterForUpdate($scope->businessId, (int) $scope->branchId, $registerPublicId);
                 if ($register === null || (int) $register['is_active'] !== 1) {
                     throw new HttpException(404, 'active_register_not_found', 'The active cash register was not found in this branch.');
@@ -191,7 +191,7 @@ final readonly class CashRegisterService
             'cash.sessions.close',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use ($actor, $scope, $sessionPublicId, $countedAmount, $requestId, $ipAddress): array {
+            function () use ($actor, $scope, $sessionPublicId, $countedAmount, $requestId, $ipAddress): array {
                 $session = $this->cash->findSessionForUpdate($scope->businessId, (int) $scope->branchId, $sessionPublicId);
                 if ($session === null) {
                     throw new HttpException(404, 'cash_session_not_found', 'The cash session was not found in this branch.');
@@ -260,7 +260,7 @@ final readonly class CashRegisterService
             'cash.sessions.review',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use ($actor, $scope, $sessionPublicId, $note, $requestId, $ipAddress): array {
+            function () use ($actor, $scope, $sessionPublicId, $note, $requestId, $ipAddress): array {
                 $session = $this->cash->findSessionForUpdate($scope->businessId, (int) $scope->branchId, $sessionPublicId);
                 if ($session === null) {
                     throw new HttpException(404, 'cash_session_not_found', 'The cash session was not found in this branch.');

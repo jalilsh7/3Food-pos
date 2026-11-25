@@ -71,7 +71,7 @@ final readonly class AuthenticationService
         $userAgentHash = $userAgent === '' ? null : hash('sha256', substr($userAgent, 0, 1024));
         $userId = (int) $user['id'];
 
-        $this->transactions->run(function (PDO $connection) use (
+        $this->transactions->run(function () use (
             $user,
             $password,
             $userId,
@@ -138,7 +138,7 @@ final readonly class AuthenticationService
         }
 
         $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
-        $this->transactions->run(function (PDO $connection) use ($userId, $newHash, $requestId, $ipAddress): void {
+        $this->transactions->run(function () use ($userId, $newHash, $requestId, $ipAddress): void {
             $this->users->changePasswordAndRevokeSessions($userId, $newHash);
             $this->audit->record(
                 $userId,

@@ -115,7 +115,7 @@ final readonly class UserManagementService
             $branchScoped ? 'users.create.branch' : 'users.create.business',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use (
+            function () use (
                 $username,
                 $displayName,
                 $role,
