@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Orders;
 
-use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
-use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\ActorContext;
+use PersiaCoder\PosV3\Security\BusinessContext;
 use PersiaCoder\PosV3\Security\IdempotencyService;
 use PersiaCoder\PosV3\Security\PermissionChecker;
 
@@ -23,7 +23,7 @@ final readonly class OrderService
     ) {}
 
     public function list(
-        BusinessScope $scope,
+        BusinessContext $scope,
         ?string $status,
         ?string $channel,
         int $limit,
@@ -85,7 +85,7 @@ final readonly class OrderService
 
     /** @return array{?string,?string} UTC DATETIME bounds; the upper bound is exclusive. */
     private function normalizeDateRange(
-        BusinessScope $scope, ?string $fromDate, ?string $toDate,
+        BusinessContext $scope, ?string $fromDate, ?string $toDate,
     ): array {
         if ($fromDate === null && $toDate === null) {
             return [null, null];
@@ -136,7 +136,7 @@ final readonly class OrderService
         return $date;
     }
 
-    public function get(BusinessScope $scope, string $orderPublicId): array
+    public function get(BusinessContext $scope, string $orderPublicId): array
     {
         if (!self::isUuid($orderPublicId)) {
             throw new ApplicationException(400, 'invalid_order_id', 'The order identifier is invalid.');
@@ -194,8 +194,8 @@ final readonly class OrderService
     }
 
     public function create(
-        AuthenticatedPrincipal $actor,
-        BusinessScope $scope,
+        ActorContext $actor,
+        BusinessContext $scope,
         array $payload,
         string $idempotencyKey,
         string $requestId,
@@ -466,8 +466,8 @@ final readonly class OrderService
     }
 
     public function transition(
-        AuthenticatedPrincipal $actor,
-        BusinessScope $scope,
+        ActorContext $actor,
+        BusinessContext $scope,
         string $orderPublicId,
         array $payload,
         string $idempotencyKey,
@@ -595,8 +595,8 @@ final readonly class OrderService
     }
 
     public function transitionKitchen(
-        AuthenticatedPrincipal $actor,
-        BusinessScope $scope,
+        ActorContext $actor,
+        BusinessContext $scope,
         string $orderPublicId,
         array $payload,
         string $idempotencyKey,
