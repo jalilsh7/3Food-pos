@@ -420,7 +420,7 @@ if ($method === 'POST' && $path === '/sms/send') {
         $templateRaw = $templateStmt->fetchColumn();
         $savedTemplate = is_string($templateRaw) ? json_decode($templateRaw, true) : null;
         $savedVariables = is_array($savedTemplate) && is_array($savedTemplate['variables'] ?? null) ? $savedTemplate['variables'] : [];
-        if (!is_array($savedTemplate) || empty($savedTemplate['enabled']) ||
+        if (!is_array($savedTemplate) || (empty($savedTemplate['enabled']) && empty($savedTemplate['managerEnabled'])) ||
             trim((string)($savedTemplate['bodyId'] ?? '')) !== $bodyId ||
             count($savedVariables) !== (is_array($variables) ? count($variables) : -1)) {
             json_response(['ok'=>false,'error'=>'status_template_mismatch','message'=>'الگوی فعال این وضعیت با شناسه یا تعداد متغیرهای ارسالی مطابقت ندارد؛ ارسال انجام نشد'],409);
