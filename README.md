@@ -56,6 +56,9 @@ New business capabilities are organized under `src/modules/<module-id>/`. Each m
 
 ## Project guidance
 
+- V3 modular architecture standard: [docs/v3/MODULAR-ARCHITECTURE-FA.md](docs/v3/MODULAR-ARCHITECTURE-FA.md)
+- SMS module pilot: [src/modules/sms/README.md](src/modules/sms/README.md)
+
 - V3 SMS module port and remaining acceptance work: [docs/v3/SMS-MODULE-PORT-FA.md](docs/v3/SMS-MODULE-PORT-FA.md)
 
 - Persian handoff: [docs/v2/AI_HANDOFF_FA.md](docs/v2/AI_HANDOFF_FA.md)
