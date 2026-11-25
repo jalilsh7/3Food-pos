@@ -93,7 +93,7 @@ const NAV: { id: View; label: string; icon: typeof ShoppingBag; roles: Role[] }[
 ];
 
 const EVENT_LABEL: Record<SmsEvent, string> = {
-  order_created: "ثبت سفارش", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_dispatched: "ارسال شد", order_delivered: "تحویل", order_cancelled: "لغو سفارش", order_invoice: "ریز فاکتور",
+  order_created: "جدید", order_preparing: "شروع آماده‌سازی", order_ready: "آماده شدن", order_dispatched: "ارسال شد", order_delivered: "تحویل شد", order_cancelled: "لغو سفارش", order_invoice: "ریز فاکتور",
   points_earned: "کسب امتیاز", discount_used: "استفاده از کد",
 };
 
