@@ -91,3 +91,7 @@ MySQL/MariaDB برای بسیاری از دستورات DDL implicit commit ان
 
 ## نقشه مالکیت دامنه‌ای
 فهرست کامل شماره‌های 001 تا 012، جدول‌های تحت پوشش، مالک پیشنهادی و قواعد migration آینده در سند `v3/docs/MIGRATION_OWNERSHIP_MAP.md` نگهداری می‌شود. مالکیت دامنه‌ای فعلاً inventory مستند است و runner هنوز registry ماشینی owner را validate نمی‌کند.
+
+
+## Registry ماشینی مالکیت و وابستگی
+فایل `manifest.php` برای هر نسخه owner، depends_on، tables و risk را ثبت می‌کند. `migrate.php` اکنون وجود metadata برای همه SQLها، نبود entry اضافی، معتبر بودن owner/risk/tableها و ترتیب/اعمال‌شدن dependencyها را پیش از اجرای هر migration کنترل می‌کند. checksum فایل SQL همچنان مستقل و immutable باقی می‌ماند؛ تغییر owner یا dependency نیز نیازمند بازبینی معماری است.
