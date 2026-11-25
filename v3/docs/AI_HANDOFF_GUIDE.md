@@ -493,3 +493,11 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 
 - CI for the final cancellation-flow code commit 34ffa458 passed: Frontend Validation run 44726660794, Backend Validation run 44726660883, and DB engine validation run 44726652129. A stale source-contract assertion from the prior function signature failed in an earlier parallel run and was corrected; the final run passed.
 - Cancellation UX is implemented and CI-accepted; real browser smoke testing remains outstanding.
+
+## Continuation update — ARCH-DB-01 (2026-11-26)
+- Fixed the migration 011 ownership manifest: added pos_product_variants, pos_order_items and pos_order_item_recipe_lines because the SQL alters these existing tables too. The immutable SQL file was not edited.
+- The migration runner now extracts CREATE TABLE / ALTER TABLE / DROP TABLE targets and requires exact parity with the manifest before applying any SQL.
+- The backend architecture test runner performs the same static parity check without requiring a database connection.
+- Updated MIGRATION_OWNERSHIP_MAP.md and ARCHITECTURE_DEPENDENCY_AUDIT.md. Static inspection of all 12 migration SQL files against all 12 manifest entries reports exact parity.
+- No migration has been applied to a customer/production database. Run full architecture tests and disposable MySQL 8.4 + MariaDB 10.6 workflows at the final QA gate.
+- Next implementation focus: complete CatalogWorkspace CRUD (product edit, category update/archive, variants and option-group management), then expose session permission grants for role-aware UI affordances. Backend RBAC remains authoritative.
