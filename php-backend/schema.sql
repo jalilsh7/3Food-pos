@@ -77,7 +77,7 @@ INSERT IGNORE INTO pos_counters (counter_key, counter_value) VALUES ('order_numb
 CREATE TABLE IF NOT EXISTS pos_orders (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   order_number BIGINT UNSIGNED NOT NULL,
-  status ENUM('new','preparing','ready','delivered','cancelled') NOT NULL DEFAULT 'new',
+  status ENUM('new','preparing','ready','dispatched','delivered','cancelled') NOT NULL DEFAULT 'new',
   idempotency_key CHAR(36) NULL,
   request_hash CHAR(64) NULL,
   customer_id VARCHAR(100) NULL,
