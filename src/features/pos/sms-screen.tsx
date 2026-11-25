@@ -7,7 +7,6 @@ import { normalizeIranPhone, tehranDate } from "@/lib/pos/formatters";
 
 const EVENT_STATUS: Partial<Record<SmsEvent, OrderStatus>> = {
   order_created: "new",
-  order_invoice: "new",
   order_preparing: "preparing",
   order_ready: "ready",
   order_dispatched: "dispatched",
