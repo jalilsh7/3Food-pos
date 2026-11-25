@@ -3,9 +3,11 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Infrastructure\Database;
 
+use PersiaCoder\PosV3\Orders\OrderStore;
+
 use PDO;
 
-final readonly class OrderRepository
+final readonly class OrderRepository implements OrderStore
 {
     public function __construct(private PDO $connection) {}
 
