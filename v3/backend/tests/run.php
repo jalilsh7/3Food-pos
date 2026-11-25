@@ -76,6 +76,27 @@ foreach ($testFiles as $testFile) {
                 }
                 $checks++;
             }
+
+            foreach ($sqlFiles as $sqlFile) {
+                $version = substr(basename($sqlFile), 0, -4);
+                $sql = file_get_contents($sqlFile);
+                if (!is_string($sql)) {
+                    throw new RuntimeException("Migration {$version} SQL is unreadable.");
+                }
+                preg_match_all(
+                    '/\\b(?:CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?|ALTER\\s+TABLE|DROP\\s+TABLE(?:\\s+IF\\s+EXISTS)?)\\s+`?([a-z][a-z0-9_]*)`?/i',
+                    $sql,
+                    $matches
+                );
+                $sqlTables = array_values(array_unique($matches[1] ?? []));
+                $declaredTables = array_values(array_unique($manifest[$version]['tables'] ?? []));
+                sort($sqlTables);
+                sort($declaredTables);
+                if ($sqlTables !== $declaredTables) {
+                    throw new RuntimeException("Migration {$version} SQL table targets do not match its ownership manifest.");
+                }
+                $checks++;
+            }
         }
 
         foreach (($spec['checks'] ?? []) as [$path, $mustContain, $mustNotContain]) {
