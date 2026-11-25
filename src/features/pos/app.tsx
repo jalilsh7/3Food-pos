@@ -773,10 +773,10 @@ function OrdersScreen({ role }: { role: Role }) {
   const [addProductId, setAddProductId] = useState("");
   const [editBusy, setEditBusy] = useState(false);
   const enabledStatuses = settings.orderStatusEnabled ?? {};
-  const steps: Order["status"][] = (role === "kitchen"
+  const statusSteps: Order["status"][] = role === "kitchen"
     ? ["preparing", "ready"]
-    : role === "manager" ? ["preparing", "ready", "dispatched", "delivered", "cancelled"] : [])
-    .filter((status) => enabledStatuses[status] !== false);
+    : role === "manager" ? ["preparing", "ready", "dispatched", "delivered", "cancelled"] : [];
+  const steps = statusSteps.filter((status) => enabledStatuses[status] !== false);
   const normalizedEditPhone = normalizeIranPhone(editPhone);
   const editCustomer = customers.find((c) => normalizeIranPhone(c.phone) === normalizedEditPhone) ?? null;
   const editCodeUses = editCustomer && editCode
