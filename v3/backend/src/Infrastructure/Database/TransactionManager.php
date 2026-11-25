@@ -3,11 +3,13 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Infrastructure\Database;
 
+use PersiaCoder\PosV3\Security\TransactionBoundary;
+
 use LogicException;
 use PDO;
 use Throwable;
 
-final readonly class TransactionManager
+final readonly class TransactionManager implements TransactionBoundary
 {
     public function __construct(private PDO $connection) {}
 
