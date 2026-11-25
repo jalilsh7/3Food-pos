@@ -15,7 +15,7 @@ final readonly class TransactionManager
      * Execute one application use-case in a single database transaction.
      *
      * @template T
-     * @param callable(PDO): T $operation
+     * @param callable(): T $operation
      * @return T
      */
     public function run(callable $operation): mixed
@@ -27,7 +27,7 @@ final readonly class TransactionManager
         $this->connection->beginTransaction();
 
         try {
-            $result = $operation($this->connection);
+            $result = $operation();
             if (!$this->connection->inTransaction()) {
                 throw new LogicException('The operation ended its transaction unexpectedly.');
             }
