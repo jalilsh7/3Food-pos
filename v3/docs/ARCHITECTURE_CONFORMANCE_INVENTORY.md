@@ -134,3 +134,24 @@ Migrationهای ترتیبی SQL از 001 تا 012 در GitHub مشاهده شد
 - migration: نسخه‌بندی ترتیبی وجود دارد؛ ownership مستقل نیازمند تعیین است.
 - docs/tests: اسناد مرزبندی وجود دارد؛ مستندات و تست مستقل تمام ماژول‌ها تکمیل/تأیید نشده.
 - تست نهایی: عمداً معوق تا پایان تطبیق کلی.
+
+
+## تکمیل مرز Persistence ماژول‌های Backend — 2026-11-25
+در commit `0377ac1a67b3cd9b7123a76c1a1d996e449fa8c8`، سرویس‌های کاربردی زیر از PDO و Repository concrete جدا شدند و به persistence portهای متعلق به ماژول وابسته شدند:
+
+- Catalog: `CatalogStore`
+- Inventory: `InventoryStore`, `InventoryDocumentStore`, `InventoryPostingStore`, `SupplierStore`
+- Dining: `DiningStore`
+- Finance: `CashStore`
+- Recipes: `RecipeStore`
+- Media: `MediaStore`
+- Orders: `OrderStore` (در دسته قبلی)
+
+Repositoryهای PDO در `Infrastructure/Database` implementation این interfaceها هستند و Composition Root آن‌ها را به سرویس‌ها تزریق می‌کند. سرویس‌های مذکور دیگر `PDO` را import نمی‌کنند یا از داخل خود Repository نمی‌سازند.
+
+### موارد باز
+- `MediaService` هنوز به `PrivateMediaStorage` concrete وابسته است؛ storage port باید استخراج شود.
+- ماژول‌های Auth/Access، User/Role management و چند controller/service دیگر هنوز نیازمند بررسی PDO/Repository coupling هستند.
+- بعضی سرویس‌ها هنوز `HttpException` و مدل‌های actor/scope متعلق به Auth را مصرف می‌کنند؛ error contract و actor/authorization ports باید مستقل شوند.
+- logger مرکزی فعلاً در Kernel برای exceptionهای کنترل‌نشده متصل است؛ log eventهای application و providerها هنوز به آن متصل نشده‌اند.
+- این تغییرات از نظر کد ثبت شده‌اند، اما به دلیل دستور کاربر build/lint/test اجرا نشده است؛ سازگاری signatureها و runtime در تست نهایی بررسی خواهد شد.

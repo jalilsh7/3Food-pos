@@ -101,3 +101,12 @@
 - کلیدهای حساس مانند password/token/secret/authorization/cookie/apiKey/credential در context بازگشتی redact می‌شوند.
 - `Http/Kernel` برای exceptionهای کنترل‌نشده از logger مرکزی استفاده می‌کند و module را از مسیر API تشخیص می‌دهد.
 - Composition Root، logger را به Kernel تزریق می‌کند. اتصال به use-caseها، provider adapters و عملیات دیتابیس در مراحل بعدی انجام می‌شود؛ این دسته هنوز کامل نیست.
+
+
+## استخراج Persistence Port برای ماژول‌های Backend — 2026-11-25
+- قراردادهای `CatalogStore`, `InventoryStore`, `InventoryDocumentStore`, `InventoryPostingStore`, `SupplierStore`, `DiningStore`, `CashStore`, `RecipeStore` و `MediaStore` ایجاد شدند.
+- Repositoryهای متناظر در `Infrastructure/Database` این قراردادها را پیاده‌سازی می‌کنند.
+- سرویس‌های Catalog، Inventory، InventoryDocument، InventoryPosting، Supplier، Dining، CashRegister، Recipe و Media از PDO و ساخت Repository درون constructor خارج شدند؛ اکنون port و سرویس‌های مشترک idempotency/audit را دریافت می‌کنند.
+- Composition Root مسئول ساخت adapterهای PDO و تزریق آن‌هاست؛ همه adapterهای تراکنشی از همان PDO singleton استفاده می‌کنند تا atomicity حفظ شود.
+- commit این دسته روی شاخه توسعه V3 ثبت شد: `0377ac1a67b3cd9b7123a76c1a1d996e449fa8c8`.
+- تست/Build اجرا نشده و تا پایان تطبیق کلی معوق است.
