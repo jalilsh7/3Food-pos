@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace PersiaCoder\PosV3\Orders;
 
-use PDO;
 use PersiaCoder\PosV3\Auth\AuthenticatedPrincipal;
 use PersiaCoder\PosV3\Auth\BusinessScope;
 use PersiaCoder\PosV3\Auth\PermissionService;
@@ -245,7 +244,7 @@ final readonly class OrderService
             'orders.create',
             $idempotencyKey,
             $fingerprint,
-            function (PDO $connection) use (
+            function () use (
                 $actor,
                 $scope,
                 $sourceChannel,
