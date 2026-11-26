@@ -5,7 +5,7 @@ return [
     'module' => 'Recipes',
     'required' => ['src/Recipes/RecipeService.php', 'src/Recipes/RecipeApplication.php', 'src/Recipes/RecipeStore.php', 'src/Infrastructure/Database/RecipeRepository.php'],
     'services' => ['src/Recipes/RecipeService.php'],
-    'forbidden' => ['use PDO;', 'Infrastructure', 'Auth', 'Http'],
+    'forbidden' => ['use PDO;', 'Infrastructure', 'Auth', 'Http', 'AuditLogService', 'IdempotencyService'],
     'contains' => [],
     'checks' => [
         ['src/Recipes/RecipeService.php', ['implements RecipeApplication'], []],
