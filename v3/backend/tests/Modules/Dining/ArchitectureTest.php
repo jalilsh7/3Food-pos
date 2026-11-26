@@ -5,7 +5,7 @@ return [
     'module' => 'Dining',
     'required' => ['src/Dining/DiningService.php', 'src/Dining/DiningApplication.php', 'src/Dining/DiningStore.php', 'src/Infrastructure/Database/DiningRepository.php'],
     'services' => ['src/Dining/DiningService.php'],
-    'forbidden' => ['use PDO;', 'Infrastructure', 'Auth', 'Http'],
+    'forbidden' => ['use PDO;', 'Infrastructure', 'Auth', 'Http', 'AuditLogService', 'IdempotencyService'],
     'contains' => [],
     'checks' => [
         ['src/Dining/DiningService.php', ['implements DiningApplication'], []],
