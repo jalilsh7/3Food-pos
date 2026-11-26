@@ -10,5 +10,5 @@ interface LoginAttemptGuard
 
     public function recordFailure(string $username, string $ipAddress): void;
 
-    public function clearFailures(string $username, string $ipAddress): void;
+    public function clear(string $username, string $ipAddress): void;
 }
