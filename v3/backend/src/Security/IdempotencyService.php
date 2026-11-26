@@ -7,7 +7,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use PersiaCoder\PosV3\Support\ApplicationException;
 
-final readonly class IdempotencyService
+final readonly class IdempotencyService implements IdempotencyExecutor
 {
     private string $encryptionKey;
 
