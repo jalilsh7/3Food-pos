@@ -509,3 +509,10 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 - Frontend API client retrieves the current scoped permission set after business/branch selection. Workspace navigation is filtered by those codes; overview remains available. On permission-fetch failure the UI defaults to overview-only rather than granting navigation.
 - Backend permission middleware remains authoritative for every protected API; navigation filtering is a usability layer only.
 - No PHP lint, database integration test, TypeScript check, frontend build or browser test was run for this package. Add/execute coverage in final QA, especially branch/business permission union, inactive roles, wildcard `*`, and unauthorized context behavior.
+
+
+### CAT-01B — category management UI
+- CatalogWorkspace now requests inactive categories for its management view while the product form's category selector remains active-only.
+- Added frontend PATCH client for category name and active-state updates, matching the existing `PATCH /api/v1/catalog/categories/{categoryPublicId}` route.
+- Added a category manager section with rename, deactivate and reactivate actions. Deactivation is a reversible status change; it does not delete products.
+- Verify that the category listing endpoint returns inactive rows and that CatalogService validates category state changes. TypeScript/build/API tests remain pending; do not claim this package is QA-accepted.
