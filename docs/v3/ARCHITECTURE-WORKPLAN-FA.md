@@ -179,3 +179,13 @@
 - برای Customers، Loyalty، Messaging، Reporting، Storefront، Integrations، Licensing، CentralAdmin، Updates و POS، interfaceهای Application/Provider ایجاد شد.
 - Storefront از `GuestActorContext` مستقل از user داخلی استفاده می‌کند؛ fake internal user ممنوع است.
 - implementation و persistence adapters این ماژول‌ها در مرحله feature coding ساخته می‌شوند؛ فعلاً فقط قرارداد و مرز تثبیت شده است.
+
+
+## ادامه تطبیق اجرایی قراردادهای Orders/Security — 2026-11-26
+- بررسی مجدد فایل‌های واقعی نشان داد گزارش قدیمی درباره ساخت PDO/Repository داخل OrderService و IdempotencyService دیگر معتبر نیست؛ هر دو از قبل از طریق constructor injection و Composition Root تغذیه می‌شدند. این مغایرت از inventory اصلاح شد تا کار تکراری انجام نشود.
+- اصلاح جدید: قراردادهای Security/IdempotencyExecutor و Security/AuditRecorder اضافه شدند. IdempotencyService و AuditLogService این interfaceها را پیاده‌سازی می‌کنند.
+- Orders/OrderService اکنون فقط به این دو port وابسته است و import مستقیم کلاس‌های اجرایی Security حذف شد.
+- تست معماری Orders تقویت شد تا وابستگی به AuditLogService و IdempotencyService concrete را ممنوع کند؛ تست معماری Security نیز پیاده‌سازی interfaceها را کنترل می‌کند.
+- README ماژول Orders مرز جدید را ثبت می‌کند.
+- commitهای تغییرات در شاخه فعال ثبت شده‌اند؛ build/lint/test هنوز اجرا نشده و طبق دستور کاربر برای پایان تطبیق نگه داشته شده است.
+- کار بعدی: بررسی همین الگو در سایر application serviceها، تفکیک authorization و error contract از Auth/HTTP، بررسی storage port رسانه، سپس بازبینی logger و تست مستقل واقعی هر ماژول.
