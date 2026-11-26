@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace PersiaCoder\\PosV3\\Security;
+namespace PersiaCoder\PosV3\Security;
 
 /** Application port for executing an idempotent use case. */
 interface IdempotencyExecutor
