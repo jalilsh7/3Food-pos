@@ -7,7 +7,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use PersiaCoder\PosV3\Support\ApplicationException;
 use PersiaCoder\PosV3\Security\AuditRecorder;
-use PersiaCoder\PosV3\Security\LoginAttemptLimiter;
+use PersiaCoder\PosV3\Security\LoginAttemptGuard;
 use PersiaCoder\PosV3\Security\TransactionBoundary;
 
 final readonly class AuthenticationService implements AuthenticationApplication
@@ -18,7 +18,7 @@ final readonly class AuthenticationService implements AuthenticationApplication
         private UserStore $users,
         private SessionStore $sessions,
         private TransactionBoundary $transactions,
-        private LoginAttemptLimiter $loginLimiter,
+        private LoginAttemptGuard $loginLimiter,
         private AuditRecorder $audit,
         string $applicationKey,
         private int $sessionLifetimeSeconds = 28800,
