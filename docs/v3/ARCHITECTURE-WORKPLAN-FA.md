@@ -204,3 +204,9 @@
 - AuthenticationService دیگر به LoginAttemptLimiter concrete وابسته نیست و فقط LoginAttemptGuard را می‌شناسد؛ LoginAttemptLimiter پیاده‌سازی زیرساختی/اجرایی این قرارداد باقی می‌ماند.
 - تست معماری Auth وابستگی مستقیم به LoginAttemptLimiter را ممنوع و تست Security پیاده‌سازی LoginAttemptGuard را بررسی می‌کند.
 - اکنون وابستگی‌های کاربردی Auth/Catalog/Dining/Finance/Inventory/Recipes/Media/Orders به AuditLogService و IdempotencyService concrete حذف شده‌اند؛ Auth برای throttling نیز از port استفاده می‌کند.
+
+
+## دسته تکمیلی — حفاظت از داده در logging — 2026-11-26
+- کلیدهای رایج PII در logger ساخت‌یافته backend به redaction اضافه شدند (email/phone/address/name/guest/customer IDs/national ID/card number).
+- تغییر و مستندات ثبت شده؛ runtime/test/build عمداً اجرا نشده‌اند.
+- ادامه تطبیق: guest idempotency به مدل actor type/key نیاز دارد؛ طرح باید با migration افزایشی، حفظ داده‌های actor_user_id قدیمی و uniqueness دقیق business/branch/endpoint/key انجام شود؛ migration شماره 004 دست‌نخورده بماند.
