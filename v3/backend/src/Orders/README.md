@@ -7,10 +7,12 @@
 - HTTP adapter: `OrderController`.
 - Application service: `OrderService`.
 - Persistence port: `OrderStore`; adapter: `Infrastructure/Database/OrderRepository`.
-- Shared ports: `IdempotencyStore`, `TransactionBoundary`, `AuditLogWriter`.
+- Shared ports: `IdempotencyExecutor`, `AuditRecorder`, `PermissionChecker`, `BusinessScopeContext`.
+- Security adapters: `IdempotencyService` implements `IdempotencyExecutor`; `AuditLogService` implements `AuditRecorder`.
+- Persistence ports for those adapters remain `IdempotencyStore`, `TransactionBoundary`, and `AuditLogWriter`.
 
 ## وابستگی‌های مجاز
-سرویس سفارش PDO یا Repository concrete نمی‌سازد. تمام writeهای سفارش و پاسخ idempotency باید با همان PDO singleton در یک transaction boundary اجرا شوند. قیمت، tax، stock و business/branch scope از داده قابل اعتماد سمت سرور استخراج شوند.
+سرویس سفارش PDO، Repository concrete یا سرویس اجرایی امنیت را نمی‌شناسد؛ فقط به `IdempotencyExecutor` و `AuditRecorder` وابسته است. تمام writeهای سفارش و پاسخ idempotency باید با همان PDO singleton در یک transaction boundary اجرا شوند. قیمت، tax، stock و business/branch scope از داده قابل اعتماد سمت سرور استخراج شوند.
 
 ## Migrationها
 008 مالک اصلی Orders/Dining. تغییرات schema بعدی باید migration افزایشی با owner=Orders داشته باشند.
