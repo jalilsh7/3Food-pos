@@ -1730,3 +1730,4 @@
 ### CAT-01C — API client coverage for variant/option-group management (2026-11-26)
 - Added frontend API client operations for variant creation/update, option-group creation/attachment/update and individual option updates, matching existing backend routes and mutation idempotency helper.
 - UI integration is the next step; this is not yet user-facing CRUD completion. No tests/build run.
+\n\n### CAT-01D — Catalog addition quick-create UI (2026-11-26)\n- Added product-detail forms for creating price-delta variants and creating option groups with newline-entered options, then attaching the group to the selected product. Single/multiple selection supported with zero-price options.\n- Existing groups/options still require expanded edit management; no tests/build run.\n
