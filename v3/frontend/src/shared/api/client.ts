@@ -491,9 +491,19 @@ export type CatalogProductInput = {
   tax_rate_bps?: number;
 };
 
-export async function getCatalogCategories(): Promise<CatalogCategory[]> {
+export async function getCatalogCategories(includeInactive = false): Promise<CatalogCategory[]> {
   const data = await request<{ categories: CatalogCategory[] }>("/catalog/categories");
-  return data.categories.filter((category) => category.is_active);
+  return includeInactive ? data.categories : data.categories.filter((category) => category.is_active);
+}
+
+export async function updateCatalogCategory(
+  categoryId: string,
+  payload: { name?: string; is_active?: boolean },
+): Promise<void> {
+  await request<{ category: { id: string } }>(`/catalog/categories/${encodeURIComponent(categoryId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function getCatalogProducts(): Promise<PosCatalogProduct[]> {
