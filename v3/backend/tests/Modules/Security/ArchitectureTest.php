@@ -9,7 +9,7 @@ return [
     'contains' => [],
     'checks' => [
         ['src/Security/AuditLogService.php', ['implements AuditRecorder', 'Logger $logger', 'audit.recorded'], []]
-        ,['src/Security/LoginAttemptLimiter.php', ['implements LoginAttemptGuard'], []],
+        ['src/Security/LoginAttemptLimiter.php', ['implements LoginAttemptGuard'], []],,
         ['src/Security/IdempotencyService.php', ['implements IdempotencyExecutor', 'BusinessScopeContext $scope'], ['Http', 'Auth', 'PDO']],
         ['src/Auth/BusinessScope.php', ['implements BusinessScopeContext'], []],
         ['src/Security/BusinessContext.php', ['implements BusinessScopeContext'], []],
