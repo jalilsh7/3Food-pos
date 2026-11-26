@@ -5,7 +5,7 @@ namespace PersiaCoder\PosV3\Security;
 
 use PersiaCoder\PosV3\Support\ApplicationException;
 
-final readonly class LoginAttemptLimiter
+final readonly class LoginAttemptLimiter implements LoginAttemptGuard
 {
     private const ACCOUNT_MAX_ATTEMPTS = 5;
     private const IP_MAX_ATTEMPTS = 30;
