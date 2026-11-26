@@ -516,3 +516,6 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 - Added frontend PATCH client for category name and active-state updates, matching the existing `PATCH /api/v1/catalog/categories/{categoryPublicId}` route.
 - Added a category manager section with rename, deactivate and reactivate actions. Deactivation is a reversible status change; it does not delete products.
 - Verify that the category listing endpoint returns inactive rows and that CatalogService validates category state changes. TypeScript/build/API tests remain pending; do not claim this package is QA-accepted.
+
+
+CAT-01C continuation: the client exposes variant and option-group CRUD calls; UI wiring and payload-contract QA remain pending.
