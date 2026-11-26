@@ -1725,3 +1725,8 @@
 - [x] صفحه کاتالوگ بخش مدیریت دسته‌ها دارد: ویرایش نام، غیرفعال‌سازی و فعال‌سازی مجدد؛ دسته‌بندی غیرفعال حذف فیزیکی نمی‌شود و محصولات قبلی باقی می‌مانند.
 - [ ] بررسی نهایی قرارداد backend برای بازگرداندن دسته‌های غیرفعال و محدودیت تغییر وضعیت، TypeScript/build و تست API در QA.
 - وضعیت: **رابط و اتصال درخواست‌ها پیاده‌سازی شد؛ پذیرش فنی و QA باز است.**
+
+
+### CAT-01C — API client coverage for variant/option-group management (2026-11-26)
+- Added frontend API client operations for variant creation/update, option-group creation/attachment/update and individual option updates, matching existing backend routes and mutation idempotency helper.
+- UI integration is the next step; this is not yet user-facing CRUD completion. No tests/build run.
