@@ -17,8 +17,8 @@ final readonly class OrderService implements OrderApplication
 
     public function __construct(
         private OrderStore $orders,
-        private IdempotencyService $idempotency,
-        private AuditLogService $audit,
+        private IdempotencyExecutor $idempotency,
+        private AuditRecorder $audit,
         private PermissionChecker $permissions,
     ) {}
 
