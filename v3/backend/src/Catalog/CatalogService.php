@@ -4,18 +4,18 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Catalog;
 
 use PersiaCoder\PosV3\Support\ApplicationException;
-use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\AuditRecorder;
 use PersiaCoder\PosV3\Security\ActorContext;
 use PersiaCoder\PosV3\Security\BusinessContext;
-use PersiaCoder\PosV3\Security\IdempotencyService;
+use PersiaCoder\PosV3\Security\IdempotencyExecutor;
 
 final readonly class CatalogService implements CatalogApplication
 {
 
     public function __construct(
         private CatalogStore $catalog,
-        private IdempotencyService $idempotency,
-        private AuditLogService $audit,
+        private IdempotencyExecutor $idempotency,
+        private AuditRecorder $audit,
     ) {}
     public function listCategories(BusinessContext $scope): array
     {
