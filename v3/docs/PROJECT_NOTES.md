@@ -1731,3 +1731,9 @@
 - Added frontend API client operations for variant creation/update, option-group creation/attachment/update and individual option updates, matching existing backend routes and mutation idempotency helper.
 - UI integration is the next step; this is not yet user-facing CRUD completion. No tests/build run.
 \n\n### CAT-01D — Catalog addition quick-create UI (2026-11-26)\n- Added product-detail forms for creating price-delta variants and creating option groups with newline-entered options, then attaching the group to the selected product. Single/multiple selection supported with zero-price options.\n- Existing groups/options still require expanded edit management; no tests/build run.\n
+
+### CAT-01E — توسعه ویرایش گروه‌های گزینه (2026-11-26)
+- [x] ویرایش گروه گزینه اکنون از رابط موجود نام، نوع انتخاب single/multiple، حداقل/حداکثر انتخاب، حالت اجباری پیش‌فرض و وضعیت فعال را دریافت و به API PATCH می‌فرستد.
+- [x] ویرایش هزینه گزینه و تنوع، مابه‌التفاوت منفی را نیز می‌پذیرد (برای تخفیف/کاهش قیمت).
+- [ ] قراردادهای UI/backend، محدودیت تعداد گزینه فعال، typecheck/build و QA مرورگر در مرحله QA نهایی بررسی شود.
+- وضعیت: **توسعه رابط انجام شد؛ QA هنوز اجرا نشده است.**
