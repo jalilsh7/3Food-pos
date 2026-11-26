@@ -15,7 +15,7 @@ Application serviceها فقط interfaceها را می‌شناسند. PDO و lo
 002 login attempts، 004 idempotency keys، 005 audit business scope.
 
 ## تست مستقل
-مسیر هدف: `v3/backend/tests/Modules/Security`. تست replay/conflict, encryption, expiration, audit append-only, redaction و throttling لازم است. فعلاً تست ماژولی در tree وجود ندارد.
+مسیر هدف: `v3/backend/tests/Modules/Security`. تست replay/conflict, encryption, expiration, audit append-only, redaction و throttling لازم است. در حال حاضر تست معماری ماژول در tree وجود دارد؛ تست‌های رفتاری/قراردادی مستقل هنوز تکمیل نشده‌اند.
 
 ## عملیات و لاگ
 log مرکزی JSON دارای module و request_id است؛ کلیدهای password/token/secret/authorization/cookie/apiKey/credential باید redact شوند.
