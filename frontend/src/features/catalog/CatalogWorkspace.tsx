@@ -261,7 +261,7 @@ export function CatalogWorkspace() {
     if (!name?.trim()) return;
     const deltaText = globalThis.prompt("مابه‌التفاوت قیمت به تومان", "0");
     if (deltaText === null) return;
-    const delta = parsePrice(deltaText);
+    const delta = parseSignedAmount(deltaText);
     setSaving(true); setActionError(null);
     try {
       await createCatalogVariant(selected.id, { name: name.trim(), price_delta_amount: parseSignedAmount(deltaText) });
@@ -348,7 +348,7 @@ export function CatalogWorkspace() {
     const active = globalThis.confirm("گزینه فعال باشد؟ برای غیرفعال‌سازی گزینه لغو را بزنید.");
     setSaving(true); setActionError(null);
     try {
-      await updateCatalogOption(option.id, { name: name.trim(), price_delta_amount: parsePrice(deltaText), is_active: active });
+      await updateCatalogOption(option.id, { name: name.trim(), price_delta_amount: parseSignedAmount(deltaText), is_active: active });
       await refreshCatalog(selectedId ?? undefined);
       setSuccessMessage("گزینه به‌روزرسانی شد.");
     } catch (cause) {
