@@ -43,7 +43,7 @@
 
 
 ## دامنه ماژول‌های آتی
-README و test presence مستقل برای Customers، Loyalty، Messaging، Reporting، Storefront، Integrations، Licensing، CentralAdmin، Updates و POS اضافه شده است. این مورد فقط تثبیت مرز و مستندات است، نه تکمیل implementation. تست‌های رفتاری و contract آن‌ها همچنان معوق‌اند.
+README و test presence مستقل برای Customers، Loyalty، Messaging، Reporting، Storefront، Integrations، Licensing، CentralAdmin، Updates و POS اضافه شده است. این مورد اکنون شامل interface contract و تست signature-only نیز هست؛ implementation و تست‌های رفتاری آن‌ها همچنان معوق‌اند.
 
 
 ## Dependency graph automation
@@ -55,3 +55,6 @@ Backend dependency graph guard به `php tests/run.php` متصل شد. این gu
 - 15 Controller بدون direct PDO/Infrastructure و بدون ساخت concrete Service/Repository بررسی شدند.
 - 15 Application interface بدون method body بررسی شدند.
 - اجرای automated suite همچنان معوق است؛ این نتایج جای تست runtime را نمی‌گیرند.
+
+## Planned module contracts
+برای 10 ماژول تجاری آتی، interfaceهای Application/Provider ایجاد شده و test suite وجود و signature-only بودن آن‌ها را بررسی می‌کند. implementation، persistence ports و DTOهای نهایی این ماژول‌ها هنوز باقی است.

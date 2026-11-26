@@ -29,3 +29,6 @@ log مرکزی JSON دارای module و request_id است؛ کلیدهای pass
 
 ## Context و authorization contracts
 `ActorContext`, `BusinessContext`, `BusinessScopeContext` و `PermissionChecker` قراردادهای مشترک مصرف‌شده توسط application modules هستند.
+
+## Guest identity
+`GuestActorContext` is a separate public guest identity and deliberately has no internal user ID. Storefront must not fabricate an AuthenticatedPrincipal for guest checkout.

@@ -86,7 +86,7 @@
 
 
 ## Planned commercial modules — 2026-11-25
-Customers، Loyalty، Messaging، Reporting، Storefront، Integrations، Licensing، CentralAdmin، Updates و POS دارای README مستقل و suite مستقل بررسی وجود مستندات شدند. این‌ها boundary/scaffold هستند؛ implementation و application contracts آن‌ها هنوز ساخته نشده است.
+Customers، Loyalty، Messaging، Reporting، Storefront، Integrations، Licensing، CentralAdmin، Updates و POS دارای README مستقل و suite مستقل بررسی وجود مستندات شدند. این‌ها boundary/scaffold هستند؛ implementation و persistence adapters آن‌ها هنوز ساخته نشده است.
 
 
 ## Dependency Graph Guard — 2026-11-25
@@ -102,3 +102,6 @@ Customers، Loyalty، Messaging، Reporting، Storefront، Integrations، Licens
 - هر 15 Application interface بررسی شد؛ فایل‌ها فقط signature/docblock دارند و method body ندارند.
 - 12 migration SQL از نظر table target با manifest تطبیق دستی داده شدند؛ runner نیز همین تطبیق را به‌صورت خودکار کنترل می‌کند.
 - این‌ها static inspection هستند؛ architecture runner، PHP lint، frontend tests و build هنوز اجرا نشده‌اند.
+
+## Planned module contracts — 2026-11-25
+برای Customers، Loyalty، Messaging، Reporting، Storefront، Integrations، Licensing، CentralAdmin، Updates و POS، interfaceهای Application/Provider و test specهای بررسی signature-only بودن ایجاد شدند. این ماژول‌ها هنوز implementation و persistence adapter ندارند؛ بنابراین قراردادها فعلاً boundary contract هستند، نه قابلیت اجرایی.

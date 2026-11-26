@@ -174,3 +174,8 @@
 - 15 Application interface از نظر signature-only بودن بازبینی شدند.
 - 12 migration SQL از نظر جدول‌های هدف با manifest تطبیق داده شدند.
 - گام بعدی پس از بستن باقی‌مانده‌های معماری: اجرای نهایی `php tests/run.php`، `npm test`، PHP lint، TypeScript build و migration/tenant isolation verification.
+
+## Contracts for planned modules — 2026-11-25
+- برای Customers، Loyalty، Messaging، Reporting، Storefront، Integrations، Licensing، CentralAdmin، Updates و POS، interfaceهای Application/Provider ایجاد شد.
+- Storefront از `GuestActorContext` مستقل از user داخلی استفاده می‌کند؛ fake internal user ممنوع است.
+- implementation و persistence adapters این ماژول‌ها در مرحله feature coding ساخته می‌شوند؛ فعلاً فقط قرارداد و مرز تثبیت شده است.
