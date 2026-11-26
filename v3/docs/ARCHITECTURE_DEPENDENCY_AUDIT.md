@@ -94,3 +94,11 @@ Customers، Loyalty، Messaging، Reporting، Storefront، Integrations، Licens
 - این guard تمام PHP sourceهای Backend را اسکن می‌کند؛ Application Service/Contractها نباید PDO، HTTP، Infrastructure یا ماژول دامنه دیگر را import کنند و Controllerها نباید PDO/Infrastructure را مستقیم مصرف کنند.
 - تست‌های ماژولی اکنون وجود interface، پیاده‌سازی interface توسط Service و نبود body در Application interface را نیز کنترل می‌کنند.
 - guard و suiteها ایجاد شده‌اند اما هنوز اجرا نشده‌اند.
+
+## Static Boundary Recheck — 2026-11-25
+
+- هر 18 فایل Application Service در Backend بررسی شد؛ هیچ‌کدام PDO، Repository concrete، Infrastructure، HTTP یا Auth را import/instantiate نمی‌کنند. وابستگی‌ها به ماژول خود، Security و Support محدود است.
+- هر 15 Controller بررسی شد؛ هیچ‌کدام PDO یا Infrastructure import نمی‌کنند و هیچ Service/Repository concrete داخل Controller ساخته نمی‌شود.
+- هر 15 Application interface بررسی شد؛ فایل‌ها فقط signature/docblock دارند و method body ندارند.
+- 12 migration SQL از نظر table target با manifest تطبیق دستی داده شدند؛ runner نیز همین تطبیق را به‌صورت خودکار کنترل می‌کند.
+- این‌ها static inspection هستند؛ architecture runner، PHP lint، frontend tests و build هنوز اجرا نشده‌اند.

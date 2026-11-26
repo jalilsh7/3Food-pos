@@ -48,3 +48,10 @@ README و test presence مستقل برای Customers، Loyalty، Messaging، Re
 
 ## Dependency graph automation
 Backend dependency graph guard به `php tests/run.php` متصل شد. این guard مرز importهای Application Service/Contract و عدم دسترسی مستقیم Controller به PDO/Infrastructure را بررسی می‌کند؛ هنوز اجرا نشده است.
+
+## Static review evidence
+
+- 18 Application Service بدون PDO/Infrastructure/HTTP/Auth direct dependency بررسی شدند.
+- 15 Controller بدون direct PDO/Infrastructure و بدون ساخت concrete Service/Repository بررسی شدند.
+- 15 Application interface بدون method body بررسی شدند.
+- اجرای automated suite همچنان معوق است؛ این نتایج جای تست runtime را نمی‌گیرند.

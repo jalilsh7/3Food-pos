@@ -167,3 +167,10 @@
 - تست سراسری `v3/backend/tests/Architecture/DependencyGraphTest.php` ایجاد و به runner متصل شد.
 - suiteهای ماژولی اکنون Application interfaceها را از نظر وجود، implementation و عدم نشت body کنترل می‌کنند.
 - اجرای `php tests/run.php` و `npm test` تا پایان تطبیق و همراه با build/lint نگه داشته شده است.
+
+## Static boundary recheck — 2026-11-25
+
+- 18 Application Service و 15 Controller بازرسی ایستا شدند؛ direct PDO/Repository/Infrastructure/HTTP/Auth dependency و ساخت Service/Repository در Controller مشاهده نشد.
+- 15 Application interface از نظر signature-only بودن بازبینی شدند.
+- 12 migration SQL از نظر جدول‌های هدف با manifest تطبیق داده شدند.
+- گام بعدی پس از بستن باقی‌مانده‌های معماری: اجرای نهایی `php tests/run.php`، `npm test`، PHP lint، TypeScript build و migration/tenant isolation verification.
