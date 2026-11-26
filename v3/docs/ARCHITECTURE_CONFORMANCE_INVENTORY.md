@@ -196,3 +196,10 @@ Repositoryهای PDO در `Infrastructure/Database` implementation این interf
 - تست‌های معماری ماژول‌های مربوطه برای ممنوعیت وابستگی مستقیم به این کلاس‌های concrete تقویت شدند.
 - MediaService از قبل از MediaStorage interface استفاده می‌کرد؛ PrivateMediaStorage در Infrastructure adapter باقی می‌ماند.
 - این بررسی فقط کد و import/type declarations را تأیید کرده است؛ هنوز تست یا Build اجرا نشده است.
+
+
+## تکمیل قراردادهای امنیتی مشترک — 2026-11-26
+- علاوه بر AuditRecorder و IdempotencyExecutor، قرارداد LoginAttemptGuard اضافه شد.
+- AuthenticationService وابستگی به LoginAttemptLimiter concrete را کنار گذاشت؛ Security/LoginAttemptLimiter این interface را پیاده‌سازی می‌کند.
+- تست معماری Auth و Security به این مرزها اضافه شد.
+- Guest idempotency همچنان باز است: schema و port فعلی actor_user_id اجباری دارند و باید در یک migration افزایشی جداگانه برای actor type/key بازطراحی شوند؛ این کار پیش از اجرای guest checkout لازم است.
