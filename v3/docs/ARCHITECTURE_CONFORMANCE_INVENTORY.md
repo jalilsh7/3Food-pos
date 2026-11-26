@@ -203,3 +203,9 @@ Repositoryهای PDO در `Infrastructure/Database` implementation این interf
 - AuthenticationService وابستگی به LoginAttemptLimiter concrete را کنار گذاشت؛ Security/LoginAttemptLimiter این interface را پیاده‌سازی می‌کند.
 - تست معماری Auth و Security به این مرزها اضافه شد.
 - Guest idempotency همچنان باز است: schema و port فعلی actor_user_id اجباری دارند و باید در یک migration افزایشی جداگانه برای actor type/key بازطراحی شوند؛ این کار پیش از اجرای guest checkout لازم است.
+
+
+## بهبود امنیت لاگ — 2026-11-26 (دسته اجرایی)
+- Redaction logger ساخت‌یافته Backend گسترش یافت تا علاوه بر credentialها، کلیدهای ایمیل، شماره تلفن، آدرس، نام، شناسه‌های guest/customer، شناسه ملی و شماره کارت نیز به‌صورت کلید-محور حذف/پنهان شوند.
+- این تغییر فقط پوشش فیلدهای حساس در context ساخت‌یافته را افزایش می‌دهد؛ به معنی audit کامل همه payloadها یا تست runtime نیست.
+- تست/build همچنان معوق است.
