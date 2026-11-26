@@ -4,18 +4,18 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Inventory;
 
 use PersiaCoder\PosV3\Support\ApplicationException;
-use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\AuditRecorder;
 use PersiaCoder\PosV3\Security\ActorContext;
 use PersiaCoder\PosV3\Security\BusinessContext;
-use PersiaCoder\PosV3\Security\IdempotencyService;
+use PersiaCoder\PosV3\Security\IdempotencyExecutor;
 
 final readonly class InventoryService implements InventoryApplication
 {
 
     public function __construct(
         private InventoryStore $inventory,
-        private IdempotencyService $idempotency,
-        private AuditLogService $audit,
+        private IdempotencyExecutor $idempotency,
+        private AuditRecorder $audit,
     ) {}
     public function listUnits(): array
     {
