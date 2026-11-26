@@ -314,12 +314,27 @@ export function CatalogWorkspace() {
   async function editOptionGroup(group: NonNullable<typeof selectedDetail>["option_groups"][number]) {
     const name = globalThis.prompt("نام گروه گزینه", group.name);
     if (name === null || !name.trim()) return;
+    const selection = globalThis.prompt("نوع انتخاب: single یا multiple", group.selection_type);
+    if (selection === null) return;
+    if (selection !== "single" && selection !== "multiple") {
+      setActionError("نوع انتخاب باید single یا multiple باشد."); return;
+    }
+    const minText = globalThis.prompt("حداقل انتخاب", String(group.min_select));
+    if (minText === null) return;
+    const maxText = globalThis.prompt("حداکثر انتخاب", String(group.max_select));
+    if (maxText === null) return;
+    const min = Number(normalizeDigits(minText).trim());
+    const max = Number(normalizeDigits(maxText).trim());
+    if (!Number.isInteger(min) || !Number.isInteger(max) || min < 0 || max < 1 || max < min || (selection === "single" && max > 1)) {
+      setActionError("محدوده انتخاب معتبر نیست؛ حداقل/حداکثر و نوع انتخاب را بررسی کنید."); return;
+    }
+    const required = globalThis.confirm("انتخاب این گروه به‌صورت پیش‌فرض اجباری باشد؟");
     const active = globalThis.confirm("گروه فعال باشد؟ برای غیرفعال‌سازی گزینه لغو را بزنید.");
     setSaving(true); setActionError(null);
     try {
-      await updateCatalogOptionGroup(group.id, { name: name.trim(), is_active: active });
+      await updateCatalogOptionGroup(group.id, { name: name.trim(), selection_type: selection, min_select: min, max_select: max, is_required_default: required, is_active: active });
       await refreshCatalog(selectedId ?? undefined);
-      setSuccessMessage("گروه گزینه به‌روزرسانی شد.");
+      setSuccessMessage("نام، قواعد انتخاب و وضعیت گروه به‌روزرسانی شد.");
     } catch (cause) {
       setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "ویرایش گروه گزینه انجام نشد.");
     } finally { setSaving(false); }
