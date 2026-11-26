@@ -10,6 +10,7 @@ import {
   getPosCatalogProductDetails,
   updateCatalogProduct,
   updateCatalogCategory,
+  createCatalogVariant, createCatalogOptionGroup, attachCatalogOptionGroup,
   type CatalogCategory,
   type PosCatalogProduct,
   type PosCatalogProductDetail,
@@ -67,6 +68,8 @@ export function CatalogWorkspace() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [variantName,setVariantName]=useState(""); const [variantPrice,setVariantPrice]=useState("");
+  const [groupName,setGroupName]=useState(""); const [groupOptions,setGroupOptions]=useState(""); const [groupType,setGroupType]=useState<"single"|"multiple">("single");
 
   useEffect(() => {
     let active = true;
@@ -212,6 +215,9 @@ export function CatalogWorkspace() {
       setSaving(false);
     }
   }
+
+  async function saveVariant(){ if(!selectedId||!variantName.trim()){setActionError("نام تنوع را وارد کنید.");return;} setSaving(true);setActionError(null);try{await createCatalogVariant(selectedId,{name:variantName.trim(),price_delta_amount:parsePrice(variantPrice)});await refreshCatalog(selectedId);setVariantName("");setVariantPrice("");setSuccessMessage("تنوع محصول ثبت شد.");}catch(e){setActionError(e instanceof Error?e.message:"ثبت تنوع انجام نشد.");}finally{setSaving(false);}}
+  async function createAndAttachGroup(){if(!selectedId||!groupName.trim()){setActionError("نام گروه افزودنی را وارد کنید.");return;}const names=groupOptions.split(/\\r?\\n/).map(x=>x.trim()).filter(Boolean);if(!names.length){setActionError("حداقل یک گزینه را در هر خط وارد کنید.");return;}setSaving(true);setActionError(null);try{const group=await createCatalogOptionGroup({name:groupName.trim(),selection_type:groupType,min_select:0,max_select:groupType==="single"?1:names.length,is_required_default:false,options:names.map(name=>({name,price_delta_amount:0}))});await attachCatalogOptionGroup(selectedId,{option_group_id:group.id,sort_order:(selectedDetail?.option_groups.length??0),is_required:false});await refreshCatalog(selectedId);setGroupName("");setGroupOptions("");setSuccessMessage("گروه افزودنی ساخته و به محصول متصل شد.");}catch(e){setActionError(e instanceof Error?e.message:"ساخت گروه انجام نشد.");}finally{setSaving(false);}}
 
   async function addCategory() {
     const name = newCategoryName.trim();
@@ -412,6 +418,7 @@ export function CatalogWorkspace() {
                 {selectedDetail.variants.filter((item) => item.is_active).map((variant) => <div className="catalog-option" key={variant.id}><span>{variant.name}</span><b>{variant.price_delta_amount ? `${variant.price_delta_amount > 0 ? "+" : ""}${money(variant.price_delta_amount)} تومان` : "بدون تغییر قیمت"}</b></div>)}
               </div>
             ) : null}
+            <div className="catalog-manage-additions"><strong>افزودن تنوع محصول</strong><div className="catalog-addition-fields"><TextField label="نام تنوع" value={variantName} onChange={e=>setVariantName(e.target.value)} placeholder="مثلاً سایز بزرگ"/><TextField label="تغییر قیمت (تومان)" value={variantPrice} onChange={e=>setVariantPrice(e.target.value)} placeholder="۰"/></div><Button variant="secondary" disabled={saving||!variantName.trim()} onClick={()=>{void saveVariant();}}>ثبت تنوع</Button><divider /><strong>ساخت گروه افزودنی و اتصال به همین محصول</strong><TextField label="نام گروه" value={groupName} onChange={e=>setGroupName(e.target.value)} placeholder="مثلاً انتخاب سس"/><SelectField label="نوع انتخاب" value={groupType} onChange={e=>setGroupType(e.target.value as "single"|"multiple")} options={[{value:"single",label:"تک انتخاب"},{value:"multiple",label:"چند انتخاب"}]}/><label className="catalog-addition-options"><span>گزینه‌ها (هر گزینه در یک خط)</span><textarea rows={3} value={groupOptions} onChange={e=>setGroupOptions(e.target.value)} placeholder={"سس کچاپ\\nسس خردل"} /></label><Button variant="primary" disabled={saving||!groupName.trim()||!groupOptions.trim()} onClick={()=>{void createAndAttachGroup();}}>ساخت و اتصال گروه</Button></div>
             <div className="catalog-detail-actions">
               <Button variant="secondary" disabled={saving} onClick={() => startProductEdit(selected)}>ویرایش محصول</Button>
               <Button variant={selected.is_active ? "secondary" : "primary"} disabled={saving} onClick={() => { void toggleAvailability(selected); }}>
