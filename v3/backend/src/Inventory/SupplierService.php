@@ -4,18 +4,18 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Inventory;
 
 use PersiaCoder\PosV3\Support\ApplicationException;
-use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\AuditRecorder;
 use PersiaCoder\PosV3\Security\ActorContext;
 use PersiaCoder\PosV3\Security\BusinessContext;
-use PersiaCoder\PosV3\Security\IdempotencyService;
+use PersiaCoder\PosV3\Security\IdempotencyExecutor;
 
 final readonly class SupplierService implements SupplierApplication
 {
 
     public function __construct(
         private SupplierStore $suppliers,
-        private IdempotencyService $idempotency,
-        private AuditLogService $audit,
+        private IdempotencyExecutor $idempotency,
+        private AuditRecorder $audit,
     ) {}
     public function list(BusinessContext $scope, bool $includeInactive = true): array
     {
