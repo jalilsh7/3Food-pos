@@ -187,3 +187,11 @@ Repositoryهای PDO در `Infrastructure/Database` implementation این interf
 - `Security/ActorContext` و `BusinessContext` ایجاد شدند؛ سرویس‌های Orders، Catalog، Inventory، Dining، Finance، Recipes و Media از این contextهای مشترک استفاده می‌کنند و controllerها context را از principal/scope معتبر می‌سازند.
 - در فایل‌های سرویس این ماژول‌ها، importهای Auth/Http/Infrastructure/PDO حذف شده‌اند. نتیجه static inspection است و هنوز runtime test نشده است.
 - ماتریس وضعیت شش قانون در `v3/docs/ARCHITECTURE_CONFORMANCE_MATRIX.md` ثبت شده است.
+
+
+## بازبینی مرز سرویس‌های کاربردی — 2026-11-26
+- وابستگی concrete به AuditLogService و IdempotencyService از سرویس‌های کاربردی Auth، Catalog، Dining، Finance، Inventory، Recipes، Media و Orders حذف شد.
+- قراردادهای Security/AuditRecorder و Security/IdempotencyExecutor اکنون مرز مشترک این ماژول‌ها هستند و سرویس‌های اجرایی Security پیاده‌ساز آن‌ها هستند.
+- تست‌های معماری ماژول‌های مربوطه برای ممنوعیت وابستگی مستقیم به این کلاس‌های concrete تقویت شدند.
+- MediaService از قبل از MediaStorage interface استفاده می‌کرد؛ PrivateMediaStorage در Infrastructure adapter باقی می‌ماند.
+- این بررسی فقط کد و import/type declarations را تأیید کرده است؛ هنوز تست یا Build اجرا نشده است.
