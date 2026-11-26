@@ -73,7 +73,7 @@ final readonly class ErrorLogLogger implements Logger
         foreach ($context as $key => $value) {
             $normalized = strtolower((string) $key);
             $normalized = str_replace(['_', '-', '.'], '', $normalized);
-            if (preg_match('/password|passwd|token|secret|authorization|cookie|apikey|credential|privatekey/', $normalized)) {
+            if (preg_match('/password|passwd|token|secret|authorization|cookie|apikey|credential|privatekey|email|phone|mobile|telephone|address|fullname|firstname|lastname|guestpublicid|customerpublicid|nationalid|cardnumber/', $normalized)) {
                 $safe[(string) $key] = '[REDACTED]';
                 continue;
             }
