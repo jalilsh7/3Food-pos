@@ -98,7 +98,7 @@ Migrationهای ترتیبی SQL از 001 تا 012 در GitHub مشاهده شد
 
 - logger واقعی frontend در `src/core/observability/logger.ts` قرار دارد؛ logger فعلی console-backed است و کلیدهای حساس مانند password/token/authorization را در object context redacted می‌کند.
 - در Backend مسیر `v3/backend` logger مرکزی مستقل در tree پیدا نشد؛ وجود correlation ID در HTTP به‌تنهایی معادل logging ساخت‌یافته مرکزی نیست.
-- اتصال module/component/operation و correlation context به logger مشترک Backend و sink قابل فیلتر هنوز انجام‌نشده است.
+- اتصال logger به AuditLogService و Kernel وجود دارد؛ اتصال eventهای تمام use-caseها، providerها و عملیات دیتابیس هنوز نیازمند بررسی است.
 - تا وقتی تمام نقاط ورود API، use-caseها و provider adapters از logger مشترک استفاده نکنند، قانون لاگ متمرکز کامل نیست.
 - قراردادهای معماری در چند سند مرزبندی تعریف شده‌اند؛ پوشش قراردادهای executable و versioned برای همه ماژول‌ها اثبات نشده است.
 
