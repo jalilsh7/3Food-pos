@@ -189,3 +189,11 @@
 - README ماژول Orders مرز جدید را ثبت می‌کند.
 - commitهای تغییرات در شاخه فعال ثبت شده‌اند؛ build/lint/test هنوز اجرا نشده و طبق دستور کاربر برای پایان تطبیق نگه داشته شده است.
 - کار بعدی: بررسی همین الگو در سایر application serviceها، تفکیک authorization و error contract از Auth/HTTP، بررسی storage port رسانه، سپس بازبینی logger و تست مستقل واقعی هر ماژول.
+
+
+## تعمیم Security Ports به سرویس‌های کاربردی — 2026-11-26
+- تمام سرویس‌های کاربردی بررسی‌شده در Auth، Catalog، Dining، Finance، Inventory، Recipes و Media از وابستگی concrete به AuditLogService و IdempotencyService خارج شدند.
+- این سرویس‌ها اکنون AuditRecorder و IdempotencyExecutor را در constructor دریافت می‌کنند؛ AuthenticationService و BusinessSetupService فقط AuditRecorder نیاز دارند.
+- تست‌های معماری Auth/Catalog/Dining/Finance/Inventory/Media/Recipes به‌روزرسانی شدند تا import/type وابستگی concrete به این دو سرویس را در Application Serviceها ممنوع کنند.
+- بازبینی Media نشان داد MediaService از قبل به MediaStorage interface وابسته است و PrivateMediaStorage فقط adapter زیرساختی است؛ بنابراین storage refactor تکراری لازم نیست.
+- هنوز تست اجرایی یا build انجام نشده است؛ مرحله بعد بررسی dependencyهای HTTP/Auth در application layer و تقویت پوشش قراردادهای actor/authorization است.
