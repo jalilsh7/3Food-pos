@@ -506,6 +506,13 @@ export async function updateCatalogCategory(
   });
 }
 
+export async function createCatalogVariant(productId: string, payload: {name:string; sku?:string|null; price_delta_amount:number}): Promise<void> { await request(`/catalog/products/${encodeURIComponent(productId)}/variants`, {method:"POST", body:JSON.stringify(payload)}); }
+export async function updateCatalogVariant(variantId:string,payload:{name?:string;sku?:string|null;price_delta_amount?:number;is_active?:boolean}):Promise<void>{ await request(`/catalog/variants/${encodeURIComponent(variantId)}`,{method:"PATCH",body:JSON.stringify(payload)}); }
+export async function createCatalogOptionGroup(payload:{name:string;selection_type:"single"|"multiple";min_select:number;max_select:number;is_required_default:boolean;options:{name:string;price_delta_amount:number}[]}):Promise<{id:string}>{ const data=await request<{option_group:{id:string}}>(`/catalog/option-groups`,{method:"POST",body:JSON.stringify(payload)}); return data.option_group; }
+export async function attachCatalogOptionGroup(productId:string,payload:{option_group_id:string;sort_order:number;is_required:boolean}):Promise<void>{ await request(`/catalog/products/${encodeURIComponent(productId)}/option-groups`,{method:"POST",body:JSON.stringify(payload)}); }
+export async function updateCatalogOptionGroup(groupId:string,payload:{name?:string;selection_type?:"single"|"multiple";min_select?:number;max_select?:number;is_required_default?:boolean;is_active?:boolean}):Promise<void>{ await request(`/catalog/option-groups/${encodeURIComponent(groupId)}`,{method:"PATCH",body:JSON.stringify(payload)}); }
+export async function updateCatalogOption(optionId:string,payload:{name?:string;price_delta_amount?:number;is_active?:boolean}):Promise<void>{ await request(`/catalog/options/${encodeURIComponent(optionId)}`,{method:"PATCH",body:JSON.stringify(payload)}); }
+
 export async function getCatalogProducts(): Promise<PosCatalogProduct[]> {
   const data = await request<{ products: PosCatalogProduct[] }>("/catalog/products?limit=100");
   return data.products;
