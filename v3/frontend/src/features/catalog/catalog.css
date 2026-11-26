@@ -65,3 +65,4 @@
   .catalog-heading-actions { width: 100%; }
   .catalog-heading-actions .ui-button { flex: 1 1 auto; }
 }
+\n.catalog-manage-additions{display:flex;flex-direction:column;gap:10px;padding:12px;border:1px solid var(--pc-line);border-radius:11px}.catalog-manage-additions>strong{font-size:11px;color:var(--pc-ink)}.catalog-addition-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.catalog-addition-options{display:flex;flex-direction:column;gap:6px;font-size:10px;color:var(--pc-muted)}.catalog-addition-options textarea{border:1px solid var(--pc-line);border-radius:8px;padding:10px;font:inherit;color:var(--pc-ink);background:var(--pc-surface,white);resize:vertical}@media(max-width:700px){.catalog-addition-fields{grid-template-columns:1fr}}\n
