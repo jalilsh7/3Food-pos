@@ -4,18 +4,18 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Inventory;
 
 use PersiaCoder\PosV3\Support\ApplicationException;
-use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\AuditRecorder;
 use PersiaCoder\PosV3\Security\ActorContext;
 use PersiaCoder\PosV3\Security\BusinessContext;
-use PersiaCoder\PosV3\Security\IdempotencyService;
+use PersiaCoder\PosV3\Security\IdempotencyExecutor;
 
 final readonly class InventoryDocumentService implements InventoryDocumentApplication
 {
 
     public function __construct(
         private InventoryDocumentStore $documents,
-        private IdempotencyService $idempotency,
-        private AuditLogService $audit,
+        private IdempotencyExecutor $idempotency,
+        private AuditRecorder $audit,
     ) {}
     public function list(BusinessContext $scope, ?string $type, ?string $status, int $limit): array
     {
