@@ -5,7 +5,7 @@ namespace PersiaCoder\PosV3\Auth;
 
 use DateTimeZone;
 use PersiaCoder\PosV3\Support\ApplicationException;
-use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\AuditRecorder;
 use PersiaCoder\PosV3\Security\TransactionBoundary;
 
 final readonly class BusinessSetupService implements BusinessSetupApplication
@@ -14,7 +14,7 @@ final readonly class BusinessSetupService implements BusinessSetupApplication
     public function __construct(
         private BusinessStore $businesses,
         private TransactionBoundary $transactions,
-        private AuditLogService $audit,
+        private AuditRecorder $audit,
     ) {}
 
     /** @return array{business_id:string,business_name:string,branch_id:string,branch_name:string} */
