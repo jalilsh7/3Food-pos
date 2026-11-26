@@ -95,9 +95,10 @@ export function CatalogWorkspace() {
     return () => { active = false; };
   }, []);
 
+  const activeCategories = useMemo(() => categories.filter((item) => item.is_active), [categories]);
   const categoriesForFilter = useMemo(
-    () => ["همه", ...categories.map((item) => item.id), "بدون دسته"],
-    [categories],
+    () => ["همه", ...activeCategories.map((item) => item.id), "بدون دسته"],
+    [activeCategories],
   );
   const visible = useMemo(() => products.filter((product) => {
     const productCategory = product.category?.id ?? "بدون دسته";
@@ -354,7 +355,7 @@ export function CatalogWorkspace() {
             <TextField label="قیمت پایه به تومان" value={newPrice} onChange={(event) => setNewPrice(event.target.value)} placeholder="مثلاً ۱۸۵۰۰۰" />
             <TextField label="کد کالا (اختیاری)" value={newSku} onChange={(event) => setNewSku(event.target.value)} placeholder="مثلاً FD-001" />
             <SelectField label="دسته‌بندی" value={newCategoryId} onChange={(event) => setNewCategoryId(event.target.value)}
-              options={[{ value: "none", label: "بدون دسته‌بندی" }, ...categories.map((item) => ({ value: item.id, label: item.name }))]} />
+              options={[{ value: "none", label: "بدون دسته‌بندی" }, ...activeCategories.map((item) => ({ value: item.id, label: item.name }))]} />
             <SelectField label="نوع محصول" value={newProductType} onChange={(event) => setNewProductType(event.target.value)}
               options={Object.entries(productTypeLabels).map(([value, label]) => ({ value, label }))} />
             <TextField label="نرخ مالیات (درصد)" value={newTaxRate} onChange={(event) => setNewTaxRate(event.target.value)} placeholder="مثلاً ۱۰" />
