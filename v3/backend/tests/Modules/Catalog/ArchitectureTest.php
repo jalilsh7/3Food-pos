@@ -5,7 +5,7 @@ return [
     'module' => 'Catalog',
     'required' => ['src/Catalog/CatalogService.php', 'src/Catalog/CatalogApplication.php', 'src/Catalog/CatalogStore.php', 'src/Infrastructure/Database/CatalogRepository.php'],
     'services' => ['src/Catalog/CatalogService.php'],
-    'forbidden' => ['use PDO;', 'Infrastructure', 'Auth', 'Http'],
+    'forbidden' => ['use PDO;', 'Infrastructure', 'Auth', 'Http', 'AuditLogService', 'IdempotencyService'],
     'contains' => [],
     'checks' => [
         ['src/Catalog/CatalogService.php', ['implements CatalogApplication'], []],
