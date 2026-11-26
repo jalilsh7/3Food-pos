@@ -519,3 +519,4 @@ No PASS is claimed for ORD-01C. Fetch current run states before deciding whether
 
 
 CAT-01C continuation: the client exposes variant and option-group CRUD calls; UI wiring and payload-contract QA remain pending.
+\n\nCAT-01D: catalog detail panel now provides quick creation for variants and option groups/options and attaches the newly created group. Options initially use zero price delta; individual pricing/edit controls remain follow-up work.\n
