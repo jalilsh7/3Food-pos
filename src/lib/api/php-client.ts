@@ -19,7 +19,13 @@ export type ApiUser = {
   must_change_password?: boolean;
 };
 
-export type AppearanceSettings={primary:string;secondary:string;mode:"light"|"dark";fontFamily:"vazirmatn"|"tahoma"|"system";fontSize:number;cardRadius:number;buttonRadius:number;logoUrl:string|null};
+export type AppearanceSettings={primary:string;secondary:string;mode:"light"|"dark";fontFamily:"byekan";fontSize:number;cardRadius:number;buttonRadius:number;logoUrl:string|null};
+
+export type TerminalAgent = {id:string;name:string;enabled:boolean|number;agent_version?:string|null;last_seen_at?:string|null;created_at?:string};
+export type PaymentTerminal = {id:string;agent_id?:string;agentId?:string;local_terminal_key?:string;name:string;provider_code?:string;providerCode?:string;model_name?:string|null;modelName?:string|null;driver_code?:string;driverCode?:string;connection_type?:"lan"|"wifi";connectionType?:"lan"|"wifi";host?:string;port?:number;enabled:boolean;is_default?:boolean;isDefault?:boolean;last_seen_at?:string|null;agent_name?:string;agent_enabled?:boolean};
+export type TerminalPaymentStatus = "queued"|"processing"|"approved"|"declined"|"cancelled"|"unknown"|"expired";
+export type TerminalPayment = {id:string;terminal_id?:string;terminal_name?:string;order_id?:number|null;amount:number;currency:string;status:TerminalPaymentStatus;external_transaction_id?:string|null;trace_number?:string|null;retrieval_reference_number?:string|null;response_code?:string|null;response_message?:string|null;requested_at?:string;completed_at?:string|null};
+
 export type ManagedUser = ApiUser & {
   is_active: number | boolean;
   last_login_at?: string | null;
@@ -42,8 +48,12 @@ export class PhpApiError extends Error {
   }
 }
 
-const API_ROOT = "/api/v1";
-let csrfToken: string | null = null;
+import { logger } from "@/core/observability/logger";
+import { createRequestCorrelationId, safeApiAction } from "@/modules/platform-api/transport/request-context";
+import { csrfSession } from "@/modules/platform-api/session/csrf-session";
+import { phpTransportPolicy } from "@/modules/platform-api/transport/transport-policy";
+
+const API_ROOT = phpTransportPolicy.root;
 
 type RequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
@@ -53,24 +63,27 @@ type RequestOptions = {
 };
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const headers = new Headers({ Accept: "application/json" });
+  const correlationId = createRequestCorrelationId();
+  const headers = new Headers({ Accept: "application/json", "X-Correlation-ID": correlationId });
   if (options.body !== undefined) headers.set("Content-Type", "application/json");
   if (options.csrf) {
+    const csrfToken = csrfSession.get();
     if (!csrfToken) throw new PhpApiError(419, "csrf_missing", "نشست امنیتی آماده نیست؛ دوباره وارد شوید.");
-    headers.set("X-CSRF-Token", csrfToken);
+    headers.set(phpTransportPolicy.csrfHeader, csrfToken);
   }
-  if (options.setupToken) headers.set("X-Setup-Token", options.setupToken);
+  if (options.setupToken) headers.set(phpTransportPolicy.setupHeader, options.setupToken);
 
   let response: Response;
   try {
     response = await fetch(`${API_ROOT}${path}`, {
       method: options.method ?? "GET",
-      credentials: "same-origin",
-      cache: "no-store",
+      credentials: phpTransportPolicy.credentials,
+      cache: phpTransportPolicy.cache,
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
-  } catch {
+  } catch (error) {
+    logger.log("warning", "API network failure", { module: "api-client", action: safeApiAction(path), correlationId, code: "network_error" });
     throw new PhpApiError(0, "network_error", "ارتباط با سرور برقرار نشد؛ اتصال اینترنت را بررسی کنید.");
   }
 
@@ -78,6 +91,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   try {
     payload = (await response.json()) as Record<string, unknown>;
   } catch {
+    logger.log("error", "API returned unreadable response", { module: "api-client", action: safeApiAction(path), correlationId, code: "invalid_response", status: response.status });
     throw new PhpApiError(response.status, "invalid_response", "پاسخ سرور قابل خواندن نیست.");
   }
 
@@ -85,8 +99,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     const code = typeof payload.error === "string" ? payload.error : "request_failed";
     // A bad current password is a field-level 401, not an expired session.
     // Keep CSRF state unless the server explicitly says the session is unauthorized.
-    if (response.status === 401 && code === "unauthorized") csrfToken = null;
+    if (response.status === 401 && code === "unauthorized") csrfSession.clear();
     const message = typeof payload.message === "string" ? payload.message : "درخواست انجام نشد.";
+    logger.log(response.status >= 500 ? "error" : "warning", "API request rejected", { module: "api-client", action: path, correlationId, code, status: response.status });
     throw new PhpApiError(response.status, code, message);
   }
 
@@ -94,6 +109,20 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 }
 
 export const phpApi = {
+
+  listTerminalAgents:()=>request<ApiEnvelope<{items:TerminalAgent[]}>>("/terminal-agents"),
+  createTerminalAgent:(name:string)=>request<ApiEnvelope<{agent:TerminalAgent;token:string}>>("/terminal-agents",{method:"POST",csrf:true,body:{name}}),
+  disableTerminalAgent:(id:string)=>request<ApiEnvelope<Record<string,never>>>(`/terminal-agents/${encodeURIComponent(id)}/disable`,{method:"POST",csrf:true,body:{}}),
+  listTerminals:()=>request<ApiEnvelope<{items:PaymentTerminal[]}>>("/terminals"),
+  listAvailableTerminals:()=>request<ApiEnvelope<{items:PaymentTerminal[]}>>("/terminals/available"),
+  saveTerminal:(terminal:{id:string;agentId:string;localTerminalKey:string;name:string;providerCode:string;modelName?:string;driverCode:string;connectionType:"lan"|"wifi";host:string;port:number;enabled:boolean;isDefault:boolean})=>request<ApiEnvelope<{terminal:PaymentTerminal}>>("/terminals",{method:"POST",csrf:true,body:terminal}),
+  disableTerminal:(id:string)=>request<ApiEnvelope<Record<string,never>>>(`/terminals/${encodeURIComponent(id)}/disable`,{method:"POST",csrf:true,body:{}}),
+  createTerminalPayment:(input:{terminalId:string;amount:number;idempotencyKey:string})=>request<ApiEnvelope<{payment:{id:string;status:TerminalPaymentStatus;amount:number}}>>("/terminal-payments",{method:"POST",csrf:true,body:input}),
+  getTerminalPayment:(id:string)=>request<ApiEnvelope<{payment:TerminalPayment}>>(`/terminal-payments/${encodeURIComponent(id)}`),
+  listPendingTerminalPayments:()=>request<ApiEnvelope<{items:TerminalPayment[]}>>("/terminal-payments/pending"),
+  cancelTerminalPayment:(id:string)=>request<ApiEnvelope<{status:TerminalPaymentStatus}>>(`/terminal-payments/${encodeURIComponent(id)}/cancel`,{method:"POST",csrf:true,body:{}}),
+  attachTerminalPayment:(id:string,orderId:number)=>request<ApiEnvelope<{order_id:number}>>(`/terminal-payments/${encodeURIComponent(id)}/attach-order`,{method:"POST",csrf:true,body:{orderId}}),
+
   health: () => request<ApiEnvelope<{ service?: string; database?: string }>>("/health"),
   getAppearance:()=>request<ApiEnvelope<{settings:AppearanceSettings}>>("/appearance"),
   saveAppearance:(settings:AppearanceSettings)=>request<ApiEnvelope<{settings:AppearanceSettings}>>("/appearance",{method:"POST",csrf:true,body:{settings}}),
@@ -118,7 +147,7 @@ export const phpApi = {
         display_name: input.display_name,
       },
     }).then((result) => {
-      csrfToken = result.csrf_token;
+      csrfSession.set(result.csrf_token);
       return result;
     }),
 
@@ -152,7 +181,7 @@ export const phpApi = {
       method: "POST",
       csrf: true,
     }).finally(() => {
-      csrfToken = null;
+      csrfSession.clear();
     }),
 
   changePassword: (current_password: string, new_password: string) =>
@@ -167,6 +196,8 @@ export const phpApi = {
 
   listUsers: () => request<ApiEnvelope<{ users: ManagedUser[] }>>("/users"),
 
+  getReportSummary: (from: string, to: string) => request<ApiEnvelope<Record<string, unknown>>>(`/reports/summary?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+
   createUser: (input: { username: string; password: string; display_name: string; role: PosRole }) =>
     request<ApiEnvelope<{ user: ManagedUser }>>("/users", { method: "POST", csrf: true, body: input }),
 
@@ -176,7 +207,7 @@ export const phpApi = {
   exportBackup: () =>
     request<ApiEnvelope<{ backup: Record<string, unknown> }>>("/backup/export"),
   restoreBackup: (backup: Record<string, unknown>) =>
-    request<ApiEnvelope<{ restored: { records: number; orders: number; effects: number; redemptions: number } }>>("/backup/restore", { method: "POST", body: { backup } }),
+    request<ApiEnvelope<{ restored: { records: number; orders: number; effects: number; redemptions: number } }>>("/backup/restore", { method: "POST", csrf: true, body: { backup } }),
 
   importLegacyData: (input: {
     data: Record<string, unknown[]>;
@@ -199,6 +230,8 @@ export const phpApi = {
 
   listRecords: <TItem>(resource: string) =>
     request<ApiEnvelope<{ items: TItem[] }>>(`/records/${encodeURIComponent(resource)}`),
+
+  createSupplierTransaction: <TItem, TSupplier>(supplierId: string, item: TItem) => request<ApiEnvelope<{item:TItem;supplier:TSupplier}>>(`/suppliers/${encodeURIComponent(supplierId)}/purchases`, { method: "POST", csrf: true, body: { item } }),
 
   saveRecord: <TItem extends { id: string | number }>(resource: string, item: TItem) =>
     request<ApiEnvelope<{ item: TItem }>>(`/records/${encodeURIComponent(resource)}`, {
@@ -228,6 +261,7 @@ export const phpApi = {
     guestName?: string;
     guestPhone?: string;
     payment?: "cash" | "card" | "online";
+    terminalPaymentId?: string;
     idempotencyKey: string;
   }) =>
     request<ApiEnvelope<{ order: TOrder; replayed?: boolean }>>("/orders", {
@@ -236,11 +270,21 @@ export const phpApi = {
       body: input,
     }),
 
-  sendSms: (input: { to: string; text: string; bodyId?: string }) =>
-    request<ApiEnvelope<{ sent: boolean; detail: string }>>("/sms/send", {
+  sendSms: (input: { to: string; text: string; event?: string; bodyId?: string; variables?: string[]; testMode?: "standard" }) =>
+    request<ApiEnvelope<{ sent: boolean; detail: string; providerResponse?: string; httpStatus?: number | null; providerEndpoint?: string; mode?: string; bodyId?: string | null; variableCount?: number }>>("/sms/send", {
       method: "POST",
       csrf: true,
       body: input,
+    }),
+
+  getSmsGatewaySettings: () => request<ApiEnvelope<{enabled:boolean;username:string;hasApiKey:boolean;sender:string;inboxLocation:string;inboxFrom:string;inboxConfigured:boolean}>>("/sms/settings"),
+  getSmsDiagnostics: () => request<ApiEnvelope<{generatedAt:string;provider:string;storageSource:string;storedPayloadExists:boolean;storedPayloadJsonValid:boolean;storedPayloadVersionSupported:boolean;opensslDecryptAvailable:boolean;decryptionSucceeded:boolean;decryptError:string|null;enabled:boolean;usernamePresent:boolean;apiKeyPresent:boolean;senderPresent:boolean;reason:string;note:string}>>("/sms/diagnostics"),
+  saveSmsGatewaySettings: (input:{enabled:boolean;username:string;apiKey?:string;sender:string;inboxLocation?:string;inboxFrom?:string}) => request<ApiEnvelope<{saved:boolean;hasApiKey:boolean}>>("/sms/settings",{method:"POST",csrf:true,body:input}),
+  syncBirthdaySmsInbox: () =>
+    request<ApiEnvelope<{ received: number; processed: number; duplicates: number; birthdays_saved: number; unmatched: number; ignored: number }>>("/sms/birthday-sync", {
+      method: "POST",
+      csrf: true,
+      body: {},
     }),
 
   updateOrder: <TOrder>(id: string, input: {

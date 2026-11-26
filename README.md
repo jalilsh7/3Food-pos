@@ -9,37 +9,62 @@ Private repository for the 3Food POS application.
 - Database: MySQL/InnoDB; no Node server is required on the cPanel host.
 - Authentication: PHP server-side sessions, username/password and server-enforced role permissions.
 - Deployment target: cPanel/LiteSpeed with PHP 8.2 and MySQL.
+- Release package: `npm run build:cpanel` produces `dist-cpanel/` and `3food-pos-cpanel.zip`; the ZIP contains the public app, private config template and database migration files, never a live private config.
 
 The active cPanel runtime must remain independent of Grok/App Builder, Better Auth, TanStack Start/Nitro, PostgreSQL/PGLite, preview-host identity and injected platform scripts. Optional SMS delivery remains an explicitly configured server-side integration.
 
-## Cleanup branch
+## Active development branch and update policy
 
-The ongoing platform-removal and dependency cleanup is isolated on [`cleanup/remove-grok-dependencies`](https://github.com/jalilsh7/3Food-pos/tree/cleanup/remove-grok-dependencies), with review in [PR #1](https://github.com/jalilsh7/3Food-pos/pull/1). It has not been merged into `migration/php-mysql` and has not been deployed.
+The current active development branch is [`feature/3food-pos-next-release-v2`](https://github.com/jalilsh7/3Food-pos/tree/feature/3food-pos-next-release-v2).
 
-Completed on the cleanup branch:
-- Removed the orphaned Better Auth/OAuth, PGLite/PostgreSQL, TanStack Start server and App Builder connector source trees.
-- Removed obsolete preview-host helpers, old platform-specific brand/preview scripts and superseded auth analysis documents.
-- Removed direct package dependencies that belonged only to the retired runtime.
-- Added source-graph and built-output audits to `build:cpanel`.
-- Updated the browser smoke runner to test the standalone SPA without platform auth/brand gates.
-- Kept the PHP API, MySQL schema/migrations, POS screens, role model, stock/order logic and optional server-side SMS integration.
+**The latest commit on the active development line is the source of truth for all ongoing work.** At the beginning of every task:
 
-Full CI succeeded in [run 44280981233](https://github.com/jalilsh7/3Food-pos/actions/runs/44280981233): PHP syntax, fresh MySQL schema, PHP API integration, TypeScript, unit tests, lint, cPanel build, Playwright smoke against the packaged app and artifact upload. The dependency manifest and lockfile are synchronized; the direct dependency set has been reduced to the libraries used by the SPA and its build/test tools.
+1. Fetch the latest remote branch state and inspect its HEAD commit and recent history.
+2. Start from that latest HEAD; do not use an old local checkout, stale archive, or previously downloaded project snapshot as the base.
+3. Keep changes on the active development branch unless the owner explicitly selects another branch.
+4. Before changing the active branch, compare candidate branches by commit ancestry and included work—not just branch names or timestamps—and choose the line that preserves the newest integrated POS updates.
+5. Do not base new work on `main` or `migration/php-mysql` when they are behind the active development line. Do not merge, reset, rebase destructively, or force-push branches without explicit approval.
+6. After changes, report the branch and commit updated, and distinguish checks actually run from checks not run.
 
-## Not yet a production release
+If a newer development branch supersedes the current one, verify its history and update this section so the README always identifies the current source of truth. Production deployment remains a separate, explicitly approved operation.
 
-- The cleanup PR is still separate from the migration branch.
-- The generated `3food-pos-cpanel` artifact from run 44280981233 is available until 2026-12-02; validate it on a staging cPanel host with PHP/MySQL before any production deployment.
-- The packaged app passed Playwright smoke in desktop and mobile viewports. Typing 46 test characters took 42 ms for username and 32 ms for password in the CI runner, without submitting the form. Real staging/device end-to-end testing is still required for sign-in/out, role restrictions, orders, stock and multi-device consistency.
+## Platform cleanup history
+
+The platform-removal and dependency cleanup work was developed on [`cleanup/remove-grok-dependencies`](https://github.com/jalilsh7/3Food-pos/tree/cleanup/remove-grok-dependencies), with review history in [PR #1](https://github.com/jalilsh7/3Food-pos/pull/1). The active development line must be checked for the integrated state of that work; do not assume this historical cleanup branch is the current working base.
+
+The cleanup work included:
+- Removing orphaned Better Auth/OAuth, PGLite/PostgreSQL, TanStack Start server and App Builder connector source trees.
+- Removing obsolete preview-host helpers, old platform-specific brand/preview scripts and superseded auth analysis documents.
+- Removing direct package dependencies that belonged only to the retired runtime.
+- Adding source-graph and built-output audits to `build:cpanel`.
+- Updating the browser smoke runner to test the standalone SPA without platform auth/brand gates.
+- Preserving the PHP API, MySQL schema/migrations, POS screens, role model, stock/order logic and optional server-side SMS integration.
+
+Historical CI run: [44280981233](https://github.com/jalilsh7/3Food-pos/actions/runs/44280981233). Its reported checks covered PHP syntax, fresh MySQL schema, PHP API integration, TypeScript, unit tests, lint, cPanel build, Playwright smoke against the packaged app and artifact upload. Treat this as evidence for that run only; it does not replace checks on newer commits.
+
+## Release and deployment safeguards
+
+- The application is not considered production-ready solely because a branch or CI run is successful. Validate the current build on a staging cPanel host with the target PHP/MySQL configuration before production deployment.
+- Real staging/device end-to-end testing is required for sign-in/out, role restrictions, orders, stock and multi-device consistency.
 - Backup/restore and live SMS integration tests remain separate release gates.
-- No cleanup operation has modified the live cPanel files or production database.
+- Do not modify live cPanel files or the production database during ordinary development work.
+- All production changes require explicit owner approval, a backup and a rollback plan.
+
+## Modular architecture (V3 direction)
+
+New business capabilities are organized under `src/modules/<module-id>/`. Each module exposes a stable `index.ts` public API and a `manifest.ts`; domain logic is separated from UI and infrastructure. Cross-module imports must use the module public API, not internal files. The SMS module is the first pilot: see [`src/modules/sms/README.md`](src/modules/sms/README.md). Existing legacy POS screens remain in `src/features/pos` during incremental migration; compatibility adapters are allowed temporarily and must be removed after all imports are migrated. Avoid a risky all-at-once rewrite.
 
 ## Project guidance
 
-- Persian handoff: [AI_HANDOFF_FA.md](AI_HANDOFF_FA.md)
-- Agent rules: [AGENTS.md](AGENTS.md)
-- Implementation status: [IMPLEMENTATION-STATUS-FA.md](IMPLEMENTATION-STATUS-FA.md)
-- Static build analysis: [docs/static-build-readiness.md](docs/static-build-readiness.md)
-- Historical migration audit: [SOURCE-AUDIT-PHP-MYSQL-FA.md](SOURCE-AUDIT-PHP-MYSQL-FA.md) (describes the pre-migration source snapshot, not the current architecture)
+- V3 architecture execution backlog: [docs/v3/ARCHITECTURE-WORKPLAN-FA.md](docs/v3/ARCHITECTURE-WORKPLAN-FA.md)
+- Shared core foundation: [src/core/README.md](src/core/README.md)
+- V3 modular architecture standard: [docs/v3/MODULAR-ARCHITECTURE-FA.md](docs/v3/MODULAR-ARCHITECTURE-FA.md)
+- SMS module pilot: [src/modules/sms/README.md](src/modules/sms/README.md)
 
-All production changes require explicit owner approval, a backup and a rollback plan.
+- V3 SMS module port and remaining acceptance work: [docs/v3/SMS-MODULE-PORT-FA.md](docs/v3/SMS-MODULE-PORT-FA.md)
+
+- Persian handoff: [docs/v2/AI_HANDOFF_FA.md](docs/v2/AI_HANDOFF_FA.md)
+- Agent rules: [AGENTS.md](AGENTS.md)
+- Implementation status: [docs/v2/IMPLEMENTATION-STATUS-FA.md](docs/v2/IMPLEMENTATION-STATUS-FA.md)
+- Static build analysis: [docs/v2/static-build-readiness.md](docs/v2/static-build-readiness.md)
+- Historical migration audit: [docs/v2/SOURCE-AUDIT-PHP-MYSQL-FA.md](docs/v2/SOURCE-AUDIT-PHP-MYSQL-FA.md) (describes the pre-migration source snapshot, not the current architecture)

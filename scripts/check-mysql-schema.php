@@ -33,6 +33,9 @@ $requiredTables = [
     'pos_order_effects',
     'pos_discount_redemptions',
     'app_appearance_settings',
+    'app_terminal_agents',
+    'pos_payment_terminals',
+    'pos_terminal_payments',
 ];
 $tableQuery = $pdo->prepare(
     'SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES
@@ -56,6 +59,9 @@ $requiredColumns = [
     'pos_orders' => ['idempotency_key', 'request_hash', 'guest_name', 'guest_phone', 'payment_method', 'points_used', 'points_earned', 'discount_code', 'items', 'totals'],
     'pos_order_effects' => ['order_id', 'effect_type', 'reversed_at'],
     'pos_discount_redemptions' => ['order_id', 'discount_id', 'customer_id', 'reversed_at'],
+    'app_terminal_agents' => ['id', 'token_hash', 'enabled', 'last_seen_at'],
+    'pos_payment_terminals' => ['id', 'agent_id', 'provider_code', 'driver_code', 'host', 'port', 'enabled'],
+    'pos_terminal_payments' => ['id', 'idempotency_key', 'terminal_id', 'amount', 'status', 'trace_number', 'retrieval_reference_number'],
 ];
 $columnQuery = $pdo->prepare(
     'SELECT COUNT(*) FROM information_schema.COLUMNS
@@ -83,6 +89,9 @@ $requiredIndexes = [
     ['pos_orders', 'uq_pos_order_idempotency', 'idempotency_key'],
     ['pos_order_effects', 'uq_pos_order_effect', 'order_id,effect_type,resource_id'],
     ['pos_discount_redemptions', 'uq_pos_discount_redemption_order', 'order_id'],
+    ['app_terminal_agents', 'uq_terminal_agent_token_hash', 'token_hash'],
+    ['pos_payment_terminals', 'uq_terminal_agent_local_key', 'agent_id,local_terminal_key'],
+    ['pos_terminal_payments', 'uq_terminal_payment_idempotency', 'idempotency_key'],
 ];
 foreach ($requiredIndexes as [$table, $index, $expectedColumns]) {
     $indexQuery->execute([$table, $index]);

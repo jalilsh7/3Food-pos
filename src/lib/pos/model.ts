@@ -2,7 +2,7 @@ export type Role = "manager" | "cashier" | "kitchen";
 
 export type Category = { id: string; name: string };
 
-export type Option = { id: string; name: string; price: number };
+export type Option = { id: string; name: string; price: number; ingredientId?: string; ingredientQty?: number };
 
 export type RecipeLine = { ingredientId: string; qty: number };
 
@@ -34,6 +34,7 @@ export type Customer = {
   phone: string;
   points: number;
   birthday: string;
+  smsConsent?: boolean;
   totalSpent: number;
   visits: number;
   createdAt: string;
@@ -96,12 +97,18 @@ export type Expense = {
   amount: number;
   category: string;
   date: string;
+  note?: string;
+  createdAt?: string;
 };
 
 export type SmsEvent =
   | "order_created"
+  | "order_preparing"
   | "order_ready"
+  | "order_dispatched"
   | "order_delivered"
+  | "order_cancelled"
+  | "order_invoice"
   | "points_earned"
   | "discount_used";
 
@@ -110,6 +117,10 @@ export type SmsTemplate = {
   enabled: boolean;
   body: string;
   bodyId: string;
+  /** Ordered variable keys for an approved National Payamak service template. */
+  variables?: string[];
+  /** Independently send this event to the configured manager number. */
+  managerEnabled?: boolean;
 };
 
 export type SmsLog = {
@@ -120,18 +131,37 @@ export type SmsLog = {
   text: string;
   ok: boolean;
   detail: string;
+  mode?: string;
+  bodyId?: string;
+  variables?: string[];
+  providerResponse?: string;
+  httpStatus?: number | null;
+  providerEndpoint?: string;
+  responseAt?: string;
 };
 
 export type Settings = {
   shopName: string;
+  defaultCustomerLabel?: string;
   address: string;
   phone: string;
   taxPercent: number;
   taxEnabled: boolean;
+  stockPolicy: "warn_and_allow";
+  orderDelayMinutes?: number;
   pointsPerToman: number;
   tomanPerPoint: number;
   paperWidth: 58 | 80;
   autoPrint: boolean;
+  invoiceSmsEnabledDefault?: boolean;
+  birthdaySmsPrompt?: string;
+  smsManagerPhone?: string;
+  loyaltySilverPoints?: number;
+  loyaltyGoldPoints?: number;
+  loyaltyPlatinumPoints?: number;
+  loyaltySilverDiscount?: number;
+  loyaltyGoldDiscount?: number;
+  loyaltyPlatinumDiscount?: number;
   printCustomer: boolean;
   printKitchen: boolean;
   headerNote: string;
@@ -170,10 +200,13 @@ export const TIER_OFF: Record<Tier, number> = {
   platinum: 8,
 };
 
-export function tierOf(points: number): Tier {
-  if (points >= 4000) return "platinum";
-  if (points >= 1500) return "gold";
-  if (points >= 500) return "silver";
+export function tierOf(points: number, settings?: Partial<Settings>): Tier {
+  const silver = Math.max(1, settings?.loyaltySilverPoints ?? 500);
+  const gold = Math.max(silver + 1, settings?.loyaltyGoldPoints ?? 1500);
+  const platinum = Math.max(gold + 1, settings?.loyaltyPlatinumPoints ?? 4000);
+  if (points >= platinum) return "platinum";
+  if (points >= gold) return "gold";
+  if (points >= silver) return "silver";
   return "bronze";
 }
 
@@ -212,10 +245,11 @@ export function quoteOrder(input: {
   tomanPerPoint: number;
   usesSoFar?: number;
   now?: Date;
+  settings?: Partial<Settings>;
 }): Quote {
   const subtotal = input.lines.reduce((s, l) => s + l.unitPrice * l.qty, 0);
-  const tier = input.customer ? tierOf(input.customer.points) : null;
-  const tierRate = tier ? TIER_OFF[tier] : 0;
+  const tier = input.customer ? tierOf(input.customer.points, input.settings) : null;
+  const tierRate = tier === "silver" ? input.settings?.loyaltySilverDiscount ?? TIER_OFF.silver : tier === "gold" ? input.settings?.loyaltyGoldDiscount ?? TIER_OFF.gold : tier === "platinum" ? input.settings?.loyaltyPlatinumDiscount ?? TIER_OFF.platinum : 0;
   const tierDiscount = Math.round((subtotal * tierRate) / 100);
   const afterTier = subtotal - tierDiscount;
   let codeDiscount = 0;
@@ -234,7 +268,7 @@ export function quoteOrder(input: {
     else if (
       found.audience !== "all" &&
       found.audience !== "club" &&
-      (!input.customer || tierOf(input.customer.points) !== found.audience)
+      (!input.customer || tierOf(input.customer.points, input.settings) !== found.audience)
     )
       codeError = "برای سطح عضویت شما نیست";
     else if (found.perCustomer > 0 && (input.usesSoFar ?? 0) >= found.perCustomer)
@@ -251,15 +285,17 @@ export function quoteOrder(input: {
   let pointsDiscount = 0;
   let pointsError = "";
   const want = Math.max(0, Math.floor(input.pointsToUse));
+  const tomanPerPoint = Math.max(1, Math.floor(Number(input.tomanPerPoint) || 1));
   if (want > 0) {
     if (!input.customer) pointsError = "اول مشتری را انتخاب کنید";
     else if (want > input.customer.points) pointsError = "امتیاز کافی نیست";
     else {
-      pointsDiscount = Math.min(afterCode, want * input.tomanPerPoint);
+      pointsDiscount = Math.min(afterCode, want * tomanPerPoint);
     }
   }
   const taxable = Math.max(0, afterCode - pointsDiscount);
-  const tax = input.taxEnabled === false ? 0 : Math.round((taxable * input.taxPercent) / 100);
+  const taxPercent = Math.min(100, Math.max(0, Number(input.taxPercent) || 0));
+  const tax = input.taxEnabled === false ? 0 : Math.round((taxable * taxPercent) / 100);
   const total = taxable + tax;
   return {
     subtotal,

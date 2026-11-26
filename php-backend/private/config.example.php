@@ -21,13 +21,20 @@ return [
     // After setup, remove this value from config.php.
     'setup_token' => 'REPLACE_WITH_A_RANDOM_64_CHARACTER_TOKEN',
 
-    // Configure these values only in the private config.php when enabling National Payamak.
-    // Never place SMS credentials in the browser or in a public JS bundle.
+    // Optional legacy fallback only. New installations configure SMS in the POS Settings UI;
+    // credentials are encrypted in MySQL with app_key and are never sent to the browser.
+    // Never place SMS credentials in a public file or JS bundle.
     'sms' => [
         'provider' => 'none',
         'username' => '',
-        'password' => '',
+        'api_key' => '',
         'sender' => '',
+        // Inbox settings for GetMessages. Set inbox_location to the value
+        // assigned by National Payamak for the receiving mailbox/line.
+        'inbox_location' => null,
+        'inbox_from' => '',
+        'inbox_index' => '1',
+        'inbox_count' => 50,
     ],
 
     'session' => [

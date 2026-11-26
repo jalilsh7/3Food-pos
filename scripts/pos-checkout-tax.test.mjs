@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const store = readFileSync(new URL("../src/lib/pos/store.ts", import.meta.url), "utf8");
-const app = readFileSync(new URL("../src/components/grill/app.tsx", import.meta.url), "utf8");
+const app = readFileSync(new URL("../src/features/pos/app.tsx", import.meta.url), "utf8");
 
 test("checkout passes the server-owned tax toggle into the local receipt calculation", () => {
   assert.match(store, /taxEnabled:\s*boolean/);

@@ -1,0 +1,498 @@
+import { useEffect, useMemo, useState } from "react";
+import { Archive, Check, ChevronDown, CirclePlus, Search, SlidersHorizontal, Utensils, X } from "lucide-react";
+import {
+  ApiError,
+  archiveCatalogProduct,
+  createCatalogCategory,
+  updateCatalogCategory,
+  createCatalogVariant,
+  updateCatalogVariant,
+  createCatalogOptionGroup,
+  attachCatalogOptionGroup,
+  updateCatalogOptionGroup,
+  updateCatalogOption,
+  createCatalogProduct,
+  getCatalogCategories,
+  getCatalogProducts,
+  getPosCatalogProductDetails,
+  updateCatalogProduct,
+  type CatalogCategory,
+  type PosCatalogProduct,
+  type PosCatalogProductDetail,
+} from "../../shared/api/client";
+import { Button, SelectField, StatusBadge, Surface, TextField } from "../../shared/ui";
+import "./catalog.css";
+
+const money = (value: number) => new Intl.NumberFormat("fa-IR").format(value);
+const normalizeDigits = (value: string) => value
+  .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+  .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+  .replace(/[،,٬\\s]/g, "");
+const parseSignedAmount = (value: string) => {
+  const normalized = normalizeDigits(value).trim().replace(/[^0-9-]/g, "");
+  const amount = Number(normalized || "0");
+  return Number.isSafeInteger(amount) ? amount : 0;
+};
+const parsePrice = (value: string) => {
+  const normalized = normalizeDigits(value).replace(/[^0-9]/g, "");
+  return normalized ? Number(normalized) : 0;
+};
+const parseTaxRate = (value: string) => {
+  const normalized = normalizeDigits(value).replace(",", ".");
+  const percent = normalized.trim() ? Number(normalized) : 0;
+  return Number.isFinite(percent) && percent >= 0 && percent <= 100 ? Math.round(percent * 100) : null;
+};
+const productTypeLabels: Record<string, string> = {
+  prepared: "آماده‌سازی‌شونده",
+  packaged: "بسته‌بندی‌شده",
+  ingredient: "ماده اولیه",
+  service: "خدمت",
+};
+
+async function fetchCatalogSnapshot() {
+  const [categories, products] = await Promise.all([getCatalogCategories(), getCatalogProducts()]);
+  return { categories, products };
+}
+
+export function CatalogWorkspace() {
+  const [products, setProducts] = useState<PosCatalogProduct[]>([]);
+  const [categories, setCategories] = useState<CatalogCategory[]>([]);
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("همه");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<PosCatalogProductDetail | null>(null);
+  const [loadingCatalog, setLoadingCatalog] = useState(true);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newPrice, setNewPrice] = useState("");
+  const [newSku, setNewSku] = useState("");
+  const [newTaxRate, setNewTaxRate] = useState("0");
+  const [newCategoryId, setNewCategoryId] = useState("none");
+  const [newProductType, setNewProductType] = useState("prepared");
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchCatalogSnapshot()
+      .then(async (snapshot) => {
+        if (!active) return;
+        setCategories(snapshot.categories);
+        setProducts(snapshot.products);
+        const first = snapshot.products[0] ?? null;
+        setSelectedId(first?.id ?? null);
+        if (first) {
+          try {
+            const detail = await getPosCatalogProductDetails(first.id);
+            if (active) setSelectedDetail(detail);
+          } catch (cause) {
+            if (active) setActionError(cause instanceof Error ? cause.message : "جزئیات محصول دریافت نشد.");
+          }
+        }
+      })
+      .catch((cause: unknown) => {
+        if (active) setActionError(cause instanceof Error ? cause.message : "دریافت کاتالوگ انجام نشد.");
+      })
+      .finally(() => {
+        if (active) setLoadingCatalog(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  const categoriesForFilter = useMemo(
+    () => ["همه", ...categories.map((item) => item.id), "بدون دسته"],
+    [categories],
+  );
+  const visible = useMemo(() => products.filter((product) => {
+    const productCategory = product.category?.id ?? "بدون دسته";
+    const matchesCategory = category === "همه" || category === productCategory;
+    const searchText = `${product.name} ${product.sku ?? ""}`.toLocaleLowerCase("fa-IR");
+    return matchesCategory && searchText.includes(query.trim().toLocaleLowerCase("fa-IR"));
+  }), [products, category, query]);
+  const selected = products.find((product) => product.id === selectedId) ?? null;
+  const activeCount = products.filter((product) => product.is_active).length;
+  const optionGroupCount = selectedDetail?.option_groups.length ?? 0;
+
+  async function refreshCatalog(preferredId?: string) {
+    setLoadingCatalog(true);
+    try {
+      const snapshot = await fetchCatalogSnapshot();
+      setCategories(snapshot.categories);
+      setProducts(snapshot.products);
+      const nextSelected = snapshot.products.find((item) => item.id === preferredId)
+        ?? snapshot.products.find((item) => item.id === selectedId)
+        ?? snapshot.products[0]
+        ?? null;
+      setSelectedId(nextSelected?.id ?? null);
+      if (nextSelected) {
+        setLoadingDetail(true);
+        try {
+          setSelectedDetail(await getPosCatalogProductDetails(nextSelected.id));
+        } catch (cause) {
+          setSelectedDetail(null);
+          setActionError(cause instanceof Error ? cause.message : "جزئیات محصول دریافت نشد.");
+        } finally {
+          setLoadingDetail(false);
+        }
+      } else {
+        setSelectedDetail(null);
+      }
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : "به‌روزرسانی کاتالوگ انجام نشد.");
+    } finally {
+      setLoadingCatalog(false);
+    }
+  }
+
+  async function selectProduct(productId: string) {
+    setSelectedId(productId);
+    setSelectedDetail(null);
+    setLoadingDetail(true);
+    setActionError(null);
+    try {
+      setSelectedDetail(await getPosCatalogProductDetails(productId));
+    } catch (cause) {
+      setActionError(cause instanceof Error ? cause.message : "جزئیات محصول دریافت نشد.");
+    } finally {
+      setLoadingDetail(false);
+    }
+  }
+
+  function startProductEdit(product: PosCatalogProduct) {
+    setEditingProductId(product.id);
+    setNewName(product.name);
+    setNewPrice(String(product.base_price_amount));
+    setNewSku(product.sku ?? "");
+    setNewTaxRate(String(product.tax_rate_bps / 100));
+    setNewCategoryId(product.category?.id ?? "none");
+    setNewProductType(product.product_type);
+    setActionError(null);
+    setSuccessMessage(null);
+    setShowNew(true);
+  }
+
+  async function addProduct() {
+    const name = newName.trim();
+    const price = parsePrice(newPrice);
+    const taxRate = parseTaxRate(newTaxRate);
+    const sku = newSku.trim() || null;
+    if (!name || !Number.isSafeInteger(price) || price < 0 || taxRate === null) {
+      setActionError("نام، قیمت معتبر و نرخ مالیات بین صفر تا صد را وارد کنید.");
+      return;
+    }
+    setSaving(true);
+    setActionError(null);
+    setSuccessMessage(null);
+    try {
+      const payload = {
+        name,
+        base_price_amount: price,
+        category_id: newCategoryId === "none" ? null : newCategoryId,
+        sku,
+        product_type: newProductType as "prepared" | "packaged" | "ingredient" | "service",
+        tax_rate_bps: taxRate,
+      };
+      const savedId = editingProductId;
+      if (savedId) {
+        await updateCatalogProduct(savedId, payload);
+      } else {
+        const created = await createCatalogProduct(payload);
+        await refreshCatalog(created.id);
+      }
+      if (savedId) await refreshCatalog(savedId);
+      setNewName("");
+      setNewPrice("");
+      setNewSku("");
+      setNewTaxRate("0");
+      setNewCategoryId("none");
+      setNewProductType("prepared");
+      setEditingProductId(null);
+      setShowNew(false);
+      setSuccessMessage(savedId ? "اطلاعات محصول در سرور به‌روزرسانی شد." : "محصول در کاتالوگ سرور ثبت شد و در صندوق قابل انتخاب است.");
+    } catch (cause) {
+      setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "ثبت محصول انجام نشد.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function addCategory() {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    setSaving(true);
+    setActionError(null);
+    try {
+      const created = await createCatalogCategory(name);
+      await refreshCatalog(selectedId ?? undefined);
+      setNewCategoryId(created.id);
+      setCategory(created.id);
+      setNewCategoryName("");
+      setShowNewCategory(false);
+      setSuccessMessage("دسته‌بندی در سرور ساخته شد.");
+    } catch (cause) {
+      setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "ساخت دسته‌بندی انجام نشد.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function manageCategory(item: CatalogCategory) {
+    const nextName = globalThis.prompt("نام دسته‌بندی", item.name);
+    if (nextName === null || !nextName.trim()) return;
+    const active = globalThis.confirm("دسته‌بندی فعال باشد؟ برای غیرفعال‌سازی گزینه لغو را بزنید.");
+    setSaving(true); setActionError(null);
+    try {
+      await updateCatalogCategory(item.id, { name: nextName.trim(), is_active: active });
+      await refreshCatalog(selectedId ?? undefined);
+      setSuccessMessage(active ? "دسته‌بندی به‌روزرسانی شد." : "دسته‌بندی غیرفعال شد؛ سوابق آن حفظ می‌شود.");
+    } catch (cause) {
+      setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "ویرایش دسته‌بندی انجام نشد.");
+    } finally { setSaving(false); }
+  }
+
+  async function addVariant() {
+    if (!selected) return;
+    const name = globalThis.prompt("نام تنوع؛ مثلاً کوچک، متوسط یا بزرگ");
+    if (!name?.trim()) return;
+    const deltaText = globalThis.prompt("مابه‌التفاوت قیمت به تومان", "0");
+    if (deltaText === null) return;
+    const delta = parseSignedAmount(deltaText);
+    setSaving(true); setActionError(null);
+    try {
+      await createCatalogVariant(selected.id, { name: name.trim(), price_delta_amount: parseSignedAmount(deltaText) });
+      await refreshCatalog(selected.id);
+      setSuccessMessage("تنوع محصول اضافه شد.");
+    } catch (cause) {
+      setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "افزودن تنوع انجام نشد.");
+    } finally { setSaving(false); }
+  }
+
+  async function editVariant(variant: NonNullable<typeof selectedDetail>["variants"][number]) {
+    const name = globalThis.prompt("نام تنوع", variant.name);
+    if (name === null || !name.trim()) return;
+    const deltaText = globalThis.prompt("مابه‌التفاوت قیمت به تومان", String(variant.price_delta_amount));
+    if (deltaText === null) return;
+    const active = globalThis.confirm("تنوع فعال باشد؟ برای غیرفعال‌سازی گزینه لغو را بزنید.");
+    setSaving(true); setActionError(null);
+    try {
+      await updateCatalogVariant(variant.id, { name: name.trim(), price_delta_amount: parseSignedAmount(deltaText), is_active: active });
+      await refreshCatalog(selectedId ?? undefined);
+      setSuccessMessage("تنوع محصول به‌روزرسانی شد.");
+    } catch (cause) {
+      setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "ویرایش تنوع انجام نشد.");
+    } finally { setSaving(false); }
+  }
+
+  async function addOptionGroup() {
+    if (!selected) return;
+    const name = globalThis.prompt("نام گروه افزودنی؛ مثلاً انتخاب سس");
+    if (!name?.trim()) return;
+    const optionName = globalThis.prompt("نام اولین گزینه؛ مثلاً سس مخصوص");
+    if (!optionName?.trim()) return;
+    const deltaText = globalThis.prompt("هزینه این گزینه به تومان", "0");
+    if (deltaText === null) return;
+    setSaving(true); setActionError(null);
+    try {
+      const groupId = await createCatalogOptionGroup({
+        name: name.trim(), selection_type: "single", min_select: 0, max_select: 1,
+        is_required_default: false,
+        options: [{ name: optionName.trim(), price_delta_amount: parseSignedAmount(deltaText) }],
+      });
+      await attachCatalogOptionGroup(selected.id, groupId, false);
+      await refreshCatalog(selected.id);
+      setSuccessMessage("گروه افزودنی ساخته و به محصول متصل شد.");
+    } catch (cause) {
+      setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "ساخت گروه افزودنی انجام نشد.");
+    } finally { setSaving(false); }
+  }
+
+  async function editOptionGroup(group: NonNullable<typeof selectedDetail>["option_groups"][number]) {
+    const name = globalThis.prompt("نام گروه گزینه", group.name);
+    if (name === null || !name.trim()) return;
+    const selection = globalThis.prompt("نوع انتخاب: single یا multiple", group.selection_type);
+    if (selection === null) return;
+    if (selection !== "single" && selection !== "multiple") {
+      setActionError("نوع انتخاب باید single یا multiple باشد."); return;
+    }
+    const minText = globalThis.prompt("حداقل انتخاب", String(group.min_select));
+    if (minText === null) return;
+    const maxText = globalThis.prompt("حداکثر انتخاب", String(group.max_select));
+    if (maxText === null) return;
+    const min = Number(normalizeDigits(minText).trim());
+    const max = Number(normalizeDigits(maxText).trim());
+    if (!Number.isInteger(min) || !Number.isInteger(max) || min < 0 || max < 1 || max < min || (selection === "single" && max > 1)) {
+      setActionError("محدوده انتخاب معتبر نیست؛ حداقل/حداکثر و نوع انتخاب را بررسی کنید."); return;
+    }
+    const required = globalThis.confirm("انتخاب این گروه به‌صورت پیش‌فرض اجباری باشد؟");
+    const active = globalThis.confirm("گروه فعال باشد؟ برای غیرفعال‌سازی گزینه لغو را بزنید.");
+    setSaving(true); setActionError(null);
+    try {
+      await updateCatalogOptionGroup(group.id, { name: name.trim(), selection_type: selection, min_select: min, max_select: max, is_required_default: required, is_active: active });
+      await refreshCatalog(selectedId ?? undefined);
+      setSuccessMessage("نام، قواعد انتخاب و وضعیت گروه به‌روزرسانی شد.");
+    } catch (cause) {
+      setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "ویرایش گروه گزینه انجام نشد.");
+    } finally { setSaving(false); }
+  }
+
+  async function editOption(option: NonNullable<typeof selectedDetail>["option_groups"][number]["options"][number]) {
+    const name = globalThis.prompt("نام گزینه", option.name);
+    if (name === null || !name.trim()) return;
+    const deltaText = globalThis.prompt("هزینه گزینه به تومان", String(option.price_delta_amount));
+    if (deltaText === null) return;
+    const active = globalThis.confirm("گزینه فعال باشد؟ برای غیرفعال‌سازی گزینه لغو را بزنید.");
+    setSaving(true); setActionError(null);
+    try {
+      await updateCatalogOption(option.id, { name: name.trim(), price_delta_amount: parseSignedAmount(deltaText), is_active: active });
+      await refreshCatalog(selectedId ?? undefined);
+      setSuccessMessage("گزینه به‌روزرسانی شد.");
+    } catch (cause) {
+      setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "ویرایش گزینه انجام نشد.");
+    } finally { setSaving(false); }
+  }
+
+  async function toggleAvailability(product: PosCatalogProduct) {
+    setSaving(true);
+    setActionError(null);
+    setSuccessMessage(null);
+    try {
+      await updateCatalogProduct(product.id, { is_active: !product.is_active });
+      await refreshCatalog(product.id);
+      setSuccessMessage(product.is_active ? "محصول غیرفعال شد و از صندوق حذف می‌شود." : "محصول دوباره برای فروش فعال شد.");
+    } catch (cause) {
+      setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "تغییر وضعیت محصول انجام نشد.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function archiveProduct(product: PosCatalogProduct) {
+    if (!globalThis.confirm(`محصول «${product.name}» بایگانی شود؟ این کار آن را از فهرست فروش خارج می‌کند.`)) return;
+    setSaving(true);
+    setActionError(null);
+    setSuccessMessage(null);
+    try {
+      await archiveCatalogProduct(product.id);
+      await refreshCatalog();
+      setSuccessMessage("محصول بایگانی شد.");
+    } catch (cause) {
+      setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "بایگانی محصول انجام نشد.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="page-stack catalog-workspace">
+      <div className="catalog-heading">
+        <div><span className="ui-eyebrow">PRODUCT CATALOG</span><h1>منو و محصولات</h1><p>مدیریت محصولات واقعی، دسته‌ها، قیمت پایه و گروه‌های گزینه</p></div>
+        <div className="catalog-heading-actions">
+          <Button variant="secondary" onClick={() => setShowNewCategory((value) => !value)}><CirclePlus size={15} /> دسته جدید</Button>
+          <Button variant="primary" onClick={() => setShowNew((value) => !value)}><CirclePlus size={15} /> محصول جدید</Button>
+        </div>
+      </div>
+      {actionError ? <div className="auth-error" role="alert">{actionError}</div> : null}
+      {successMessage ? <div className="auth-success" role="status">{successMessage}</div> : null}
+      <div className="catalog-metrics">
+        <Surface padding="sm"><span>کل محصولات</span><strong>{money(products.length)}</strong></Surface>
+        <Surface padding="sm"><span>فعال برای فروش</span><strong>{money(activeCount)}</strong></Surface>
+        <Surface padding="sm"><span>دسته‌بندی فعال</span><strong>{money(categories.length)}</strong></Surface>
+      </div>
+
+      {showNewCategory ? (
+        <Surface padding="md" className="catalog-create">
+          <div className="catalog-create-heading"><strong>دسته‌بندی جدید</strong><button type="button" onClick={() => setShowNewCategory(false)} aria-label="بستن"><X size={16} /></button></div>
+          <div className="catalog-create-fields"><TextField label="نام دسته‌بندی" value={newCategoryName} onChange={(event) => setNewCategoryName(event.target.value)} placeholder="مثلاً نوشیدنی گرم" /></div>
+          <div className="catalog-create-footer"><span>دسته‌بندی به همین کسب‌وکار اضافه می‌شود.</span><Button variant="primary" onClick={() => { void addCategory(); }} disabled={!newCategoryName.trim() || saving}>ثبت دسته‌بندی</Button></div>
+        </Surface>
+      ) : null}
+
+      {showNew ? (
+        <Surface padding="md" className="catalog-create">
+          <div className="catalog-create-heading"><strong>{editingProductId ? "ویرایش محصول" : "افزودن محصول به کاتالوگ"}</strong><button type="button" onClick={() => { setShowNew(false); setEditingProductId(null); }} aria-label="بستن"><X size={16} /></button></div>
+          <div className="catalog-create-fields">
+            <TextField label="نام محصول" value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="مثلاً سالاد سزار" />
+            <TextField label="قیمت پایه به تومان" value={newPrice} onChange={(event) => setNewPrice(event.target.value)} placeholder="مثلاً ۱۸۵۰۰۰" />
+            <TextField label="کد کالا (اختیاری)" value={newSku} onChange={(event) => setNewSku(event.target.value)} placeholder="مثلاً FD-001" />
+            <SelectField label="دسته‌بندی" value={newCategoryId} onChange={(event) => setNewCategoryId(event.target.value)}
+              options={[{ value: "none", label: "بدون دسته‌بندی" }, ...categories.map((item) => ({ value: item.id, label: item.name }))]} />
+            <SelectField label="نوع محصول" value={newProductType} onChange={(event) => setNewProductType(event.target.value)}
+              options={Object.entries(productTypeLabels).map(([value, label]) => ({ value, label }))} />
+            <TextField label="نرخ مالیات (درصد)" value={newTaxRate} onChange={(event) => setNewTaxRate(event.target.value)} placeholder="مثلاً ۱۰" />
+          </div>
+          <div className="catalog-create-footer"><span>قیمت و مالیات در زمان ثبت سفارش توسط سرور محاسبه می‌شوند.</span><Button variant="primary" onClick={() => { void addProduct(); }} disabled={!newName.trim() || !newPrice.trim() || saving}>{saving ? "در حال ذخیره..." : editingProductId ? "ذخیره تغییرات" : "ثبت محصول"}</Button></div>
+        </Surface>
+      ) : null}
+
+      <div className="catalog-layout">
+        <Surface padding="md" className="catalog-list">
+          <div className="catalog-list-heading"><div><h2><Utensils size={17} /> فهرست محصولات</h2><p>{money(visible.length)} محصول</p></div><SlidersHorizontal size={17} /></div>
+          <label className="catalog-search"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="نام محصول یا کد کالا" /><button type="button" onClick={() => setQuery("")} aria-label="پاک کردن جست‌وجو" disabled={!query}><X size={14} /></button></label>
+          <div className="catalog-categories">
+            {categoriesForFilter.map((item) => {
+              const label = item === "همه" ? "همه" : item === "بدون دسته" ? "بدون دسته" : categories.find((candidate) => candidate.id === item)?.name ?? "";
+              if (!label) return null;
+              return <button type="button" key={item} className={category === item ? "is-active" : ""} onClick={() => setCategory(item)}>{label}</button>;
+            })}
+          </div>
+          {categories.length ? <div className="catalog-category-admin">
+            <strong>مدیریت دسته‌بندی‌ها</strong>
+            {categories.map((item) => <div className="catalog-category-admin-row" key={item.id}>
+              <span>{item.name}</span>
+              <button type="button" disabled={saving} onClick={() => { void manageCategory(item); }}>ویرایش / وضعیت</button>
+            </div>)}
+          </div> : null}
+          {loadingCatalog ? <div className="catalog-empty">در حال دریافت کاتالوگ...</div> : (
+            <div className="catalog-product-list">
+              {visible.map((product) => (
+                <button type="button" className={selectedId === product.id ? "catalog-product is-selected" : "catalog-product"} key={product.id}
+                  onClick={() => { void selectProduct(product.id); }}>
+                  <span className="catalog-product-icon"><Utensils size={16} /></span>
+                  <span className="catalog-product-copy"><strong>{product.name}</strong><small>{product.sku || "بدون کد"} · {product.category?.name || "بدون دسته"}</small></span>
+                  <span className="catalog-product-price">{money(product.base_price_amount)} <small>تومان</small></span>
+                  <StatusBadge variant={product.is_active ? "success" : "neutral"}>{product.is_active ? "فعال" : "غیرفعال"}</StatusBadge>
+                </button>
+              ))}
+              {!visible.length ? <div className="catalog-empty"><Archive size={22} /><strong>{products.length ? "محصولی پیدا نشد" : "هنوز محصولی ثبت نشده است"}</strong><span>{products.length ? "فیلتر یا عبارت جست‌وجو را تغییر دهید." : "برای شروع، یک محصول جدید در همین صفحه بسازید."}</span></div> : null}
+            </div>
+          )}
+        </Surface>
+
+        <Surface padding="md" className="catalog-detail">
+          {selected ? <>
+            <div className="catalog-detail-heading"><div><span className="ui-eyebrow">PRODUCT DETAILS</span><h2>{selected.name}</h2><p>{selected.sku || "بدون کد"} · {selected.category?.name || "بدون دسته"}</p></div><StatusBadge variant={selected.is_active ? "success" : "neutral"}>{selected.is_active ? "فعال برای فروش" : "غیرفعال"}</StatusBadge></div>
+            <div className="catalog-base-price"><span>قیمت پایه</span><strong>{money(selected.base_price_amount)} <small>تومان</small></strong></div>
+            <div className="catalog-detail-meta">
+              <div><span>نوع محصول</span><strong>{productTypeLabels[selected.product_type] || selected.product_type}</strong></div>
+              <div><span>نرخ مالیات</span><strong>{money(selected.tax_rate_bps / 100)}٪</strong></div>
+              <div><span>گروه گزینه</span><strong>{loadingDetail ? "..." : money(optionGroupCount)}</strong></div>
+            </div>
+            <div className="catalog-groups-heading"><strong>گروه‌های گزینه و افزودنی</strong><Button variant="secondary" disabled={saving || loadingDetail} onClick={() => { void addOptionGroup(); }}>افزودن گروه</Button><span>{selectedDetail?.option_groups.length ? "تنظیم‌شده در کاتالوگ" : "بدون گزینه"}</span></div>
+            {loadingDetail ? <div className="catalog-no-options">در حال دریافت جزئیات...</div> : selectedDetail?.option_groups.length ? selectedDetail.option_groups.map((group) => (
+              <section className="catalog-option-group" key={group.id}>
+                <div><strong>{group.name}</strong><button type="button" className="catalog-inline-action" disabled={saving} onClick={() => { void editOptionGroup(group); }}>ویرایش</button><StatusBadge variant={group.is_required || group.is_required_default ? "warning" : "neutral"}>{group.is_required || group.is_required_default ? "اجباری" : "اختیاری"}</StatusBadge><small>{group.selection_type === "multiple" ? "چندانتخابی" : "تک‌انتخابی"}</small></div>
+                {group.options.filter((option) => option.is_active).map((option) => <div className="catalog-option" key={option.id}><span>{option.name}</span><button type="button" className="catalog-inline-action" disabled={saving} onClick={() => { void editOption(option); }}>ویرایش</button><b>{option.price_delta_amount ? `${option.price_delta_amount > 0 ? "+" : ""}${money(option.price_delta_amount)} تومان` : "بدون هزینه"}</b></div>)}
+              </section>
+            )) : <div className="catalog-no-options">برای این محصول گروه گزینه‌ای تعریف نشده است.</div>}
+            <div className="catalog-option-group"><div><strong>مدل‌ها / تنوع‌ها</strong><Button variant="secondary" disabled={saving} onClick={() => { void addVariant(); }}>افزودن تنوع</Button><small>{money(selectedDetail?.variants.filter((item) => item.is_active).length ?? 0)} مورد فعال</small></div>
+              {selectedDetail?.variants.map((variant) => <div className="catalog-option" key={variant.id}><span>{variant.name}{!variant.is_active ? " (غیرفعال)" : ""}</span><button type="button" className="catalog-inline-action" disabled={saving} onClick={() => { void editVariant(variant); }}>ویرایش</button><b>{variant.price_delta_amount ? `${variant.price_delta_amount > 0 ? "+" : ""}${money(variant.price_delta_amount)} تومان` : "بدون تغییر قیمت"}</b></div>)}
+            </div>
+            <div className="catalog-detail-actions">
+              <Button variant="secondary" disabled={saving} onClick={() => startProductEdit(selected)}>ویرایش محصول</Button>
+              <Button variant={selected.is_active ? "secondary" : "primary"} disabled={saving} onClick={() => { void toggleAvailability(selected); }}>
+                {selected.is_active ? <Archive size={14} /> : <Check size={14} />}{selected.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}
+              </Button>
+              <Button variant="ghost" disabled={saving} onClick={() => { void archiveProduct(selected); }}>بایگانی محصول</Button>
+              <span>تغییرات در دیتابیس ذخیره می‌شوند.</span>
+            </div>
+          </> : <div className="catalog-empty"><ChevronDown size={22} /><strong>{loadingCatalog ? "در حال دریافت اطلاعات..." : "محصولی انتخاب نشده است"}</strong><span>از فهرست یک محصول را انتخاب کنید.</span></div>}
+        </Surface>
+      </div>
+    </div>
+  );
+}
