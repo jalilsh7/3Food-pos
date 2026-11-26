@@ -4,10 +4,10 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Inventory;
 
 use PersiaCoder\PosV3\Support\ApplicationException;
-use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\AuditRecorder;
 use PersiaCoder\PosV3\Security\ActorContext;
 use PersiaCoder\PosV3\Security\BusinessContext;
-use PersiaCoder\PosV3\Security\IdempotencyService;
+use PersiaCoder\PosV3\Security\IdempotencyExecutor;
 
 final readonly class InventoryPostingService implements InventoryPostingApplication
 {
@@ -15,8 +15,8 @@ final readonly class InventoryPostingService implements InventoryPostingApplicat
     public function __construct(
         private InventoryDocumentStore $documents,
         private InventoryPostingStore $posting,
-        private IdempotencyService $idempotency,
-        private AuditLogService $audit,
+        private IdempotencyExecutor $idempotency,
+        private AuditRecorder $audit,
     ) {}
     /** @return array{status:int,body:array<string,mixed>,replayed:bool} */
     public function post(
