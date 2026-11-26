@@ -6,7 +6,7 @@ namespace PersiaCoder\PosV3\Security;
 use JsonException;
 use PersiaCoder\PosV3\Support\Logger;
 
-final readonly class AuditLogService
+final readonly class AuditLogService implements AuditRecorder
 {
     private const MAX_SNAPSHOT_BYTES = 16384;
 
