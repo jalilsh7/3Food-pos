@@ -4,8 +4,8 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Auth;
 
 use PersiaCoder\PosV3\Support\ApplicationException;
-use PersiaCoder\PosV3\Security\AuditLogService;
-use PersiaCoder\PosV3\Security\IdempotencyService;
+use PersiaCoder\PosV3\Security\AuditRecorder;
+use PersiaCoder\PosV3\Security\IdempotencyExecutor;
 
 final readonly class RoleManagementService implements RoleManagementApplication
 {
@@ -13,8 +13,8 @@ final readonly class RoleManagementService implements RoleManagementApplication
     public function __construct(
         private RoleStore $roles,
         private PermissionService $permissions,
-        private IdempotencyService $idempotency,
-        private AuditLogService $audit,
+        private IdempotencyExecutor $idempotency,
+        private AuditRecorder $audit,
     ) {}
 
     public function listRoles(): array
