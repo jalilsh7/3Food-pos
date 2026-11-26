@@ -197,3 +197,10 @@
 - تست‌های معماری Auth/Catalog/Dining/Finance/Inventory/Media/Recipes به‌روزرسانی شدند تا import/type وابستگی concrete به این دو سرویس را در Application Serviceها ممنوع کنند.
 - بازبینی Media نشان داد MediaService از قبل به MediaStorage interface وابسته است و PrivateMediaStorage فقط adapter زیرساختی است؛ بنابراین storage refactor تکراری لازم نیست.
 - هنوز تست اجرایی یا build انجام نشده است؛ مرحله بعد بررسی dependencyهای HTTP/Auth در application layer و تقویت پوشش قراردادهای actor/authorization است.
+
+
+## تکمیل قرارداد محدودسازی ورود — 2026-11-26
+- قرارداد Security/LoginAttemptGuard اضافه شد.
+- AuthenticationService دیگر به LoginAttemptLimiter concrete وابسته نیست و فقط LoginAttemptGuard را می‌شناسد؛ LoginAttemptLimiter پیاده‌سازی زیرساختی/اجرایی این قرارداد باقی می‌ماند.
+- تست معماری Auth وابستگی مستقیم به LoginAttemptLimiter را ممنوع و تست Security پیاده‌سازی LoginAttemptGuard را بررسی می‌کند.
+- اکنون وابستگی‌های کاربردی Auth/Catalog/Dining/Finance/Inventory/Recipes/Media/Orders به AuditLogService و IdempotencyService concrete حذف شده‌اند؛ Auth برای throttling نیز از port استفاده می‌کند.
