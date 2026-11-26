@@ -4,10 +4,10 @@ declare(strict_types=1);
 namespace PersiaCoder\PosV3\Orders;
 
 use PersiaCoder\PosV3\Support\ApplicationException;
-use PersiaCoder\PosV3\Security\AuditLogService;
+use PersiaCoder\PosV3\Security\AuditRecorder;
 use PersiaCoder\PosV3\Security\ActorContext;
 use PersiaCoder\PosV3\Security\BusinessContext;
-use PersiaCoder\PosV3\Security\IdempotencyService;
+use PersiaCoder\PosV3\Security\IdempotencyExecutor;
 use PersiaCoder\PosV3\Security\PermissionChecker;
 
 final readonly class OrderService implements OrderApplication
