@@ -9,6 +9,7 @@ import {
   getCatalogProducts,
   getPosCatalogProductDetails,
   updateCatalogProduct,
+  updateCatalogCategory,
   type CatalogCategory,
   type PosCatalogProduct,
   type PosCatalogProductDetail,
@@ -38,7 +39,7 @@ const productTypeLabels: Record<string, string> = {
 };
 
 async function fetchCatalogSnapshot() {
-  const [categories, products] = await Promise.all([getCatalogCategories(), getCatalogProducts()]);
+  const [categories, products] = await Promise.all([getCatalogCategories(true), getCatalogProducts()]);
   return { categories, products };
 }
 
@@ -55,6 +56,8 @@ export function CatalogWorkspace() {
   const [showNew, setShowNew] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [showNewCategory, setShowNewCategory] = useState(false);
+  const [manageCategories, setManageCategories] = useState(false);
+  const [categoryDrafts, setCategoryDrafts] = useState<Record<string, string>>({});
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newSku, setNewSku] = useState("");
@@ -229,6 +232,43 @@ export function CatalogWorkspace() {
     }
   }
 
+  async function saveCategory(categoryItem: CatalogCategory) {
+    const name = (categoryDrafts[categoryItem.id] ?? categoryItem.name).trim();
+    if (!name) {
+      setActionError("نام دسته‌بندی نمی‌تواند خالی باشد.");
+      return;
+    }
+    if (name === categoryItem.name) return;
+    setSaving(true);
+    setActionError(null);
+    setSuccessMessage(null);
+    try {
+      await updateCatalogCategory(categoryItem.id, { name });
+      await refreshCatalog(selectedId ?? undefined);
+      setCategoryDrafts((current) => ({ ...current, [categoryItem.id]: name }));
+      setSuccessMessage("نام دسته‌بندی ذخیره شد.");
+    } catch (cause) {
+      setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "ویرایش دسته‌بندی انجام نشد.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleCategory(categoryItem: CatalogCategory) {
+    setSaving(true);
+    setActionError(null);
+    setSuccessMessage(null);
+    try {
+      await updateCatalogCategory(categoryItem.id, { is_active: !categoryItem.is_active });
+      await refreshCatalog(selectedId ?? undefined);
+      setSuccessMessage(categoryItem.is_active ? "دسته‌بندی غیرفعال شد؛ محصولات آن حذف نمی‌شوند." : "دسته‌بندی دوباره فعال شد.");
+    } catch (cause) {
+      setActionError(cause instanceof ApiError ? cause.message : cause instanceof Error ? cause.message : "تغییر وضعیت دسته‌بندی انجام نشد.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function toggleAvailability(product: PosCatalogProduct) {
     setSaving(true);
     setActionError(null);
@@ -265,6 +305,7 @@ export function CatalogWorkspace() {
       <div className="catalog-heading">
         <div><span className="ui-eyebrow">PRODUCT CATALOG</span><h1>منو و محصولات</h1><p>مدیریت محصولات واقعی، دسته‌ها، قیمت پایه و گروه‌های گزینه</p></div>
         <div className="catalog-heading-actions">
+          <Button variant="secondary" onClick={() => setManageCategories((value) => !value)}>مدیریت دسته‌ها</Button>
           <Button variant="secondary" onClick={() => setShowNewCategory((value) => !value)}><CirclePlus size={15} /> دسته جدید</Button>
           <Button variant="primary" onClick={() => setShowNew((value) => !value)}><CirclePlus size={15} /> محصول جدید</Button>
         </div>
@@ -276,6 +317,26 @@ export function CatalogWorkspace() {
         <Surface padding="sm"><span>فعال برای فروش</span><strong>{money(activeCount)}</strong></Surface>
         <Surface padding="sm"><span>دسته‌بندی فعال</span><strong>{money(categories.length)}</strong></Surface>
       </div>
+
+      {manageCategories ? (
+        <Surface padding="md" className="catalog-create">
+          <div className="catalog-create-heading"><strong>مدیریت دسته‌بندی‌ها</strong><button type="button" onClick={() => setManageCategories(false)} aria-label="بستن"><X size={16} /></button></div>
+          <div className="catalog-category-manager">
+            {categories.map((item) => (
+              <div className="catalog-category-manager-row" key={item.id}>
+                <TextField label="نام دسته‌بندی" value={categoryDrafts[item.id] ?? item.name}
+                  onChange={(event) => setCategoryDrafts((current) => ({ ...current, [item.id]: event.target.value }))} />
+                <StatusBadge variant={item.is_active ? "success" : "neutral"}>{item.is_active ? "فعال" : "غیرفعال"}</StatusBadge>
+                <Button variant="secondary" disabled={saving || !(categoryDrafts[item.id] ?? item.name).trim() || (categoryDrafts[item.id] ?? item.name).trim() === item.name}
+                  onClick={() => { void saveCategory(item); }}>ذخیره نام</Button>
+                <Button variant="ghost" disabled={saving} onClick={() => { void toggleCategory(item); }}>{item.is_active ? "غیرفعال‌سازی" : "فعال‌سازی"}</Button>
+              </div>
+            ))}
+            {!categories.length ? <div className="catalog-empty">هنوز دسته‌بندی ثبت نشده است.</div> : null}
+          </div>
+          <div className="catalog-create-footer"><span>غیرفعال‌سازی دسته، محصولات قبلی را حذف نمی‌کند.</span></div>
+        </Surface>
+      ) : null}
 
       {showNewCategory ? (
         <Surface padding="md" className="catalog-create">
