@@ -70,7 +70,7 @@ Featureهای مشاهده‌شده:
 ### مغایرت‌های باقی‌مانده
 - قراردادهای persistence فعلی هنوز در برخی متدها آرایه‌های خام برمی‌گردانند؛ DTOهای typed و error/result contract نسخه‌بندی‌شده برای کل ماژول‌ها کامل نیست.
 - سایر سرویس‌های Backend (مانند Catalog، Inventory، Dining و Finance) هنوز در چند مورد PDO را مستقیم دریافت می‌کنند؛ مرزبندی آن‌ها باید ماژول‌به‌ماژول انجام شود.
-- OrderService همچنان به PermissionService/AuthenticatedPrincipal و HttpException وابستگی دارد؛ این موارد در مرحله بعد به authorization port و application error contract مستقل منتقل می‌شوند.
+- OrderService اکنون از PermissionChecker، ActorContext، BusinessContext و ApplicationException در لایه مشترک استفاده می‌کند و به Auth/Http وابسته نیست. OrderController به‌عنوان HTTP adapter همچنان AuthenticatedPrincipal/BusinessScope را از middleware دریافت و به context مشترک تبدیل می‌کند؛ این وابستگی در مرز transport مجاز است.
 - Dependency graph و cycle audit کامل Frontend/Backend هنوز اجرا نشده است.
 - logger ساخت‌یافته Backend ایجاد و به HTTP Kernel متصل شده است؛ خروجی JSON به error_log می‌رود، فیلدهای level/event/module/request_id/context دارد و با `POS_V3_LOG_MODULES` قابل فیلتر است. اتصال logger به همه use-caseها، providerها و عملیات دیتابیس هنوز انجام نشده است.
 - migrationها در یک پوشه مرکزی و ترتیبی هستند؛ map مالکیت دامنه‌ای باید ثبت و runner از نظر metadata بررسی شود.
@@ -191,6 +191,7 @@ Repositoryهای PDO در `Infrastructure/Database` implementation این interf
 
 ## بازبینی مرز سرویس‌های کاربردی — 2026-11-26
 - وابستگی concrete به AuditLogService و IdempotencyService از سرویس‌های کاربردی Auth، Catalog، Dining، Finance، Inventory، Recipes، Media و Orders حذف شد.
+- محدودیت باقی‌مانده: IdempotencyExecutor و IdempotencyStore هنوز actorUserId عددی می‌گیرند؛ GuestActorContext وجود دارد اما هنوز در idempotency persistence قابل استفاده نیست. این تغییر نیازمند طراحی actor kind/key و migration افزایشی جدید است و باید پیش از اجرای guest checkout انجام شود.
 - قراردادهای Security/AuditRecorder و Security/IdempotencyExecutor اکنون مرز مشترک این ماژول‌ها هستند و سرویس‌های اجرایی Security پیاده‌ساز آن‌ها هستند.
 - تست‌های معماری ماژول‌های مربوطه برای ممنوعیت وابستگی مستقیم به این کلاس‌های concrete تقویت شدند.
 - MediaService از قبل از MediaStorage interface استفاده می‌کرد؛ PrivateMediaStorage در Infrastructure adapter باقی می‌ماند.
