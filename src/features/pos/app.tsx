@@ -1067,13 +1067,13 @@ function MenuScreen() {
           {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
         </select>
       </Field>
-      {visibleProducts.map((p) => (
-        <Card key={p.id} className="flex items-center justify-between gap-2">
-          <div><p className="font-semibold">{p.name}</p><p className="text-sm text-muted">{money(p.price)} — تمام‌شده {money(p.cost)}</p></div>
-          <div className="flex gap-2"><Btn tone="ghost" onClick={() => setDraft(p)}>ویرایش</Btn><Btn tone="ghost" onClick={() => void deleteCentralRecord("products", p.id, () => removeProduct(p.id))}>حذف</Btn></div>
-        </Card>
-      ))}
-      {draft ? (
+{visibleProducts.map((p) => (
+        <Card key={p.id} className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div><p className="font-semibold">{p.name}</p><p className="text-sm text-muted">{money(p.price)} — تمام‌شده {money(p.cost)}</p></div>
+            <div className="flex gap-2"><Btn tone="ghost" onClick={() => setDraft(p)}>ویرایش</Btn><Btn tone="ghost" onClick={() => void deleteCentralRecord("products", p.id, () => removeProduct(p.id))}>حذف</Btn></div>
+          </div>
+          {draft && draft.id === p.id ? (
         <Card>
           <div className="grid gap-2 sm:grid-cols-2">
             <Field label="نام"><input className={inputCls} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
@@ -1142,7 +1142,77 @@ function MenuScreen() {
           <div className="mt-3 flex gap-2"><Btn onClick={() => { if (draft.name) void saveCentralRecord("products", draft, () => saveProduct(draft)).then((ok) => { if (ok) setDraft(products.some((item) => item.id === draft.id) ? null : { id: uid("p"), name: "", categoryId: draft.categoryId || categories[0]?.id || "", price: 0, cost: 0, options: [], recipe: [], active: true }); }); }}>ذخیره</Btn><Btn tone="ghost" onClick={() => setDraft(null)}>بستن</Btn></div>
         </Card>
       ) : null}
-    </div>
+        </Card>
+      ))}
+      {draft && !products.some((item) => item.id === draft.id) ? {draft ? (
+        <Card>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Field label="نام"><input className={inputCls} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
+            <Field label="دسته"><select className={inputCls} value={draft.categoryId} onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })}>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+            <Field label="قیمت فروش"><input className={inputCls} type="number" value={draft.price} onChange={(e) => setDraft({ ...draft, price: Number(e.target.value) })} /></Field>
+            <Field label="قیمت تمام‌شده"><input className={inputCls} type="number" value={draft.cost} onChange={(e) => setDraft({ ...draft, cost: Number(e.target.value) })} /></Field>
+          </div>
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" checked={draft.active} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} />
+            محصول در صندوق فروش فعال باشد
+          </label>
+          <section className="space-y-2 sm:col-span-2" aria-label="گزینه‌ها و افزودنی‌های محصول">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold">گزینه‌ها و افزودنی‌ها</p>
+              <Btn tone="ghost" onClick={() => setDraft({ ...draft, options: [...draft.options, { id: uid("op"), name: "", price: 0 }] })}>افزودن گزینه</Btn>
+            </div>
+            {draft.options.length ? draft.options.map((option, index) => (
+              <div key={option.id} className="grid gap-2 rounded-xl border border-line p-3 sm:grid-cols-2">
+                <Field label={`نام گزینه ${index + 1}`}>
+                  <input className={inputCls} value={option.name} onChange={(e) => setDraft({ ...draft, options: draft.options.map((item) => item.id === option.id ? { ...item, name: e.target.value } : item) })} placeholder="مثلاً پنیر اضافه" />
+                </Field>
+                <Field label="مبلغ اضافه (تومان)">
+                  <input className={inputCls} type="number" min="0" max="100000000000" step="1" value={option.price} onChange={(e) => setDraft({ ...draft, options: draft.options.map((item) => item.id === option.id ? { ...item, price: Number(e.target.value) } : item) })} />
+                </Field>
+                <Field label="کسر از موجودی انبار">
+                  <select className={inputCls} value={option.ingredientId ?? ""} onChange={(e) => {
+                    const ingredientId = e.target.value;
+                    setDraft({ ...draft, options: draft.options.map((item) => {
+                      if (item.id !== option.id) return item;
+                      if (!ingredientId) {
+                        const { ingredientId: _ingredientId, ingredientQty: _ingredientQty, ...withoutIngredient } = item;
+                        return withoutIngredient;
+                      }
+                      return { ...item, ingredientId, ingredientQty: item.ingredientQty && item.ingredientQty > 0 ? item.ingredientQty : 1 };
+                    }) });
+                  }}>
+                    <option value="">بدون مصرف ماده اولیه</option>
+                    {ingredients.map((ingredient) => <option key={ingredient.id} value={ingredient.id}>{ingredient.name} ({ingredient.unit})</option>)}
+                  </select>
+                </Field>
+                {option.ingredientId ? (
+                  <Field label={"مقدار مصرف هر گزینه (" + (ingredients.find((item) => item.id === option.ingredientId)?.unit ?? "") + ")"}>
+                    <input className={inputCls} type="number" min="0.001" max="1000000" step="0.001" value={option.ingredientQty ?? 1} onChange={(e) => setDraft({ ...draft, options: draft.options.map((item) => item.id === option.id ? { ...item, ingredientQty: Number(e.target.value) } : item) })} />
+                  </Field>
+                ) : null}
+                <div className="flex items-end sm:col-span-2">
+                  <Btn tone="ghost" onClick={() => setDraft({ ...draft, options: draft.options.filter((item) => item.id !== option.id) })}>حذف</Btn>
+                </div>
+              </div>
+            )) : <p className="text-xs text-muted">برای این محصول گزینه یا افزودنی تعریف نشده است.</p>}
+          </section>
+          <p className="mt-3 text-sm font-semibold">مواد اولیه هر پرس</p>
+          {ingredients.map((ing) => {
+            const line = draft.recipe.find((r) => r.ingredientId === ing.id);
+            return (
+              <label key={ing.id} className="mt-1 flex items-center justify-between gap-2 text-sm">
+                <span>{ing.name}</span>
+                <input className={`${inputCls} max-w-28`} type="number" min="0" max="1000000" step="0.001" inputMode="decimal" aria-label={`مقدار ${ing.name} در هر پرس`} value={line?.qty ?? 0} onChange={(e) => {
+                  const qty = Number(e.target.value);
+                  const recipe = draft.recipe.filter((r) => r.ingredientId !== ing.id);
+                  setDraft({ ...draft, recipe: qty > 0 ? [...recipe, { ingredientId: ing.id, qty }] : recipe });
+                }} />
+              </label>
+            );
+          })}
+          <div className="mt-3 flex gap-2"><Btn onClick={() => { if (draft.name) void saveCentralRecord("products", draft, () => saveProduct(draft)).then((ok) => { if (ok) setDraft(products.some((item) => item.id === draft.id) ? null : { id: uid("p"), name: "", categoryId: draft.categoryId || categories[0]?.id || "", price: 0, cost: 0, options: [], recipe: [], active: true }); }); }}>ذخیره</Btn><Btn tone="ghost" onClick={() => setDraft(null)}>بستن</Btn></div>
+        </Card>
+      ) : null} : null}    </div>
   );
 }
 
