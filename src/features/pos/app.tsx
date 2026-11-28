@@ -1144,7 +1144,7 @@ function MenuScreen() {
       ) : null}
         </Card>
       ))}
-      {draft && !products.some((item) => item.id === draft.id) ? {draft ? (
+      {draft && !products.some((item) => item.id === draft.id) ? (
         <Card>
           <div className="grid gap-2 sm:grid-cols-2">
             <Field label="نام"><input className={inputCls} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
@@ -1212,7 +1212,7 @@ function MenuScreen() {
           })}
           <div className="mt-3 flex gap-2"><Btn onClick={() => { if (draft.name) void saveCentralRecord("products", draft, () => saveProduct(draft)).then((ok) => { if (ok) setDraft(products.some((item) => item.id === draft.id) ? null : { id: uid("p"), name: "", categoryId: draft.categoryId || categories[0]?.id || "", price: 0, cost: 0, options: [], recipe: [], active: true }); }); }}>ذخیره</Btn><Btn tone="ghost" onClick={() => setDraft(null)}>بستن</Btn></div>
         </Card>
-      ) : null} : null}    </div>
+      ) : null}    </div>
   );
 }
 
